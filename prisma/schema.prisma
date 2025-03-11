@@ -1,0 +1,88 @@
+// Data Source: Define the database connection
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Generator: Specify the Prisma Client generation
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Enum Definitions
+
+enum TaskStatus {
+  OPEN
+  IN_PROGRESS
+  MARKED_AS_COMPLETED
+  COMPLETED
+  HOLD
+  CLOSED
+}
+
+enum TimelineType {
+  WEEK
+  DAY
+}
+
+// Model Definitions
+
+model User {
+  userId              String               @id
+  username            String
+  contributionSummary ContributionSummary?
+  createdTasks        Task[]               @relation("TaskCreator")
+  contributedTasks    Task[]               @relation("TaskContributor")
+  projects            Project[]            @relation("UserProjects")
+  comments            Comment[]            @relation("UserComments")
+  escrowFunds         Float                @default(0.0)
+}
+
+model ContributionSummary {
+  id             String @id @default(cuid())
+  tasksTaken     Int    @default(0)
+  tasksCompleted Int    @default(0)
+  averageRating  Float  @default(0.0)
+  totalEarnings  Float  @default(0.0)
+  user           User   @relation(fields: [userId], references: [userId])
+  userId         String @unique
+}
+
+model Project {
+  id          String @id @default(cuid())
+  name        String
+  description String
+  repoUrl     String
+  tasks       Task[] @relation("ProjectTasks")
+  users       User[] @relation("UserProjects")
+}
+
+model Task {
+  id            String       @id @default(cuid())
+  creatorId     String
+  contributorId String?
+  project       Project      @relation("ProjectTasks", fields: [projectId], references: [id])
+  projectId     String
+  title         String
+  description   String
+  issues        Json
+  timeline      Int          @default(0)
+  timelineType  TimelineType @default(WEEK)
+  bounty        Float        @default(0.0)
+  comments      Comment[]    @relation("TaskComments")
+  status        TaskStatus   @default(OPEN)
+  settled       Boolean      @default(false)
+  pullRequests  String[]     @default([])
+  creator       User         @relation("TaskCreator", fields: [creatorId], references: [userId])
+  contributor   User?        @relation("TaskContributor", fields: [contributorId], references: [userId])
+}
+
+model Comment {
+  id          String   @id @default(cuid())
+  userId      String
+  message     String
+  attachments String[] @default([])
+  task        Task     @relation("TaskComments", fields: [taskId], references: [id])
+  taskId      String
+  user        User     @relation("UserComments", fields: [userId], references: [userId])
+}
