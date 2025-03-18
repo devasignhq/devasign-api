@@ -8,6 +8,8 @@ import helmet from 'helmet';
 import cors from 'cors';
 import morgan from 'morgan'; 
 import { prisma } from './config/database';
+import { userRoutes } from './routes/userRoutes';
+import { validateUser } from './config/firebase';
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -126,6 +128,8 @@ app.use((err: createError.HttpError, req: Request, res: Response, next: NextFunc
 app.get('/', (req: Request, res: Response) => {
     res.send('Hello, TypeScript Express Server!');
 });
+
+app.use("/users", validateUser as RequestHandler, userRoutes);
 
 prisma.$connect();
 
