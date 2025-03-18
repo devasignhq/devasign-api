@@ -17,7 +17,24 @@ app.use(cors({ origin: 'http://localhost:5173' }));
 app.use(morgan('dev'));
 app.use(express.json());
 
-// Route to create a user with validation
+app.get(
+    '/clear-db',
+    (async (req: Request, res: Response, next: NextFunction) => {
+        try {
+            // Delete all records from each table
+            await prisma.comment.deleteMany();
+            await prisma.task.deleteMany();
+            await prisma.contributionSummary.deleteMany();
+            await prisma.project.deleteMany();
+            await prisma.user.deleteMany();
+
+            res.status(201).json({ message: "Database cleared" });
+        } catch (error) {
+            next(createError(500, 'Error clearing database'));
+        }
+    }) as RequestHandler
+);
+
 app.post(
     '/api/users/:id',
     [

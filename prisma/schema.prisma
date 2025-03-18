@@ -17,7 +17,6 @@ enum TaskStatus {
   MARKED_AS_COMPLETED
   COMPLETED
   HOLD
-  CLOSED
 }
 
 enum TimelineType {
@@ -25,17 +24,27 @@ enum TimelineType {
   DAY
 }
 
+enum AcceptanceCriteria {
+  APPLICATION
+  ANYONE
+  BENCHMARK
+}
+
 // Model Definitions
 
 model User {
   userId              String               @id
-  username            String
+  username            String               @unique
   contributionSummary ContributionSummary?
   createdTasks        Task[]               @relation("TaskCreator")
   contributedTasks    Task[]               @relation("TaskContributor")
   projects            Project[]            @relation("UserProjects")
   comments            Comment[]            @relation("UserComments")
+  appliedTasks        Task[]               @relation("TaskApplications")
   escrowFunds         Float                @default(0.0)
+  addressBook         Json[]               @default([])
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
 }
 
 model ContributionSummary {
@@ -44,39 +53,49 @@ model ContributionSummary {
   tasksCompleted Int    @default(0)
   averageRating  Float  @default(0.0)
   totalEarnings  Float  @default(0.0)
-  user           User   @relation(fields: [userId], references: [userId])
+  // projectIds     String[]  @default([])
+  // projects       Project[] @relation(fields: [projectIds], references: [id])
   userId         String @unique
+  user           User   @relation(fields: [userId], references: [userId])
 }
 
 model Project {
-  id          String @id @default(cuid())
+  id          String   @id @default(cuid())
   name        String
   description String
   repoUrl     String
-  tasks       Task[] @relation("ProjectTasks")
-  users       User[] @relation("UserProjects")
+  tasks       Task[]   @relation("ProjectTasks")
+  users       User[]   @relation("UserProjects")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 model Task {
-  id            String       @id @default(cuid())
-  creatorId     String
-  contributorId String?
-  project       Project      @relation("ProjectTasks", fields: [projectId], references: [id])
-  projectId     String
-  title         String
-  description   String
-  issues        Json
-  timeline      Int          @default(0)
-  timelineType  TimelineType @default(WEEK)
-  bounty        Float        @default(0.0)
-  comments      Comment[]    @relation("TaskComments")
-  status        TaskStatus   @default(OPEN)
-  settled       Boolean      @default(false)
-  pullRequests  String[]     @default([])
-  creator       User         @relation("TaskCreator", fields: [creatorId], references: [userId])
-  contributor   User?        @relation("TaskContributor", fields: [contributorId], references: [userId])
+  id                 String             @id @default(cuid())
+  creatorId          String
+  contributorId      String?
+  project            Project            @relation("ProjectTasks", fields: [projectId], references: [id])
+  projectId          String
+  title              String
+  description        String
+  issues             Json[]             @default([])
+  timeline           Int                @default(0)
+  timelineType       TimelineType       @default(WEEK)
+  bounty             Float              @default(0.0)
+  comments           Comment[]          @relation("TaskComments")
+  acceptanceCriteria AcceptanceCriteria @default(ANYONE)
+  applications       User[]             @relation("TaskApplications")
+  acceptedAt         DateTime?
+  completedAt        DateTime?
+  settled            Boolean            @default(false)
+  pullRequests       String[]           @default([])
+  creator            User               @relation("TaskCreator", fields: [creatorId], references: [userId])
+  contributor        User?              @relation("TaskContributor", fields: [contributorId], references: [userId])
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
 }
 
+// ! Store comments in Firebase
 model Comment {
   id          String   @id @default(cuid())
   userId      String
@@ -85,4 +104,6 @@ model Comment {
   task        Task     @relation("TaskComments", fields: [taskId], references: [id])
   taskId      String
   user        User     @relation("UserComments", fields: [userId], references: [userId])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
