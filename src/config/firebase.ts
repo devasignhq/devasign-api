@@ -18,12 +18,30 @@ export const validateUser = async (req: Request, res: Response, next: NextFuncti
     
         try {
             const decodedToken = await admin.auth().verifyIdToken(idToken);
-            req.body = { ...req.body, currentUser: decodedToken };
+            const user = await admin.auth().getUser(decodedToken.uid);
+            
+            // Get GitHub credentials
+            const githubCredential = user.providerData.find(
+                provider => provider.providerId === 'github.com'
+            );
+            
+            // Add user info and GitHub token to request
+            req.body = { 
+                ...req.body, 
+                currentUser: decodedToken,
+                userId: decodedToken.uid,
+                githubToken: user.customClaims?.githubToken || null,
+                githubUsername: githubCredential?.displayName || null
+            };
+            
             next();
-        } catch (error) {
-            return res.status(401).send('Unauthorized');
+        } catch (error: any) {
+            return res.status(401).json({ 
+                error: "Authentication failed",
+                details: error.message 
+            });
         }
     } else {
-        return res.status(401).send({ error: "No authorization token sent" });
+        return res.status(401).json({ error: "No authorization token sent" });
     }
 }
