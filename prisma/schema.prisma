@@ -87,6 +87,7 @@ model Task {
   applications       User[]             @relation("TaskApplications")
   acceptedAt         DateTime?
   completedAt        DateTime?
+  status             TaskStatus         @default(OPEN)
   settled            Boolean            @default(false)
   pullRequests       String[]           @default([])
   creator            User               @relation("TaskCreator", fields: [creatorId], references: [userId])
