@@ -7,7 +7,7 @@ import createError from 'http-errors';
 import helmet from 'helmet';
 import cors from 'cors';
 import morgan from 'morgan'; 
-import { prisma } from './lib';
+import { prisma } from './config/database';
 
 const app = express();
 const port = process.env.PORT || 3000;
