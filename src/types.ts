@@ -18,6 +18,13 @@ export enum AcceptanceCriteria {
     BENCHMARK = 'BENCHMARK'
 }
 
+export type AddressBook = {
+    address: string;
+    network: string;
+    memo: string;
+    asset: string;
+}
+
 export type User = {
     userId: string;
     username: string;
@@ -28,7 +35,7 @@ export type User = {
     comments: Comment[];
     appliedTasks: Task[];
     escrowFunds: number;
-    addressBook: any[];
+    addressBook: AddressBook[];
     createdAt: Date;
     updatedAt: Date;
 }
@@ -54,6 +61,12 @@ export type Project = {
     updatedAt: Date;
 }
 
+export type TaskIssue = {
+    title: string;
+    no: number;
+    link: string;
+}
+
 export type Task = {
     id: string;
     creatorId: string;
@@ -62,7 +75,7 @@ export type Task = {
     projectId: string;
     title?: string;
     description?: string;
-    issues: any[];
+    issues: TaskIssue[];
     timeline: number;
     timelineType: TimelineType;
     bounty: number;
