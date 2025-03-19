@@ -45,3 +45,5 @@ export const validateUser = async (req: Request, res: Response, next: NextFuncti
         return res.status(401).json({ error: "No authorization token sent" });
     }
 }
+
+export const db = admin.firestore();
