@@ -10,6 +10,8 @@ import morgan from 'morgan';
 import { prisma } from './config/database';
 import { userRoutes } from './routes/userRoutes';
 import { validateUser } from './config/firebase';
+import { projectRoutes } from './routes/projectRoutes';
+import { taskRoutes } from './routes/taskRoutes';
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -130,6 +132,8 @@ app.get('/', (req: Request, res: Response) => {
 });
 
 app.use("/users", validateUser as RequestHandler, userRoutes);
+app.use("/projects", validateUser as RequestHandler, projectRoutes);
+app.use("/tasks", validateUser as RequestHandler, taskRoutes);
 
 prisma.$connect();
 

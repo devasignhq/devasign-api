@@ -76,8 +76,8 @@ model Task {
   contributorId      String?
   project            Project            @relation("ProjectTasks", fields: [projectId], references: [id])
   projectId          String
-  title              String
-  description        String
+  title              String?
+  description        String?
   issues             Json[]             @default([])
   timeline           Int                @default(0)
   timelineType       TimelineType       @default(WEEK)

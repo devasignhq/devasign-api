@@ -3,8 +3,7 @@ import { prisma } from "../config/database";
 import { checkGithubUser, sendInvitation } from "../services/projectService";
 
 export const createProject = async (req: Request, res: Response) => {
-    const { name, description, repoUrl } = req.body;
-    const { userId } = req.body; // From Firebase middleware
+    const { userId, name, description, repoUrl } = req.body;
 
     try {
         const project = await prisma.project.create({

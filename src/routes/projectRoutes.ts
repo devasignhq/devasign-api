@@ -1,5 +1,4 @@
 import { RequestHandler, Router } from "express";
-import { validateUser } from "../config/firebase";
 import {
     createProject,
     updateProject,
@@ -9,13 +8,7 @@ import {
 
 export const projectRoutes = Router();
 
-projectRoutes.post("/", validateUser as RequestHandler, createProject);
-projectRoutes.put("/:id", validateUser as RequestHandler, updateProject);
-projectRoutes.delete("/:id", 
-    validateUser as RequestHandler, 
-    deleteProject as RequestHandler
-);
-projectRoutes.post("/:id/team", 
-    validateUser as RequestHandler, 
-    addTeamMembers as RequestHandler
-);
+projectRoutes.post("/", createProject);
+projectRoutes.put("/:id", updateProject);
+projectRoutes.delete("/:id", deleteProject as RequestHandler);
+projectRoutes.post("/:id/team", addTeamMembers as RequestHandler);
