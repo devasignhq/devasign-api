@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { prisma } from "../config/database";
-import { checkGithubUser, sendInvitation } from "../services/projectService";
+import { checkGithubUser, getRepoIssues, sendInvitation } from "../services/projectService";
 
 export const createProject = async (req: Request, res: Response) => {
     const { userId, name, description, repoUrl } = req.body;
@@ -115,5 +115,38 @@ export const addTeamMembers = async (req: Request, res: Response) => {
         res.status(200).json({ results });
     } catch (error) {
         res.status(400).json({ error: "Failed to add team members" });
+    }
+};
+
+export const getProjectIssues = async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { page = 1 } = req.query;
+    const { githubToken } = req.body; // From Firebase middleware
+
+    try {
+        const project = await prisma.project.findUnique({
+            where: { id }
+        });
+
+        if (!project) {
+            return res.status(404).json({ error: "Project not found" });
+        }
+
+        const { issues, totalCount } = await getRepoIssues(
+            project.repoUrl,
+            githubToken,
+            Number(page)
+        );
+
+        res.status(200).json({
+            issues,
+            pagination: {
+                currentPage: Number(page),
+                totalPages: Math.ceil(totalCount / 10),
+                hasMore: totalCount > Number(page) * 10
+            }
+        });
+    } catch (error) {
+        res.status(400).json({ error: "Failed to fetch project issues" });
     }
 };

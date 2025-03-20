@@ -63,7 +63,7 @@ export type Project = {
 
 export type TaskIssue = {
     title: string;
-    no: number;
+    issueNumber: number;
     link: string;
 }
 
