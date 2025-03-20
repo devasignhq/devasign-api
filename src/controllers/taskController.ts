@@ -12,6 +12,9 @@ export const createTask = async (req: Request, res: Response) => {
                 ...payload
             }
         });
+
+        // TODO: Update issues/milestones
+
         res.status(201).json(task);
     } catch (error) {
         res.status(400).json({ error: "Failed to create task" });
@@ -81,6 +84,9 @@ export const acceptTask = async (req: Request, res: Response) => {
                 }
             }
         });
+
+        // TODO: Update issues/milestones (assign to contributor)
+
         res.status(200).json(updatedTask);
     } catch (error) {
         res.status(400).json({ error: "Failed to accept task" });

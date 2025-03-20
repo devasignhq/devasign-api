@@ -1,6 +1,6 @@
 import axios from "axios";
 import { Octokit } from "@octokit/rest";
-import { TaskIssue } from "../types";
+import { Issue, IssueFilters, IssueLabel, Milestone } from "../types";
 
 // Helper function to check if GitHub user exists
 export async function checkGithubUser(username: string): Promise<boolean> {
@@ -26,8 +26,9 @@ export async function getRepoIssues(
     repoUrl: string, 
     githubToken: string,
     page: number = 1,
-    perPage: number = 10
-): Promise<{ issues: TaskIssue[], totalCount: number }> {
+    perPage: number = 10,
+    filters?: IssueFilters
+): Promise<{ issues: Issue[], totalCount: number }> {
     const octokit = new Octokit({ auth: githubToken });
     
     // Extract owner and repo from GitHub URL
@@ -44,13 +45,14 @@ export async function getRepoIssues(
             state: "open",
             per_page: perPage,
             page,
-            sort: "created",
-            direction: "desc"
+            ...filters,
+            labels: filters?.labels?.join(','),
+            milestone: filters?.milestone
         });
 
-        const issues: TaskIssue[] = response.data.map(issue => ({
+        const issues: Issue[] = response.data.map(issue => ({
             title: issue.title,
-            issueNumber: issue.number,
+            number: issue.number,
             link: issue.html_url
         }));
 
@@ -62,3 +64,82 @@ export async function getRepoIssues(
         throw new Error("Failed to fetch repository issues");
     }
 };
+
+export async function getRepoLabels(
+    repoUrl: string,
+    githubToken: string,
+    page: number = 1,
+    perPage: number = 10
+): Promise<{ labels: IssueLabel[], totalCount: number }> {
+    const octokit = new Octokit({ auth: githubToken });
+    
+    const [owner, repo] = repoUrl
+        .replace("https://github.com/", "")
+        .replace(".git", "")
+        .split("/");
+
+    try {
+        const response = await octokit.issues.listLabelsForRepo({
+            owner,
+            repo,
+            per_page: perPage,
+            page
+        });
+
+        const labels: IssueLabel[] = response.data.map(label => ({
+            id: label.id,
+            name: label.name,
+            color: label.color
+        }));
+
+        return {
+            labels,
+            totalCount: response.data.length
+        };
+    } catch (error) {
+        throw new Error("Failed to fetch repository labels");
+    }
+};
+
+export async function getRepoMilestones(
+    repoUrl: string,
+    githubToken: string,
+    page: number = 1,
+    perPage: number = 10,
+    direction: "asc" | "desc" = "asc"
+): Promise<{ milestones: Milestone[], totalCount: number }> {
+    const octokit = new Octokit({ auth: githubToken });
+    
+    // Extract owner and repo from GitHub URL
+    const [owner, repo] = repoUrl
+        .replace("https://github.com/", "")
+        .replace(".git", "")
+        .split("/");
+
+    try {
+        const response = await octokit.issues.listMilestones({
+            owner,
+            repo,
+            state: "open",
+            per_page: perPage,
+            page,
+            sort: "due_on",
+            direction
+        });
+
+        const milestones: Milestone[] = response.data.map(milestone => ({
+            number: milestone.number,
+            title: milestone.title,
+            description: milestone.description,
+            dueDate: milestone.due_on,
+            link: milestone.html_url
+        }));
+
+        return {
+            milestones,
+            totalCount: response.data.length
+        };
+    } catch (error) {
+        throw new Error("Failed to fetch repository milestones");
+    }
+}

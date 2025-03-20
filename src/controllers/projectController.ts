@@ -1,6 +1,12 @@
 import { Request, Response } from "express";
 import { prisma } from "../config/database";
-import { checkGithubUser, getRepoIssues, sendInvitation } from "../services/projectService";
+import { 
+    checkGithubUser, 
+    getRepoIssues, 
+    getRepoLabels, 
+    getRepoMilestones, 
+    sendInvitation 
+} from "../services/projectService";
 
 export const createProject = async (req: Request, res: Response) => {
     const { userId, name, description, repoUrl } = req.body;
@@ -120,7 +126,7 @@ export const addTeamMembers = async (req: Request, res: Response) => {
 
 export const getProjectIssues = async (req: Request, res: Response) => {
     const { id } = req.params;
-    const { page = 1 } = req.query;
+    const { page = 1, labels, milestone, sort, direction } = req.query;
     const { githubToken } = req.body; // From Firebase middleware
 
     try {
@@ -131,11 +137,20 @@ export const getProjectIssues = async (req: Request, res: Response) => {
         if (!project) {
             return res.status(404).json({ error: "Project not found" });
         }
+        
+        const filters: any = {
+            ...(labels && { labels: (labels as string).split(',') }),
+            milestone: milestone || undefined,
+            sort: sort || "created",
+            direction: direction || "desc"
+        };
 
         const { issues, totalCount } = await getRepoIssues(
             project.repoUrl,
             githubToken,
-            Number(page)
+            Number(page),
+            10,
+            filters
         );
 
         res.status(200).json({
@@ -148,5 +163,73 @@ export const getProjectIssues = async (req: Request, res: Response) => {
         });
     } catch (error) {
         res.status(400).json({ error: "Failed to fetch project issues" });
+    }
+};
+
+export const getProjectLabels = async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { page = 1 } = req.query;
+    const { githubToken } = req.body; // From Firebase middleware
+
+    try {
+        const project = await prisma.project.findUnique({
+            where: { id }
+        });
+
+        if (!project) {
+            return res.status(404).json({ error: "Project not found" });
+        }
+
+        const { labels, totalCount } = await getRepoLabels(
+            project.repoUrl,
+            githubToken,
+            Number(page)
+        );
+
+        res.status(200).json({
+            labels,
+            pagination: {
+                currentPage: Number(page),
+                totalPages: Math.ceil(totalCount / 10),
+                hasMore: totalCount > Number(page) * 10
+            }
+        });
+    } catch (error) {
+        res.status(400).json({ error: "Failed to fetch project labels" });
+    }
+};
+
+export const getProjectMilestones = async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { page = 1, direction } = req.query;
+    const { githubToken } = req.body; // From Firebase middleware
+
+    try {
+        const project = await prisma.project.findUnique({
+            where: { id }
+        });
+
+        if (!project) {
+            return res.status(404).json({ error: "Project not found" });
+        }
+
+        const { milestones, totalCount } = await getRepoMilestones(
+            project.repoUrl,
+            githubToken,
+            Number(page),
+            10,
+            direction as any || undefined
+        );
+
+        res.status(200).json({
+            milestones,
+            pagination: {
+                currentPage: Number(page),
+                totalPages: Math.ceil(totalCount / 10),
+                hasMore: totalCount > Number(page) * 10
+            }
+        });
+    } catch (error) {
+        res.status(400).json({ error: "Failed to fetch project milestones" });
     }
 };

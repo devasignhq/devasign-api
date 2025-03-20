@@ -1,21 +1,21 @@
 // Enums
 export enum TaskStatus {
-    OPEN = 'OPEN',
-    IN_PROGRESS = 'IN_PROGRESS',
-    MARKED_AS_COMPLETED = 'MARKED_AS_COMPLETED',
-    COMPLETED = 'COMPLETED',
-    HOLD = 'HOLD'
+    OPEN = "OPEN",
+    IN_PROGRESS = "IN_PROGRESS",
+    MARKED_AS_COMPLETED = "MARKED_AS_COMPLETED",
+    COMPLETED = "COMPLETED",
+    HOLD = "HOLD"
 }
 
 export enum TimelineType {
-    WEEK = 'WEEK',
-    DAY = 'DAY'
+    WEEK = "WEEK",
+    DAY = "DAY"
 }
 
 export enum AcceptanceCriteria {
-    APPLICATION = 'APPLICATION',
-    ANYONE = 'ANYONE',
-    BENCHMARK = 'BENCHMARK'
+    APPLICATION = "APPLICATION",
+    ANYONE = "ANYONE",
+    BENCHMARK = "BENCHMARK"
 }
 
 export type AddressBook = {
@@ -32,7 +32,6 @@ export type User = {
     createdTasks: Task[];
     contributedTasks: Task[];
     projects: Project[];
-    comments: Comment[];
     appliedTasks: Task[];
     escrowFunds: number;
     addressBook: AddressBook[];
@@ -61,10 +60,19 @@ export type Project = {
     updatedAt: Date;
 }
 
-export type TaskIssue = {
+export type Issue = {
+    number: number;
     title: string;
-    issueNumber: number;
     link: string;
+}
+
+export type Milestone = {
+    number: number;
+    title: string;
+    description: string | null;
+    dueDate: string | null;
+    link: string;
+    issues?: Issue[];
 }
 
 export type Task = {
@@ -75,11 +83,11 @@ export type Task = {
     projectId: string;
     title?: string;
     description?: string;
-    issues: TaskIssue[];
+    issues: Issue[];
+    milestones: Milestone[];
     timeline: number;
     timelineType: TimelineType;
     bounty: number;
-    comments: Comment[];
     acceptanceCriteria: AcceptanceCriteria;
     applications: User[];
     acceptedAt?: Date;
@@ -93,14 +101,26 @@ export type Task = {
     updatedAt: Date;
 }
 
+// Stored in Firebase
 export type Comment = {
     id: string;
     userId: string;
+    taskId: string;
     message: string;
     attachments: string[];
-    task: Task;
-    taskId: string;
-    user: User;
     createdAt: Date;
     updatedAt: Date;
+}
+
+export class IssueFilters {
+    labels?: string[];
+    milestone?: string | "none" | "*";
+    sort?: "created" | "updated" | "comments" = "created";
+    direction?: "asc" | "desc" = "desc";
+}
+
+export type IssueLabel = {
+    id: number;
+    name: string;
+    color: string;
 }

@@ -39,7 +39,7 @@ model User {
   createdTasks        Task[]               @relation("TaskCreator")
   contributedTasks    Task[]               @relation("TaskContributor")
   projects            Project[]            @relation("UserProjects")
-  comments            Comment[]            @relation("UserComments")
+  // comments            Comment[]            @relation("UserComments")
   appliedTasks        Task[]               @relation("TaskApplications")
   escrowFunds         Float                @default(0.0)
   addressBook         Json[]               @default([])
@@ -79,10 +79,11 @@ model Task {
   title              String?
   description        String?
   issues             Json[]             @default([])
+  milestones         Json[]             @default([])
   timeline           Int                @default(0)
   timelineType       TimelineType       @default(WEEK)
   bounty             Float              @default(0.0)
-  comments           Comment[]          @relation("TaskComments")
+  // comments           Comment[]          @relation("TaskComments")
   acceptanceCriteria AcceptanceCriteria @default(ANYONE)
   applications       User[]             @relation("TaskApplications")
   acceptedAt         DateTime?
@@ -96,15 +97,15 @@ model Task {
   updatedAt          DateTime           @updatedAt
 }
 
-// ! Store comments in Firebase
-model Comment {
-  id          String   @id @default(cuid())
-  userId      String
-  message     String
-  attachments String[] @default([])
-  task        Task     @relation("TaskComments", fields: [taskId], references: [id])
-  taskId      String
-  user        User     @relation("UserComments", fields: [userId], references: [userId])
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-}
+// ? Store comments in Firebase
+// model Comment {
+//   id          String   @id @default(cuid())
+//   userId      String
+//   message     String
+//   attachments String[] @default([])
+//   task        Task     @relation("TaskComments", fields: [taskId], references: [id])
+//   taskId      String
+//   user        User     @relation("UserComments", fields: [userId], references: [userId])
+//   createdAt   DateTime @default(now())
+//   updatedAt   DateTime @updatedAt
+// }
