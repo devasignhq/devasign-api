@@ -35,13 +35,17 @@ enum AcceptanceCriteria {
 model User {
   userId              String               @id
   username            String               @unique
+  walletPublicKey     String?
+  walletSecretKey     String? // Store encrypted
+  escrowPublicKey     String?
+  escrowSecretKey     String? // Store encrypted
+  balance             Float                @default(0.0)
   contributionSummary ContributionSummary?
   createdTasks        Task[]               @relation("TaskCreator")
   contributedTasks    Task[]               @relation("TaskContributor")
   projects            Project[]            @relation("UserProjects")
   // comments            Comment[]            @relation("UserComments")
   appliedTasks        Task[]               @relation("TaskApplications")
-  escrowFunds         Float                @default(0.0)
   addressBook         Json[]               @default([])
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
