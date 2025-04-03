@@ -25,7 +25,7 @@ export const createTask = async (req: Request, res: Response) => {
 
         // Transfer to escrow
         const decryptedSecret = decrypt(user.walletSecretKey);
-        await stellarService.transferToEscrow(
+        await stellarService.transferUSDC(
             decryptedSecret,
             user.escrowPublicKey!,
             bounty.toString()
@@ -320,7 +320,7 @@ export const validateCompletion = async (req: Request, res: Response) => {
         if (approved) {
             // Release funds from escrow to contributor
             const decryptedEscrowSecret = decrypt(task.creator.escrowSecretKey!);
-            await stellarService.releaseFromEscrow(
+            await stellarService.transferUSDC(
                 decryptedEscrowSecret,
                 task.contributor.walletPublicKey!,
                 task.bounty.toString()

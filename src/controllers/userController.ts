@@ -102,7 +102,7 @@ export const withdrawBalance = async (req: Request, res: Response) => {
         }
 
         const decryptedSecret = decrypt(user.walletSecretKey);
-        await stellarService.transferToEscrow(decryptedSecret, address, amount);
+        await stellarService.transferUSDC(decryptedSecret, address, amount);
 
         // Update user balance in database
         await prisma.user.update({

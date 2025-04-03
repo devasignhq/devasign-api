@@ -26,7 +26,6 @@ app.get(
     (async (req: Request, res: Response, next: NextFunction) => {
         try {
             // Delete all records from each table
-            await prisma.comment.deleteMany();
             await prisma.task.deleteMany();
             await prisma.contributionSummary.deleteMany();
             await prisma.project.deleteMany();

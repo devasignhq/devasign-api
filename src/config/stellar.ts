@@ -1,98 +1,127 @@
-import { Server, Networks, Keypair, Asset, Operation, TransactionBuilder } from 'stellar-sdk';
+import { 
+    ApplicationConfiguration, 
+    DefaultSigner, 
+    Wallet, 
+    StellarConfiguration, 
+    AccountKeypair,
+    Keypair,
+    IssuedAssetId,
+    NativeAssetId
+} from '@stellar/typescript-wallet-sdk';
+import axios, { AxiosInstance } from 'axios';
+
+const customClient: AxiosInstance = axios.create({
+    timeout: 2000,
+});
+const appConfig = new ApplicationConfiguration(DefaultSigner, customClient);
+
+export const wallet = new Wallet({
+    stellarConfiguration: StellarConfiguration.TestNet(),
+    applicationConfiguration: appConfig,
+});
+
+export const stellar = wallet.stellar();
+export const account = stellar.account();
+export const anchor = wallet.anchor({ homeDomain: "testanchor.stellar.org" });
+
+const usdcAsset = new IssuedAssetId(
+    "USDC",
+    "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5",
+);
 
 export class StellarService {
-    private server: Server;
-    private networkPassphrase: string;
+    private masterAccount: AccountKeypair;
     
     constructor() {
-        this.server = new Server(process.env.STELLAR_HORIZON_URL || 'https://horizon-testnet.stellar.org');
-        this.networkPassphrase = process.env.STELLAR_NETWORK === 'public' 
-            ? Networks.PUBLIC 
-            : Networks.TESTNET;
+        const keypair = new Keypair({
+            type: "ed25519",
+            secretKey: process.env.STELLAR_MASTER_SECRET_KEY as string,
+            publicKey: process.env.STELLAR_MASTER_PUBLIC_KEY as string,
+        });
+
+        this.masterAccount = new AccountKeypair(keypair);
     }
 
     async createWallet(): Promise<{ publicKey: string; secretKey: string }> {
-        const keypair = Keypair.random();
+        const accountKeyPair = account.createKeypair();
+
+        const txBuilder = await stellar.transaction({
+            sourceAddress: this.masterAccount,
+        });
+
+        const txCreateAccount = txBuilder.createAccount(accountKeyPair).build();
+        const txAddAssetSupport = txBuilder.addAssetSupport(usdcAsset).build();
+
         return {
-            publicKey: keypair.publicKey(),
-            secretKey: keypair.secret()
+            publicKey: accountKeyPair.publicKey,
+            secretKey: accountKeyPair.secretKey
         };
     }
 
-    async fundWallet(destinationKey: string, amount: string) {
-        const sourceKeypair = Keypair.fromSecret(process.env.STELLAR_MASTER_KEY!);
-        const sourceAccount = await this.server.loadAccount(sourceKeypair.publicKey());
-        
-        const transaction = new TransactionBuilder(sourceAccount, {
-            fee: "100000", // 0.01 XLM
-            networkPassphrase: this.networkPassphrase
-        })
-            .addOperation(Operation.payment({
-                destination: destinationKey,
-                asset: Asset.native(),
-                amount: amount
-            }))
-            .setTimeout(30)
-            .build();
-
-        transaction.sign(sourceKeypair);
-        return this.server.submitTransaction(transaction);
+    async fundWallet(accountPublicKey: string, amount: string) {
+        await stellar.fundTestnetAccount(accountPublicKey);
     }
 
-    async transferToEscrow(
-        sourceSecret: string, 
-        escrowAccount: string, 
+    async transferUSDC(
+        sourceSecretKey: string, 
+        destinationPublicKey: string, 
         amount: string
     ) {
-        const sourceKeypair = Keypair.fromSecret(sourceSecret);
-        const sourceAccount = await this.server.loadAccount(sourceKeypair.publicKey());
-        
-        const transaction = new TransactionBuilder(sourceAccount, {
-            fee: "100000",
-            networkPassphrase: this.networkPassphrase
-        })
-            .addOperation(Operation.payment({
-                destination: escrowAccount,
-                asset: Asset.native(),
-                amount: amount
-            }))
-            .setTimeout(30)
-            .build();
+        const sourceKeypair = Keypair.fromSecret(sourceSecretKey);
 
-        transaction.sign(sourceKeypair);
-        return this.server.submitTransaction(transaction);
+        const txBuilder = await stellar.transaction({
+            sourceAddress: new AccountKeypair(sourceKeypair),
+        });
+        
+        const txn = txBuilder
+            .pathPay({
+                destinationAddress: destinationPublicKey,
+                sendAsset: usdcAsset,
+                destAsset: usdcAsset,
+                sendAmount: amount,
+            })
+            .build();
+    
+        // return this.server.submitTransaction(transaction);
     }
 
-    async releaseFromEscrow(
-        escrowSecret: string,
-        destinationKey: string,
+    async transferXLM(
+        sourceSecretKey: string, 
+        destinationPublicKey: string, 
         amount: string
     ) {
-        const escrowKeypair = Keypair.fromSecret(escrowSecret);
-        const escrowAccount = await this.server.loadAccount(escrowKeypair.publicKey());
-        
-        const transaction = new TransactionBuilder(escrowAccount, {
-            fee: "100000",
-            networkPassphrase: this.networkPassphrase
-        })
-            .addOperation(Operation.payment({
-                destination: destinationKey,
-                asset: Asset.native(),
-                amount: amount
-            }))
-            .setTimeout(30)
-            .build();
+        const sourceKeypair = Keypair.fromSecret(sourceSecretKey);
 
-        transaction.sign(escrowKeypair);
-        return this.server.submitTransaction(transaction);
+        const txBuilder = await stellar.transaction({
+            sourceAddress: new AccountKeypair(sourceKeypair),
+        });
+        
+        const txn = txBuilder
+            .pathPay({
+                destinationAddress: destinationPublicKey,
+                sendAsset: new NativeAssetId(),
+                destAsset: usdcAsset,
+                sendAmount: amount,
+            })
+            .build();
+    
+        // return this.server.submitTransaction(transaction);
+    }
+
+    async swapXLMToUSDC(sourceSecretKey: string, amount: string) {
+        const sourceKeypair = Keypair.fromSecret(sourceSecretKey);
+
+        const txBuilder = await stellar.transaction({
+            sourceAddress: new AccountKeypair(sourceKeypair),
+        });
+        
+        const txn = txBuilder.swap(new NativeAssetId(), usdcAsset, amount).build();
+
+        // return this.server.submitTransaction(transaction);
     }
 
     async getBalance(publicKey: string): Promise<string> {
-        const account = await this.server.loadAccount(publicKey);
-        const balance = account.balances.find(
-            balance => balance.asset_type === 'native'
-        );
-        return balance?.balance || '0';
+        return '0';
     }
 }
 
