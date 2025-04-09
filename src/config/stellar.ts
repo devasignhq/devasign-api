@@ -32,6 +32,13 @@ export const usdcAssetId = new IssuedAssetId(
     "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5",
 );
 
+export class StellarServiceError extends Error {
+    constructor(message: string, public readonly cause?: Error) {
+        super(message);
+        this.name = 'StellarServiceError';
+    }
+}
+
 export class StellarService {
     private masterAccount: AccountKeypair;
     
@@ -81,8 +88,10 @@ export class StellarService {
                 secretKey: accountKeyPair.secretKey
             };
         } catch (error) {
-            console.error('Failed to create wallet:', error);
-            throw new Error('Failed to create wallet');
+            throw new StellarServiceError(
+                'Failed to create wallet', 
+                error instanceof Error ? error : undefined
+            );
         }
     }
 
@@ -119,8 +128,10 @@ export class StellarService {
 
             return "SUCCESS";
         } catch (error) {
-            console.error('Failed to transfer asset:', error);
-            throw new Error('Failed to transfer asset');
+            throw new StellarServiceError(
+                'Failed to transfer asset', 
+                error instanceof Error ? error : undefined
+            );
         }
     }
 
@@ -145,13 +156,27 @@ export class StellarService {
 
             return "SUCCESS";
         } catch (error) {
-            console.error('Failed to swap asset:', error);
-            throw new Error('Failed to swap asset');
+            throw new StellarServiceError(
+                'Failed to swap asset', 
+                error instanceof Error ? error : undefined
+            );
         }
     }
 
-    async getBalance(publicKey: string): Promise<string> {
-        return '0';
+    async getAccountInfo(publicKey: string) {
+        try {
+            const accountInfo = await account.getInfo({ accountAddress: publicKey });
+            console.log(
+                accountInfo.balances[0].asset_type + " = " +
+                accountInfo.balances[0].balance
+            )
+            return accountInfo;
+        } catch (error) {
+            throw new StellarServiceError(
+                'Failed to get account info', 
+                error instanceof Error ? error : undefined
+            );
+        }
     }
 }
 
