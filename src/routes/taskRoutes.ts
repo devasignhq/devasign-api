@@ -3,7 +3,7 @@ import {
     createTask,
     updateTask,
     acceptTask,
-    applyForTask,
+    // applyForTask,
     addTaskComment,
     updateTaskComment,
     putOnHold,
@@ -18,12 +18,12 @@ import {
 export const taskRoutes = Router();
 
 // Task management
-taskRoutes.post("/", createTask);
+taskRoutes.post("/", createTask as RequestHandler);
 taskRoutes.put("/:id", updateTask as RequestHandler);
 taskRoutes.delete("/:id", deleteTask as RequestHandler);
 
 // Task status changes
-taskRoutes.post("/:id/apply", applyForTask as RequestHandler);
+// taskRoutes.post("/:id/apply", applyForTask as RequestHandler);
 taskRoutes.post("/:id/accept", acceptTask as RequestHandler);
 taskRoutes.post("/:id/hold", putOnHold as RequestHandler);
 taskRoutes.post("/:id/complete", markAsComplete as RequestHandler);

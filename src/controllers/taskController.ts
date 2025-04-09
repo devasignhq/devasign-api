@@ -18,18 +18,18 @@ export const createTask = async (req: Request, res: Response) => {
         }
 
         // Check user balance
-        const currentBalance = await stellarService.getBalance(user.walletPublicKey!);
-        if (parseFloat(currentBalance) < bounty) {
-            return res.status(400).json({ message: "Insufficient balance" });
-        }
+        // const currentBalance = await stellarService.getBalance(user.walletPublicKey!);
+        // if (parseFloat(currentBalance) < bounty) {
+        //     return res.status(400).json({ message: "Insufficient balance" });
+        // }
 
-        // Transfer to escrow
-        const decryptedSecret = decrypt(user.walletSecretKey);
-        await stellarService.transferUSDC(
-            decryptedSecret,
-            user.escrowPublicKey!,
-            bounty.toString()
-        );
+        // // Transfer to escrow
+        // const decryptedSecret = decrypt(user.walletSecretKey);
+        // await stellarService.transferUSDC(
+        //     decryptedSecret,
+        //     user.escrowPublicKey!,
+        //     bounty.toString()
+        // );
 
         const task = await prisma.task.create({
             data: {
@@ -320,11 +320,11 @@ export const validateCompletion = async (req: Request, res: Response) => {
         if (approved) {
             // Release funds from escrow to contributor
             const decryptedEscrowSecret = decrypt(task.creator.escrowSecretKey!);
-            await stellarService.transferUSDC(
-                decryptedEscrowSecret,
-                task.contributor.walletPublicKey!,
-                task.bounty.toString()
-            );
+            // await stellarService.transferUSDC(
+            //     decryptedEscrowSecret,
+            //     task.contributor.walletPublicKey!,
+            //     task.bounty.toString()
+            // );
 
             await prisma.task.update({
                 where: { id },

@@ -31,7 +31,7 @@ export const createUser = async (req: Request, res: Response) => {
         });
 
         // Fund the user wallet with initial XLM for account activation
-        await stellarService.fundWallet(userWallet.publicKey, "2"); // 2 XLM minimum reserve
+        // await stellarService.fundWallet(userWallet.publicKey, "2"); // 2 XLM minimum reserve
 
         res.status(201).json({
             ...user,
@@ -96,21 +96,21 @@ export const withdrawBalance = async (req: Request, res: Response) => {
             return res.status(404).json({ message: "User wallet not found" });
         }
 
-        const currentBalance = await stellarService.getBalance(user.walletPublicKey!);
-        if (parseFloat(currentBalance) < parseFloat(amount)) {
-            return res.status(400).json({ message: "Insufficient balance" });
-        }
+        // const currentBalance = await stellarService.getBalance(user.walletPublicKey!);
+        // if (parseFloat(currentBalance) < parseFloat(amount)) {
+        //     return res.status(400).json({ message: "Insufficient balance" });
+        // }
 
-        const decryptedSecret = decrypt(user.walletSecretKey);
-        await stellarService.transferUSDC(decryptedSecret, address, amount);
+        // const decryptedSecret = decrypt(user.walletSecretKey);
+        // await stellarService.transferUSDC(decryptedSecret, address, amount);
 
         // Update user balance in database
-        await prisma.user.update({
-            where: { userId },
-            data: {
-                balance: parseFloat(currentBalance) - parseFloat(amount)
-            }
-        });
+        // await prisma.user.update({
+        //     where: { userId },
+        //     data: {
+        //         balance: parseFloat(currentBalance) - parseFloat(amount)
+        //     }
+        // });
 
         res.status(200).json({ message: "Withdrawal successful" });
     } catch (error) {

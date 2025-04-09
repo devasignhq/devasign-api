@@ -1,5 +1,5 @@
 import axios from "axios";
-import { Octokit } from "@octokit/rest";
+import type { Octokit } from "@octokit/rest";
 import { Issue, IssueFilters, IssueLabel, Milestone } from "../types";
 
 // Helper function to check if GitHub user exists
@@ -22,15 +22,20 @@ export async function sendInvitation(username: string, projectName: string) {
     console.log(`Invitation sent to ${username} for project ${projectName}`);
 };
 
+async function getOctokitInstance(githubToken: string): Promise<Octokit> {
+    const { Octokit } = await import("@octokit/rest");
+    return new Octokit({ auth: githubToken });
+}
+
 export async function getRepoIssues(
-    repoUrl: string, 
+    repoUrl: string,
     githubToken: string,
     page: number = 1,
     perPage: number = 10,
     filters?: IssueFilters
 ): Promise<{ issues: Issue[], totalCount: number }> {
-    const octokit = new Octokit({ auth: githubToken });
-    
+    const octokit = await getOctokitInstance(githubToken);
+
     // Extract owner and repo from GitHub URL
     // Example URL: https://github.com/owner/repo
     const [owner, repo] = repoUrl
@@ -71,8 +76,8 @@ export async function getRepoLabels(
     page: number = 1,
     perPage: number = 10
 ): Promise<{ labels: IssueLabel[], totalCount: number }> {
-    const octokit = new Octokit({ auth: githubToken });
-    
+    const octokit = await getOctokitInstance(githubToken);
+
     const [owner, repo] = repoUrl
         .replace("https://github.com/", "")
         .replace(".git", "")
@@ -108,8 +113,8 @@ export async function getRepoMilestones(
     perPage: number = 10,
     direction: "asc" | "desc" = "asc"
 ): Promise<{ milestones: Milestone[], totalCount: number }> {
-    const octokit = new Octokit({ auth: githubToken });
-    
+    const octokit = await getOctokitInstance(githubToken);
+
     // Extract owner and repo from GitHub URL
     const [owner, repo] = repoUrl
         .replace("https://github.com/", "")
