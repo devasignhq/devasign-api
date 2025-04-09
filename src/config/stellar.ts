@@ -43,15 +43,19 @@ export class StellarService {
     private masterAccount: AccountKeypair;
     
     constructor() {
-        const keypair = new Keypair({
-            type: "ed25519",
-            secretKey: process.env.STELLAR_MASTER_SECRET_KEY as string,
-            publicKey: process.env.STELLAR_MASTER_PUBLIC_KEY as string,
-        });
-
-        this.masterAccount = new AccountKeypair(keypair);
+        if (!process.env.STELLAR_MASTER_SECRET_KEY || !process.env.STELLAR_MASTER_PUBLIC_KEY) {
+            throw new StellarServiceError('Missing Stellar master account credentials in environment variables');
+        }
+    
+        try {
+            const keypair = Keypair.fromSecret(process.env.STELLAR_MASTER_SECRET_KEY);
+            this.masterAccount = new AccountKeypair(keypair);
+        } catch (error) {
+            throw new StellarServiceError('Invalid Stellar master account credentials', error as Error);
+        }
     }
 
+    // TODO: Refactor this. It's currently giving errors.
     async submitTransaction(account: AccountKeypair, transaction: any) {
         await stellar.submitWithFeeIncrease({
             sourceAddress: account,
@@ -65,38 +69,48 @@ export class StellarService {
         try {
             const accountKeyPair = account.createKeypair();
         
-            // Create account transaction
             const txBuilder = await stellar.transaction({
                 sourceAddress: this.masterAccount,
             });
             const txCreateAccount = txBuilder.createAccount(accountKeyPair).build();
             txCreateAccount.sign(this.masterAccount.keypair);
-            await this.submitTransaction(this.masterAccount, txCreateAccount);
-            // await stellar.submitTransaction(txCreateAccount);
-        
-            // Add asset support transaction
-            const assetTxBuilder = await stellar.transaction({
-                sourceAddress: accountKeyPair,
-            });
-            const txAddAssetSupport = assetTxBuilder.addAssetSupport(usdcAssetId).build();
-            txAddAssetSupport.sign(accountKeyPair.keypair);
-            await this.submitTransaction(accountKeyPair, txAddAssetSupport);
-            // await stellar.submitTransaction(txAddAssetSupport);
+            await stellar.submitTransaction(txCreateAccount);
         
             return {
                 publicKey: accountKeyPair.publicKey,
                 secretKey: accountKeyPair.secretKey
             };
         } catch (error) {
-            throw new StellarServiceError(
-                'Failed to create wallet', 
-                error instanceof Error ? error : undefined
-            );
+            console.log(error)
+            throw new Error(error as any);
         }
     }
 
     async fundWallet(accountPublicKey: string) {
-        await stellar.fundTestnetAccount(accountPublicKey);
+        try {
+            await stellar.fundTestnetAccount(accountPublicKey);
+        } catch (error) {
+            console.log(error)
+            // throw new Error(error as any);
+            return error as any;
+        }
+    }
+
+    async addTrustLine(sourceSecretKey: string) {
+        try {
+            const sourceKeypair = Keypair.fromSecret(sourceSecretKey);
+    
+            const assetTxBuilder = await stellar.transaction({
+                sourceAddress: new AccountKeypair(sourceKeypair),
+            });
+            const txAddAssetSupport = assetTxBuilder.addAssetSupport(usdcAssetId).build();
+            txAddAssetSupport.sign(sourceKeypair);
+            await stellar.submitTransaction(txAddAssetSupport);
+        } catch (error) {
+            console.log(error)
+            // throw new Error(error as any);
+            return error as any;
+        }
     }
 
     async transferAsset(
@@ -123,8 +137,7 @@ export class StellarService {
                 .build();
                 
             txPathPay.sign(sourceKeypair);
-            await this.submitTransaction(new AccountKeypair(sourceKeypair), txPathPay);
-            // await stellar.submitTransaction(txPathPay);
+            await stellar.submitTransaction(txPathPay);
 
             return "SUCCESS";
         } catch (error) {
@@ -151,8 +164,7 @@ export class StellarService {
             const txSwap = txBuilder.swap(fromAssetId, toAssetId, amount).build();
                 
             txSwap.sign(sourceKeypair);
-            await this.submitTransaction(new AccountKeypair(sourceKeypair), txSwap);
-            // await stellar.submitTransaction(txSwap);
+            await stellar.submitTransaction(txSwap);
 
             return "SUCCESS";
         } catch (error) {

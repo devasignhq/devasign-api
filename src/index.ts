@@ -12,6 +12,7 @@ import { userRoutes } from './routes/userRoutes';
 import { validateUser } from './config/firebase';
 import { projectRoutes } from './routes/projectRoutes';
 import { taskRoutes } from './routes/taskRoutes';
+import { stellarRoutes } from './routes/stellarRoutes';
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -133,6 +134,7 @@ app.get('/', (req: Request, res: Response) => {
 app.use("/users", validateUser as RequestHandler, userRoutes);
 app.use("/projects", validateUser as RequestHandler, projectRoutes);
 app.use("/tasks", validateUser as RequestHandler, taskRoutes);
+app.use("/stellar", stellarRoutes);
 
 prisma.$connect();
 
