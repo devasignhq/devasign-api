@@ -8,12 +8,11 @@ import {
     IssuedAssetId,
     NativeAssetId,
     StellarAssetId,
-    TransactionBuilder
 } from '@stellar/typescript-wallet-sdk';
 import axios, { AxiosInstance } from 'axios';
 
 const customClient: AxiosInstance = axios.create({
-    timeout: 2000,
+    timeout: 20000,
 });
 const appConfig = new ApplicationConfiguration(DefaultSigner, customClient);
 
@@ -33,9 +32,10 @@ export const usdcAssetId = new IssuedAssetId(
 );
 
 export class StellarServiceError extends Error {
-    constructor(message: string, public readonly cause?: Error) {
+    constructor(message: string, public readonly details?: any) {
         super(message);
-        this.name = 'StellarServiceError';
+        this.details = details;
+        this.name = "StellarServiceError";
     }
 }
 
@@ -44,14 +44,14 @@ export class StellarService {
     
     constructor() {
         if (!process.env.STELLAR_MASTER_SECRET_KEY || !process.env.STELLAR_MASTER_PUBLIC_KEY) {
-            throw new StellarServiceError('Missing Stellar master account credentials in environment variables');
+            throw new StellarServiceError("Missing Stellar master account credentials in environment variables");
         }
     
         try {
             const keypair = Keypair.fromSecret(process.env.STELLAR_MASTER_SECRET_KEY);
             this.masterAccount = new AccountKeypair(keypair);
         } catch (error) {
-            throw new StellarServiceError('Invalid Stellar master account credentials', error as Error);
+            throw new StellarServiceError("Invalid Stellar master account credentials", error);
         }
     }
 
@@ -81,18 +81,16 @@ export class StellarService {
                 secretKey: accountKeyPair.secretKey
             };
         } catch (error) {
-            console.log(error)
-            throw new Error(error as any);
+            throw new StellarServiceError("Failed to create wallet", error);
         }
     }
 
     async fundWallet(accountPublicKey: string) {
         try {
             await stellar.fundTestnetAccount(accountPublicKey);
+            return "SUCCESS";
         } catch (error) {
-            console.log(error)
-            // throw new Error(error as any);
-            return error as any;
+            throw new StellarServiceError("Failed to fund wallet", error);
         }
     }
 
@@ -106,10 +104,10 @@ export class StellarService {
             const txAddAssetSupport = assetTxBuilder.addAssetSupport(usdcAssetId).build();
             txAddAssetSupport.sign(sourceKeypair);
             await stellar.submitTransaction(txAddAssetSupport);
+
+            return "SUCCESS";
         } catch (error) {
-            console.log(error)
-            // throw new Error(error as any);
-            return error as any;
+            throw new StellarServiceError("Failed to add trustline", error);
         }
     }
 
@@ -141,10 +139,7 @@ export class StellarService {
 
             return "SUCCESS";
         } catch (error) {
-            throw new StellarServiceError(
-                'Failed to transfer asset', 
-                error instanceof Error ? error : undefined
-            );
+            throw new StellarServiceError("Failed to transfer asset", error);
         }
     }
 
@@ -168,26 +163,16 @@ export class StellarService {
 
             return "SUCCESS";
         } catch (error) {
-            throw new StellarServiceError(
-                'Failed to swap asset', 
-                error instanceof Error ? error : undefined
-            );
+            throw new StellarServiceError("Failed to swap asset", error);
         }
     }
 
     async getAccountInfo(publicKey: string) {
         try {
             const accountInfo = await account.getInfo({ accountAddress: publicKey });
-            console.log(
-                accountInfo.balances[0].asset_type + " = " +
-                accountInfo.balances[0].balance
-            )
             return accountInfo;
         } catch (error) {
-            throw new StellarServiceError(
-                'Failed to get account info', 
-                error instanceof Error ? error : undefined
-            );
+            throw new StellarServiceError("Failed to get account info", error);
         }
     }
 }

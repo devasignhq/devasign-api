@@ -123,6 +123,7 @@ app.use((err: createError.HttpError, req: Request, res: Response, next: NextFunc
         error: {
             message: err.message,
             status: err.status || 500,
+            details: err
         },
     });
 });
