@@ -12,12 +12,6 @@ export enum TimelineType {
     DAY = "DAY"
 }
 
-export enum AcceptanceCriteria {
-    APPLICATION = "APPLICATION",
-    ANYONE = "ANYONE",
-    BENCHMARK = "BENCHMARK"
-}
-
 export type AddressBook = {
     address: string;
     network: string;
@@ -28,12 +22,13 @@ export type AddressBook = {
 export type User = {
     userId: string;
     username: string;
+    walletPublicKey?: string;
+    walletSecretKey?: string;
+    balance: number;
     contributionSummary?: ContributionSummary;
     createdTasks: Task[];
     contributedTasks: Task[];
     projects: Project[];
-    appliedTasks: Task[];
-    escrowFunds: number;
     addressBook: AddressBook[];
     createdAt: Date;
     updatedAt: Date;
@@ -54,25 +49,12 @@ export type Project = {
     name: string;
     description: string;
     repoUrl: string;
+    escrowPublicKey?: string;
+    escrowSecretKey?: string;
     tasks: Task[];
     users: User[];
     createdAt: Date;
     updatedAt: Date;
-}
-
-export type Issue = {
-    number: number;
-    title: string;
-    link: string;
-}
-
-export type Milestone = {
-    number: number;
-    title: string;
-    description: string | null;
-    dueDate: string | null;
-    link: string;
-    issues?: Issue[];
 }
 
 export type Task = {
@@ -81,15 +63,13 @@ export type Task = {
     contributorId?: string;
     project: Project;
     projectId: string;
-    title?: string;
-    description?: string;
-    issues: Issue[];
-    milestones: Milestone[];
-    timeline: number;
+    issueUrl: string;
+    issueNumber: number;
+    issueTitle: string;
+    issueLabel?: string;
+    timeline?: number;
     timelineType: TimelineType;
     bounty: number;
-    acceptanceCriteria: AcceptanceCriteria;
-    applications: User[];
     acceptedAt?: Date;
     completedAt?: Date;
     status: TaskStatus;
@@ -97,17 +77,6 @@ export type Task = {
     pullRequests: string[];
     creator: User;
     contributor?: User;
-    createdAt: Date;
-    updatedAt: Date;
-}
-
-// Stored in Firebase
-export type Comment = {
-    id: string;
-    userId: string;
-    taskId: string;
-    message: string;
-    attachments: string[];
     createdAt: Date;
     updatedAt: Date;
 }
