@@ -27,8 +27,8 @@ enum TimelineType {
 model User {
   userId              String               @id
   username            String               @unique
-  walletAddress       String?
-  walletSecret        String? // Store encrypted
+  walletAddress       String
+  walletSecret        String
   contributionSummary ContributionSummary?
   createdTasks        Task[]               @relation("TaskCreator")
   contributedTasks    Task[]               @relation("TaskContributor")
@@ -64,25 +64,22 @@ model Project {
 }
 
 model Task {
-  id            String       @id @default(cuid())
+  id            String        @id @default(cuid())
   creatorId     String
   contributorId String?
-  project       Project      @relation("ProjectTasks", fields: [projectId], references: [id])
+  project       Project       @relation("ProjectTasks", fields: [projectId], references: [id])
   projectId     String
-  issueUrl      String
-  issueNumber   Int
-  issueTitle    String
-  issueLabel    String?
-  timeline      Int?         @default(0)
-  timelineType  TimelineType @default(WEEK)
-  bounty        Float        @default(0.0)
+  issue         Json
+  timeline      Int?          @default(0)
+  timelineType  TimelineType? @default(WEEK)
+  bounty        Float         @default(0.0)
   acceptedAt    DateTime?
   completedAt   DateTime?
-  status        TaskStatus   @default(OPEN)
-  settled       Boolean      @default(false)
-  pullRequests  String[]     @default([])
-  creator       User         @relation("TaskCreator", fields: [creatorId], references: [userId])
-  contributor   User?        @relation("TaskContributor", fields: [contributorId], references: [userId])
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
+  status        TaskStatus    @default(OPEN)
+  settled       Boolean       @default(false)
+  pullRequests  String[]      @default([])
+  creator       User          @relation("TaskCreator", fields: [creatorId], references: [userId])
+  contributor   User?         @relation("TaskContributor", fields: [contributorId], references: [userId])
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
 }

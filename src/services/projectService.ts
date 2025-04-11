@@ -1,6 +1,6 @@
 import axios from "axios";
 import type { Octokit } from "@octokit/rest";
-import { ErrorClass, IssueFilters } from "../types";
+import { ErrorClass, IssueFilters } from "../types/general";
 
 // Helper function to send invitation email
 export async function sendInvitation(username: string, projectName: string) {

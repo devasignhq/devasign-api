@@ -54,18 +54,28 @@ export type Project = {
     updatedAt: Date;
 }
 
+export type IssueLabel = {
+    id: number;
+    name: string;
+    color: string;
+}
+
+export type Issue = {
+    url: string;
+    number: number;
+    title: string;
+    label?: IssueLabel;
+}
+
 export type Task = {
     id: string;
     creatorId: string;
     contributorId?: string;
     project: Project;
     projectId: string;
-    issueUrl: string;
-    issueNumber: number;
-    issueTitle: string;
-    issueLabel?: string;
+    issue: Issue;
     timeline?: number;
-    timelineType: TimelineType;
+    timelineType?: TimelineType;
     bounty: number;
     acceptedAt?: Date;
     completedAt?: Date;
@@ -78,17 +88,19 @@ export type Task = {
     updatedAt: Date;
 }
 
+export type CreateTask = {
+    projectId: string;
+    issue: Issue;
+    timeline?: number;
+    timelineType?: TimelineType;
+    bounty: string;
+}
+
 export class IssueFilters {
     labels?: string[];
     milestone?: string | "none" | "*";
     sort?: "created" | "updated" | "comments" = "created";
     direction?: "asc" | "desc" = "desc";
-}
-
-export type IssueLabel = {
-    id: number;
-    name: string;
-    color: string;
 }
 
 export class ErrorClass extends Error {

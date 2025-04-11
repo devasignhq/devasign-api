@@ -1,52 +1,83 @@
-import { Request, Response } from "express";
+import { NextFunction, Request, Response } from "express";
 import { prisma } from "../config/database";
 import { commentsCollection, createComment, updateComment } from "../services/taskService";
-import { stellarService } from "../config/stellar";
+import { stellarService, usdcAssetId } from "../config/stellar";
 import { decrypt } from "../helper";
+import { CreateTask, ErrorClass } from "../types/general";
+import { HorizonApi } from "../types/horizonapi";
 
-export const createTask = async (req: Request, res: Response) => {
-    const { userId, payload } = req.body;
-    const { bounty } = payload;
+export const createTask = async (req: Request, res: Response, next: NextFunction) => {
+    const { userId, payload: data } = req.body;
+    const payload = data as CreateTask;
 
     try {
         const user = await prisma.user.findUnique({
-            where: { userId }
+            where: { userId },
+            select: { walletSecret: true, walletAddress: true }
         });
 
-        if (!user || !user.walletSecret) {
-            return res.status(404).json({ message: "User wallet not found" });
+        if (!user) {
+            throw new ErrorClass("TaskError", null, "User not found");
+        }
+
+        const project = await prisma.project.findUnique({
+            where: { id: payload.projectId },
+            select: { escrowAddress: true }
+        });
+
+        if (!project) {
+            throw new ErrorClass("TaskError", null, "Project not found");
         }
 
         // Check user balance
-        // const currentBalance = await stellarService.getBalance(user.walletAddress!);
-        // if (parseFloat(currentBalance) < bounty) {
-        //     return res.status(400).json({ message: "Insufficient balance" });
-        // }
+        const accountInfo = await stellarService.getAccountInfo(user.walletAddress);
+        const usdcAsset = accountInfo.balances.find(
+            (asset): asset is HorizonApi.BalanceLineAsset<"credit_alphanum12"> => 
+                'asset_code' in asset && asset.asset_code === "USDC"
+        ) as HorizonApi.BalanceLineAsset<"credit_alphanum12">;
 
-        // // Transfer to escrow
-        // const decryptedSecret = decrypt(user.walletSecret);
-        // await stellarService.transferUSDC(
-        //     decryptedSecret,
-        //     user.escrowAddress!,
-        //     bounty.toString()
-        // );
+        if (parseFloat(usdcAsset.balance) < parseFloat(payload.bounty)) {
+            throw new ErrorClass("TaskError", null, "Insufficient balance");
+        }
+
+        // Transfer to escrow
+        const decryptedSecret = decrypt(user.walletSecret);
+        await stellarService.transferAsset(
+            decryptedSecret,
+            project.escrowAddress!,
+            usdcAssetId,
+            usdcAssetId,
+            payload.bounty,
+        );
+
+        const { projectId, ...others } = payload;
 
         const task = await prisma.task.create({
             data: {
-                creatorId: userId,
-                ...payload
+                ...others,
+                bounty: parseFloat(payload.bounty),
+                project: {
+                    connect: { id: projectId }
+                },
+                creator: {
+                    connect: { userId }
+                }
             }
         });
 
-        // TODO: Update issues/milestones
+        try {
+            // TODO: Update issue on GitHub
+        } catch (error) {
+            
+        }
 
         res.status(201).json(task);
     } catch (error) {
-        res.status(400).json({ error: "Failed to create task" });
+        next(error);
     }
 };
 
-export const updateTask = async (req: Request, res: Response) => {
+export const updateTask = async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;
     const { payload } = req.body;
 
@@ -67,7 +98,7 @@ export const updateTask = async (req: Request, res: Response) => {
     }
 };
 
-// export const applyForTask = async (req: Request, res: Response) => {
+// export const applyForTask = async (req: Request, res: Response, next: NextFunction) => {
 //     const { id } = req.params;
 //     const { userId } = req.body;
 
@@ -90,7 +121,7 @@ export const updateTask = async (req: Request, res: Response) => {
 //     }
 // };
 
-export const acceptTask = async (req: Request, res: Response) => {
+export const acceptTask = async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;
     const { userId } = req.body;
 
@@ -118,7 +149,7 @@ export const acceptTask = async (req: Request, res: Response) => {
     }
 };
 
-export const addTaskComment = async (req: Request, res: Response) => {
+export const addTaskComment = async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;
     const { userId, message, attachments } = req.body;
 
@@ -153,7 +184,7 @@ export const addTaskComment = async (req: Request, res: Response) => {
     }
 };
 
-export const updateTaskComment = async (req: Request, res: Response) => {
+export const updateTaskComment = async (req: Request, res: Response, next: NextFunction) => {
     const { id: taskId, commentId } = req.params;
     const { userId, message, attachments } = req.body;
 
@@ -184,7 +215,7 @@ export const updateTaskComment = async (req: Request, res: Response) => {
     }
 };
 
-export const putOnHold = async (req: Request, res: Response) => {
+export const putOnHold = async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;
 
     try {
@@ -204,7 +235,7 @@ export const putOnHold = async (req: Request, res: Response) => {
     }
 };
 
-// export const adjustTimeline = async (req: Request, res: Response) => {
+// export const adjustTimeline = async (req: Request, res: Response, next: NextFunction) => {
 //     const { id } = req.params;
 //     const { newTimeline, reason } = req.body;
 //     const { userId } = req.body; 
@@ -225,7 +256,7 @@ export const putOnHold = async (req: Request, res: Response) => {
 //     }
 // };
 
-// export const replyTimelineAdjustment = async (req: Request, res: Response) => {
+// export const replyTimelineAdjustment = async (req: Request, res: Response, next: NextFunction) => {
 //     const { id } = req.params;
 //     const { accepted, newTimeline } = req.body;
 //     const { userId } = req.body; 
@@ -250,7 +281,7 @@ export const putOnHold = async (req: Request, res: Response) => {
 //     }
 // };
 
-// export const updateCompensation = async (req: Request, res: Response) => {
+// export const updateCompensation = async (req: Request, res: Response, next: NextFunction) => {
 //     const { id } = req.params;
 //     const { newBounty } = req.body;
 
@@ -271,7 +302,7 @@ export const putOnHold = async (req: Request, res: Response) => {
 //     }
 // };
 
-export const markAsComplete = async (req: Request, res: Response) => {
+export const markAsComplete = async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;
     const { pullRequests } = req.body;
     const { userId } = req.body; 
@@ -296,7 +327,7 @@ export const markAsComplete = async (req: Request, res: Response) => {
     }
 };
 
-export const validateCompletion = async (req: Request, res: Response) => {
+export const validateCompletion = async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;
     const { userId, approved } = req.body;
 
@@ -351,7 +382,7 @@ export const validateCompletion = async (req: Request, res: Response) => {
     }
 };
 
-export const deleteTask = async (req: Request, res: Response) => {
+export const deleteTask = async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;
 
     try {

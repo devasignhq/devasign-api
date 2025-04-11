@@ -8,7 +8,7 @@ import {
     getRepoMilestones, 
     sendInvitation 
 } from "../services/projectService";
-import { ErrorClass } from "../types";
+import { ErrorClass } from "../types/general";
 import { stellarService } from "../config/stellar";
 import { encrypt } from "../helper";
 
@@ -17,7 +17,7 @@ export const createProject = async (req: Request, res: Response, next: NextFunct
 
     try {
         const repoDetails = await getRepoDetails(repoUrl, githubToken);
-        
+
         const escrowWallet = await stellarService.createWallet();
         const encryptedUserSecret = encrypt(escrowWallet.secretKey);
 

@@ -4,6 +4,8 @@ import { InputJsonValue } from "@prisma/client/runtime/library";
 import { stellarService } from "../config/stellar";
 import { encrypt } from "../helper";
 
+// TODO: getUser controller and route
+
 export const createUser = async (req: Request, res: Response, next: NextFunction) => {
     const { userId, githubUsername } = req.body;
 
