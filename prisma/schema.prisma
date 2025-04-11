@@ -1,12 +1,11 @@
-// Data Source: Define the database connection
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-// Generator: Specify the Prisma Client generation
 generator client {
   provider = "prisma-client-js"
+  // output   = "../src/generated/client"
 }
 
 // Enum Definitions
@@ -29,9 +28,8 @@ enum TimelineType {
 model User {
   userId              String               @id
   username            String               @unique
-  walletPublicKey     String?
-  walletSecretKey     String? // Store encrypted
-  balance             Float                @default(0.0)
+  walletAddress       String?
+  walletSecret        String? // Store encrypted
   contributionSummary ContributionSummary?
   createdTasks        Task[]               @relation("TaskCreator")
   contributedTasks    Task[]               @relation("TaskContributor")
@@ -54,16 +52,16 @@ model ContributionSummary {
 }
 
 model Project {
-  id              String   @id @default(cuid())
-  name            String
-  description     String
-  repoUrl         String
-  escrowPublicKey String?
-  escrowSecretKey String? // Store encrypted
-  tasks           Task[]   @relation("ProjectTasks")
-  users           User[]   @relation("UserProjects")
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id            String   @id @default(cuid())
+  name          String
+  description   String
+  repoUrl       String
+  escrowAddress String?
+  escrowSecret  String? // Store encrypted
+  tasks         Task[]   @relation("ProjectTasks")
+  users         User[]   @relation("UserProjects")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }
 
 model Task {

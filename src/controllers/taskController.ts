@@ -13,21 +13,21 @@ export const createTask = async (req: Request, res: Response) => {
             where: { userId }
         });
 
-        if (!user || !user.walletSecretKey) {
+        if (!user || !user.walletSecret) {
             return res.status(404).json({ message: "User wallet not found" });
         }
 
         // Check user balance
-        // const currentBalance = await stellarService.getBalance(user.walletPublicKey!);
+        // const currentBalance = await stellarService.getBalance(user.walletAddress!);
         // if (parseFloat(currentBalance) < bounty) {
         //     return res.status(400).json({ message: "Insufficient balance" });
         // }
 
         // // Transfer to escrow
-        // const decryptedSecret = decrypt(user.walletSecretKey);
+        // const decryptedSecret = decrypt(user.walletSecret);
         // await stellarService.transferUSDC(
         //     decryptedSecret,
-        //     user.escrowPublicKey!,
+        //     user.escrowAddress!,
         //     bounty.toString()
         // );
 
@@ -319,10 +319,10 @@ export const validateCompletion = async (req: Request, res: Response) => {
 
         if (approved) {
             // Release funds from escrow to contributor
-            const decryptedEscrowSecret = decrypt(task.creator.escrowSecretKey!);
+            const decryptedEscrowSecret = decrypt(task.creator.escrowSecret!);
             // await stellarService.transferUSDC(
             //     decryptedEscrowSecret,
-            //     task.contributor.walletPublicKey!,
+            //     task.contributor.walletAddress!,
             //     task.bounty.toString()
             // );
 

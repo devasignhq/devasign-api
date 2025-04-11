@@ -54,16 +54,16 @@ router.post('/fund',
 // Transfer assets
 router.post('/transfer',
     [
-        body('sourceSecretKey').notEmpty().withMessage('Source secret key is required'),
-        body('destinationPublicKey').notEmpty().withMessage('Destination public key is required'),
+        body('sourceSecret').notEmpty().withMessage('Source secret key is required'),
+        body('destinationAddress').notEmpty().withMessage('Destination public key is required'),
         body('amount').notEmpty().withMessage('Amount is required'),
     ],
     async (req: Request, res: Response, next: NextFunction) => {
         try {
-            const { sourceSecretKey, destinationPublicKey, amount } = req.body;
+            const { sourceSecret, destinationAddress, amount } = req.body;
             const result = await stellarService.transferAsset(
-                sourceSecretKey,
-                destinationPublicKey,
+                sourceSecret,
+                destinationAddress,
                 xlmAssetId,
                 xlmAssetId,
                 amount
@@ -81,13 +81,13 @@ router.post('/transfer',
 // Swap assets
 router.post('/swap',
     [
-        body('sourceSecretKey').notEmpty().withMessage('Source secret key is required'),
+        body('sourceSecret').notEmpty().withMessage('Source secret key is required'),
         body('amount').notEmpty().withMessage('Amount is required'),
     ],
     async (req: Request, res: Response, next: NextFunction) => {
         try {
-            const { sourceSecretKey, amount } = req.body;
-            const result = await stellarService.swapAsset(sourceSecretKey, amount);
+            const { sourceSecret, amount } = req.body;
+            const result = await stellarService.swapAsset(sourceSecret, amount);
             res.status(200).json({
                 message: 'Asset swapped successfully',
                 data: result

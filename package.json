@@ -7,7 +7,7 @@
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
     "start": "node dist/index.js",
     "build": "tsc",
-    "p-gen": "prisma generate"
+    "p-gen": "npx prisma generate --no-engine"
   },
   "keywords": [],
   "author": "",

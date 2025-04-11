@@ -2,36 +2,40 @@ import { Request, Response } from "express";
 import { prisma } from "../config/database";
 import { InputJsonValue } from "@prisma/client/runtime/library";
 import { stellarService } from "../config/stellar";
-import { decrypt, encrypt } from "../helper";
+import { encrypt } from "../helper";
 
 export const createUser = async (req: Request, res: Response) => {
     const { userId, githubUsername } = req.body;
 
     try {
-        // Create Stellar wallets
         const userWallet = await stellarService.createWallet();
-        const escrowWallet = await stellarService.createWallet();
+        const funded = await stellarService.fundWallet(userWallet.publicKey);
 
-        // Encrypt secret keys
+        if (funded !== "SUCCESS") {
+            return res.status(420).json({ message: "Failed to fund wallet" });
+        }
+
+        await stellarService.addTrustLine(userWallet.secretKey);
+
         const encryptedUserSecret = encrypt(userWallet.secretKey);
-        const encryptedEscrowSecret = encrypt(escrowWallet.secretKey);
 
         const user = await prisma.user.create({
             data: {
                 userId,
                 username: githubUsername,
-                walletPublicKey: userWallet.publicKey,
-                walletSecretKey: encryptedUserSecret,
-                escrowPublicKey: escrowWallet.publicKey,
-                escrowSecretKey: encryptedEscrowSecret,
+                walletAddress: userWallet.publicKey,
+                walletSecret: encryptedUserSecret,
                 contributionSummary: {
                     create: {}
                 }
+            },
+            select: {
+                userId: true,
+                username: true,
+                walletAddress: true,
+                contributionSummary: true
             }
         });
-
-        // Fund the user wallet with initial XLM for account activation
-        // await stellarService.fundWallet(userWallet.publicKey, "2"); // 2 XLM minimum reserve
 
         res.status(201).json({
             ...user,
@@ -57,18 +61,21 @@ export const updateUser = async (req: Request, res: Response) => {
 }
 
 export const updateAddressBook = async (req: Request, res: Response) => {
-    const { userId, address, network, asset } = req.body;
+    const { userId, address, name } = req.body;
 
     try {
         const user = await prisma.user.findUnique({
-            where: { userId }
+            where: { userId },
+            select: {
+                addressBook: true
+            }
         });
 
         if (!user) {
             return res.status(404).json({ message: "User not found" });
         }
 
-        const newAddress = { address, network, asset };
+        const newAddress = { address, name };
         const updatedAddressBook = [...user.addressBook, newAddress];
 
         const updatedUser = await prisma.user.update({
@@ -83,37 +90,3 @@ export const updateAddressBook = async (req: Request, res: Response) => {
         res.status(400).send(error);
     }
 }
-
-export const withdrawBalance = async (req: Request, res: Response) => {
-    const { userId, address, amount } = req.body;
-
-    try {
-        const user = await prisma.user.findUnique({
-            where: { userId }
-        });
-
-        if (!user || !user.walletSecretKey) {
-            return res.status(404).json({ message: "User wallet not found" });
-        }
-
-        // const currentBalance = await stellarService.getBalance(user.walletPublicKey!);
-        // if (parseFloat(currentBalance) < parseFloat(amount)) {
-        //     return res.status(400).json({ message: "Insufficient balance" });
-        // }
-
-        // const decryptedSecret = decrypt(user.walletSecretKey);
-        // await stellarService.transferUSDC(decryptedSecret, address, amount);
-
-        // Update user balance in database
-        // await prisma.user.update({
-        //     where: { userId },
-        //     data: {
-        //         balance: parseFloat(currentBalance) - parseFloat(amount)
-        //     }
-        // });
-
-        res.status(200).json({ message: "Withdrawal successful" });
-    } catch (error) {
-        res.status(400).json({ message: "Withdrawal failed", error });
-    }
-};

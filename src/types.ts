@@ -13,17 +13,15 @@ export enum TimelineType {
 }
 
 export type AddressBook = {
+    name: string;
     address: string;
-    network: string;
-    memo: string;
-    asset: string;
 }
 
 export type User = {
     userId: string;
     username: string;
-    walletPublicKey?: string;
-    walletSecretKey?: string;
+    walletAddress?: string;
+    walletSecret?: string;
     balance: number;
     contributionSummary?: ContributionSummary;
     createdTasks: Task[];
@@ -49,8 +47,8 @@ export type Project = {
     name: string;
     description: string;
     repoUrl: string;
-    escrowPublicKey?: string;
-    escrowSecretKey?: string;
+    escrowAddress?: string;
+    escrowSecret?: string;
     tasks: Task[];
     users: User[];
     createdAt: Date;

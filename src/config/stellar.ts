@@ -85,23 +85,23 @@ export class StellarService {
         }
     }
 
-    async fundWallet(accountPublicKey: string) {
+    async fundWallet(accountAddress: string) {
         try {
-            await stellar.fundTestnetAccount(accountPublicKey);
+            await stellar.fundTestnetAccount(accountAddress);
             return "SUCCESS";
         } catch (error) {
             throw new StellarServiceError("Failed to fund wallet", error);
         }
     }
 
-    async addTrustLine(sourceSecretKey: string) {
+    async addTrustLine(sourceSecret: string, assetId: StellarAssetId = usdcAssetId) {
         try {
-            const sourceKeypair = Keypair.fromSecret(sourceSecretKey);
+            const sourceKeypair = Keypair.fromSecret(sourceSecret);
     
             const assetTxBuilder = await stellar.transaction({
                 sourceAddress: new AccountKeypair(sourceKeypair),
             });
-            const txAddAssetSupport = assetTxBuilder.addAssetSupport(usdcAssetId).build();
+            const txAddAssetSupport = assetTxBuilder.addAssetSupport(assetId).build();
             txAddAssetSupport.sign(sourceKeypair);
             await stellar.submitTransaction(txAddAssetSupport);
 
@@ -112,14 +112,14 @@ export class StellarService {
     }
 
     async transferAsset(
-        sourceSecretKey: string, 
-        destinationPublicKey: string, 
+        sourceSecret: string, 
+        destinationAddress: string, 
         sendAssetId: StellarAssetId,
         destAssetId: StellarAssetId,
         amount: string
     ) {
         try {
-            const sourceKeypair = Keypair.fromSecret(sourceSecretKey);
+            const sourceKeypair = Keypair.fromSecret(sourceSecret);
     
             const txBuilder = await stellar.transaction({
                 sourceAddress: new AccountKeypair(sourceKeypair),
@@ -127,7 +127,7 @@ export class StellarService {
             
             const txPathPay = txBuilder
                 .pathPay({
-                    destinationAddress: destinationPublicKey,
+                    destinationAddress: destinationAddress,
                     sendAsset: sendAssetId,
                     destAsset: destAssetId,
                     sendAmount: amount,
@@ -144,13 +144,13 @@ export class StellarService {
     }
 
     async swapAsset(
-        sourceSecretKey: string, 
+        sourceSecret: string, 
         amount: string,
         fromAssetId: StellarAssetId = xlmAssetId,
         toAssetId: StellarAssetId = usdcAssetId,
     ) {
         try {
-            const sourceKeypair = Keypair.fromSecret(sourceSecretKey);
+            const sourceKeypair = Keypair.fromSecret(sourceSecret);
     
             const txBuilder = await stellar.transaction({
                 sourceAddress: new AccountKeypair(sourceKeypair),
