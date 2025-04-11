@@ -3,8 +3,7 @@ export enum TaskStatus {
     OPEN = "OPEN",
     IN_PROGRESS = "IN_PROGRESS",
     MARKED_AS_COMPLETED = "MARKED_AS_COMPLETED",
-    COMPLETED = "COMPLETED",
-    HOLD = "HOLD"
+    COMPLETED = "COMPLETED"
 }
 
 export enum TimelineType {
@@ -90,4 +89,16 @@ export type IssueLabel = {
     id: number;
     name: string;
     color: string;
+}
+
+export class ErrorClass extends Error {
+    constructor(
+        name: string, 
+        public readonly details: any,
+        message: string, 
+    ) {
+        super(message);
+        this.name = name;
+        this.details = details;
+    }
 }

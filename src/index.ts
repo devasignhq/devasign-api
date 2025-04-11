@@ -47,7 +47,6 @@ app.use(((error: any, req: Request, res: Response, next: NextFunction) => {
         return res.status(420).json({ error });
     }
 
-    // Handle validation errors
     if (error.name === 'ValidationError') {
         return res.status(404).json({
             error: {
@@ -58,7 +57,6 @@ app.use(((error: any, req: Request, res: Response, next: NextFunction) => {
         });
     }
 
-    // Default error
     res.status(error.status || 500).json({
         error: {
             message: "Internal Server Error",

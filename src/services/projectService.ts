@@ -1,6 +1,12 @@
 import axios from "axios";
 import type { Octokit } from "@octokit/rest";
-import { Issue, IssueFilters, IssueLabel, Milestone } from "../types";
+import { ErrorClass, IssueFilters } from "../types";
+
+// Helper function to send invitation email
+export async function sendInvitation(username: string, projectName: string) {
+    // TODO: Implement email service integration
+    console.log(`Invitation sent to ${username} for project ${projectName}`);
+};
 
 // Helper function to check if GitHub user exists
 export async function checkGithubUser(username: string): Promise<boolean> {
@@ -12,14 +18,12 @@ export async function checkGithubUser(username: string): Promise<boolean> {
         });
         return response.status === 200;
     } catch (error) {
-        return false;
+        throw new ErrorClass(
+            "OctakitError",
+            error,
+            `Failed to check GitHub user ${username}`
+        );
     }
-};
-
-// Helper function to send invitation email
-export async function sendInvitation(username: string, projectName: string) {
-    // TODO: Implement email service integration
-    console.log(`Invitation sent to ${username} for project ${projectName}`);
 };
 
 async function getOctokitInstance(githubToken: string): Promise<Octokit> {
@@ -27,21 +31,46 @@ async function getOctokitInstance(githubToken: string): Promise<Octokit> {
     return new Octokit({ auth: githubToken });
 }
 
+// Extract owner and repo from GitHub URL
+// Example URL: https://github.com/owner/repo
+function getOwnerAndRepo(repoUrl: string) {
+    const [owner, repo] = repoUrl
+        .replace("https://github.com/", "")
+        .replace(".git", "")
+        .split("/");
+
+    return [owner, repo];
+}
+
+export async function getRepoDetails(repoUrl: string, githubToken: string) {
+    const octokit = await getOctokitInstance(githubToken);
+    const [owner, repo] = getOwnerAndRepo(repoUrl);
+
+    try {
+        const response = await octokit.repos.get({
+            owner,
+            repo,
+        });
+
+        return response.data;
+    } catch (error) {
+        throw new ErrorClass(
+            "OctakitError",
+            error,
+            "Failed to fetch repository details"
+        );
+    }
+};
+
 export async function getRepoIssues(
     repoUrl: string,
     githubToken: string,
     page: number = 1,
     perPage: number = 10,
     filters?: IssueFilters
-): Promise<{ issues: Issue[], totalCount: number }> {
+) {
     const octokit = await getOctokitInstance(githubToken);
-
-    // Extract owner and repo from GitHub URL
-    // Example URL: https://github.com/owner/repo
-    const [owner, repo] = repoUrl
-        .replace("https://github.com/", "")
-        .replace(".git", "")
-        .split("/");
+    const [owner, repo] = getOwnerAndRepo(repoUrl);
 
     try {
         const response = await octokit.issues.listForRepo({
@@ -55,96 +84,59 @@ export async function getRepoIssues(
             milestone: filters?.milestone
         });
 
-        const issues: Issue[] = response.data.map(issue => ({
-            title: issue.title,
-            number: issue.number,
-            link: issue.html_url
-        }));
+        const issues = response.data.filter(issue => issue.pull_request === null);
 
-        return {
-            issues,
-            totalCount: response.data.length
-        };
+        return issues;
     } catch (error) {
-        throw new Error("Failed to fetch repository issues");
+        throw new ErrorClass(
+            "OctakitError",
+            error,
+            "Failed to fetch repository issues"
+        );
     }
 };
 
-export async function getRepoLabels(
-    repoUrl: string,
-    githubToken: string,
-    page: number = 1,
-    perPage: number = 10
-): Promise<{ labels: IssueLabel[], totalCount: number }> {
+export async function getRepoLabels(repoUrl: string, githubToken: string) {
     const octokit = await getOctokitInstance(githubToken);
-
-    const [owner, repo] = repoUrl
-        .replace("https://github.com/", "")
-        .replace(".git", "")
-        .split("/");
+    const [owner, repo] = getOwnerAndRepo(repoUrl);
 
     try {
         const response = await octokit.issues.listLabelsForRepo({
             owner,
             repo,
-            per_page: perPage,
-            page
+            per_page: 100,
         });
 
-        const labels: IssueLabel[] = response.data.map(label => ({
-            id: label.id,
-            name: label.name,
-            color: label.color
-        }));
-
-        return {
-            labels,
-            totalCount: response.data.length
-        };
+        return response.data;
     } catch (error) {
-        throw new Error("Failed to fetch repository labels");
+        throw new ErrorClass(
+            "OctakitError",
+            error,
+            "Failed to fetch repository labels"
+        );
     }
 };
 
-export async function getRepoMilestones(
-    repoUrl: string,
-    githubToken: string,
-    page: number = 1,
-    perPage: number = 10,
-    direction: "asc" | "desc" = "asc"
-): Promise<{ milestones: Milestone[], totalCount: number }> {
+export async function getRepoMilestones(repoUrl: string, githubToken: string) {
     const octokit = await getOctokitInstance(githubToken);
-
-    // Extract owner and repo from GitHub URL
-    const [owner, repo] = repoUrl
-        .replace("https://github.com/", "")
-        .replace(".git", "")
-        .split("/");
+    const [owner, repo] = getOwnerAndRepo(repoUrl);
 
     try {
         const response = await octokit.issues.listMilestones({
             owner,
             repo,
             state: "open",
-            per_page: perPage,
-            page,
+            per_page: 100,
             sort: "due_on",
-            direction
+            direction: "asc"
         });
 
-        const milestones: Milestone[] = response.data.map(milestone => ({
-            number: milestone.number,
-            title: milestone.title,
-            description: milestone.description,
-            dueDate: milestone.due_on,
-            link: milestone.html_url
-        }));
-
-        return {
-            milestones,
-            totalCount: response.data.length
-        };
+        return response.data;
     } catch (error) {
-        throw new Error("Failed to fetch repository milestones");
+        throw new ErrorClass(
+            "OctakitError",
+            error,
+            "Failed to fetch repository milestones"
+        );
     }
 }
