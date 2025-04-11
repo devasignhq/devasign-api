@@ -1,21 +1,25 @@
-import { Request, Response } from "express";
+import { NextFunction, Request, Response } from "express";
 import { prisma } from "../config/database";
 import { 
     checkGithubUser, 
+    getRepoDetails, 
     getRepoIssues, 
     getRepoLabels, 
     getRepoMilestones, 
     sendInvitation 
 } from "../services/projectService";
+import { ErrorClass } from "../types";
 
-export const createProject = async (req: Request, res: Response) => {
-    const { userId, name, description, repoUrl } = req.body;
+export const createProject = async (req: Request, res: Response, next: NextFunction) => {
+    const { userId, githubToken, repoUrl } = req.body;
 
     try {
+        const repoDetails = await getRepoDetails(repoUrl, githubToken);
+
         const project = await prisma.project.create({
             data: {
-                name,
-                description,
+                name: repoDetails.name,
+                description: repoDetails.description || "",
                 repoUrl,
                 users: {
                     connect: { userId }
@@ -24,44 +28,57 @@ export const createProject = async (req: Request, res: Response) => {
         });
         res.status(201).json(project);
     } catch (error) {
-        res.status(400).json({ error: "Failed to create project" });
+        next(error);
     }
 };
 
-export const updateProject = async (req: Request, res: Response) => {
+export const updateProject = async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;
-    const { name, description, repoUrl } = req.body;
+    const { githubToken, repoUrl } = req.body;
 
     try {
+        const repoDetails = await getRepoDetails(repoUrl, githubToken);
+
         const project = await prisma.project.update({
             where: { id },
-            data: { name, description, repoUrl }
+            data: { 
+                name: repoDetails.name,
+                description: repoDetails.description || "",
+                repoUrl 
+            }
         });
         res.status(200).json(project);
     } catch (error) {
-        res.status(400).json({ error: "Failed to update project" });
+        next(error);
     }
 };
 
-export const deleteProject = async (req: Request, res: Response) => {
+export const deleteProject = async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;
 
     try {
-        // Check if all tasks are either OPEN or HOLD
-        const tasks = await prisma.task.findMany({
+        const allTasks = await prisma.task.findMany({
+            where: { projectId: id },
+            select: { id: true }
+        });
+        const allOpenTasks = await prisma.task.findMany({
             where: {
                 projectId: id,
-                NOT: {
-                    status: { in: ['OPEN', 'HOLD'] }
-                }
-            }
+                status: "OPEN"
+            },
+            select: { id: true }
         });
 
-        if (tasks.length > 0) {
-            return res.status(400).json({
-                error: "Cannot delete project with active or completed tasks"
-            });
+        // Check if no task is IN_PROGRESS or COMPLETED
+        if (allTasks.length !== allOpenTasks.length) {
+            throw new ErrorClass(
+                "ProjectError",
+                null,
+                "Cannot delete project with active or completed tasks"
+            )
         }
+
+        // TODO: refund user with escrow funds
 
         await prisma.project.delete({
             where: { id }
@@ -69,29 +86,34 @@ export const deleteProject = async (req: Request, res: Response) => {
 
         res.status(200).json({ message: "Project deleted successfully" });
     } catch (error) {
-        res.status(400).json({ error: "Failed to delete project" });
+        next(error);
     }
 };
 
-export const addTeamMembers = async (req: Request, res: Response) => {
+export const addTeamMembers = async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;
     const { githubUsernames } = req.body;
 
     try {
         const project = await prisma.project.findUnique({
             where: { id },
-            include: { users: true }
+            select: { 
+                users: true, 
+                repoUrl: true, 
+                name: true 
+            }
         });
 
         if (!project) {
-            return res.status(404).json({ error: "Project not found" });
+            throw new ErrorClass("ProjectError", null, "Project not found");
         }
 
         const results = await Promise.all(
             githubUsernames.map(async (username: string) => {
                 // Check if user exists in our system
                 const existingUser = await prisma.user.findFirst({
-                    where: { username }
+                    where: { username },
+                    select: { userId: true }
                 });
 
                 if (existingUser) {
@@ -120,24 +142,16 @@ export const addTeamMembers = async (req: Request, res: Response) => {
 
         res.status(200).json({ results });
     } catch (error) {
-        res.status(400).json({ error: "Failed to add team members" });
+        next(error);
     }
 };
 
-export const getProjectIssues = async (req: Request, res: Response) => {
-    const { id } = req.params;
+export const getProjectIssues = async (req: Request, res: Response, next: NextFunction) => {
     const { page = 1, labels, milestone, sort, direction } = req.query;
-    const { githubToken } = req.body; // From Firebase middleware
+    const { githubToken, repoUrl } = req.body;
+    const PER_PAGE = 20;
 
     try {
-        const project = await prisma.project.findUnique({
-            where: { id }
-        });
-
-        if (!project) {
-            return res.status(404).json({ error: "Project not found" });
-        }
-        
         const filters: any = {
             ...(labels && { labels: (labels as string).split(',') }),
             milestone: milestone || undefined,
@@ -145,91 +159,43 @@ export const getProjectIssues = async (req: Request, res: Response) => {
             direction: direction || "desc"
         };
 
-        const { issues, totalCount } = await getRepoIssues(
-            project.repoUrl,
+        const issues = await getRepoIssues(
+            repoUrl,
             githubToken,
             Number(page),
-            10,
+            PER_PAGE,
             filters
         );
 
         res.status(200).json({
             issues,
-            pagination: {
-                currentPage: Number(page),
-                totalPages: Math.ceil(totalCount / 10),
-                hasMore: totalCount > Number(page) * 10
-            }
+            hasMore: (issues.length + 1) === PER_PAGE
         });
     } catch (error) {
-        res.status(400).json({ error: "Failed to fetch project issues" });
+        next(error);
     }
 };
 
-export const getProjectLabels = async (req: Request, res: Response) => {
-    const { id } = req.params;
-    const { page = 1 } = req.query;
-    const { githubToken } = req.body; // From Firebase middleware
+export const getProjectLabels = async (req: Request, res: Response, next: NextFunction) => {
+    const { githubToken, repoUrl } = req.body;
 
     try {
-        const project = await prisma.project.findUnique({
-            where: { id }
-        });
+        const labels = await getRepoLabels(repoUrl, githubToken);
 
-        if (!project) {
-            return res.status(404).json({ error: "Project not found" });
-        }
-
-        const { labels, totalCount } = await getRepoLabels(
-            project.repoUrl,
-            githubToken,
-            Number(page)
-        );
-
-        res.status(200).json({
-            labels,
-            pagination: {
-                currentPage: Number(page),
-                totalPages: Math.ceil(totalCount / 10),
-                hasMore: totalCount > Number(page) * 10
-            }
-        });
+        res.status(200).json({ labels });
     } catch (error) {
-        res.status(400).json({ error: "Failed to fetch project labels" });
+        next(error);
     }
 };
 
-export const getProjectMilestones = async (req: Request, res: Response) => {
-    const { id } = req.params;
-    const { page = 1, direction } = req.query;
-    const { githubToken } = req.body; // From Firebase middleware
+export const getProjectMilestones = async (req: Request, res: Response, next: NextFunction) => {
+    const { githubToken, repoUrl } = req.body;
 
     try {
-        const project = await prisma.project.findUnique({
-            where: { id }
-        });
+        const milestones = await getRepoMilestones(repoUrl, githubToken);
 
-        if (!project) {
-            return res.status(404).json({ error: "Project not found" });
-        }
-
-        const { milestones, totalCount } = await getRepoMilestones(
-            project.repoUrl,
-            githubToken,
-            Number(page),
-            10,
-            direction as any || undefined
-        );
-
-        res.status(200).json({
-            milestones,
-            pagination: {
-                currentPage: Number(page),
-                totalPages: Math.ceil(totalCount / 10),
-                hasMore: totalCount > Number(page) * 10
-            }
-        });
+        res.status(200).json({ milestones });
     } catch (error) {
-        res.status(400).json({ error: "Failed to fetch project milestones" });
+        next(error);
     }
 };

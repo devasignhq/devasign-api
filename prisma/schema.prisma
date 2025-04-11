@@ -15,7 +15,6 @@ enum TaskStatus {
   IN_PROGRESS
   MARKED_AS_COMPLETED
   COMPLETED
-  HOLD
 }
 
 enum TimelineType {
