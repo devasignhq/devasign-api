@@ -13,6 +13,7 @@ import { projectRoutes } from './routes/projectRoutes';
 import { taskRoutes } from './routes/taskRoutes';
 import { stellarRoutes } from './routes/stellarRoutes';
 import { testRoutes } from './routes/testRoutes';
+import { StellarServiceError } from './config/stellar';
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -39,15 +40,32 @@ app.get(
     }) as RequestHandler
 );
 
-app.use((err: createError.HttpError, req: Request, res: Response, next: NextFunction) => {
-    res.status(err.status || 500).json({
+app.use(((error: any, req: Request, res: Response, next: NextFunction) => {
+    console.error('Error:', error);
+
+    if (error instanceof StellarServiceError) {
+        return res.status(420).json({ error });
+    }
+
+    // Handle validation errors
+    if (error.name === 'ValidationError') {
+        return res.status(404).json({
+            error: {
+                name: 'ValidationError',
+                message: error.message,
+                details: error.errors
+            }
+        });
+    }
+
+    // Default error
+    res.status(error.status || 500).json({
         error: {
-            message: err.message,
-            status: err.status || 500,
-            details: err
-        },
+            message: "Internal Server Error",
+            details: error || null
+        }
     });
-});
+}) as express.ErrorRequestHandler);
 
 app.get('/', (req: Request, res: Response) => {
     res.send('Hello, TypeScript Express Server!');
