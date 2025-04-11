@@ -1,21 +1,14 @@
-import { Request, Response } from "express";
+import { NextFunction, Request, Response } from "express";
 import { prisma } from "../config/database";
 import { InputJsonValue } from "@prisma/client/runtime/library";
 import { stellarService } from "../config/stellar";
 import { encrypt } from "../helper";
 
-export const createUser = async (req: Request, res: Response) => {
+export const createUser = async (req: Request, res: Response, next: NextFunction) => {
     const { userId, githubUsername } = req.body;
 
     try {
         const userWallet = await stellarService.createWallet();
-        const funded = await stellarService.fundWallet(userWallet.publicKey);
-
-        if (funded !== "SUCCESS") {
-            return res.status(420).json({ message: "Failed to fund wallet" });
-        }
-
-        await stellarService.addTrustLine(userWallet.secretKey);
 
         const encryptedUserSecret = encrypt(userWallet.secretKey);
 
@@ -37,16 +30,24 @@ export const createUser = async (req: Request, res: Response) => {
             }
         });
 
-        res.status(201).json({
-            ...user,
-            walletAddress: userWallet.publicKey
-        });
+        try {
+            await stellarService.fundWallet(userWallet.publicKey);
+            await stellarService.addTrustLine(userWallet.secretKey);
+            
+            res.status(201).json(user);
+        } catch (error: any) {
+            next({ 
+                ...error, 
+                user, 
+                message: "User successfully created. Failed to fund wallet/add trustline."
+            });
+        }
     } catch (error) {
-        res.status(400).send(error);
+        next(error);
     }
 }
 
-export const updateUser = async (req: Request, res: Response) => {
+export const updateUser = async (req: Request, res: Response, next: NextFunction) => {
     const { userId, username } = req.body;
 
     try {
@@ -56,11 +57,11 @@ export const updateUser = async (req: Request, res: Response) => {
         });
         res.status(200).json(user);
     } catch (error) {
-        res.status(400).send(error);
+        next(error);
     }
 }
 
-export const updateAddressBook = async (req: Request, res: Response) => {
+export const updateAddressBook = async (req: Request, res: Response, next: NextFunction) => {
     const { userId, address, name } = req.body;
 
     try {
@@ -87,6 +88,6 @@ export const updateAddressBook = async (req: Request, res: Response) => {
 
         res.status(200).json(updatedUser);
     } catch (error) {
-        res.status(400).send(error);
+        next(error);
     }
 }
