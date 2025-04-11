@@ -9,24 +9,51 @@ import {
     sendInvitation 
 } from "../services/projectService";
 import { ErrorClass } from "../types";
+import { stellarService } from "../config/stellar";
+import { encrypt } from "../helper";
 
 export const createProject = async (req: Request, res: Response, next: NextFunction) => {
     const { userId, githubToken, repoUrl } = req.body;
 
     try {
         const repoDetails = await getRepoDetails(repoUrl, githubToken);
+        
+        const escrowWallet = await stellarService.createWallet();
+        const encryptedUserSecret = encrypt(escrowWallet.secretKey);
 
         const project = await prisma.project.create({
             data: {
                 name: repoDetails.name,
                 description: repoDetails.description || "",
                 repoUrl,
+                escrowAddress: escrowWallet.publicKey,
+                escrowSecret: encryptedUserSecret,
                 users: {
                     connect: { userId }
                 }
+            },
+            select: {
+                id: true,
+                name: true,
+                description: true,
+                repoUrl: true,
+                createdAt: true,
+                updatedAt: true
             }
         });
-        res.status(201).json(project);
+
+        try {
+            await stellarService.fundWallet(escrowWallet.publicKey);
+            await stellarService.addTrustLine(escrowWallet.secretKey);
+            
+            res.status(201).json(project);
+        } catch (error: any) {
+            next({ 
+                ...error, 
+                project, 
+                message: "Project successfully created. Failed to fund escrow wallet/add USDC trustline."
+            });
+        }
     } catch (error) {
         next(error);
     }

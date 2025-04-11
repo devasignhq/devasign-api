@@ -9,7 +9,6 @@ export const createUser = async (req: Request, res: Response, next: NextFunction
 
     try {
         const userWallet = await stellarService.createWallet();
-
         const encryptedUserSecret = encrypt(userWallet.secretKey);
 
         const user = await prisma.user.create({
@@ -39,7 +38,7 @@ export const createUser = async (req: Request, res: Response, next: NextFunction
             next({ 
                 ...error, 
                 user, 
-                message: "User successfully created. Failed to fund wallet/add trustline."
+                message: "User successfully created. Failed to fund wallet/add USDC trustline."
             });
         }
     } catch (error) {
