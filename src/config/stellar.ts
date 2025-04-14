@@ -56,12 +56,12 @@ export class StellarService {
     }
 
     // TODO: Refactor this. It's currently giving errors.
-    async submitTransaction(account: AccountKeypair, transaction: any) {
+    async submitTransaction(account: AccountKeypair, buildingFunction: (tx: any) => any) {
         await stellar.submitWithFeeIncrease({
             sourceAddress: account,
             timeout: 30,
             baseFeeIncrease: 100,
-            buildingFunction: () => transaction,
+            buildingFunction,
         });
     }
 
@@ -74,6 +74,34 @@ export class StellarService {
             });
             const txCreateAccount = txBuilder.createAccount(accountKeyPair).build();
             txCreateAccount.sign(this.masterAccount.keypair);
+            await stellar.submitTransaction(txCreateAccount);
+        
+            return {
+                publicKey: accountKeyPair.publicKey,
+                secretKey: accountKeyPair.secretKey
+            };
+        } catch (error) {
+            throw new StellarServiceError("Failed to create wallet", error);
+        }
+    }
+
+    async createWalletViaSponsor(sponsorSecret: string) {
+        try {
+            const sponsorKeyPair = Keypair.fromSecret(sponsorSecret);
+            const accountKeyPair = account.createKeypair();
+
+            const txBuilder = await stellar.transaction({
+                sourceAddress: new AccountKeypair(sponsorKeyPair),
+            });
+
+            const buildingFunction = (bldr: any) => bldr.createAccount(accountKeyPair);
+            const txCreateAccount = txBuilder
+                .sponsoring(new AccountKeypair(sponsorKeyPair), buildingFunction, accountKeyPair)
+                .build();
+
+            accountKeyPair.sign(txCreateAccount);
+            txCreateAccount.sign(sponsorKeyPair);
+
             await stellar.submitTransaction(txCreateAccount);
         
             return {
@@ -111,6 +139,39 @@ export class StellarService {
         }
     }
 
+    async addTrustLineViaSponsor(
+        sponsorSecret: string, 
+        accountSecret: string, 
+        assetId: StellarAssetId = usdcAssetId
+    ) {
+        try {
+            const sponsorKeyPair = Keypair.fromSecret(sponsorSecret);
+            const accountKeyPair = Keypair.fromSecret(accountSecret);
+
+            const txBuilder = await stellar.transaction({
+                sourceAddress: new AccountKeypair(sponsorKeyPair),
+            });
+
+            const buildingFunction = (bldr: any) => bldr.addAssetSupport(assetId);
+            const txAddAssetSupport = txBuilder
+                .sponsoring(
+                    new AccountKeypair(sponsorKeyPair), 
+                    buildingFunction, 
+                    new AccountKeypair(accountKeyPair)
+                )
+                .build();
+
+            txAddAssetSupport.sign(accountKeyPair);
+            txAddAssetSupport.sign(sponsorKeyPair);
+            
+            await stellar.submitTransaction(txAddAssetSupport);
+
+            return "SUCCESS";
+        } catch (error) {
+            throw new StellarServiceError("Failed to add trustline", error);
+        }
+    }
+
     async transferAsset(
         sourceSecret: string, 
         destinationAddress: string, 
@@ -140,6 +201,49 @@ export class StellarService {
             return "SUCCESS";
         } catch (error) {
             throw new StellarServiceError("Failed to transfer asset", error);
+        }
+    }
+
+    async transferAssetViaSponsor(
+        sponsorSecret: string, 
+        accountSecret: string, 
+        destinationAddress: string, 
+        sendAssetId: StellarAssetId,
+        destAssetId: StellarAssetId,
+        amount: string
+    ) {
+        try {
+            const sponsorKeyPair = Keypair.fromSecret(sponsorSecret);
+            const accountKeyPair = Keypair.fromSecret(accountSecret);
+
+            const txBuilder = await stellar.transaction({
+                sourceAddress: new AccountKeypair(sponsorKeyPair),
+            });
+
+            const buildingFunction = (bldr: any) => bldr.pathPay({
+                destinationAddress: destinationAddress,
+                sendAsset: sendAssetId,
+                destAsset: destAssetId,
+                sendAmount: amount,
+            });
+
+            const txAddAssetSupport = txBuilder
+                .sponsoring(
+                    new AccountKeypair(sponsorKeyPair), 
+                    buildingFunction, 
+                    new AccountKeypair(accountKeyPair)
+                )
+                .build();
+
+            txAddAssetSupport.sign(accountKeyPair);
+            txAddAssetSupport.sign(sponsorKeyPair);
+            
+            await stellar.submitTransaction(txAddAssetSupport);
+
+            return "SUCCESS";
+        } catch (error) {
+            console.error(error);
+            throw new StellarServiceError("Failed to add trustline", error);
         }
     }
 

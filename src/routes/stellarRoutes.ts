@@ -18,6 +18,26 @@ router.post('/wallet', async (req: Request, res: Response, next: NextFunction) =
     }
 });
 
+// Create a new wallet via sponsor
+router.post('/wallet/sponsor',
+    [
+        body('secretKey').notEmpty().withMessage('Secret key is required'),
+    ],
+    async (req: Request, res: Response, next: NextFunction) => {
+        try {
+            const { secretKey } = req.body;
+            const wallet = await stellarService.createWalletViaSponsor(secretKey);
+            res.status(201).json({
+                message: 'Wallet created successfully',
+                data: wallet
+            });
+        } catch (error) {
+            // next(createError(500, 'Failed to create wallet'));
+            res.status(601).json({ error });
+        }
+    }
+);
+
 // Add trustline for USDC
 router.post('/trustline',
     [
@@ -27,6 +47,25 @@ router.post('/trustline',
         try {
             const { secretKey } = req.body;
             await stellarService.addTrustLine(secretKey);
+            res.status(200).json({
+                message: 'USDC trustline added successfully'
+            });
+        } catch (error) {
+            res.status(601).json({ error });
+        }
+    }
+);
+
+// Add trustline for USDC via sponsor
+router.post('/trustline/sponsor',
+    [
+        body('sponsorSecret').notEmpty().withMessage('Sponsor key is required'),
+        body('accountSecret').notEmpty().withMessage('Account key is required'),
+    ],
+    async (req: Request, res: Response, next: NextFunction) => {
+        try {
+            const { sponsorSecret, accountSecret } = req.body;
+            await stellarService.addTrustLineViaSponsor(sponsorSecret, accountSecret);
             res.status(200).json({
                 message: 'USDC trustline added successfully'
             });
@@ -74,6 +113,35 @@ router.post('/transfer',
             });
         } catch (error) {
             res.status(601).json({ error });
+        }
+    }
+)
+
+// Transfer assets via sponsor
+router.post('/transfer/sponsor',
+    [
+        body('sponsorSecret').notEmpty().withMessage('Sponsor key is required'),
+        body('accountSecret').notEmpty().withMessage('Account key is required'),
+        body('destinationAddress').notEmpty().withMessage('Destination public key is required'),
+        body('amount').notEmpty().withMessage('Amount is required'),
+    ],
+    async (req: Request, res: Response, next: NextFunction) => {
+        try {
+            const { sponsorSecret, accountSecret, destinationAddress, amount } = req.body;
+            const result = await stellarService.transferAssetViaSponsor(
+                sponsorSecret,
+                accountSecret,
+                destinationAddress,
+                xlmAssetId,
+                xlmAssetId,
+                amount
+            );
+            res.status(200).json({
+                message: 'Asset transferred successfully',
+                data: result
+            });
+        } catch (error) {
+            next(error);
         }
     }
 );
