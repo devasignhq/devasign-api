@@ -3,12 +3,8 @@ import {
     createTask,
     updateTaskBounty,
     acceptTask,
-    // applyForTask,
-    // addTaskComment,
-    // updateTaskComment,
-    // adjustTimeline,
-    // replyTimelineAdjustment,
-    // updateCompensation,
+    requestTimelineModification,
+    replyTimelineModificationRequest,
     markAsComplete,
     validateCompletion,
     deleteTask
@@ -22,15 +18,13 @@ taskRoutes.put("/:id/bounty", updateTaskBounty as RequestHandler);
 taskRoutes.delete("/:id", deleteTask as RequestHandler);
 
 // Task status changes
-// taskRoutes.post("/:id/apply", applyForTask as RequestHandler);
 taskRoutes.post("/:id/accept", acceptTask as RequestHandler);
 taskRoutes.post("/:id/complete", markAsComplete as RequestHandler);
 taskRoutes.post("/:id/validate", validateCompletion as RequestHandler);
 
-// Timeline and compensation
-// taskRoutes.post("/:id/timeline", adjustTimeline as RequestHandler);
-// taskRoutes.post("/:id/timeline/reply", replyTimelineAdjustment as RequestHandler);
-// taskRoutes.put("/:id/compensation", updateCompensation as RequestHandler);
+// Timeline
+taskRoutes.post("/:id/timeline", requestTimelineModification as RequestHandler);
+taskRoutes.post("/:id/timeline/reply", replyTimelineModificationRequest as RequestHandler);
 
 // Comments
 // taskRoutes.post("/:id/comments", addTaskComment as RequestHandler);

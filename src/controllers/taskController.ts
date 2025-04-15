@@ -190,9 +190,17 @@ export const acceptTask = async (req: Request, res: Response, next: NextFunction
     const { userId } = req.body;
 
     try {
-        const task = await prisma.task.findUnique({ where: { id } });
-        if (!task) return res.status(404).json({ error: "Task not found" });
-        if (task.status !== 'OPEN') return res.status(400).json({ error: "Task is not open" });
+        const task = await prisma.task.findUnique({ 
+            where: { id },
+            select: { status: true }
+        });
+
+        if (!task) {
+            throw new NotFoundErrorClass("Task not found");
+        }
+        if (task.status !== 'OPEN') {
+            throw new ErrorClass("TaskError", null, "Task is not open");
+        }
 
         const updatedTask = await prisma.task.update({
             where: { id },
@@ -209,7 +217,7 @@ export const acceptTask = async (req: Request, res: Response, next: NextFunction
 
         res.status(200).json(updatedTask);
     } catch (error) {
-        res.status(400).json({ error: "Failed to accept task" });
+        next(error);
     }
 };
 
@@ -280,72 +288,104 @@ export const acceptTask = async (req: Request, res: Response, next: NextFunction
 // };
 
 
-// export const adjustTimeline = async (req: Request, res: Response, next: NextFunction) => {
-//     const { id } = req.params;
-//     const { newTimeline, reason } = req.body;
-//     const { userId } = req.body; 
+export const requestTimelineModification = async (req: Request, res: Response, next: NextFunction) => {
+    const { id } = req.params;
+    const { userId, newTimeline, reason, attachments } = req.body;
 
-//     try {
-//         const task = await prisma.task.findUnique({ where: { id } });
-//         if (!task) return res.status(404).json({ error: "Task not found" });
-//         if (task.status !== 'IN_PROGRESS' || task.contributorId !== userId) {
-//             return res.status(400).json({ error: "Timeline adjustment can only be requested by active contributor" });
-//         }
+    try {
+        const task = await prisma.task.findUnique({ 
+            where: { id },
+            select: {
+                status: true,
+                contributorId: true
+            } 
+        });
 
-//         // Store timeline adjustment request (implement in your preferred way)
-//         // For MVP, you might want to add this to the task's metadata or comments
-        
-//         res.status(200).json({ message: "Timeline adjustment requested" });
-//     } catch (error) {
-//         res.status(400).json({ error: "Failed to request timeline adjustment" });
-//     }
-// };
+        if (!task) {
+            throw new NotFoundErrorClass("Task not found");
+        }
+        if (task.status !== 'IN_PROGRESS' || task.contributorId !== userId) {
+            throw new ErrorClass(
+                "TaskError", 
+                null, 
+                "Timeline adjustment can only be requested by active contributor"
+            );
+        }
 
-// export const replyTimelineAdjustment = async (req: Request, res: Response, next: NextFunction) => {
-//     const { id } = req.params;
-//     const { accepted, newTimeline } = req.body;
-//     const { userId } = req.body; 
+        // TODO: Update if comments are generally allowed
+        const comment = await createComment({
+            userId,
+            taskId: id,
+            message: reason,
+            attachments: [...attachments, `${newTimeline}`],
+        });
 
-//     try {
-//         const task = await prisma.task.findUnique({ where: { id } });
-//         if (!task) return res.status(404).json({ error: "Task not found" });
-//         if (task.creatorId !== userId) {
-//             return res.status(403).json({ error: "Only task creator can respond to timeline adjustments" });
-//         }
+        res.status(200).json({ comment });
+    } catch (error) {
+        next(error);
+    }
+};
 
-//         if (accepted) {
-//             await prisma.task.update({
-//                 where: { id },
-//                 data: { timeline: newTimeline }
-//             });
-//         }
+export const replyTimelineModificationRequest = async (req: Request, res: Response, next: NextFunction) => {
+    const { id } = req.params;
+    const { 
+        userId, 
+        accepted, 
+        newTimeline, 
+        reason, 
+        attachments 
+    } = req.body;
 
-//         res.status(200).json({ message: accepted ? "Timeline adjusted" : "Timeline adjustment rejected" });
-//     } catch (error) {
-//         res.status(400).json({ error: "Failed to process timeline adjustment" });
-//     }
-// };
+    try {
+        const task = await prisma.task.findUnique({ 
+            where: { id },
+            select: { creatorId: true } 
+        });
 
-// export const updateCompensation = async (req: Request, res: Response, next: NextFunction) => {
-//     const { id } = req.params;
-//     const { newBounty } = req.body;
+        if (!task) {
+            throw new NotFoundErrorClass("Task not found");
+        }
 
-//     try {
-//         const task = await prisma.task.findUnique({ where: { id } });
-//         if (!task) return res.status(404).json({ error: "Task not found" });
-//         if (task.status !== 'OPEN') {
-//             return res.status(400).json({ error: "Can only update compensation for open tasks" });
-//         }
+        // TODO: Update to allow team members
+        if (task.creatorId !== userId) { 
+            throw new ErrorClass(
+                "TaskError", 
+                null, 
+                "Only task creator can respond to timeline adjustments"
+            );
+        }
 
-//         const updatedTask = await prisma.task.update({
-//             where: { id },
-//             data: { bounty: newBounty }
-//         });
-//         res.status(200).json(updatedTask);
-//     } catch (error) {
-//         res.status(400).json({ error: "Failed to update compensation" });
-//     }
-// };
+        if (accepted === "TRUE") {
+            await prisma.task.update({
+                where: { id },
+                data: { timeline: Number(newTimeline) }
+            });
+        }
+
+        if (reason || attachments) {
+            const comment = await createComment({
+                userId,
+                taskId: id,
+                message: reason || "",
+                attachments,
+            });
+
+            if (accepted === "TRUE") {
+                return res.status(200).json({ comment, task: { ...task, timeline: Number(newTimeline) } });
+            }
+
+            return res.status(200).json({ comment });
+        }
+
+        res.status(200).json({ 
+            message: accepted === "TRUE" 
+                ? "Successfully modified timeline" 
+                : "Successfully rejected timeline modification request" 
+        });
+    } catch (error) {
+        next(error);
+    }
+};
 
 export const markAsComplete = async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;
@@ -368,7 +408,7 @@ export const markAsComplete = async (req: Request, res: Response, next: NextFunc
         });
         res.status(200).json(updatedTask);
     } catch (error) {
-        res.status(400).json({ error: "Failed to mark task as complete" });
+        next(error);
     }
 };
 
@@ -423,7 +463,7 @@ export const validateCompletion = async (req: Request, res: Response, next: Next
 
         res.status(200).json({ message: approved ? "Task completed" : "Completion rejected" });
     } catch (error) {
-        res.status(400).json({ error: "Failed to validate completion" });
+        next(error);
     }
 };
 
