@@ -113,4 +113,10 @@ export class ErrorClass {
         this.message = message;
         this.details = details;
     }
+
+}
+export class NotFoundErrorClass extends ErrorClass {
+    constructor(message: string) {
+        super("NotFoundError", null, message);
+    }
 }

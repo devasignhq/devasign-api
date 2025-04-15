@@ -13,7 +13,6 @@ import { projectRoutes } from './routes/projectRoutes';
 import { taskRoutes } from './routes/taskRoutes';
 import { stellarRoutes } from './routes/stellarRoutes';
 import { testRoutes } from './routes/testRoutes';
-import { StellarServiceError } from './config/stellar';
 import { ErrorClass } from './types/general';
 
 const app = express();
@@ -44,7 +43,7 @@ app.get(
 app.use(((error: any, req: Request, res: Response, next: NextFunction) => {
     console.error('Error:', error);
 
-    if (error instanceof StellarServiceError || error instanceof ErrorClass) {
+    if (error instanceof ErrorClass) {
         return res.status(420).json({
             error: {
                 name: error.name,
