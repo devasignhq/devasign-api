@@ -14,6 +14,7 @@ import { taskRoutes } from './routes/taskRoutes';
 import { stellarRoutes } from './routes/stellarRoutes';
 import { testRoutes } from './routes/testRoutes';
 import { StellarServiceError } from './config/stellar';
+import { ErrorClass } from './types/general';
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -43,8 +44,14 @@ app.get(
 app.use(((error: any, req: Request, res: Response, next: NextFunction) => {
     console.error('Error:', error);
 
-    if (error instanceof StellarServiceError) {
-        return res.status(420).json({ error });
+    if (error instanceof StellarServiceError || error instanceof ErrorClass) {
+        return res.status(420).json({
+            error: {
+                name: error.name,
+                message: error.message,
+                details: error.details
+            }
+        });
     }
 
     if (error.name === 'ValidationError') {

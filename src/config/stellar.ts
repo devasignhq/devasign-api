@@ -10,6 +10,7 @@ import {
     StellarAssetId,
 } from '@stellar/typescript-wallet-sdk';
 import axios, { AxiosInstance } from 'axios';
+import { ErrorClass } from '../types/general';
 
 const customClient: AxiosInstance = axios.create({
     timeout: 20000,
@@ -31,11 +32,9 @@ export const usdcAssetId = new IssuedAssetId(
     "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5",
 );
 
-export class StellarServiceError extends Error {
-    constructor(message: string, public readonly details?: any) {
-        super(message);
-        this.details = details;
-        this.name = "StellarServiceError";
+export class StellarServiceError extends ErrorClass {
+    constructor(message: string, details?: any) {
+        super("StellarServiceError", details, message);
     }
 }
 
@@ -217,32 +216,31 @@ export class StellarService {
             const accountKeyPair = Keypair.fromSecret(accountSecret);
 
             const txBuilder = await stellar.transaction({
-                sourceAddress: new AccountKeypair(sponsorKeyPair),
+                sourceAddress: new AccountKeypair(accountKeyPair),
             });
-
-            const buildingFunction = (bldr: any) => bldr.pathPay({
-                destinationAddress: destinationAddress,
-                sendAsset: sendAssetId,
-                destAsset: destAssetId,
-                sendAmount: amount,
-            });
-
-            const txAddAssetSupport = txBuilder
-                .sponsoring(
-                    new AccountKeypair(sponsorKeyPair), 
-                    buildingFunction, 
-                    new AccountKeypair(accountKeyPair)
-                )
+            
+            const txPathPay = txBuilder
+                .pathPay({
+                    destinationAddress: destinationAddress,
+                    sendAsset: sendAssetId,
+                    destAsset: destAssetId,
+                    sendAmount: amount,
+                })
                 .build();
 
-            txAddAssetSupport.sign(accountKeyPair);
-            txAddAssetSupport.sign(sponsorKeyPair);
+            txPathPay.sign(accountKeyPair);
+
+            const feeBump = stellar.makeFeeBump({
+                feeAddress: new AccountKeypair(sponsorKeyPair),
+                transaction: txPathPay,
+            });
+
+            feeBump.sign(sponsorKeyPair);
             
-            await stellar.submitTransaction(txAddAssetSupport);
+            await stellar.submitTransaction(feeBump);
 
             return "SUCCESS";
         } catch (error) {
-            console.error(error);
             throw new StellarServiceError("Failed to add trustline", error);
         }
     }

@@ -21,12 +21,12 @@ router.post('/wallet', async (req: Request, res: Response, next: NextFunction) =
 // Create a new wallet via sponsor
 router.post('/wallet/sponsor',
     [
-        body('secretKey').notEmpty().withMessage('Secret key is required'),
+        body('sponsorSecret').notEmpty().withMessage('Secret key is required'),
     ],
     async (req: Request, res: Response, next: NextFunction) => {
         try {
-            const { secretKey } = req.body;
-            const wallet = await stellarService.createWalletViaSponsor(secretKey);
+            const { sponsorSecret } = req.body;
+            const wallet = await stellarService.createWalletViaSponsor(sponsorSecret);
             res.status(201).json({
                 message: 'Wallet created successfully',
                 data: wallet

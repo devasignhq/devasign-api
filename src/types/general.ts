@@ -103,14 +103,14 @@ export class IssueFilters {
     direction?: "asc" | "desc" = "desc";
 }
 
-export class ErrorClass extends Error {
-    constructor(
-        name: string, 
-        public readonly details: any,
-        message: string, 
-    ) {
-        super(message);
+export class ErrorClass {
+    public readonly name: string;
+    public readonly message: string;
+    public readonly details?: any;
+
+    constructor(name: string, details: any, message: string) {
         this.name = name;
+        this.message = message;
         this.details = details;
     }
 }
