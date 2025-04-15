@@ -3,8 +3,10 @@ import { prisma } from "../config/database";
 import { commentsCollection, createComment, updateComment } from "../services/taskService";
 import { stellarService, usdcAssetId } from "../config/stellar";
 import { decrypt } from "../helper";
-import { CreateTask, ErrorClass } from "../types/general";
+import { CreateTask, ErrorClass, NotFoundErrorClass } from "../types/general";
 import { HorizonApi } from "../types/horizonapi";
+
+type USDCBalance = HorizonApi.BalanceLineAsset<"credit_alphanum12">;
 
 export const createTask = async (req: Request, res: Response, next: NextFunction) => {
     const { userId, payload: data } = req.body;
@@ -17,33 +19,46 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
         });
 
         if (!user) {
-            throw new ErrorClass("TaskError", null, "User not found");
+            throw new NotFoundErrorClass("User not found");
         }
 
         const project = await prisma.project.findUnique({
             where: { id: payload.projectId },
-            select: { escrowAddress: true }
+            select: { escrowSecret: true, escrowAddress: true }
         });
 
         if (!project) {
-            throw new ErrorClass("TaskError", null, "Project not found");
+            throw new NotFoundErrorClass("Project not found");
         }
 
         // Check user balance
         const accountInfo = await stellarService.getAccountInfo(user.walletAddress);
         const usdcAsset = accountInfo.balances.find(
-            (asset): asset is HorizonApi.BalanceLineAsset<"credit_alphanum12"> => 
-                'asset_code' in asset && asset.asset_code === "USDC"
-        ) as HorizonApi.BalanceLineAsset<"credit_alphanum12">;
+            (asset): asset is USDCBalance => 'asset_code' in asset && asset.asset_code === "USDC"
+        ) as USDCBalance;
 
         if (parseFloat(usdcAsset.balance) < parseFloat(payload.bounty)) {
             throw new ErrorClass("TaskError", null, "Insufficient balance");
         }
 
+        // Confirm USDC trustline
+        const decryptedUserSecret = decrypt(user.walletSecret);
+        const projectWallet = await stellarService.getAccountInfo(project.escrowAddress!);
+
+        if (
+            !(projectWallet.balances.find(
+                (asset): asset is USDCBalance => 'asset_code' in asset && asset.asset_code === "USDC"
+            ))
+        ) {
+            await stellarService.addTrustLineViaSponsor(
+                decryptedUserSecret,
+                project.escrowSecret!,
+            );
+        }
+
         // Transfer to escrow
-        const decryptedSecret = decrypt(user.walletSecret);
         await stellarService.transferAsset(
-            decryptedSecret,
+            decryptedUserSecret,
             project.escrowAddress!,
             usdcAssetId,
             usdcAssetId,
@@ -77,49 +92,98 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
     }
 };
 
-export const updateTask = async (req: Request, res: Response, next: NextFunction) => {
+export const updateTaskBounty = async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;
-    const { payload } = req.body;
+    const { userId, newbounty } = req.body;
 
     try {
-        const task = await prisma.task.findUnique({ where: { id } });
-        if (!task) return res.status(404).json({ error: "Task not found" });
-        if (!['OPEN', 'HOLD'].includes(task.status)) {
-            return res.status(400).json({ error: "Can only update open or on-hold tasks" });
+        const task = await prisma.task.findUnique({ 
+            where: { id },
+            select: { 
+                status: true, 
+                bounty: true,
+                projectId: true,
+                creatorId: true,
+                project: {
+                    select: {
+                        escrowAddress: true,
+                        escrowSecret: true
+                    }
+                }
+            } 
+        });
+
+        if (!task) {
+            throw new NotFoundErrorClass("Task not found");
+        }
+        if (task.status !== 'OPEN') {
+            throw new ErrorClass("TaskError", null, "Only open tasks can be updated");
+        }
+        if (task.bounty === newbounty) {
+            throw new ErrorClass("TaskError", null, "New bounty is the same as current bounty");
+        }
+        if (task.creatorId !== userId) {
+            throw new ErrorClass("TaskError", null, "Only task creator can update bounty");
         }
 
+        // Get user wallet info
+        const user = await prisma.user.findUnique({
+            where: { userId },
+            select: { walletAddress: true, walletSecret: true }
+        });
+
+        if (!user) {
+            throw new NotFoundErrorClass("User not found");
+        }
+
+        const bountyDifference = Number(newbounty) - task.bounty;
+        const decryptedUserSecret = decrypt(user.walletSecret!);
+
+        if (bountyDifference > 0) {
+            // Additional funds needed - transfer from user to escrow
+            const accountInfo = await stellarService.getAccountInfo(user.walletAddress!);
+            const usdcAsset = accountInfo.balances.find(
+                (asset): asset is USDCBalance => 'asset_code' in asset && asset.asset_code === "USDC"
+            );
+
+            if (!usdcAsset || parseFloat(usdcAsset.balance) < bountyDifference) {
+                throw new ErrorClass("TaskError", null, "Insufficient USDC balance for compensation increase");
+            }
+
+            await stellarService.transferAsset(
+                decryptedUserSecret,
+                task.project.escrowAddress!,
+                usdcAssetId,
+                usdcAssetId,
+                bountyDifference.toString()
+            );
+        } else {
+            // Excess funds - return from escrow to user
+            const decryptedEscrowSecret = decrypt(task.project.escrowSecret!);
+            await stellarService.transferAssetViaSponsor(
+                decryptedUserSecret,
+                decryptedEscrowSecret,
+                user.walletAddress!,
+                usdcAssetId,
+                usdcAssetId,
+                Math.abs(bountyDifference).toString()
+            );
+        }
+
+        // Update task bounty
         const updatedTask = await prisma.task.update({
             where: { id },
-            data: { ...payload }
+            data: { bounty: newbounty }
         });
-        res.status(200).json(updatedTask);
+
+        res.status(200).json({
+            message: 'Task bounty updated successfully',
+            data: updatedTask
+        });
     } catch (error) {
-        res.status(400).json({ error: "Failed to update task" });
+        next(error);
     }
 };
-
-// export const applyForTask = async (req: Request, res: Response, next: NextFunction) => {
-//     const { id } = req.params;
-//     const { userId } = req.body;
-
-//     try {
-//         const task = await prisma.task.findUnique({ where: { id } });
-//         if (!task) return res.status(404).json({ error: "Task not found" });
-//         if (task.status !== 'OPEN') return res.status(400).json({ error: "Task is not open for applications" });
-
-//         await prisma.task.update({
-//             where: { id },
-//             data: {
-//                 applications: {
-//                     connect: { userId }
-//                 }
-//             }
-//         });
-//         res.status(200).json({ message: "Application submitted successfully" });
-//     } catch (error) {
-//         res.status(400).json({ error: "Failed to apply for task" });
-//     }
-// };
 
 export const acceptTask = async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;
@@ -149,91 +213,72 @@ export const acceptTask = async (req: Request, res: Response, next: NextFunction
     }
 };
 
-export const addTaskComment = async (req: Request, res: Response, next: NextFunction) => {
-    const { id } = req.params;
-    const { userId, message, attachments } = req.body;
+// export const addTaskComment = async (req: Request, res: Response, next: NextFunction) => {
+//     const { id } = req.params;
+//     const { userId, message, attachments } = req.body;
 
-    try {
-        const task = await prisma.task.findUnique({ 
-            where: { id },
-            include: { creator: true, contributor: true }
-        });
+//     try {
+//         const task = await prisma.task.findUnique({ 
+//             where: { id },
+//             include: { creator: true, contributor: true }
+//         });
 
-        if (!task) return res.status(404).json({ error: "Task not found" });
-        // ! Review (Allow comments on completed tasks)
-        if (task.status === 'COMPLETED') {
-            return res.status(400).json({ error: "Cannot comment on completed tasks" });
-        }
+//         if (!task) return res.status(404).json({ error: "Task not found" });
+//         // ! Review (Allow comments on completed tasks)
+//         if (task.status === 'COMPLETED') {
+//             return res.status(400).json({ error: "Cannot comment on completed tasks" });
+//         }
 
-        // Check if user can comment
-        if (task.status !== 'OPEN' && 
-            userId !== task.creatorId && 
-            userId !== task.contributorId) {
-            return res.status(403).json({ error: "Not authorized to comment" });
-        }
+//         // Check if user can comment
+//         if (task.status !== 'OPEN' && 
+//             userId !== task.creatorId && 
+//             userId !== task.contributorId) {
+//             return res.status(403).json({ error: "Not authorized to comment" });
+//         }
 
-        const comment = await createComment({
-            userId,
-            taskId: id,
-            message,
-            attachments
-        });
-        res.status(201).json(comment);
-    } catch (error) {
-        res.status(400).json({ error: "Failed to add comment" });
-    }
-};
+//         const comment = await createComment({
+//             userId,
+//             taskId: id,
+//             message,
+//             attachments
+//         });
+//         res.status(201).json(comment);
+//     } catch (error) {
+//         res.status(400).json({ error: "Failed to add comment" });
+//     }
+// };
 
-export const updateTaskComment = async (req: Request, res: Response, next: NextFunction) => {
-    const { id: taskId, commentId } = req.params;
-    const { userId, message, attachments } = req.body;
+// export const updateTaskComment = async (req: Request, res: Response, next: NextFunction) => {
+//     const { id: taskId, commentId } = req.params;
+//     const { userId, message, attachments } = req.body;
 
-    try {
-        const task = await prisma.task.findUnique({ 
-            where: { id: taskId },
-            include: { creator: true, contributor: true }
-        });
+//     try {
+//         const task = await prisma.task.findUnique({ 
+//             where: { id: taskId },
+//             include: { creator: true, contributor: true }
+//         });
 
-        if (!task) {
-            return res.status(404).json({ error: "Task not found" });
-        }
+//         if (!task) {
+//             return res.status(404).json({ error: "Task not found" });
+//         }
 
-        // Check if user can edit comment (must be comment creator)
-        const comment = (await commentsCollection.doc(commentId).get()).data();
-        if (!comment || comment.userId !== userId) {
-            return res.status(403).json({ error: "Not authorized to edit this comment" });
-        }
+//         // Check if user can edit comment (must be comment creator)
+//         const comment = (await commentsCollection.doc(commentId).get()).data();
+//         if (!comment || comment.userId !== userId) {
+//             return res.status(403).json({ error: "Not authorized to edit this comment" });
+//         }
 
-        const updatedComment = await updateComment(commentId, {
-            message,
-            attachments
-        });
+//         const updatedComment = await updateComment(commentId, {
+//             message,
+//             attachments
+//         });
 
-        res.status(200).json(updatedComment);
-    } catch (error) {
-        res.status(400).json({ error: "Failed to update comment" });
-    }
-};
+//         res.status(200).json(updatedComment);
+//     } catch (error) {
+//         res.status(400).json({ error: "Failed to update comment" });
+//     }
+// };
 
-export const putOnHold = async (req: Request, res: Response, next: NextFunction) => {
-    const { id } = req.params;
-
-    try {
-        const task = await prisma.task.findUnique({ where: { id } });
-        if (!task) return res.status(404).json({ error: "Task not found" });
-        if (task.status !== 'OPEN') {
-            return res.status(400).json({ error: "Only open tasks can be put on hold" });
-        }
-
-        const updatedTask = await prisma.task.update({
-            where: { id },
-            data: { status: 'HOLD' }
-        });
-        res.status(200).json(updatedTask);
-    } catch (error) {
-        res.status(400).json({ error: "Failed to put task on hold" });
-    }
-};
 
 // export const adjustTimeline = async (req: Request, res: Response, next: NextFunction) => {
 //     const { id } = req.params;
@@ -350,7 +395,7 @@ export const validateCompletion = async (req: Request, res: Response, next: Next
 
         if (approved) {
             // Release funds from escrow to contributor
-            const decryptedEscrowSecret = decrypt(task.creator.escrowSecret!);
+            // const decryptedEscrowSecret = decrypt(task.creator.escrowSecret!);
             // await stellarService.transferUSDC(
             //     decryptedEscrowSecret,
             //     task.contributor.walletAddress!,
