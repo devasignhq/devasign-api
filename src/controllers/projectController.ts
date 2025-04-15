@@ -8,18 +8,27 @@ import {
     getRepoMilestones, 
     sendInvitation 
 } from "../services/projectService";
-import { ErrorClass } from "../types/general";
+import { ErrorClass, NotFoundErrorClass } from "../types/general";
 import { stellarService } from "../config/stellar";
-import { encrypt } from "../helper";
+import { decrypt, encrypt } from "../helper";
 
 export const createProject = async (req: Request, res: Response, next: NextFunction) => {
     const { userId, githubToken, repoUrl } = req.body;
 
     try {
         const repoDetails = await getRepoDetails(repoUrl, githubToken);
+        const user = await prisma.user.findUnique({
+            where: { userId },            
+            select: { walletSecret: true }
+        });
+        
+        if (!user) {
+            throw new NotFoundErrorClass("User not found");
+        }
 
-        const escrowWallet = await stellarService.createWallet();
-        const encryptedUserSecret = encrypt(escrowWallet.secretKey);
+        const decryptedUserSecret = decrypt(user.walletSecret);
+        const escrowWallet = await stellarService.createWalletViaSponsor(decryptedUserSecret);
+        const encryptedEscrowSecret = encrypt(escrowWallet.secretKey);
 
         const project = await prisma.project.create({
             data: {
@@ -27,7 +36,7 @@ export const createProject = async (req: Request, res: Response, next: NextFunct
                 description: repoDetails.description || "",
                 repoUrl,
                 escrowAddress: escrowWallet.publicKey,
-                escrowSecret: encryptedUserSecret,
+                escrowSecret: encryptedEscrowSecret,
                 users: {
                     connect: { userId }
                 }
@@ -43,15 +52,18 @@ export const createProject = async (req: Request, res: Response, next: NextFunct
         });
 
         try {
-            await stellarService.fundWallet(escrowWallet.publicKey);
-            await stellarService.addTrustLine(escrowWallet.secretKey);
+            await stellarService.addTrustLineViaSponsor(
+                decryptedUserSecret,
+                escrowWallet.secretKey
+            );
             
             res.status(201).json(project);
         } catch (error: any) {
+            // Return project data even if adding USDC trustline fails
             next({ 
                 ...error, 
                 project, 
-                message: "Project successfully created. Failed to fund escrow wallet/add USDC trustline."
+                message: "Project successfully created. Failed to add USDC trustline."
             });
         }
     } catch (error) {
@@ -96,7 +108,7 @@ export const deleteProject = async (req: Request, res: Response, next: NextFunct
             select: { id: true }
         });
 
-        // Check if no task is IN_PROGRESS or COMPLETED
+        // Check if no task is IN_PROGRESS...COMPLETED
         if (allTasks.length !== allOpenTasks.length) {
             throw new ErrorClass(
                 "ProjectError",
@@ -132,7 +144,7 @@ export const addTeamMembers = async (req: Request, res: Response, next: NextFunc
         });
 
         if (!project) {
-            throw new ErrorClass("ProjectError", null, "Project not found");
+            throw new NotFoundErrorClass("Project not found");
         }
 
         const results = await Promise.all(
