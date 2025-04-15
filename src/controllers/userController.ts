@@ -3,8 +3,95 @@ import { prisma } from "../config/database";
 import { InputJsonValue } from "@prisma/client/runtime/library";
 import { stellarService } from "../config/stellar";
 import { encrypt } from "../helper";
+import { NotFoundErrorClass } from "../types/general";
 
-// TODO: getUser controller and route
+export const getUser = async (req: Request, res: Response, next: NextFunction) => {
+    const { userId } = req.params;
+
+    // TODO: reduce the amount of data returned to only what is needed and add filer for selection
+    try {
+        const user = await prisma.user.findUnique({
+            where: { userId },
+            select: {
+                userId: true,
+                username: true,
+                walletAddress: true,
+                contributionSummary: {
+                    select: {
+                        tasksTaken: true,
+                        tasksCompleted: true,
+                        averageRating: true,
+                        totalEarnings: true
+                    }
+                },
+                projects: {
+                    select: {
+                        id: true,
+                        name: true,
+                        description: true,
+                        repoUrl: true,
+                        createdAt: true
+                    }
+                },
+                createdTasks: {
+                    select: {
+                        id: true,
+                        project: {
+                            select: {
+                                name: true,
+                                repoUrl: true
+                            }
+                        },
+                        issue: true,
+                        bounty: true,
+                        status: true,
+                        createdAt: true
+                    }
+                },
+                contributedTasks: {
+                    select: {
+                        id: true,
+                        project: {
+                            select: {
+                                name: true,
+                                repoUrl: true
+                            }
+                        },
+                        issue: true,
+                        bounty: true,
+                        status: true,
+                        acceptedAt: true,
+                        completedAt: true
+                    }
+                },
+                addressBook: true,
+                createdAt: true,
+                updatedAt: true
+            }
+        });
+
+        if (!user) {
+            throw new NotFoundErrorClass("User not found");
+        }
+
+        try {
+            const accountInfo = await stellarService.getAccountInfo(user.walletAddress);
+            res.status(200).json({
+                ...user,
+                assets: accountInfo.balances
+            });
+        } catch (error: any) {
+            // Return user data even if getting Stellar account info fails
+            next({
+                ...error,
+                user,
+                message: "User found but failed to fetch Stellar account info"
+            });
+        }
+    } catch (error) {
+        next(error);
+    }
+};
 
 export const createUser = async (req: Request, res: Response, next: NextFunction) => {
     const { userId, githubUsername } = req.body;
@@ -74,7 +161,7 @@ export const updateAddressBook = async (req: Request, res: Response, next: NextF
         });
 
         if (!user) {
-            return res.status(404).json({ message: "User not found" });
+            throw new NotFoundErrorClass("User not found");
         }
 
         const newAddress = { address, name };
