@@ -365,71 +365,72 @@ export const acceptTask = async (req: Request, res: Response, next: NextFunction
     }
 };
 
-// export const addTaskComment = async (req: Request, res: Response, next: NextFunction) => {
-//     const { id } = req.params;
-//     const { userId, message, attachments } = req.body;
+export const addTaskComment = async (req: Request, res: Response, next: NextFunction) => {
+    const { id } = req.params;
+    const { userId, message, attachments } = req.body;
 
-//     try {
-//         const task = await prisma.task.findUnique({ 
-//             where: { id },
-//             include: { creator: true, contributor: true }
-//         });
+    try {
+        const task = await prisma.task.findUnique({ 
+            where: { id },
+            include: { creator: true, contributor: true }
+        });
 
-//         if (!task) return res.status(404).json({ error: "Task not found" });
-//         // ! Review (Allow comments on completed tasks)
-//         if (task.status === "COMPLETED") {
-//             return res.status(400).json({ error: "Cannot comment on completed tasks" });
-//         }
+        if (!task) {
+            throw new NotFoundErrorClass("Task not found");
+        }
 
-//         // Check if user can comment
-//         if (task.status !== "OPEN" && 
-//             userId !== task.creatorId && 
-//             userId !== task.contributorId) {
-//             return res.status(403).json({ error: "Not authorized to comment" });
-//         }
+        // ? Review (Allow comments on completed tasks)
+        if (["OPEN", "COMPLETED"].includes(task.status)) {
+            throw new ErrorClass("TaskError", null, "Can only comment on active tasks");
+        }
 
-//         const comment = await createComment({
-//             userId,
-//             taskId: id,
-//             message,
-//             attachments
-//         });
-//         res.status(201).json(comment);
-//     } catch (error) {
-//         res.status(400).json({ error: "Failed to add comment" });
-//     }
-// };
+        // Check if user can comment
+        if (userId !== task.creatorId || userId !== task.contributorId) {
+            throw new ErrorClass("TaskError", null, "Not authorized to comment");
+        }
 
-// export const updateTaskComment = async (req: Request, res: Response, next: NextFunction) => {
-//     const { id: taskId, commentId } = req.params;
-//     const { userId, message, attachments } = req.body;
+        const comment = await createComment({
+            userId,
+            taskId: id,
+            message,
+            attachments
+        });
+        res.status(201).json(comment);
+    } catch (error) {
+        next(error);
+    }
+};
 
-//     try {
-//         const task = await prisma.task.findUnique({ 
-//             where: { id: taskId },
-//             include: { creator: true, contributor: true }
-//         });
+export const updateTaskComment = async (req: Request, res: Response, next: NextFunction) => {
+    const { id: taskId, commentId } = req.params;
+    const { userId, message, attachments } = req.body;
 
-//         if (!task) {
-//             return res.status(404).json({ error: "Task not found" });
-//         }
+    try {
+        const task = await prisma.task.findUnique({ 
+            where: { id: taskId },
+            include: { creator: true, contributor: true }
+        });
 
-//         // Check if user can edit comment (must be comment creator)
-//         const comment = (await commentsCollection.doc(commentId).get()).data();
-//         if (!comment || comment.userId !== userId) {
-//             return res.status(403).json({ error: "Not authorized to edit this comment" });
-//         }
+        if (!task) {
+            throw new NotFoundErrorClass("Task not found");
+        }
 
-//         const updatedComment = await updateComment(commentId, {
-//             message,
-//             attachments
-//         });
+        // Check if user can edit comment (must be comment creator)
+        const comment = (await commentsCollection.doc(commentId).get()).data();
+        if (!comment || comment.userId !== userId) {
+            throw new ErrorClass("TaskError", null, "Not authorized to edit this comment");
+        }
 
-//         res.status(200).json(updatedComment);
-//     } catch (error) {
-//         res.status(400).json({ error: "Failed to update comment" });
-//     }
-// };
+        const updatedComment = await updateComment(commentId, {
+            message,
+            attachments
+        });
+
+        res.status(200).json(updatedComment);
+    } catch (error) {
+        next(error);
+    }
+};
 
 
 export const requestTimelineModification = async (req: Request, res: Response, next: NextFunction) => {

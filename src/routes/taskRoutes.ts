@@ -9,7 +9,9 @@ import {
     validateCompletion,
     deleteTask,
     getTask,
-    getTasks
+    getTasks,
+    addTaskComment,
+    updateTaskComment
 } from "../controllers/taskController";
 
 export const taskRoutes = Router();
@@ -32,5 +34,5 @@ taskRoutes.post("/:id/timeline", requestTimelineModification as RequestHandler);
 taskRoutes.post("/:id/timeline/reply", replyTimelineModificationRequest as RequestHandler);
 
 // Comments
-// taskRoutes.post("/:id/comments", addTaskComment as RequestHandler);
-// taskRoutes.put("/:id/comments/:commentId", updateTaskComment as RequestHandler);
+taskRoutes.post("/:id/comments", addTaskComment as RequestHandler);
+taskRoutes.put("/:id/comments/:commentId", updateTaskComment as RequestHandler);
