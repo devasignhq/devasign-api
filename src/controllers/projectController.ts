@@ -9,13 +9,22 @@ import {
     sendInvitation 
 } from "../services/projectService";
 import { ErrorClass, NotFoundErrorClass } from "../types/general";
-import { stellarService } from "../config/stellar";
+import { stellarService, usdcAssetId } from "../config/stellar";
 import { decrypt, encrypt } from "../helper";
+import { ref } from "process";
 
 export const createProject = async (req: Request, res: Response, next: NextFunction) => {
     const { userId, githubToken, repoUrl } = req.body;
 
     try {
+        const existingProject = await prisma.project.findFirst({
+            where: { repoUrl }
+        });
+
+        if (existingProject) {
+            throw new ErrorClass("ProjectError", null, "Project already exists");
+        }
+
         const repoDetails = await getRepoDetails(repoUrl, githubToken);
         const user = await prisma.user.findUnique({
             where: { userId },            
@@ -80,6 +89,13 @@ export const getProjects = async (req: Request, res: Response, next: NextFunctio
     } = req.query;
 
     try {
+        if (Number(limit) > 100) {
+            throw new ErrorClass("ValidationError", null, "Maximum limit is 100");
+        }
+        if (Number(page) < 1) {
+            throw new ErrorClass("ValidationError", null, "Page must be greater than 0");
+        }
+
         // Build where clause based on filters
         const where: any = {};
         
@@ -174,6 +190,7 @@ export const getProjects = async (req: Request, res: Response, next: NextFunctio
 
 export const getProject = async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;
+    const { userId } = req.body;
 
     try {
         const project = await prisma.project.findUnique({
@@ -228,6 +245,11 @@ export const getProject = async (req: Request, res: Response, next: NextFunction
         if (!project) {
             throw new NotFoundErrorClass("Project not found");
         }
+        
+        const userIsTeamMember = project.users.some(user => user.userId === userId);
+        if (!userIsTeamMember) {
+            throw new ErrorClass("AuthorizationError", null, "Not authorized to view this project");
+        }
 
         // Calculate project stats
         const stats = {
@@ -249,12 +271,38 @@ export const getProject = async (req: Request, res: Response, next: NextFunction
 
 export const updateProject = async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;
-    const { githubToken, repoUrl } = req.body;
+    const { githubToken, repoUrl, userId } = req.body;
 
     try {
+        const project = await prisma.project.findUnique({
+            where: { id },
+            select: { 
+                users: { select: { userId: true } },
+                tasks: { select: { status: true } }
+            }
+        });
+        
+        if (!project) {
+            throw new NotFoundErrorClass("Project not found");
+        }
+
+        // Check authorization
+        const userIsTeamMember = project.users.some(user => user.userId === userId);
+        if (!userIsTeamMember) {
+            throw new ErrorClass("AuthorizationError", null, "Not authorized to update this project");
+        }
+
+        // ? Review this
+        const hasActiveTasks = project.tasks.some(task => 
+            task.status !== 'OPEN' && task.status !== 'COMPLETED'
+        );
+        if (hasActiveTasks) {
+            throw new ErrorClass("ProjectError", null, "Cannot update project with active tasks");
+        }
+
         const repoDetails = await getRepoDetails(repoUrl, githubToken);
 
-        const project = await prisma.project.update({
+        const updatedProject = await prisma.project.update({
             where: { id },
             data: { 
                 name: repoDetails.name,
@@ -262,7 +310,7 @@ export const updateProject = async (req: Request, res: Response, next: NextFunct
                 repoUrl 
             }
         });
-        res.status(200).json(project);
+        res.status(200).json(updatedProject);
     } catch (error) {
         next(error);
     }
@@ -270,22 +318,38 @@ export const updateProject = async (req: Request, res: Response, next: NextFunct
 
 export const deleteProject = async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;
+    const { userId } = req.body;
 
     try {
-        const allTasks = await prisma.task.findMany({
-            where: { projectId: id },
-            select: { id: true }
-        });
-        const allOpenTasks = await prisma.task.findMany({
-            where: {
-                projectId: id,
-                status: "OPEN"
-            },
-            select: { id: true }
-        });
 
-        // Check if no task is IN_PROGRESS...COMPLETED
-        if (allTasks.length !== allOpenTasks.length) {
+        const project = await prisma.project.findUnique({
+            where: { id },
+            select: { 
+                escrowAddress: true,
+                escrowSecret: true,
+                users: { select: { userId: true, walletSecret: true } },
+                tasks: {
+                    select: {
+                        status: true,
+                        bounty: true,
+                        creator: { select: { userId: true, walletAddress: true } },
+                    }
+                }
+            }
+        });
+        
+        if (!project) {
+            throw new NotFoundErrorClass("Project not found");
+        }
+        
+        // Check authorization
+        const userIsTeamMember = project.users.some(user => user.userId === userId);
+        if (!userIsTeamMember) {
+            throw new ErrorClass("AuthorizationError", null, "Not authorized to delete this project");
+        }
+
+        // Check if there are active tasks
+        if (!project.tasks.every(task => task.status !== 'OPEN')) {
             throw new ErrorClass(
                 "ProjectError",
                 null,
@@ -293,13 +357,32 @@ export const deleteProject = async (req: Request, res: Response, next: NextFunct
             )
         }
 
-        // TODO: refund user with escrow funds
+        // Refund escrow funds
+        const user = project.users.find(user => user.userId === userId)!;
+        const decryptedUserSecret = decrypt(user.walletSecret);
+        const decryptedEscrowecret = decrypt(project.escrowSecret!);
+        let refunded = 0;
+
+        project.tasks.forEach(async (task) => {
+            await stellarService.transferAssetViaSponsor(
+                decryptedUserSecret,
+                decryptedEscrowecret,
+                task.creator.walletAddress,
+                usdcAssetId,
+                usdcAssetId,
+                task.bounty.toString(),
+            );
+            refunded += task.bounty;
+        });
 
         await prisma.project.delete({
             where: { id }
         });
 
-        res.status(200).json({ message: "Project deleted successfully" });
+        res.status(200).json({ 
+            message: "Project deleted successfully", 
+            refunded: `${refunded} USDC` 
+        });
     } catch (error) {
         next(error);
     }
@@ -307,9 +390,20 @@ export const deleteProject = async (req: Request, res: Response, next: NextFunct
 
 export const addTeamMembers = async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;
-    const { githubUsernames } = req.body;
+    const { githubUsernames, userId } = req.body;
 
     try {
+        // Validate input
+        if (!Array.isArray(githubUsernames) || githubUsernames.length === 0) {
+            throw new ErrorClass("ValidationError", null, "Invalid usernames array");
+        }
+        if (githubUsernames.length > 10) {
+            throw new ErrorClass("ValidationError", null, "Cannot add more than 10 members at once");
+        }
+
+        // Remove duplicates
+        const uniqueUsernames = [...(new Set(githubUsernames))];
+
         const project = await prisma.project.findUnique({
             where: { id },
             select: { 
@@ -324,7 +418,7 @@ export const addTeamMembers = async (req: Request, res: Response, next: NextFunc
         }
 
         const results = await Promise.all(
-            githubUsernames.map(async (username: string) => {
+            uniqueUsernames.map(async (username: string) => {
                 // Check if user exists in our system
                 const existingUser = await prisma.user.findFirst({
                     where: { username },
