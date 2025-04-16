@@ -3,19 +3,25 @@ import { prisma } from "../config/database";
 import { InputJsonValue } from "@prisma/client/runtime/library";
 import { stellarService } from "../config/stellar";
 import { encrypt } from "../helper";
-import { NotFoundErrorClass } from "../types/general";
+import { AddressBook, ErrorClass, NotFoundErrorClass } from "../types/general";
 
 export const getUser = async (req: Request, res: Response, next: NextFunction) => {
     const { userId } = req.params;
+    const { view = "basic" } = req.query; // "basic" | "full" | "profile"
 
-    // TODO: reduce the amount of data returned to only what is needed and add filer for selection
     try {
-        const user = await prisma.user.findUnique({
-            where: { userId },
-            select: {
-                userId: true,
-                username: true,
-                walletAddress: true,
+        // Base selection - always included
+        const baseSelect = {
+            userId: true,
+            username: true,
+            walletAddress: true,
+            createdAt: true
+        };
+
+        // Build select object based on view type
+        const selectObject: any = {
+            ...baseSelect,
+            ...(view === "full" || view === "profile" ? {
                 contributionSummary: {
                     select: {
                         tasksTaken: true,
@@ -23,71 +29,91 @@ export const getUser = async (req: Request, res: Response, next: NextFunction) =
                         averageRating: true,
                         totalEarnings: true
                     }
-                },
+                }
+            } : {}),
+            ...(view === "full" ? {
                 projects: {
                     select: {
                         id: true,
                         name: true,
-                        description: true,
                         repoUrl: true,
-                        createdAt: true
-                    }
+                        _count: {
+                            select: {
+                                tasks: true
+                            }
+                        }
+                    },
+                    orderBy: {
+                        createdAt: "desc"
+                    },
+                    take: 5 // Limit to recent 5 projects
                 },
                 createdTasks: {
+                    where: {
+                        status: {
+                            in: ["OPEN", "IN_PROGRESS"]
+                        }
+                    },
                     select: {
                         id: true,
-                        project: {
-                            select: {
-                                name: true,
-                                repoUrl: true
-                            }
-                        },
                         issue: true,
                         bounty: true,
-                        status: true,
-                        createdAt: true
-                    }
+                        status: true
+                    },
+                    orderBy: {
+                        createdAt: "desc"
+                    },
+                    take: 10 // Limit to recent 10 tasks
                 },
                 contributedTasks: {
+                    where: {
+                        status: {
+                            in: ["IN_PROGRESS", "MARKED_AS_COMPLETED", "COMPLETED"]
+                        }
+                    },
                     select: {
                         id: true,
-                        project: {
-                            select: {
-                                name: true,
-                                repoUrl: true
-                            }
-                        },
                         issue: true,
                         bounty: true,
                         status: true,
-                        acceptedAt: true,
                         completedAt: true
-                    }
-                },
-                addressBook: true,
-                createdAt: true,
-                updatedAt: true
-            }
+                    },
+                    orderBy: {
+                        createdAt: "desc"
+                    },
+                    take: 10
+                }
+            } : {})
+        };
+
+        const user = await prisma.user.findUnique({
+            where: { userId },
+            select: selectObject
         });
 
         if (!user) {
             throw new NotFoundErrorClass("User not found");
         }
 
-        try {
-            const accountInfo = await stellarService.getAccountInfo(user.walletAddress);
-            res.status(200).json({
-                ...user,
-                assets: accountInfo.balances
-            });
-        } catch (error: any) {
-            // Return user data even if getting Stellar account info fails
-            next({
-                ...error,
-                user,
-                message: "User found but failed to fetch Stellar account info"
-            });
+        // Get Stellar info only for profile or full view
+        if (view === "profile" || view === "full") {
+            try {
+                const accountInfo = await stellarService.getAccountInfo((user as any).walletAddress);
+                return res.status(200).json({
+                    ...user,
+                    assets: accountInfo.balances
+                });
+            } catch (error: any) {
+                // Return user data even if getting Stellar account info fails
+                next({
+                    ...error,
+                    user,
+                    message: "User found but failed to fetch Stellar account info"
+                });
+            }
         }
+
+        res.status(200).json(user);
     } catch (error) {
         next(error);
     }
@@ -97,6 +123,15 @@ export const createUser = async (req: Request, res: Response, next: NextFunction
     const { userId, githubUsername } = req.body;
 
     try {
+        // Check if user already exists
+        const existingUser = await prisma.user.findUnique({
+            where: { userId }
+        });
+
+        if (existingUser) {
+            throw new ErrorClass("UserError", null, "User already exists");
+        }
+        
         const userWallet = await stellarService.createWallet();
         const encryptedUserSecret = encrypt(userWallet.secretKey);
 
@@ -139,10 +174,24 @@ export const updateUser = async (req: Request, res: Response, next: NextFunction
     const { userId, username } = req.body;
 
     try {
+        const existingUser = await prisma.user.findUnique({
+            where: { userId }
+        });
+
+        if (!existingUser) {
+            throw new NotFoundErrorClass("User not found");
+        }
+
         const user = await prisma.user.update({
             where: { userId },
-            data: { username }
+            data: { username },
+            select: {
+                userId: true,
+                username: true,
+                updatedAt: true
+            }
         });
+
         res.status(200).json(user);
     } catch (error) {
         next(error);
@@ -164,6 +213,19 @@ export const updateAddressBook = async (req: Request, res: Response, next: NextF
             throw new NotFoundErrorClass("User not found");
         }
 
+        // Check for duplicate address
+        const addressExists = (user.addressBook as AddressBook[]).some(
+            entry => entry.address === address
+        );
+        if (addressExists) {
+            throw new ErrorClass("ValidationError", null, "Address already exists in address book");
+        }
+
+        // Limit address book size
+        if (user.addressBook.length >= 20) {
+            throw new ErrorClass("ValidationError", null, "Address book limit reached (max 20)");
+        }
+
         const newAddress = { address, name };
         const updatedAddressBook = [...user.addressBook, newAddress];
 
@@ -171,6 +233,11 @@ export const updateAddressBook = async (req: Request, res: Response, next: NextF
             where: { userId },
             data: {
                 addressBook: updatedAddressBook as InputJsonValue[]
+            },
+            select: {
+                userId: true,
+                addressBook: true,
+                updatedAt: true
             }
         });
 
