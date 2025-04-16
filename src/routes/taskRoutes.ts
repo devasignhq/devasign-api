@@ -7,10 +7,15 @@ import {
     replyTimelineModificationRequest,
     markAsComplete,
     validateCompletion,
-    deleteTask
+    deleteTask,
+    getTask,
+    getTasks
 } from "../controllers/taskController";
 
 export const taskRoutes = Router();
+
+taskRoutes.get('/', getTasks as RequestHandler);
+taskRoutes.get('/:id', getTask as RequestHandler);
 
 // Task management
 taskRoutes.post("/", createTask as RequestHandler);

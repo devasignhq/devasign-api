@@ -8,8 +8,6 @@ import { HorizonApi } from "../types/horizonapi";
 
 type USDCBalance = HorizonApi.BalanceLineAsset<"credit_alphanum12">;
 
-// TODO: Add route to get task
-
 export const createTask = async (req: Request, res: Response, next: NextFunction) => {
     const { userId, payload: data } = req.body;
     const payload = data as CreateTask;
@@ -89,6 +87,150 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
         }
 
         res.status(201).json(task);
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const getTasks = async (req: Request, res: Response, next: NextFunction) => {
+    const { 
+        status, 
+        projectId, 
+        userId,
+        role,  // 'creator' | 'contributor'
+        page = 1,
+        limit = 10
+    } = req.query;
+
+    try {
+        // Build where clause based on filters
+        const where: any = {};
+        
+        if (status) {
+            where.status = status;
+        }
+        
+        if (projectId) {
+            where.projectId = projectId;
+        }
+
+        if (userId && role) {
+            if (role === 'creator') {
+                where.creatorId = userId;
+            } else if (role === 'contributor') {
+                where.contributorId = userId;
+            }
+        }
+
+        // Get total count for pagination
+        const totalTasks = await prisma.task.count({ where });
+        const totalPages = Math.ceil(totalTasks / Number(limit));
+        const skip = (Number(page) - 1) * Number(limit);
+
+        // Get tasks with pagination
+        const tasks = await prisma.task.findMany({
+            where,
+            select: {
+                id: true,
+                issue: true,
+                bounty: true,
+                timeline: true,
+                timelineType: true,
+                status: true,
+                settled: true,
+                acceptedAt: true,
+                completedAt: true,
+                pullRequests: true,
+                project: {
+                    select: {
+                        id: true,
+                        name: true,
+                        repoUrl: true
+                    }
+                },
+                creator: {
+                    select: {
+                        userId: true,
+                        username: true
+                    }
+                },
+                contributor: {
+                    select: {
+                        userId: true,
+                        username: true
+                    }
+                },
+                createdAt: true,
+                updatedAt: true
+            },
+            orderBy: {
+                createdAt: 'desc'
+            },
+            skip,
+            take: Number(limit)
+        });
+
+        res.status(200).json({
+            data: tasks,
+            pagination: {
+                currentPage: Number(page),
+                totalPages,
+                totalItems: totalTasks,
+                itemsPerPage: Number(limit),
+                hasMore: Number(page) < totalPages
+            }
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const getTask = async (req: Request, res: Response, next: NextFunction) => {
+    const { id } = req.params;
+
+    try {
+        const task = await prisma.task.findUnique({
+            where: { id },
+            select: {
+                id: true,
+                issue: true,
+                bounty: true,
+                timeline: true,
+                timelineType: true,
+                status: true,
+                settled: true,
+                acceptedAt: true,
+                completedAt: true,
+                pullRequests: true,
+                project: {
+                    select: {
+                        id: true,
+                        name: true,
+                        repoUrl: true
+                    }
+                },
+                creator: {
+                    select: {
+                        userId: true,
+                        username: true
+                    }
+                },
+                contributor: {
+                    select: {
+                        userId: true,
+                        username: true
+                    }
+                },
+                createdAt: true,
+                updatedAt: true
+            }
+        });
+
+        if (!task) {
+            throw new NotFoundErrorClass("Task not found");
+        }
+
+        res.status(200).json(task);
     } catch (error) {
         next(error);
     }
