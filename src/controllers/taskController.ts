@@ -526,4 +526,70 @@ export const deleteTask = async (req: Request, res: Response, next: NextFunction
     const { id } = req.params;
     const { userId } = req.body;
 
+    try {
+        const task = await prisma.task.findUnique({
+            where: { id },
+            select: {
+                status: true,
+                bounty: true,
+                creatorId: true,
+                contributorId: true,
+                creator: {
+                    select: {
+                        walletAddress: true,
+                        walletSecret: true
+                    }
+                },
+                project: {
+                    select: {
+                        escrowSecret: true
+                    }
+                }
+            }
+        });
+
+        if (!task) {
+            throw new NotFoundErrorClass("Task not found");
+        }
+
+        // Validations
+        if (task.creatorId !== userId) {
+            throw new ErrorClass("TaskError", null, "Only task creator can delete the task");
+        }
+        if (task.status !== "OPEN") {
+            throw new ErrorClass("TaskError", null, "Only open tasks can be deleted");
+        }
+        if (task.contributorId) {
+            throw new ErrorClass("TaskError", null, "Cannot delete task with assigned contributor");
+        }
+
+        // Return bounty to creator if exists
+        if (task.bounty > 0) {
+            const decryptedUserSecret = decrypt(task.creator.walletSecret);
+            const decryptedEscrowSecret = decrypt(task.project.escrowSecret!);
+
+            await stellarService.transferAssetViaSponsor(
+                decryptedUserSecret,
+                decryptedEscrowSecret,
+                task.creator.walletAddress,
+                usdcAssetId,
+                usdcAssetId,
+                task.bounty.toString()
+            );
+        }
+
+        // Delete task
+        await prisma.task.delete({
+            where: { id }
+        });
+
+        // TODO: Update issue on GitHub
+
+        res.status(200).json({
+            message: "Task deleted successfully",
+            refunded: `${task.bounty} USDC`
+        });
+    } catch (error) {
+        next(error);
+    }
 };
