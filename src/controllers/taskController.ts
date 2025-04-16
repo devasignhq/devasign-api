@@ -8,6 +8,8 @@ import { HorizonApi } from "../types/horizonapi";
 
 type USDCBalance = HorizonApi.BalanceLineAsset<"credit_alphanum12">;
 
+// TODO: Add route to get task
+
 export const createTask = async (req: Request, res: Response, next: NextFunction) => {
     const { userId, payload: data } = req.body;
     const payload = data as CreateTask;
@@ -34,7 +36,7 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
         // Check user balance
         const accountInfo = await stellarService.getAccountInfo(user.walletAddress);
         const usdcAsset = accountInfo.balances.find(
-            (asset): asset is USDCBalance => 'asset_code' in asset && asset.asset_code === "USDC"
+            (asset): asset is USDCBalance => "asset_code" in asset && asset.asset_code === "USDC"
         ) as USDCBalance;
 
         if (parseFloat(usdcAsset.balance) < parseFloat(payload.bounty)) {
@@ -47,7 +49,7 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
 
         if (
             !(projectWallet.balances.find(
-                (asset): asset is USDCBalance => 'asset_code' in asset && asset.asset_code === "USDC"
+                (asset): asset is USDCBalance => "asset_code" in asset && asset.asset_code === "USDC"
             ))
         ) {
             await stellarService.addTrustLineViaSponsor(
@@ -116,7 +118,7 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
         if (!task) {
             throw new NotFoundErrorClass("Task not found");
         }
-        if (task.status !== 'OPEN') {
+        if (task.status !== "OPEN") {
             throw new ErrorClass("TaskError", null, "Only open tasks can be updated");
         }
         if (task.bounty === newbounty) {
@@ -143,7 +145,7 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
             // Additional funds needed - transfer from user to escrow
             const accountInfo = await stellarService.getAccountInfo(user.walletAddress!);
             const usdcAsset = accountInfo.balances.find(
-                (asset): asset is USDCBalance => 'asset_code' in asset && asset.asset_code === "USDC"
+                (asset): asset is USDCBalance => "asset_code" in asset && asset.asset_code === "USDC"
             );
 
             if (!usdcAsset || parseFloat(usdcAsset.balance) < bountyDifference) {
@@ -177,7 +179,7 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
         });
 
         res.status(200).json({
-            message: 'Task bounty updated successfully',
+            message: "Task bounty updated successfully",
             data: updatedTask
         });
     } catch (error) {
@@ -198,14 +200,14 @@ export const acceptTask = async (req: Request, res: Response, next: NextFunction
         if (!task) {
             throw new NotFoundErrorClass("Task not found");
         }
-        if (task.status !== 'OPEN') {
+        if (task.status !== "OPEN") {
             throw new ErrorClass("TaskError", null, "Task is not open");
         }
 
         const updatedTask = await prisma.task.update({
             where: { id },
             data: {
-                status: 'IN_PROGRESS',
+                status: "IN_PROGRESS",
                 acceptedAt: new Date(),
                 contributor: {
                     connect: { userId }
@@ -233,12 +235,12 @@ export const acceptTask = async (req: Request, res: Response, next: NextFunction
 
 //         if (!task) return res.status(404).json({ error: "Task not found" });
 //         // ! Review (Allow comments on completed tasks)
-//         if (task.status === 'COMPLETED') {
+//         if (task.status === "COMPLETED") {
 //             return res.status(400).json({ error: "Cannot comment on completed tasks" });
 //         }
 
 //         // Check if user can comment
-//         if (task.status !== 'OPEN' && 
+//         if (task.status !== "OPEN" && 
 //             userId !== task.creatorId && 
 //             userId !== task.contributorId) {
 //             return res.status(403).json({ error: "Not authorized to comment" });
@@ -304,7 +306,7 @@ export const requestTimelineModification = async (req: Request, res: Response, n
         if (!task) {
             throw new NotFoundErrorClass("Task not found");
         }
-        if (task.status !== 'IN_PROGRESS' || task.contributorId !== userId) {
+        if (task.status !== "IN_PROGRESS" || task.contributorId !== userId) {
             throw new ErrorClass(
                 "TaskError", 
                 null, 
@@ -389,24 +391,37 @@ export const replyTimelineModificationRequest = async (req: Request, res: Respon
 
 export const markAsComplete = async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;
-    const { pullRequests } = req.body;
-    const { userId } = req.body; 
+    const { userId, pullRequests } = req.body;
 
     try {
-        const task = await prisma.task.findUnique({ where: { id } });
-        if (!task) return res.status(404).json({ error: "Task not found" });
-        if (task.contributorId !== userId || task.status !== 'IN_PROGRESS') {
-            return res.status(400).json({ error: "Invalid completion request" });
+        const task = await prisma.task.findUnique({ 
+            where: { id },
+            select: {
+                status: true,
+                contributorId: true
+            } 
+        });
+
+        if (!task) {
+            throw new NotFoundErrorClass("Task not found");
+        }
+        if (task.status !== "IN_PROGRESS" || task.contributorId !== userId) {
+            throw new ErrorClass(
+                "TaskError", 
+                null, 
+                "Only the active contributor can make this action"
+            );
         }
 
-        const updatedTask = await prisma.task.update({
+        await prisma.task.update({
             where: { id },
             data: {
-                status: 'MARKED_AS_COMPLETED',
+                status: "MARKED_AS_COMPLETED",
                 pullRequests
             }
         });
-        res.status(200).json(updatedTask);
+
+        res.status(200).json("Action successful");
     } catch (error) {
         next(error);
     }
@@ -414,54 +429,94 @@ export const markAsComplete = async (req: Request, res: Response, next: NextFunc
 
 export const validateCompletion = async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;
-    const { userId, approved } = req.body;
+    const { userId } = req.body;
 
     try {
         const task = await prisma.task.findUnique({
             where: { id },
-            include: {
-                creator: true,
-                contributor: true
+            select: {
+                creator: {
+                    select: {
+                        userId: true,
+                        walletSecret: true
+                    }
+                },
+                contributor: {
+                    select: {
+                        userId: true,
+                        walletAddress: true
+                    }
+                },
+                project: {
+                    select: {
+                        id: true,
+                        escrowSecret: true
+                    }
+                },
+                issue: true,
+                bounty: true,
+                status: true,
             }
         });
 
-        if (!task || !task.contributor) {
-            return res.status(404).json({ error: "Task not found" });
+        if (!task) {
+            throw new NotFoundErrorClass("Task not found");
+        }
+        if (task.status !== "MARKED_AS_COMPLETED") {
+            throw new ErrorClass("TaskError", null, "Task has not been marked as completed");
         }
 
-        if (task.creatorId !== userId || task.status !== 'MARKED_AS_COMPLETED') {
-            return res.status(400).json({ error: "Invalid validation request" });
+        // TODO: Update to allow team members
+        if (task.creator.userId !== userId) { 
+            throw new ErrorClass(
+                "TaskError", 
+                null, 
+                "Only task creator can validate if task is completed"
+            );
         }
+        if (!task.contributor) { 
+            throw new ErrorClass("TaskError", null, "Contributor not found");
+        }
+        
+        const decryptedUserSecret = decrypt(task.creator.walletSecret);
+        const decryptedEscrowSecret = decrypt(task.project.escrowSecret!);
 
-        if (approved) {
-            // Release funds from escrow to contributor
-            // const decryptedEscrowSecret = decrypt(task.creator.escrowSecret!);
-            // await stellarService.transferUSDC(
-            //     decryptedEscrowSecret,
-            //     task.contributor.walletAddress!,
-            //     task.bounty.toString()
-            // );
+        await stellarService.transferAssetViaSponsor(
+            decryptedUserSecret,
+            decryptedEscrowSecret,
+            task.contributor!.walletAddress,
+            usdcAssetId,
+            usdcAssetId,
+            task.bounty.toString()
+        );
 
-            await prisma.task.update({
-                where: { id },
-                data: {
-                    status: 'COMPLETED',
-                    completedAt: new Date(),
-                    settled: true
-                }
-            });
+        await prisma.task.update({
+            where: { id },
+            data: {
+                status: "COMPLETED",
+                completedAt: new Date(),
+                settled: true
+            }
+        });
 
+        try {
             // Update contribution summary
             await prisma.contributionSummary.update({
-                where: { userId: task.contributorId! },
+                where: { userId: task.contributor.userId },
                 data: {
                     tasksCompleted: { increment: 1 },
                     totalEarnings: { increment: task.bounty }
                 }
             });
+            
+            res.status(201).json("Validation Complete");
+        } catch (error: any) {
+            next({ 
+                ...error, 
+                validated: true, 
+                message: "Validation complete. Failed to update contribution summary."
+            });
         }
-
-        res.status(200).json({ message: approved ? "Task completed" : "Completion rejected" });
     } catch (error) {
         next(error);
     }
@@ -469,17 +524,6 @@ export const validateCompletion = async (req: Request, res: Response, next: Next
 
 export const deleteTask = async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;
+    const { userId } = req.body;
 
-    try {
-        const task = await prisma.task.findUnique({ where: { id } });
-        if (!task) return res.status(404).json({ error: "Task not found" });
-        if (!['OPEN', 'HOLD'].includes(task.status)) {
-            return res.status(400).json({ error: "Can only delete open or on-hold tasks" });
-        }
-
-        await prisma.task.delete({ where: { id } });
-        res.status(200).json({ message: "Task deleted successfully" });
-    } catch (error) {
-        res.status(400).json({ error: "Failed to delete task" });
-    }
 };
