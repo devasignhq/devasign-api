@@ -6,13 +6,18 @@ import {
     addTeamMembers,
     getProjectIssues,
     getProjectMilestones,
-    getProjectLabels
+    getProjectLabels,
+    getProject,
+    getProjects
 } from "../controllers/projectController";
 
 export const projectRoutes = Router();
 
-projectRoutes.post("/", createProject);
-projectRoutes.put("/:id", updateProject);
+projectRoutes.get('/', getProjects as RequestHandler);
+projectRoutes.get('/:id', getProject as RequestHandler);
+
+projectRoutes.post("/", createProject as RequestHandler);
+projectRoutes.put("/:id", updateProject as RequestHandler);
 projectRoutes.delete("/:id", deleteProject as RequestHandler);
 projectRoutes.post("/:id/team", addTeamMembers as RequestHandler);
 
