@@ -1,5 +1,9 @@
 import { RequestHandler, Router } from "express";
-import { createUser, updateUser, updateAddressBook, getUser } from "../controllers/userController";
+import { createUser, updateUser, updateAddressBook, getUser } from "../controllers/userController";import { 
+    getUserValidator,
+    updateUserValidator,
+    updateAddressBookValidator 
+} from "../validators/userValidators";
 
 export const userRoutes = Router();
 
@@ -7,10 +11,10 @@ export const userRoutes = Router();
 userRoutes.post("/", createUser as RequestHandler);
 
 // Get user
-userRoutes.get('/:userId', getUser as RequestHandler);
+userRoutes.get('/:userId', getUserValidator, getUser as RequestHandler);
 
 // Update user details
-userRoutes.put("/", updateUser as RequestHandler);
+userRoutes.put("/", updateUserValidator, updateUser as RequestHandler);
 
 // Update user's address book
-userRoutes.put("/address-book", updateAddressBook as RequestHandler);
+userRoutes.put("/address-book", updateAddressBookValidator, updateAddressBook as RequestHandler);

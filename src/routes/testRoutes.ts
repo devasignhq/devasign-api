@@ -32,58 +32,58 @@ router.post(
     }) as RequestHandler
 );
 
-router.post(
-    '/users',
-    [
-        body('userId').notEmpty().withMessage('User ID is required'),
-        body('username').notEmpty().withMessage('Username is required'),
-    ],
-    (async (req: Request, res: Response, next: NextFunction) => {
-        try {
-            const errors = validationResult(req);
-            if (!errors.isEmpty()) {
-                return res.status(400).json({ errors: errors.array() });
-            }
+// router.post(
+//     '/users',
+//     [
+//         body('userId').notEmpty().withMessage('User ID is required'),
+//         body('username').notEmpty().withMessage('Username is required'),
+//     ],
+//     (async (req: Request, res: Response, next: NextFunction) => {
+//         try {
+//             const errors = validationResult(req);
+//             if (!errors.isEmpty()) {
+//                 return res.status(400).json({ errors: errors.array() });
+//             }
 
-            const { userId, username } = req.body;
+//             const { userId, username } = req.body;
 
-            // Check if user already exists
-            const existingUser = await prisma.user.findUnique({
-                where: { userId }
-            });
+//             // Check if user already exists
+//             const existingUser = await prisma.user.findUnique({
+//                 where: { userId }
+//             });
 
-            if (existingUser) {
-                return next(createError(409, 'User already exists'));
-            }
+//             if (existingUser) {
+//                 return next(createError(409, 'User already exists'));
+//             }
 
-            // Create new user with contribution summary
-            const newUser = await prisma.user.create({
-                data: {
-                    userId,
-                    username,
-                    contributionSummary: {
-                        create: {
-                            tasksTaken: 0,
-                            tasksCompleted: 0,
-                            averageRating: 0.0,
-                            totalEarnings: 0.0
-                        }
-                    }
-                },
-                include: {
-                    contributionSummary: true
-                }
-            });
+//             // Create new user with contribution summary
+//             const newUser = await prisma.user.create({
+//                 data: {
+//                     userId,
+//                     username,
+//                     contributionSummary: {
+//                         create: {
+//                             tasksTaken: 0,
+//                             tasksCompleted: 0,
+//                             averageRating: 0.0,
+//                             totalEarnings: 0.0
+//                         }
+//                     }
+//                 },
+//                 include: {
+//                     contributionSummary: true
+//                 }
+//             });
 
-            res.status(201).json({
-                message: 'User created successfully',
-                data: newUser
-            });
-        } catch (error) {
-            next(createError(500, 'Internal server error'));
-        }
-    }) as RequestHandler
-);
+//             res.status(201).json({
+//                 message: 'User created successfully',
+//                 data: newUser
+//             });
+//         } catch (error) {
+//             next(createError(500, 'Internal server error'));
+//         }
+//     }) as RequestHandler
+// );
 
 router.post('/encryption', 
     [
