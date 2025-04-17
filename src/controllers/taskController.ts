@@ -3,7 +3,7 @@ import { prisma } from "../config/database";
 import { commentsCollection, createComment, updateComment } from "../services/taskService";
 import { stellarService, usdcAssetId } from "../config/stellar";
 import { decrypt } from "../helper";
-import { CreateTask, ErrorClass, NotFoundErrorClass } from "../types/general";
+import { CommentType, CreateTask, ErrorClass, NotFoundErrorClass } from "../types/general";
 import { HorizonApi } from "../types/horizonapi";
 
 type USDCBalance = HorizonApi.BalanceLineAsset<"credit_alphanum12">;
@@ -379,21 +379,22 @@ export const addTaskComment = async (req: Request, res: Response, next: NextFunc
             throw new NotFoundErrorClass("Task not found");
         }
 
+        // Check if user can comment
+        if (userId !== task.creatorId && userId !== task.contributorId) {
+            throw new ErrorClass("TaskError", null, "Not authorized to comment");
+        }
+
         // ? Review (Allow comments on completed tasks)
         if (["OPEN", "COMPLETED"].includes(task.status)) {
             throw new ErrorClass("TaskError", null, "Can only comment on active tasks");
-        }
-
-        // Check if user can comment
-        if (userId !== task.creatorId || userId !== task.contributorId) {
-            throw new ErrorClass("TaskError", null, "Not authorized to comment");
         }
 
         const comment = await createComment({
             userId,
             taskId: id,
             message,
-            attachments
+            attachments,
+            type: CommentType.GENERAL
         });
         res.status(201).json(comment);
     } catch (error) {
@@ -432,7 +433,6 @@ export const updateTaskComment = async (req: Request, res: Response, next: NextF
     }
 };
 
-
 export const requestTimelineModification = async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;
     const { userId, newTimeline, reason, attachments } = req.body;
@@ -442,13 +442,16 @@ export const requestTimelineModification = async (req: Request, res: Response, n
             where: { id },
             select: {
                 status: true,
-                contributorId: true
+                contributorId: true,
+                timeline: true,
+                timelineType: true,
             } 
         });
 
         if (!task) {
             throw new NotFoundErrorClass("Task not found");
         }
+
         if (task.status !== "IN_PROGRESS" || task.contributorId !== userId) {
             throw new ErrorClass(
                 "TaskError", 
@@ -457,12 +460,25 @@ export const requestTimelineModification = async (req: Request, res: Response, n
             );
         }
 
-        // TODO: Update if comments are generally allowed
+        if (task.timeline! >= Number(newTimeline)) {
+            throw new ErrorClass(
+                "ValidationError",
+                null,
+                "New timeline must be greater than current timeline"
+            );
+        }
+
         const comment = await createComment({
             userId,
             taskId: id,
-            message: reason,
-            attachments: [...attachments, `${newTimeline}`],
+            type: CommentType.TIMELINE_MODIFICATION,
+            message: reason || "Timeline modification requested",
+            attachments: [],
+            metadata: {
+                currentTimeline: task.timeline!,
+                requestedTimeline: Number(newTimeline),
+                timelineType: task.timelineType! as any
+            }
         });
 
         res.status(200).json({ comment });

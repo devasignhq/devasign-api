@@ -11,6 +11,11 @@ export enum TimelineType {
     DAY = "DAY"
 }
 
+export enum CommentType {
+    GENERAL = 'GENERAL',
+    TIMELINE_MODIFICATION = 'TIMELINE_MODIFICATION'
+}
+
 export type AddressBook = {
     name: string;
     address: string;
@@ -101,6 +106,24 @@ export class IssueFilters {
     milestone?: string | "none" | "*";
     sort?: "created" | "updated" | "comments" = "created";
     direction?: "asc" | "desc" = "desc";
+}
+
+export type CommentMetadata = {
+    currentTimeline?: number;
+    requestedTimeline?: number;
+    timelineType?: TimelineType;
+}
+
+export type Comment = {
+    id?: string;
+    userId: string;
+    taskId: string;
+    type?: CommentType;
+    message: string;
+    metadata?: CommentMetadata;
+    attachments: string[];
+    createdAt?: string;
+    updatedAt?: string;
 }
 
 export class ErrorClass {

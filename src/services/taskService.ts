@@ -1,30 +1,34 @@
 import { db } from "../config/firebase";
 import { Timestamp } from "firebase-admin/firestore";
-
-type Comment = {
-    id?: string;
-    userId: string;
-    taskId: string;
-    message: string;
-    attachments: string[];
-    createdAt?: Date;
-    updatedAt?: Date;
-}
+import { Comment, CommentType } from "../types/general";
 
 export const commentsCollection = db.collection('comments');
 
-export const createComment = async (data: Comment) => {
-    const comment = {
-        ...data,
-        createdAt: Timestamp.now(),
-        updatedAt: Timestamp.now()
+export const createComment = async ({
+    userId,
+    taskId,
+    type = CommentType.GENERAL,
+    message,
+    metadata = {},
+    attachments = []
+}: Comment) => {
+    const commentRef = commentsCollection.doc();
+    const timestamp = new Date().toISOString();
+
+    const commentData = {
+        id: commentRef.id,
+        userId,
+        taskId,
+        type,
+        message,
+        metadata,
+        attachments,
+        createdAt: timestamp,
+        updatedAt: timestamp
     };
-    
-    const docRef = await commentsCollection.add(comment);
-    return {
-        id: docRef.id,
-        ...comment
-    };
+
+    await commentRef.set(commentData);
+    return commentData;
 };
 
 export const updateComment = async (commentId: string, data: Partial<Comment>) => {
