@@ -13,26 +13,39 @@ import {
     addTaskComment,
     updateTaskComment
 } from "../controllers/taskController";
+import {
+    getTasksValidator,
+    createTaskValidator,
+    updateTaskBountyValidator,
+    requestTimelineModificationValidator,
+    addTaskCommentValidator,
+    markAsCompleteValidator,
+    validateCompletionValidator,
+    deleteTaskValidator,
+    acceptTaskValidator,
+    replyTimelineModificationValidator
+} from "../validators/taskValidators";
 
 export const taskRoutes = Router();
 
-taskRoutes.get('/', getTasks as RequestHandler);
+// Task queries
+taskRoutes.get('/', getTasksValidator, getTasks as RequestHandler);
 taskRoutes.get('/:id', getTask as RequestHandler);
 
 // Task management
-taskRoutes.post("/", createTask as RequestHandler);
-taskRoutes.put("/:id/bounty", updateTaskBounty as RequestHandler);
-taskRoutes.delete("/:id", deleteTask as RequestHandler);
+taskRoutes.post("/", createTaskValidator, createTask as RequestHandler);
+taskRoutes.put("/:id/bounty", updateTaskBountyValidator, updateTaskBounty as RequestHandler);
+taskRoutes.delete("/:id", deleteTaskValidator, deleteTask as RequestHandler);
 
 // Task status changes
-taskRoutes.post("/:id/accept", acceptTask as RequestHandler);
-taskRoutes.post("/:id/complete", markAsComplete as RequestHandler);
-taskRoutes.post("/:id/validate", validateCompletion as RequestHandler);
+taskRoutes.post("/:id/accept", acceptTaskValidator, acceptTask as RequestHandler);
+taskRoutes.post("/:id/complete", markAsCompleteValidator, markAsComplete as RequestHandler);
+taskRoutes.post("/:id/validate", validateCompletionValidator, validateCompletion as RequestHandler);
 
 // Timeline
-taskRoutes.post("/:id/timeline", requestTimelineModification as RequestHandler);
-taskRoutes.post("/:id/timeline/reply", replyTimelineModificationRequest as RequestHandler);
+taskRoutes.post("/:id/timeline", requestTimelineModificationValidator, requestTimelineModification as RequestHandler);
+taskRoutes.post("/:id/timeline/reply", replyTimelineModificationValidator, replyTimelineModificationRequest as RequestHandler);
 
 // Comments
-taskRoutes.post("/:id/comments", addTaskComment as RequestHandler);
-taskRoutes.put("/:id/comments/:commentId", updateTaskComment as RequestHandler);
+taskRoutes.post("/:id/comments", addTaskCommentValidator, addTaskComment as RequestHandler);
+taskRoutes.put("/:id/comments/:commentId", addTaskCommentValidator, updateTaskComment as RequestHandler);
