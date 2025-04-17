@@ -15,6 +15,7 @@ export const getUser = async (req: Request, res: Response, next: NextFunction) =
             userId: true,
             username: true,
             walletAddress: true,
+            addressBook: true,
             createdAt: true
         };
 

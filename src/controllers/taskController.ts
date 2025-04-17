@@ -481,7 +481,7 @@ export const requestTimelineModification = async (req: Request, res: Response, n
             }
         });
 
-        res.status(200).json({ comment });
+        res.status(200).json(comment);
     } catch (error) {
         next(error);
     }

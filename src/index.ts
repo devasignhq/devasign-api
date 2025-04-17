@@ -14,6 +14,7 @@ import { taskRoutes } from './routes/taskRoutes';
 import { stellarRoutes } from './routes/stellarRoutes';
 import { testRoutes } from './routes/testRoutes';
 import { ErrorClass } from './types/general';
+import { cryptoRoutes } from './routes/cryptoRoutes';
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -78,6 +79,7 @@ app.get('/', (req: Request, res: Response) => {
 app.use("/users", validateUser as RequestHandler, userRoutes);
 app.use("/projects", validateUser as RequestHandler, projectRoutes);
 app.use("/tasks", validateUser as RequestHandler, taskRoutes);
+app.use("/crypto", validateUser as RequestHandler, cryptoRoutes);
 app.use("/stellar", stellarRoutes);
 app.use("/test", testRoutes);
 
