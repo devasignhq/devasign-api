@@ -475,12 +475,8 @@ export const requestTimelineModification = async (req: Request, res: Response, n
             taskId: id,
             type: CommentType.TIMELINE_MODIFICATION,
             message: reason || "Timeline modification requested",
-            attachments: [],
-            metadata: {
-                currentTimeline: task.timeline!,
-                requestedTimeline: Number(newTimeline),
-                timelineType: task.timelineType! as any
-            }
+            attachments: attachments || [],
+            metadata: { requestedTimeline: Number(newTimeline) }
         });
 
         res.status(200).json(comment);
@@ -525,26 +521,25 @@ export const replyTimelineModificationRequest = async (req: Request, res: Respon
             });
         }
 
-        if (reason || attachments) {
-            const comment = await createComment({
-                userId,
-                taskId: id,
-                message: reason || "",
-                attachments,
-            });
-
-            if (accepted === "TRUE") {
-                return res.status(200).json({ comment, task: { ...task, timeline: Number(newTimeline) } });
+        const comment = await createComment({
+            userId,
+            taskId: id,
+            type: CommentType.TIMELINE_MODIFICATION,
+            message: reason || "",
+            attachments: attachments || [],
+            metadata: { 
+                newTimeline: accepted === "TRUE" ? Number(newTimeline) : undefined
             }
+        });
 
-            return res.status(200).json({ comment });
+        if (accepted === "TRUE") {
+            return res.status(200).json({ 
+                comment, 
+                task: { ...task, timeline: Number(newTimeline) } 
+            });
         }
 
-        res.status(200).json({ 
-            message: accepted === "TRUE" 
-                ? "Successfully modified timeline" 
-                : "Successfully rejected timeline modification request" 
-        });
+        res.status(200).json({ comment });
     } catch (error) {
         next(error);
     }

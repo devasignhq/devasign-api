@@ -16,12 +16,30 @@ export const getTasksValidator = [
         .withMessage('Role must be either creator or contributor'),
     query('page')
         .optional()
+        .trim()
+        .notEmpty()
+        .toInt() 
         .isInt({ min: 1 })
-        .withMessage('Page must be a positive integer'),
+        .withMessage('Page must be a positive integer')
+        .custom((value) => {
+            if (isNaN(value)) {
+                throw new Error('Page must be a valid number');
+            }
+            return true;
+        }),
     query('limit')
         .optional()
+        .trim()
+        .notEmpty()
+        .toInt() 
         .isInt({ min: 1, max: 100 })
-        .withMessage('Limit must be between 1 and 100')
+        .withMessage('Page must be a positive integer')
+        .custom((value) => {
+            if (isNaN(value)) {
+                throw new Error('Limit must be a valid number');
+            }
+            return true;
+        }),
 ];
 
 export const createTaskValidator = [
@@ -76,9 +94,18 @@ export const requestTimelineModificationValidator = [
         .withMessage('Task ID is required'),
     body('newTimeline')
         .exists()
+        .trim()
+        .notEmpty()
+        .toInt() 
         .withMessage('New timeline is required')
         .isInt({ min: 1 })
-        .withMessage('Timeline must be a positive integer'),
+        .withMessage('Timeline must be a positive integer')
+        .custom((value) => {
+            if (isNaN(value)) {
+                throw new Error('New timeline must be a valid number');
+            }
+            return true;
+        }),
     body('reason')
         .optional()
         .isString()
@@ -149,9 +176,18 @@ export const replyTimelineModificationValidator = [
     body('newTimeline')
         .if(body('accepted').equals('TRUE'))
         .exists()
-        .withMessage('New timeline is required when accepting the request')
+        .trim()
+        .notEmpty()
+        .toInt() 
+        .withMessage('New timeline is required')
         .isInt({ min: 1 })
-        .withMessage('Timeline must be a positive integer'),
+        .withMessage('Timeline must be a positive integer')
+        .custom((value) => {
+            if (isNaN(value)) {
+                throw new Error('New timeline must be a valid number');
+            }
+            return true;
+        }),
     body('reason')
         .optional()
         .isString()

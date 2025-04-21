@@ -7,12 +7,30 @@ export const getProjectsValidator = [
         .withMessage('Search term must be a string'),
     query('page')
         .optional()
+        .trim()
+        .notEmpty()
+        .toInt() 
         .isInt({ min: 1 })
-        .withMessage('Page must be a positive integer'),
+        .withMessage('Page must be a positive integer')
+        .custom((value) => {
+            if (isNaN(value)) {
+                throw new Error('Page must be a valid number');
+            }
+            return true;
+        }),
     query('limit')
         .optional()
+        .trim()
+        .notEmpty()
+        .toInt() 
         .isInt({ min: 1, max: 100 })
-        .withMessage('Limit must be between 1 and 100')
+        .withMessage('Limit must be a positive integer')
+        .custom((value) => {
+            if (isNaN(value)) {
+                throw new Error('Page must be a valid number');
+            }
+            return true;
+        }),
 ];
 
 export const createProjectValidator = [
@@ -63,8 +81,30 @@ export const getProjectIssuesValidator = [
         .withMessage('Repository URL must be a string'),
     query('page')
         .optional()
+        .trim()
+        .notEmpty()
+        .toInt() 
         .isInt({ min: 1 })
-        .withMessage('Page must be a positive integer'),
+        .withMessage('Page must be a positive integer')
+        .custom((value) => {
+            if (isNaN(value)) {
+                throw new Error('Page must be a valid number');
+            }
+            return true;
+        }),
+    query('limit')
+        .optional()
+        .trim()
+        .notEmpty()
+        .toInt() 
+        .isInt({ min: 1, max: 100 })
+        .withMessage('Limit must be a positive integer')
+        .custom((value) => {
+            if (isNaN(value)) {
+                throw new Error('Page must be a valid number');
+            }
+            return true;
+        }),
     query('labels')
         .optional()
         .isString()

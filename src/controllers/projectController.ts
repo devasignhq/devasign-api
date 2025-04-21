@@ -456,9 +456,9 @@ export const addTeamMembers = async (req: Request, res: Response, next: NextFunc
 };
 
 export const getProjectIssues = async (req: Request, res: Response, next: NextFunction) => {
-    const { page = 1, labels, milestone, sort, direction } = req.query;
+    const { page = 1, limit, labels, milestone, sort, direction } = req.query;
     const { githubToken, repoUrl } = req.body;
-    const PER_PAGE = 20;
+    const PER_PAGE = Number(limit) || 20;
 
     try {
         const filters: any = {

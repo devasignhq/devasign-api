@@ -109,9 +109,8 @@ export class IssueFilters {
 }
 
 export type CommentMetadata = {
-    currentTimeline?: number;
     requestedTimeline?: number;
-    timelineType?: TimelineType;
+    newTimeline?: number;
 }
 
 export type Comment = {
