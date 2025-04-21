@@ -8,8 +8,6 @@ import { HorizonApi } from "../types/horizonapi";
 
 type USDCBalance = HorizonApi.BalanceLineAsset<"credit_alphanum12">;
 
-// TODO: Add 'create many' task route
-
 export const createTask = async (req: Request, res: Response, next: NextFunction) => {
     const { userId, payload: data } = req.body;
     const payload = data as CreateTask;
@@ -89,6 +87,95 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
         }
 
         res.status(201).json(task);
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const createManyTasks = async (req: Request, res: Response, next: NextFunction) => {
+    const { userId, payload, projectId } = req.body;
+    const tasks = payload as CreateTask[];
+
+    try {
+        const user = await prisma.user.findUnique({
+            where: { userId },
+            select: { walletSecret: true, walletAddress: true }
+        });
+
+        if (!user) {
+            throw new NotFoundErrorClass("User not found");
+        }
+
+        // Calculate total bounty needed for all tasks
+        const totalBounty = tasks.reduce((sum: number, task: CreateTask) => 
+            sum + parseFloat(task.bounty), 0
+        );
+
+        // Check user balance
+        const accountInfo = await stellarService.getAccountInfo(user.walletAddress);
+        const usdcAsset = accountInfo.balances.find(
+            (asset): asset is USDCBalance => "asset_code" in asset && asset.asset_code === "USDC"
+        ) as USDCBalance;
+
+        if (parseFloat(usdcAsset.balance) < totalBounty) {
+            throw new ErrorClass("TaskError", null, "Insufficient balance for all tasks");
+        }
+
+        const decryptedUserSecret = decrypt(user.walletSecret);
+
+        // Get project details once for all tasks
+        const project = await prisma.project.findUnique({
+            where: { id: projectId },
+            select: { escrowSecret: true, escrowAddress: true }
+        });
+
+        if (!project) {
+            throw new NotFoundErrorClass(`Project not found`);
+        }
+
+        // Ensure USDC trustline exists
+        const projectWallet = await stellarService.getAccountInfo(project.escrowAddress!);
+        if (!projectWallet.balances.find(
+            (asset): asset is USDCBalance => "asset_code" in asset && asset.asset_code === "USDC"
+        )) {
+            await stellarService.addTrustLineViaSponsor(
+                decryptedUserSecret,
+                project.escrowSecret!,
+            );
+        }
+
+        // Transfer total bounty to escrow in one transaction
+        await stellarService.transferAsset(
+            decryptedUserSecret,
+            project.escrowAddress!,
+            usdcAssetId,
+            usdcAssetId,
+            totalBounty.toString(),
+        );
+
+        // Create all tasks in a single transaction
+        const createdTasks = await prisma.$transaction(
+            tasks.map(task => {
+                const { projectId, ...others } = task;
+                return prisma.task.create({
+                    data: {
+                        ...others,
+                        bounty: parseFloat(task.bounty),
+                        project: {
+                            connect: { id: projectId }
+                        },
+                        creator: {
+                            connect: { userId }
+                        }
+                    }
+                });
+            })
+        );
+
+        res.status(201).json({
+            message: `Successfully created ${createdTasks.length} tasks`,
+            tasks: createdTasks
+        });
     } catch (error) {
         next(error);
     }
