@@ -413,10 +413,7 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
             }
         });
 
-        res.status(200).json({
-            message: "Task bounty updated successfully",
-            data: updatedTask
-        });
+        res.status(200).json(updatedTask);
     } catch (error) {
         next(error);
     }
@@ -642,7 +639,7 @@ export const replyTimelineModificationRequest = async (req: Request, res: Respon
             });
         }
 
-        res.status(200).json({ comment });
+        res.status(200).json(comment);
     } catch (error) {
         next(error);
     }

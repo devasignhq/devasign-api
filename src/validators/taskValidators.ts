@@ -187,6 +187,27 @@ export const addTaskCommentValidator = [
         .withMessage('Attachments must be an array'),
 ];
 
+export const updateTaskCommentValidator = [
+    param('id')
+        .exists()
+        .withMessage('Task ID is required'),
+    param('commentId')
+        .exists()
+        .withMessage('Comment ID is required'),
+    body('message')
+        .exists()
+        .withMessage('Message is required')
+        .isString()
+        .withMessage('Message must be a string')
+        .trim()
+        .notEmpty()
+        .withMessage('Message cannot be empty'),
+    body('attachments')
+        .optional()
+        .isArray()
+        .withMessage('Attachments must be an array'),
+];
+
 export const markAsCompleteValidator = [
     param('id')
         .exists()

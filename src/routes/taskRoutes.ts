@@ -20,6 +20,7 @@ import {
     updateTaskBountyValidator,
     requestTimelineModificationValidator,
     addTaskCommentValidator,
+    updateTaskCommentValidator,
     markAsCompleteValidator,
     validateCompletionValidator,
     deleteTaskValidator,
@@ -37,7 +38,7 @@ taskRoutes.get('/:id', getTask as RequestHandler);
 // Task management
 taskRoutes.post("/", createTaskValidator, createTask as RequestHandler);
 taskRoutes.post("/batch", createManyTasksValidator, createManyTasks as RequestHandler);
-taskRoutes.put("/:id/bounty", updateTaskBountyValidator, updateTaskBounty as RequestHandler);
+taskRoutes.patch("/:id/bounty", updateTaskBountyValidator, updateTaskBounty as RequestHandler);
 taskRoutes.delete("/:id", deleteTaskValidator, deleteTask as RequestHandler);
 
 // Task status changes
@@ -51,4 +52,4 @@ taskRoutes.post("/:id/timeline/reply", replyTimelineModificationValidator, reply
 
 // Comments
 taskRoutes.post("/:id/comments", addTaskCommentValidator, addTaskComment as RequestHandler);
-taskRoutes.put("/:id/comments/:commentId", addTaskCommentValidator, updateTaskComment as RequestHandler);
+taskRoutes.patch("/:id/comments/:commentId", updateTaskCommentValidator, updateTaskComment as RequestHandler);

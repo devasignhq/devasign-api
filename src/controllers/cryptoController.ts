@@ -72,8 +72,10 @@ export const withdrawCrypto = async (req: Request, res: Response, next: NextFunc
             assetType === "USDC" ? usdcAssetId : xlmAssetId,
             amount
         );
+        
+        const updatedAccountInfo = await stellarService.getAccountInfo(user.walletAddress);
 
-        res.status(200).json({ message: "Withdrawal successful" });
+        res.status(200).json(updatedAccountInfo);
     } catch (error) {
         next(error);
     }
@@ -148,8 +150,10 @@ export const swapCrypto = async (req: Request, res: Response, next: NextFunction
                 xlmAssetId
             );
         }
+        
+        const updatedAccountInfo = await stellarService.getAccountInfo(user.walletAddress);
 
-        res.status(200).json({ message: "Swap successful" });
+        res.status(200).json(updatedAccountInfo);
     } catch (error) {
         next(error);
     }
