@@ -36,7 +36,7 @@ taskRoutes.get('/:id', getTask as RequestHandler);
 
 // Task management
 taskRoutes.post("/", createTaskValidator, createTask as RequestHandler);
-taskRoutes.post("/", createManyTasksValidator, createManyTasks as RequestHandler);
+taskRoutes.post("/batch", createManyTasksValidator, createManyTasks as RequestHandler);
 taskRoutes.put("/:id/bounty", updateTaskBountyValidator, updateTaskBounty as RequestHandler);
 taskRoutes.delete("/:id", deleteTaskValidator, deleteTask as RequestHandler);
 

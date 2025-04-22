@@ -46,11 +46,7 @@ app.use(((error: any, req: Request, res: Response, next: NextFunction) => {
 
     if (error instanceof ErrorClass) {
         return res.status(420).json({
-            error: {
-                name: error.name,
-                message: error.message,
-                details: error.details
-            }
+            error: { ...error }
         });
     }
 

@@ -11,7 +11,6 @@ import {
 import { ErrorClass, NotFoundErrorClass } from "../types/general";
 import { stellarService, usdcAssetId } from "../config/stellar";
 import { decrypt, encrypt } from "../helper";
-import { ref } from "process";
 
 export const createProject = async (req: Request, res: Response, next: NextFunction) => {
     const { userId, githubToken, repoUrl } = req.body;
@@ -307,7 +306,13 @@ export const updateProject = async (req: Request, res: Response, next: NextFunct
             data: { 
                 name: repoDetails.name,
                 description: repoDetails.description || "",
-                repoUrl 
+                repoUrl, 
+            },
+            select: {
+                name: true,
+                description: true,
+                repoUrl: true,
+                updatedAt: true,
             }
         });
         res.status(200).json(updatedProject);

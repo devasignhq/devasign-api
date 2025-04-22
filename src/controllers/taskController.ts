@@ -406,7 +406,11 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
         // Update task bounty
         const updatedTask = await prisma.task.update({
             where: { id },
-            data: { bounty: newbounty }
+            data: { bounty: newbounty },
+            select: {
+                bounty: true,
+                updatedAt: true
+            }
         });
 
         res.status(200).json({
@@ -443,6 +447,18 @@ export const acceptTask = async (req: Request, res: Response, next: NextFunction
                 contributor: {
                     connect: { userId }
                 }
+            },
+            select: {
+                id: true,
+                status: true,
+                acceptedAt: true,
+                contributor: {
+                    select: {
+                        userId: true,
+                        username: true
+                    }
+                },
+                updatedAt: true
             }
         });
 
@@ -656,15 +672,20 @@ export const markAsComplete = async (req: Request, res: Response, next: NextFunc
             );
         }
 
-        await prisma.task.update({
+        const updatedTask = await prisma.task.update({
             where: { id },
             data: {
                 status: "MARKED_AS_COMPLETED",
                 pullRequests
+            },
+            select: {
+                status: true,
+                pullRequests: true,
+                updatedAt: true
             }
         });
 
-        res.status(200).json("Action successful");
+        res.status(200).json(updatedTask);
     } catch (error) {
         next(error);
     }
@@ -733,12 +754,18 @@ export const validateCompletion = async (req: Request, res: Response, next: Next
             task.bounty.toString()
         );
 
-        await prisma.task.update({
+        const updatedTask = await prisma.task.update({
             where: { id },
             data: {
                 status: "COMPLETED",
                 completedAt: new Date(),
                 settled: true
+            },
+            select: {
+                status: true,
+                completedAt: true,
+                settled: true,
+                updatedAt: true
             }
         });
 
@@ -752,11 +779,12 @@ export const validateCompletion = async (req: Request, res: Response, next: Next
                 }
             });
             
-            res.status(201).json("Validation Complete");
+            res.status(201).json(updatedTask);
         } catch (error: any) {
             next({ 
                 ...error, 
                 validated: true, 
+                task,
                 message: "Validation complete. Failed to update contribution summary."
             });
         }

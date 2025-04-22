@@ -6,7 +6,7 @@ import { encrypt } from "../helper";
 import { AddressBook, ErrorClass, NotFoundErrorClass } from "../types/general";
 
 export const getUser = async (req: Request, res: Response, next: NextFunction) => {
-    const { userId } = req.params;
+    const { userId } = req.body;
     const { view = "basic" } = req.query; // "basic" | "full" | "profile"
 
     try {
@@ -16,7 +16,8 @@ export const getUser = async (req: Request, res: Response, next: NextFunction) =
             username: true,
             walletAddress: true,
             addressBook: true,
-            createdAt: true
+            createdAt: true,
+            updatedAt: true
         };
 
         // Build select object based on view type
@@ -150,7 +151,9 @@ export const createUser = async (req: Request, res: Response, next: NextFunction
                 userId: true,
                 username: true,
                 walletAddress: true,
-                contributionSummary: true
+                contributionSummary: true,
+                createdAt: true,
+                updatedAt: true,
             }
         });
 

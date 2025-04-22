@@ -11,7 +11,7 @@ export const userRoutes = Router();
 userRoutes.post("/", createUser as RequestHandler);
 
 // Get user
-userRoutes.get('/:userId', getUserValidator, getUser as RequestHandler);
+userRoutes.get('/', getUserValidator, getUser as RequestHandler);
 
 // Update user details
 userRoutes.put("/", updateUserValidator, updateUser as RequestHandler);
