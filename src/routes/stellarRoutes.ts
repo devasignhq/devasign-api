@@ -179,4 +179,50 @@ router.get('/account/:publicKey', async (req: Request, res: Response, next: Next
     }
 });
 
+// Stream
+router.get('/stream/:publicKey', async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const accountToWatch = "GD6LFE72VUGGPYDAWOEL5I34JODO746PSEFBUCDZECXTVWB6VFLOPFUM"
+        const accountInfo = await stellarService.buildTransactionStream(accountToWatch);
+
+        console.log('--- Transaction Stream ---');
+
+        accountInfo({
+            onmessage: (payment: any) => {
+                // The 'payment' object contains details about the payment operation.
+                // We are interested in incoming payments, so we check the 'to' address.
+                if (payment.type === 'payment' && payment.to === accountToWatch) {
+                    // Check if it's a native asset (XLM) or a credit asset
+                    const assetType = payment.asset_type;
+                    const assetCode = payment.asset_code || 'XLM'; // Use XLM for native
+                    const assetIssuer = payment.asset_issuer || ''; // Issuer for credit assets
+
+                    console.log('--- Incoming Payment ---');
+                    console.log(`Transaction ID: ${payment.transaction_hash}`);
+                    console.log(`From: ${payment.from}`);
+                    console.log(`To: ${payment.to}`);
+                    console.log(`Amount: ${payment.amount} ${assetCode}`);
+                    if (assetType !== 'native') {
+                        console.log(`Asset Issuer: ${assetIssuer}`);
+                    }
+                    console.log(`Timestamp: ${payment.created_at}`);
+                    console.log('------------------------');
+                }
+            },
+            onerror: (error: any) => {
+                console.error('Error in stream:', error);
+                // Implement reconnection logic here if needed
+            },
+        })
+
+        console.log('--- Transaction Stream ---222');
+
+        res.status(200).json({
+            message: 'Transaction stream started successfully',
+        });
+    } catch (error) {
+        res.status(601).json({ error });
+    }
+});
+
 export const stellarRoutes = router;

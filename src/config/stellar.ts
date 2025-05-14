@@ -64,7 +64,7 @@ export class StellarService {
         });
     }
 
-    async createWallet(): Promise<{ publicKey: string; secretKey: string }> {
+    async createWallet() {
         try {
             const accountKeyPair = account.createKeypair();
         
@@ -77,7 +77,8 @@ export class StellarService {
         
             return {
                 publicKey: accountKeyPair.publicKey,
-                secretKey: accountKeyPair.secretKey
+                secretKey: accountKeyPair.secretKey,
+                txHash: txCreateAccount.hash().toString('hex')
             };
         } catch (error) {
             throw new StellarServiceError("Failed to create wallet", error);
@@ -105,7 +106,8 @@ export class StellarService {
         
             return {
                 publicKey: accountKeyPair.publicKey,
-                secretKey: accountKeyPair.secretKey
+                secretKey: accountKeyPair.secretKey,
+                txHash: txCreateAccount.hash().toString('hex')
             };
         } catch (error) {
             throw new StellarServiceError("Failed to create wallet", error);
@@ -132,7 +134,7 @@ export class StellarService {
             txAddAssetSupport.sign(sourceKeypair);
             await stellar.submitTransaction(txAddAssetSupport);
 
-            return "SUCCESS";
+            return { txHash: txAddAssetSupport.hash().toString('hex') };
         } catch (error) {
             throw new StellarServiceError("Failed to add trustline", error);
         }
@@ -165,7 +167,7 @@ export class StellarService {
             
             await stellar.submitTransaction(txAddAssetSupport);
 
-            return "SUCCESS";
+            return { txHash: txAddAssetSupport.hash().toString('hex') };
         } catch (error) {
             throw new StellarServiceError("Failed to add trustline", error);
         }
@@ -197,7 +199,7 @@ export class StellarService {
             txPathPay.sign(sourceKeypair);
             await stellar.submitTransaction(txPathPay);
 
-            return "SUCCESS";
+            return { txHash: txPathPay.hash().toString('hex') };
         } catch (error) {
             throw new StellarServiceError("Failed to transfer asset", error);
         }
@@ -239,7 +241,10 @@ export class StellarService {
             
             await stellar.submitTransaction(feeBump);
 
-            return "SUCCESS";
+            return { 
+                txHash: txPathPay.hash().toString('hex'),
+                sponsorTxHash: feeBump.hash().toString('hex'),
+            };
         } catch (error) {
             throw new StellarServiceError("Failed to add trustline", error);
         }
@@ -263,7 +268,7 @@ export class StellarService {
             txSwap.sign(sourceKeypair);
             await stellar.submitTransaction(txSwap);
 
-            return "SUCCESS";
+            return { txHash: txSwap.hash().toString('hex') };
         } catch (error) {
             throw new StellarServiceError("Failed to swap asset", error);
         }
@@ -276,6 +281,16 @@ export class StellarService {
         } catch (error) {
             throw new StellarServiceError("Failed to get account info", error);
         }
+    }
+
+    async buildTransactionStream(publicKey: string) {
+        const stream = stellar.server
+            .payments()
+            .forAccount(publicKey)
+            .cursor("now")
+            .stream
+        
+        return stream
     }
 }
 

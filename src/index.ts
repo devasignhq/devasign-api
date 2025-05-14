@@ -1,6 +1,7 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
+import { EventSource } from 'eventsource'
 import express, { Request, Response, NextFunction, RequestHandler } from 'express';
 import createError from 'http-errors';
 import helmet from 'helmet';
@@ -15,6 +16,7 @@ import { stellarRoutes } from './routes/stellarRoutes';
 import { testRoutes } from './routes/testRoutes';
 import { ErrorClass } from './types/general';
 import { walletRoutes } from './routes/walletRoutes';
+import { stellarService } from './config/stellar';
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -81,6 +83,31 @@ app.use("/test", testRoutes);
 
 prisma.$connect();
 
-app.listen(port, () => {
+app.listen(port, async () => {
+    const accountToWatch = "GD6LFE72VUGGPYDAWOEL5I34JODO746PSEFBUCDZECXTVWB6VFLOPFUM"
+    const accountSream = await stellarService.buildTransactionStream(accountToWatch);
+
+    // console.log('--- Transaction Stream ---');
+
+    // const es = new EventSource(
+    //     "https://horizon-testnet.stellar.org/accounts/GD6LFE72VUGGPYDAWOEL5I34JODO746PSEFBUCDZECXTVWB6VFLOPFUM/payments",
+    // );
+    // es.onmessage = function (message: any) {
+    //     console.log("start")
+    //     const result = message.data ? JSON.parse(message.data) : message;
+    //     console.log("New payment:");
+    //     console.log(result);
+    // };
+    // es.onerror = function (error: any) {
+    //     console.log("An error occurred!", error);
+    // };
+
+    // console.log('--- Transaction Ran ---');
+
+    const one = "91af86cd024af6b7e2e12d802d089f7fd07b1906dbe7b526b8decc65e6ef97e7";
+    const two = "91af86cd024af6b7e2e12d802d089f7fd07b1906dbe7b526b8decc65e6ef97e7";
+
+    if (one === two) console.log("The Same SHIT!!!!!!!")
+
     console.log(`Server is running on port ${port}`);
 });
