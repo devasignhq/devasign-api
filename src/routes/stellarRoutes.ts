@@ -183,7 +183,7 @@ router.get('/account/:publicKey', async (req: Request, res: Response, next: Next
 router.get('/stream/:publicKey', async (req: Request, res: Response, next: NextFunction) => {
     try {
         const accountToWatch = "GD6LFE72VUGGPYDAWOEL5I34JODO746PSEFBUCDZECXTVWB6VFLOPFUM"
-        const accountInfo = await stellarService.buildTransactionStream(accountToWatch);
+        const accountInfo = await stellarService.buildPaymentTransactionStream(accountToWatch);
 
         console.log('--- Transaction Stream ---');
 

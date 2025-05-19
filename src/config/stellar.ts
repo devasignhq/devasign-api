@@ -283,7 +283,7 @@ export class StellarService {
         }
     }
 
-    async buildTransactionStream(publicKey: string) {
+    async buildPaymentTransactionStream(publicKey: string) {
         const stream = stellar.server
             .payments()
             .forAccount(publicKey)

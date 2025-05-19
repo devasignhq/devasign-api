@@ -22,6 +22,14 @@ enum TimelineType {
   DAY
 }
 
+enum TransactionType {
+  BOUNTY
+  SWAP_USDC
+  SWAP_XLM
+  WITHDRAWAL
+  TOP_UP
+}
+
 // Model Definitions
 
 model User {
@@ -33,6 +41,7 @@ model User {
   createdTasks        Task[]               @relation("TaskCreator")
   contributedTasks    Task[]               @relation("TaskContributor")
   projects            Project[]            @relation("UserProjects")
+  transactions        Transaction[]
   addressBook         Json[]               @default([])
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
@@ -50,21 +59,41 @@ model ContributionSummary {
   user           User   @relation(fields: [userId], references: [userId])
 }
 
+model SubscriptionPackage {
+  id          String    @id @default(cuid())
+  name        String
+  description String
+  maxTasks    Int
+  maxUsers    Int
+  paid        Boolean   @default(true)
+  price       Float
+  active      Boolean   @default(true)
+  projects    Project[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
 model Project {
-  id            String   @id @default(cuid())
-  name          String
-  description   String
-  repoUrl       String
-  escrowAddress String?
-  escrowSecret  String? // Store encrypted
-  tasks         Task[]   @relation("ProjectTasks")
-  users         User[]   @relation("UserProjects")
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id                    String              @id @default(cuid())
+  name                  String
+  description           String
+  repoUrls              String[]
+  walletAddress         String
+  walletSecret          String
+  escrowAddress         String
+  escrowSecret          String
+  subscriptionPackage   SubscriptionPackage @relation(fields: [subscriptionPackageId], references: [id])
+  subscriptionPackageId String
+  tasks                 Task[]              @relation("ProjectTasks")
+  users                 User[]              @relation("UserProjects")
+  transactions          Transaction[]
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
 }
 
 model Task {
   id            String        @id @default(cuid())
+  no            Int           @default(autoincrement())
   creatorId     String
   contributorId String?
   project       Project       @relation("ProjectTasks", fields: [projectId], references: [id])
@@ -80,6 +109,48 @@ model Task {
   pullRequests  String[]      @default([])
   creator       User          @relation("TaskCreator", fields: [creatorId], references: [userId])
   contributor   User?         @relation("TaskContributor", fields: [contributorId], references: [userId])
+  transactions  Transaction[]
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
+}
+
+model Permission {
+  code      String   @id
+  name      String
+  isDefault Boolean
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Transaction {
+  id       String          @id @default(cuid())
+  category TransactionType
+  amount   Float
+  doneAt   DateTime        @default(now())
+
+  // For BOUNTY transactions
+  task   Task?   @relation(fields: [taskId], references: [id])
+  taskId String?
+
+  // For TOP_UP transactions
+  sourceAddress String?
+
+  // For WITHDRAWAL transactions
+  destinationAddress String?
+
+  // For TOP_UP and WITHDRAWAL transactions
+  asset String?
+
+  // For SWAP transactions
+  assetFrom String?
+  assetTo   String?
+
+  // Balance tracking
+  previousBalance Float
+  newBalance      Float
+
+  project   Project @relation(fields: [projectId], references: [id])
+  projectId String
+  user      User    @relation(fields: [userId], references: [userId])
+  userId    String
 }
