@@ -92,6 +92,7 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
     }
 };
 
+// TODO: track number created/failed
 export const createManyTasks = async (req: Request, res: Response, next: NextFunction) => {
     const { userId, payload, projectId } = req.body;
     const tasks = payload as CreateTask[];

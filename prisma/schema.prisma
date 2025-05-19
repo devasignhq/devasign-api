@@ -74,7 +74,7 @@ model SubscriptionPackage {
 }
 
 model Project {
-  id                    String              @id @default(cuid())
+  id                    String               @id @default(cuid())
   name                  String
   description           String
   repoUrls              String[]
@@ -82,13 +82,13 @@ model Project {
   walletSecret          String
   escrowAddress         String
   escrowSecret          String
-  subscriptionPackage   SubscriptionPackage @relation(fields: [subscriptionPackageId], references: [id])
-  subscriptionPackageId String
-  tasks                 Task[]              @relation("ProjectTasks")
-  users                 User[]              @relation("UserProjects")
+  subscriptionPackage   SubscriptionPackage? @relation(fields: [subscriptionPackageId], references: [id])
+  subscriptionPackageId String?
+  tasks                 Task[]               @relation("ProjectTasks")
+  users                 User[]               @relation("UserProjects")
   transactions          Transaction[]
-  createdAt             DateTime            @default(now())
-  updatedAt             DateTime            @updatedAt
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime             @updatedAt
 }
 
 model Task {

@@ -13,18 +13,9 @@ import { stellarService, usdcAssetId } from "../config/stellar";
 import { decrypt, encrypt } from "../helper";
 
 export const createProject = async (req: Request, res: Response, next: NextFunction) => {
-    const { userId, githubToken, repoUrl } = req.body;
+    const { userId, name, description } = req.body;
 
     try {
-        const existingProject = await prisma.project.findFirst({
-            where: { repoUrl }
-        });
-
-        if (existingProject) {
-            throw new ErrorClass("ProjectError", null, "Project already exists");
-        }
-
-        const repoDetails = await getRepoDetails(repoUrl, githubToken);
         const user = await prisma.user.findUnique({
             where: { userId },            
             select: { walletSecret: true }
@@ -35,14 +26,17 @@ export const createProject = async (req: Request, res: Response, next: NextFunct
         }
 
         const decryptedUserSecret = decrypt(user.walletSecret);
+        const projectWallet = await stellarService.createWalletViaSponsor(decryptedUserSecret);
         const escrowWallet = await stellarService.createWalletViaSponsor(decryptedUserSecret);
         const encryptedEscrowSecret = encrypt(escrowWallet.secretKey);
+        const encryptedProjectSecret = encrypt(escrowWallet.secretKey);
 
         const project = await prisma.project.create({
             data: {
-                name: repoDetails.name,
-                description: repoDetails.description || "",
-                repoUrl,
+                name: name,
+                description: description || "",
+                walletAddress: projectWallet.publicKey,
+                walletSecret: encryptedProjectSecret,
                 escrowAddress: escrowWallet.publicKey,
                 escrowSecret: encryptedEscrowSecret,
                 users: {
@@ -53,13 +47,17 @@ export const createProject = async (req: Request, res: Response, next: NextFunct
                 id: true,
                 name: true,
                 description: true,
-                repoUrl: true,
+                walletAddress: true,
                 createdAt: true,
                 updatedAt: true
             }
         });
 
         try {
+            await stellarService.addTrustLineViaSponsor(
+                decryptedUserSecret,
+                projectWallet.secretKey
+            );
             await stellarService.addTrustLineViaSponsor(
                 decryptedUserSecret,
                 escrowWallet.secretKey
