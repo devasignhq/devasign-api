@@ -12,71 +12,6 @@ import { ErrorClass, NotFoundErrorClass } from "../types/general";
 import { stellarService, usdcAssetId } from "../config/stellar";
 import { decrypt, encrypt } from "../helper";
 
-export const createProject = async (req: Request, res: Response, next: NextFunction) => {
-    const { userId, name, description } = req.body;
-
-    try {
-        const user = await prisma.user.findUnique({
-            where: { userId },            
-            select: { walletSecret: true }
-        });
-        
-        if (!user) {
-            throw new NotFoundErrorClass("User not found");
-        }
-
-        const decryptedUserSecret = decrypt(user.walletSecret);
-        const projectWallet = await stellarService.createWalletViaSponsor(decryptedUserSecret);
-        const escrowWallet = await stellarService.createWalletViaSponsor(decryptedUserSecret);
-        const encryptedEscrowSecret = encrypt(escrowWallet.secretKey);
-        const encryptedProjectSecret = encrypt(escrowWallet.secretKey);
-
-        const project = await prisma.project.create({
-            data: {
-                name: name,
-                description: description || "",
-                walletAddress: projectWallet.publicKey,
-                walletSecret: encryptedProjectSecret,
-                escrowAddress: escrowWallet.publicKey,
-                escrowSecret: encryptedEscrowSecret,
-                users: {
-                    connect: { userId }
-                }
-            },
-            select: {
-                id: true,
-                name: true,
-                description: true,
-                walletAddress: true,
-                createdAt: true,
-                updatedAt: true
-            }
-        });
-
-        try {
-            await stellarService.addTrustLineViaSponsor(
-                decryptedUserSecret,
-                projectWallet.secretKey
-            );
-            await stellarService.addTrustLineViaSponsor(
-                decryptedUserSecret,
-                escrowWallet.secretKey
-            );
-            
-            res.status(201).json(project);
-        } catch (error: any) {
-            // Return project data even if adding USDC trustline fails
-            next({ 
-                ...error, 
-                project, 
-                message: "Project successfully created. Failed to add USDC trustline."
-            });
-        }
-    } catch (error) {
-        next(error);
-    }
-};
-
 export const getProjects = async (req: Request, res: Response, next: NextFunction) => {
     const { 
         userId,
@@ -121,7 +56,7 @@ export const getProjects = async (req: Request, res: Response, next: NextFunctio
                 id: true,
                 name: true,
                 description: true,
-                repoUrl: true,
+                repoUrls: true,
                 escrowAddress: true,
                 tasks: {
                     select: {
@@ -196,7 +131,7 @@ export const getProject = async (req: Request, res: Response, next: NextFunction
                 id: true,
                 name: true,
                 description: true,
-                repoUrl: true,
+                repoUrls: true,
                 escrowAddress: true,
                 tasks: {
                     select: {
@@ -266,16 +201,123 @@ export const getProject = async (req: Request, res: Response, next: NextFunction
     }
 };
 
+export const createProject = async (req: Request, res: Response, next: NextFunction) => {
+    const { userId, name, description } = req.body;
+
+    try {
+        const user = await prisma.user.findUnique({
+            where: { userId },            
+            select: { walletSecret: true }
+        });
+        
+        if (!user) {
+            throw new NotFoundErrorClass("User not found");
+        }
+
+        const decryptedUserSecret = decrypt(user.walletSecret);
+        const projectWallet = await stellarService.createWalletViaSponsor(decryptedUserSecret);
+        const escrowWallet = await stellarService.createWalletViaSponsor(decryptedUserSecret);
+        const encryptedEscrowSecret = encrypt(escrowWallet.secretKey);
+        const encryptedProjectSecret = encrypt(escrowWallet.secretKey);
+
+        const project = await prisma.project.create({
+            data: {
+                name: name,
+                description: description || "",
+                walletAddress: projectWallet.publicKey,
+                walletSecret: encryptedProjectSecret,
+                escrowAddress: escrowWallet.publicKey,
+                escrowSecret: encryptedEscrowSecret,
+                users: {
+                    connect: { userId }
+                }
+            },
+            select: {
+                id: true,
+                name: true,
+                description: true,
+                walletAddress: true,
+                createdAt: true,
+                updatedAt: true
+            }
+        });
+
+        try {
+            await stellarService.addTrustLineViaSponsor(
+                decryptedUserSecret,
+                projectWallet.secretKey
+            );
+            await stellarService.addTrustLineViaSponsor(
+                decryptedUserSecret,
+                escrowWallet.secretKey
+            );
+            
+            res.status(201).json(project);
+        } catch (error: any) {
+            // Return project data even if adding USDC trustline fails
+            next({ 
+                ...error, 
+                project, 
+                message: "Project successfully created. Failed to add USDC trustlines."
+            });
+        }
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const connectRepository = async (req: Request, res: Response, next: NextFunction) => {
+    const { id: projectId } = req.params;
+    const { githubToken, repoUrl, userId } = req.body;
+
+    try {
+        // 1. Fetch the project and check if user is a team member
+        const project = await prisma.project.findUnique({
+            where: { id: projectId },
+            select: {
+                repoUrls: true,
+                users: { select: { userId: true } }
+            }
+        });
+
+        if (!project) {
+            throw new NotFoundErrorClass("Project not found");
+        }
+
+        const userIsTeamMember = project.users.some(user => user.userId === userId);
+        if (!userIsTeamMember) {
+            throw new ErrorClass("AuthorizationError", null, "Not authorized to connect repository to this project");
+        }
+
+        // 2. Validate if user is an admin on the repository
+        const repoDetails = await getRepoDetails(repoUrl, githubToken);
+        if (!repoDetails.permissions || !repoDetails.permissions.admin) {
+            throw new ErrorClass("AuthorizationError", null, "User is not an admin on the repository");
+        }
+
+        // 3. Add repoUrl to repoUrls array if not already present
+        const updatedRepoUrls = Array.from(new Set([...(project.repoUrls || []), repoUrl]));
+
+        await prisma.project.update({
+            where: { id: projectId },
+            data: { repoUrls: updatedRepoUrls }
+        });
+
+        res.status(200).json({ message: "Repository connected successfully", repoUrls: updatedRepoUrls });
+    } catch (error) {
+        next(error);
+    }
+};
+
 export const updateProject = async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;
-    const { githubToken, repoUrl, userId } = req.body;
+    const { userId, name, description } = req.body;
 
     try {
         const project = await prisma.project.findUnique({
             where: { id },
             select: { 
-                users: { select: { userId: true } },
-                tasks: { select: { status: true } }
+                users: { select: { userId: true } }
             }
         });
         
@@ -289,27 +331,12 @@ export const updateProject = async (req: Request, res: Response, next: NextFunct
             throw new ErrorClass("AuthorizationError", null, "Not authorized to update this project");
         }
 
-        // ? Review this
-        const hasActiveTasks = project.tasks.some(task => 
-            task.status !== 'OPEN' && task.status !== 'COMPLETED'
-        );
-        if (hasActiveTasks) {
-            throw new ErrorClass("ProjectError", null, "Cannot update project with active tasks");
-        }
-
-        const repoDetails = await getRepoDetails(repoUrl, githubToken);
-
         const updatedProject = await prisma.project.update({
             where: { id },
-            data: { 
-                name: repoDetails.name,
-                description: repoDetails.description || "",
-                repoUrl, 
-            },
+            data: { name, description },
             select: {
                 name: true,
                 description: true,
-                repoUrl: true,
                 updatedAt: true,
             }
         });
@@ -411,7 +438,6 @@ export const addTeamMembers = async (req: Request, res: Response, next: NextFunc
             where: { id },
             select: { 
                 users: true, 
-                repoUrl: true, 
                 name: true 
             }
         });

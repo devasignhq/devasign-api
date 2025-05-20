@@ -34,6 +34,18 @@ export const getProjectsValidator = [
 ];
 
 export const createProjectValidator = [
+    body('name')
+        .exists()
+        .withMessage('Name is required')
+        .isString()
+        .withMessage('Name must be a string'),
+    query('description')
+        .optional()
+        .isString()
+        .withMessage('Description must be a string'),
+];
+
+export const connectRepositoryValidator = [
     body('repoUrl')
         .exists()
         .withMessage('Repository URL is required')
@@ -44,16 +56,15 @@ export const createProjectValidator = [
 ];
 
 export const updateProjectValidator = [
-    param('id')
+    body('name')
         .exists()
-        .withMessage('Project ID is required'),
-    body('repoUrl')
-        .exists()
-        .withMessage('Repository URL is required')
+        .withMessage('Name is required')
         .isString()
-        .withMessage('Repository URL must be a string')
-        .matches(/^https:\/\/github\.com\/[^/]+\/[^/]+$/)
-        .withMessage('Invalid GitHub repository URL format')
+        .withMessage('Name must be a string'),
+    query('description')
+        .optional()
+        .isString()
+        .withMessage('Description must be a string'),
 ];
 
 export const addTeamMembersValidator = [
@@ -78,7 +89,9 @@ export const getProjectIssuesValidator = [
         .exists()
         .withMessage('Repository URL is required')
         .isString()
-        .withMessage('Repository URL must be a string'),
+        .withMessage('Repository URL must be a string')
+        .matches(/^https:\/\/github\.com\/[^/]+\/[^/]+$/)
+        .withMessage('Invalid GitHub repository URL format'),
     query('page')
         .optional()
         .trim()
