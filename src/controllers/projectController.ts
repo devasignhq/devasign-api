@@ -11,6 +11,7 @@ import {
 import { ErrorClass, NotFoundErrorClass } from "../types/general";
 import { stellarService, usdcAssetId } from "../config/stellar";
 import { decrypt, encrypt } from "../helper";
+import { connect } from "http2";
 
 export const getProjects = async (req: Request, res: Response, next: NextFunction) => {
     const { 
@@ -419,23 +420,12 @@ export const deleteProject = async (req: Request, res: Response, next: NextFunct
 };
 
 export const addTeamMembers = async (req: Request, res: Response, next: NextFunction) => {
-    const { id } = req.params;
-    const { githubUsernames, userId } = req.body;
+    const { id: projectId } = req.params;
+    const { userId, username, email, permissionCodes } = req.body;
 
     try {
-        // Validate input
-        if (!Array.isArray(githubUsernames) || githubUsernames.length === 0) {
-            throw new ErrorClass("ValidationError", null, "Invalid usernames array");
-        }
-        if (githubUsernames.length > 10) {
-            throw new ErrorClass("ValidationError", null, "Cannot add more than 10 members at once");
-        }
-
-        // Remove duplicates
-        const uniqueUsernames = [...(new Set(githubUsernames))];
-
         const project = await prisma.project.findUnique({
-            where: { id },
+            where: { id: projectId },
             select: { 
                 users: true, 
                 name: true 
@@ -446,39 +436,54 @@ export const addTeamMembers = async (req: Request, res: Response, next: NextFunc
             throw new NotFoundErrorClass("Project not found");
         }
 
-        const results = await Promise.all(
-            uniqueUsernames.map(async (username: string) => {
-                // Check if user exists in our system
-                const existingUser = await prisma.user.findFirst({
-                    where: { username },
-                    select: { userId: true }
-                });
+        // Check if user exists in our system
+        const existingUser = await prisma.user.findFirst({
+            where: { username },
+            select: { userId: true }
+        });
 
-                if (existingUser) {
-                    // Add user to project
-                    await prisma.project.update({
-                        where: { id },
-                        data: {
-                            users: {
-                                connect: { userId: existingUser.userId }
-                            }
-                        }
-                    });
-                    return { username, status: 'added' };
-                } else {
-                    // Check if GitHub user exists
-                    const githubUserExists = await checkGithubUser(username);
-                    if (githubUserExists) {
-                        // Send invitation
-                        await sendInvitation(username, project.name);
-                        return { username, status: 'invited' };
+        let result: Record<string, unknown> = {};
+
+        if (existingUser) {
+            // Add user to project
+            await prisma.project.update({
+                where: { id: projectId },
+                data: {
+                    users: {
+                        connect: { userId: existingUser.userId }
                     }
-                    return { username, status: 'not_found' };
                 }
-            })
-        );
+            });
 
-        res.status(200).json({ results });
+            await prisma.userProjectPermission.create({
+                data: {
+                    user: {
+                        connect: { userId: existingUser.userId }
+                    },
+                    project: {
+                        connect: { id: projectId }
+                    },
+                    permissionCodes,
+                    permission: {
+                        connect: (permissionCodes as string[]).map(code => ({ code }))
+                    },
+                    assignedBy: userId
+                }
+            });
+
+            result = { username, status: "added" };
+        } else {
+            const githubUserExists = await checkGithubUser(username);
+            if (githubUserExists) {
+                // Send invitation
+                await sendInvitation(username, project.name);
+                return { username, status: "invited" };
+            }
+
+            result = { username, status: "not_found" };
+        }
+
+        res.status(200).json(result);
     } catch (error) {
         next(error);
     }

@@ -70,18 +70,26 @@ export const updateProjectValidator = [
 export const addTeamMembersValidator = [
     param('id')
         .exists()
-        .withMessage('Project ID is required'),
-    body('githubUsernames')
+        .withMessage('Project ID is required')
+        .isString()
+        .withMessage('Project ID must be a string'),
+    body('username')
         .exists()
-        .withMessage('GitHub usernames are required')
-        .isArray()
-        .withMessage('GitHub usernames must be an array')
-        .custom((usernames: string[]) => {
-            if (usernames.length === 0) return false;
-            if (usernames.length > 10) return false;
-            return usernames.every(username => typeof username === 'string' && username.length > 0);
-        })
-        .withMessage('Invalid GitHub usernames array format or size (1-10 required)')
+        .withMessage('Username is required')
+        .isString()
+        .withMessage('Username must be a string'),
+    body('permissionCodes')
+        .exists()
+        .withMessage('Permission codes are required')
+        .isArray({ min: 1 })
+        .withMessage('Permission codes must be a non-empty array'),
+    body('permissionCodes.*')
+        .isString()
+        .withMessage('Each permission code must be a string'),
+    body('email')
+        .optional()
+        .isEmail()
+        .withMessage('Email must be valid'),
 ];
 
 export const getProjectIssuesValidator = [

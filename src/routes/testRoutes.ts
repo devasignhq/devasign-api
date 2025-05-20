@@ -4,6 +4,8 @@ import createError from 'http-errors';
 import { encrypt, decrypt } from '../helper';
 import { prisma } from '../config/database';
 import { getRepoDetails } from '../services/projectService';
+import axios from 'axios';
+import { Octokit } from "@octokit/rest";
 
 const router = Router();
 
@@ -143,9 +145,9 @@ router.get('/select',
     }) as RequestHandler
 );
 
-router.get('/repo-details', 
+router.get('/github', 
     [
-        body('repoUrl').isString().withMessage('Text to encrypt is required'),
+        body('username').isString().withMessage('Text to encrypt is required'),
     ],
     (async (req: Request, res: Response, next: NextFunction) => {
         try {
@@ -154,21 +156,32 @@ router.get('/repo-details',
                 return res.status(400).json({ errors: errors.array() });
             }
 
-            const { repoUrl } = req.body;
+            const { username } = req.body;
 
-            const repoDetails = await getRepoDetails(repoUrl, process.env.GITHUB_ACCESS_TOKEN!);
-            if (!repoDetails.permissions || !repoDetails.permissions.admin) {
-                res.status(200).json({
-                    message: 'Not an admin',
-                    data: repoDetails
-                });
-            }
+            const octokit = new Octokit({ auth: process.env.GITHUB_ACCESS_TOKEN });
 
+            const response = await octokit.rest.users.getByUsername({
+                username,
+            });
+
+            // const repoDetails = await getRepoDetails(repoUrl, process.env.GITHUB_ACCESS_TOKEN!);
+            // if (!repoDetails.permissions || !repoDetails.permissions.admin) {
+            //     res.status(200).json({
+            //         message: 'Not an admin',
+            //         data: repoDetails
+            //     });
+            // }
+
+            // res.status(200).json({
+            //     message: 'Successful',
+            //     data: repoDetails
+            // });
             res.status(200).json({
                 message: 'Successful',
-                data: repoDetails
+                data: response
             });
         } catch (error) {
+            console.log(error)
             next(error);
         }
     }) as RequestHandler

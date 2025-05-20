@@ -10,12 +10,13 @@ export async function sendInvitation(username: string, projectName: string) {
 
 // Helper function to check if GitHub user exists
 export async function checkGithubUser(username: string): Promise<boolean> {
+    const octokit = new Octokit({ auth: process.env.GITHUB_ACCESS_TOKEN });
+
     try {
-        const response = await axios.get(`https://api.github.com/users/${username}`, {
-            headers: {
-                Authorization: `token ${process.env.GITHUB_ACCESS_TOKEN}`
-            }
+        const response = await octokit.rest.users.getByUsername({
+            username,
         });
+
         return response.status === 200;
     } catch (error) {
         throw new ErrorClass(
@@ -48,7 +49,6 @@ export async function getRepoDetails(repoUrl: string, githubToken: string) {
 
         return response.data;
     } catch (error) {
-        console.log(error)
         throw new ErrorClass(
             "OctakitError",
             error,
