@@ -1,5 +1,5 @@
 import axios from "axios";
-import type { Octokit } from "@octokit/rest";
+import { Octokit } from "@octokit/rest";
 import { ErrorClass, IssueFilters } from "../types/general";
 
 // Helper function to send invitation email
@@ -26,24 +26,18 @@ export async function checkGithubUser(username: string): Promise<boolean> {
     }
 };
 
-async function getOctokitInstance(githubToken: string): Promise<Octokit> {
-    const { Octokit } = await import("@octokit/rest");
-    return new Octokit({ auth: githubToken });
-}
-
 // Extract owner and repo from GitHub URL
 // Example URL: https://github.com/owner/repo
 function getOwnerAndRepo(repoUrl: string) {
     const [owner, repo] = repoUrl
-        .replace("https://github.com/", "")
-        .replace(".git", "")
+        .split("https://github.com/")[1]
         .split("/");
 
     return [owner, repo];
 }
 
 export async function getRepoDetails(repoUrl: string, githubToken: string) {
-    const octokit = await getOctokitInstance(githubToken);
+    const octokit = new Octokit({ auth: githubToken });
     const [owner, repo] = getOwnerAndRepo(repoUrl);
 
     try {
@@ -54,6 +48,7 @@ export async function getRepoDetails(repoUrl: string, githubToken: string) {
 
         return response.data;
     } catch (error) {
+        console.log(error)
         throw new ErrorClass(
             "OctakitError",
             error,
@@ -69,7 +64,7 @@ export async function getRepoIssues(
     perPage: number = 10,
     filters?: IssueFilters
 ) {
-    const octokit = await getOctokitInstance(githubToken);
+    const octokit = new Octokit({ auth: githubToken });
     const [owner, repo] = getOwnerAndRepo(repoUrl);
 
     try {
@@ -97,7 +92,7 @@ export async function getRepoIssues(
 };
 
 export async function getRepoLabels(repoUrl: string, githubToken: string) {
-    const octokit = await getOctokitInstance(githubToken);
+    const octokit = new Octokit({ auth: githubToken });
     const [owner, repo] = getOwnerAndRepo(repoUrl);
 
     try {
@@ -118,7 +113,7 @@ export async function getRepoLabels(repoUrl: string, githubToken: string) {
 };
 
 export async function getRepoMilestones(repoUrl: string, githubToken: string) {
-    const octokit = await getOctokitInstance(githubToken);
+    const octokit = new Octokit({ auth: githubToken });
     const [owner, repo] = getOwnerAndRepo(repoUrl);
 
     try {

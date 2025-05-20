@@ -3,6 +3,7 @@ import { body, query, validationResult } from 'express-validator';
 import createError from 'http-errors';
 import { encrypt, decrypt } from '../helper';
 import { prisma } from '../config/database';
+import { getRepoDetails } from '../services/projectService';
 
 const router = Router();
 
@@ -115,6 +116,60 @@ router.post('/encryption',
             });
         } catch (error) {
             next(createError(500, 'Encryption test failed', { cause: error }));
+        }
+    }) as RequestHandler
+);
+
+router.get('/select', 
+    [
+        body('select').isObject().withMessage('Text to encrypt is required'),
+    ],
+    (async (req: Request, res: Response, next: NextFunction) => {
+        try {
+            const errors = validationResult(req);
+            if (!errors.isEmpty()) {
+                return res.status(400).json({ errors: errors.array() });
+            }
+
+            const { select } = req.body;
+
+            res.status(200).json({
+                message: 'Successful',
+                data: select
+            });
+        } catch (error) {
+            next(createError(500, 'Select test failed', { cause: error }));
+        }
+    }) as RequestHandler
+);
+
+router.get('/repo-details', 
+    [
+        body('repoUrl').isString().withMessage('Text to encrypt is required'),
+    ],
+    (async (req: Request, res: Response, next: NextFunction) => {
+        try {
+            const errors = validationResult(req);
+            if (!errors.isEmpty()) {
+                return res.status(400).json({ errors: errors.array() });
+            }
+
+            const { repoUrl } = req.body;
+
+            const repoDetails = await getRepoDetails(repoUrl, process.env.GITHUB_ACCESS_TOKEN!);
+            if (!repoDetails.permissions || !repoDetails.permissions.admin) {
+                res.status(200).json({
+                    message: 'Not an admin',
+                    data: repoDetails
+                });
+            }
+
+            res.status(200).json({
+                message: 'Successful',
+                data: repoDetails
+            });
+        } catch (error) {
+            next(error);
         }
     }) as RequestHandler
 );
