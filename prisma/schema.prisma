@@ -33,18 +33,19 @@ enum TransactionType {
 // Model Definitions
 
 model User {
-  userId              String               @id
-  username            String               @unique
-  walletAddress       String
-  walletSecret        String
-  contributionSummary ContributionSummary?
-  createdTasks        Task[]               @relation("TaskCreator")
-  contributedTasks    Task[]               @relation("TaskContributor")
-  projects            Project[]            @relation("UserProjects")
-  transactions        Transaction[]
-  addressBook         Json[]               @default([])
-  createdAt           DateTime             @default(now())
-  updatedAt           DateTime             @updatedAt
+  userId                 String                  @id
+  username               String                  @unique
+  walletAddress          String
+  walletSecret           String
+  contributionSummary    ContributionSummary?
+  addressBook            Json[]                  @default([])
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
+  createdTasks           Task[]                  @relation("TaskCreator")
+  contributedTasks       Task[]                  @relation("TaskContributor")
+  projects               Project[]               @relation("UserProjects")
+  userProjectPermissions UserProjectPermission[]
+  transactions           Transaction[]
 }
 
 model ContributionSummary {
@@ -68,13 +69,13 @@ model SubscriptionPackage {
   paid        Boolean   @default(true)
   price       Float
   active      Boolean   @default(true)
-  projects    Project[]
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
+  projects    Project[]
 }
 
 model Project {
-  id                    String               @id @default(cuid())
+  id                    String                  @id @default(cuid())
   name                  String
   description           String
   repoUrls              String[]
@@ -82,13 +83,14 @@ model Project {
   walletSecret          String
   escrowAddress         String
   escrowSecret          String
-  subscriptionPackage   SubscriptionPackage? @relation(fields: [subscriptionPackageId], references: [id])
+  subscriptionPackage   SubscriptionPackage?    @relation(fields: [subscriptionPackageId], references: [id])
   subscriptionPackageId String?
-  tasks                 Task[]               @relation("ProjectTasks")
-  users                 User[]               @relation("UserProjects")
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
+  tasks                 Task[]                  @relation("ProjectTasks")
+  users                 User[]                  @relation("UserProjects")
+  userProjectPermission UserProjectPermission[]
   transactions          Transaction[]
-  createdAt             DateTime             @default(now())
-  updatedAt             DateTime             @updatedAt
 }
 
 model Task {
@@ -107,19 +109,32 @@ model Task {
   status        TaskStatus    @default(OPEN)
   settled       Boolean       @default(false)
   pullRequests  String[]      @default([])
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
   creator       User          @relation("TaskCreator", fields: [creatorId], references: [userId])
   contributor   User?         @relation("TaskContributor", fields: [contributorId], references: [userId])
   transactions  Transaction[]
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
 }
 
 model Permission {
-  code      String   @id
-  name      String
-  isDefault Boolean
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  code                  String                  @id
+  name                  String
+  isDefault             Boolean
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
+  userProjectPermission UserProjectPermission[] @relation("UserProjectPermissionPermissions")
+}
+
+model UserProjectPermission {
+  id              String       @id @default(cuid())
+  user            User         @relation(fields: [userId], references: [userId])
+  userId          String
+  project         Project      @relation(fields: [projectId], references: [id])
+  projectId       String
+  permissionCodes String[]
+  assignedBy      String?
+  assignedAt      DateTime     @default(now())
+  permission      Permission[] @relation("UserProjectPermissionPermissions")
 }
 
 model Transaction {
