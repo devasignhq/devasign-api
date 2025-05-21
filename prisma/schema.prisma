@@ -134,7 +134,9 @@ model UserProjectPermission {
   permissionCodes String[]
   assignedBy      String?
   assignedAt      DateTime     @default(now())
-  permission      Permission[] @relation("UserProjectPermissionPermissions")
+  permissions     Permission[] @relation("UserProjectPermissionPermissions")
+
+  @@unique([userId, projectId])
 }
 
 model Transaction {

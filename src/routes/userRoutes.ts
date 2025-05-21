@@ -14,7 +14,7 @@ userRoutes.post("/", createUser as RequestHandler);
 userRoutes.get('/', getUserValidator, getUser as RequestHandler);
 
 // Update user details
-userRoutes.put("/", updateUserValidator, updateUser as RequestHandler);
+userRoutes.patch("/", updateUserValidator, updateUser as RequestHandler);
 
 // Update user's address book
-userRoutes.put("/address-book", updateAddressBookValidator, updateAddressBook as RequestHandler);
+userRoutes.patch("/address-book", updateAddressBookValidator, updateAddressBook as RequestHandler);

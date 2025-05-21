@@ -67,7 +67,7 @@ export const updateProjectValidator = [
         .withMessage('Description must be a string'),
 ];
 
-export const addTeamMembersValidator = [
+export const addTeamMemberValidator = [
     param('id')
         .exists()
         .withMessage('Project ID is required')
@@ -90,6 +90,40 @@ export const addTeamMembersValidator = [
         .optional()
         .isEmail()
         .withMessage('Email must be valid'),
+];
+
+export const updateTeamMemberPermissionsValidator = [
+    param('id')
+        .exists()
+        .withMessage('Project ID is required')
+        .isString()
+        .withMessage('Project ID must be a string'),
+    param('userId')
+        .exists()
+        .withMessage('User ID is required')
+        .isString()
+        .withMessage('User ID must be a string'),
+    body('permissionCodes')
+        .exists()
+        .withMessage('Permission codes are required')
+        .isArray({ min: 1 })
+        .withMessage('Permission codes must be a non-empty array'),
+    body('permissionCodes.*')
+        .isString()
+        .withMessage('Each permission code must be a string'),
+];
+
+export const removeTeamMemberValidator = [
+    param('id')
+        .exists()
+        .withMessage('Project ID is required')
+        .isString()
+        .withMessage('Project ID must be a string'),
+    param('userId')
+        .exists()
+        .withMessage('User ID is required')
+        .isString()
+        .withMessage('User ID must be a string'),
 ];
 
 export const getProjectIssuesValidator = [

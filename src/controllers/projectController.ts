@@ -419,7 +419,7 @@ export const deleteProject = async (req: Request, res: Response, next: NextFunct
     }
 };
 
-export const addTeamMembers = async (req: Request, res: Response, next: NextFunction) => {
+export const addTeamMember = async (req: Request, res: Response, next: NextFunction) => {
     const { id: projectId } = req.params;
     const { userId, username, email, permissionCodes } = req.body;
 
@@ -464,7 +464,7 @@ export const addTeamMembers = async (req: Request, res: Response, next: NextFunc
                         connect: { id: projectId }
                     },
                     permissionCodes,
-                    permission: {
+                    permissions: {
                         connect: (permissionCodes as string[]).map(code => ({ code }))
                     },
                     assignedBy: userId
@@ -484,6 +484,96 @@ export const addTeamMembers = async (req: Request, res: Response, next: NextFunc
         }
 
         res.status(200).json(result);
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const updateTeamMemberPermissions = async (req: Request, res: Response, next: NextFunction) => {
+    const { id: projectId, userId: memberId } = req.params;
+    const { userId, permissionCodes } = req.body;
+
+    try {
+        // Check if project exists
+        const project = await prisma.project.findUnique({
+            where: { id: projectId },
+            select: { users: { select: { userId: true } } }
+        });
+        if (!project) {
+            throw new NotFoundErrorClass("Project not found");
+        }
+        
+        // TODO: check if user/actor has permission
+        // Only allow if the acting user is a team member
+        const userIsTeamMember = project.users.some(user => user.userId === userId);
+        if (!userIsTeamMember) {
+            throw new ErrorClass("AuthorizationError", null, "Not authorized to update permissions for this project");
+        }
+
+        // Update UserProjectPermission
+        await prisma.userProjectPermission.update({
+            where: { 
+                userId_projectId: {
+                    userId: memberId,
+                    projectId: projectId
+                }
+            },
+            data: {
+                permissionCodes: permissionCodes,
+                assignedBy: userId,
+                permissions: {
+                    set: (permissionCodes as string[]).map(code => ({ code }))
+                }
+            }
+        });
+        res.status(200).json({ message: "Permissions updated successfully" });
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const removeTeamMember = async (req: Request, res: Response, next: NextFunction) => {
+    const { id: projectId, userId: memberId } = req.params;
+    const { userId } = req.body;
+
+    try {
+        // Check if project exists
+        const project = await prisma.project.findUnique({
+            where: { id: projectId },
+            select: { users: { select: { userId: true } } }
+        });
+        if (!project) {
+            throw new NotFoundErrorClass("Project not found");
+        }
+
+        // TODO: check if user/actor has permission
+        // Only allow if the acting user is a team member
+        const userIsTeamMember = project.users.some(user => user.userId === userId);
+        if (!userIsTeamMember) {
+            throw new ErrorClass("AuthorizationError", null, "Not authorized to remove members from this project");
+        }
+
+        // Remove user from project
+        await prisma.project.update({
+            where: { id: projectId },
+            data: {
+                users: {
+                    disconnect: { userId: memberId }
+                }
+            }
+        });
+
+        // Delete UserProjectPermission
+        await prisma.userProjectPermission.delete({
+            where: { 
+                userId_projectId: {
+                    userId: memberId,
+                    projectId: projectId
+                }
+            },
+        });
+
+        res.status(200).json({ message: "Team member removed successfully" });
     } catch (error) {
         next(error);
     }
