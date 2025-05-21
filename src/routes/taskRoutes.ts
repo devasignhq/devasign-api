@@ -2,7 +2,7 @@ import { RequestHandler, Router } from "express";
 import {
     createTask,
     updateTaskBounty,
-    acceptTask,
+    acceptTaskApplication,
     requestTimelineModification,
     replyTimelineModificationRequest,
     markAsComplete,
@@ -24,7 +24,7 @@ import {
     markAsCompleteValidator,
     validateCompletionValidator,
     deleteTaskValidator,
-    acceptTaskValidator,
+    acceptTaskApplicationValidator,
     replyTimelineModificationValidator,
     createManyTasksValidator
 } from "../validators/taskValidators";
@@ -42,7 +42,7 @@ taskRoutes.patch("/:id/bounty", updateTaskBountyValidator, updateTaskBounty as R
 taskRoutes.delete("/:id", deleteTaskValidator, deleteTask as RequestHandler);
 
 // Task status changes
-taskRoutes.post("/:id/accept", acceptTaskValidator, acceptTask as RequestHandler);
+taskRoutes.post("/:id/accept/:contributorId", acceptTaskApplicationValidator, acceptTaskApplication as RequestHandler);
 taskRoutes.post("/:id/complete", markAsCompleteValidator, markAsComplete as RequestHandler);
 taskRoutes.post("/:id/validate", validateCompletionValidator, validateCompletion as RequestHandler);
 

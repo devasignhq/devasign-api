@@ -92,7 +92,6 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
     }
 };
 
-// TODO: track number created/failed
 export const createManyTasks = async (req: Request, res: Response, next: NextFunction) => {
     const { userId, payload, projectId } = req.body;
     const tasks = payload as CreateTask[];
@@ -154,6 +153,7 @@ export const createManyTasks = async (req: Request, res: Response, next: NextFun
             totalBounty.toString(),
         );
 
+        // TODO: find a way to refund user if creating tasks fails
         // Create all tasks in a single transaction
         const createdTasks = await prisma.$transaction(
             tasks.map(task => {
@@ -235,7 +235,7 @@ export const getTasks = async (req: Request, res: Response, next: NextFunction) 
                     select: {
                         id: true,
                         name: true,
-                        repoUrl: true
+                        repoUrls: true
                     }
                 },
                 creator: {
@@ -296,7 +296,7 @@ export const getTask = async (req: Request, res: Response, next: NextFunction) =
                     select: {
                         id: true,
                         name: true,
-                        repoUrl: true
+                        repoUrls: true
                     }
                 },
                 creator: {
@@ -420,49 +420,62 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
     }
 };
 
-export const acceptTask = async (req: Request, res: Response, next: NextFunction) => {
-    const { id } = req.params;
+export const acceptTaskApplication = async (req: Request, res: Response, next: NextFunction) => {
+    const { id: taskId, contributorId } = req.params;
     const { userId } = req.body;
 
     try {
-        const task = await prisma.task.findUnique({ 
-            where: { id },
-            select: { status: true }
+        // Fetch the task and check if it exists and is open
+        const task = await prisma.task.findUnique({
+            where: { id: taskId },
+            select: {
+                status: true,
+                creatorId: true,
+                applications: { select: { userId: true } },
+                contributorId: true
+            }
         });
 
         if (!task) {
             throw new NotFoundErrorClass("Task not found");
         }
         if (task.status !== "OPEN") {
-            throw new ErrorClass("TaskError", null, "Task is not open");
+            throw new ErrorClass("TaskError", null, "Only open tasks can be assigned");
+        }
+        // TODO: Update when permissions are live
+        if (task.creatorId !== userId) {
+            throw new ErrorClass("TaskError", null, "Only the task creator can accept applications");
+        }
+        if (task.contributorId) {
+            throw new ErrorClass("TaskError", null, "Task already has a contributor assigned");
         }
 
+        // Check if the contributor actually applied
+        const hasApplied = task.applications.some(app => app.userId === contributorId);
+        if (!hasApplied) {
+            throw new ErrorClass("TaskError", null, "User did not apply for this task");
+        }
+
+        // Assign the contributor and update status
         const updatedTask = await prisma.task.update({
-            where: { id },
+            where: { id: taskId },
             data: {
+                contributor: { connect: { userId: contributorId } },
                 status: "IN_PROGRESS",
-                acceptedAt: new Date(),
-                contributor: {
-                    connect: { userId }
-                }
+                acceptedAt: new Date()
             },
             select: {
                 id: true,
                 status: true,
-                acceptedAt: true,
-                contributor: {
-                    select: {
-                        userId: true,
-                        username: true
-                    }
-                },
-                updatedAt: true
+                contributor: { select: { userId: true, username: true } },
+                acceptedAt: true
             }
         });
 
-        // TODO: Update issues/milestones (assign to contributor)
-
-        res.status(200).json(updatedTask);
+        res.status(200).json({
+            message: "Task application accepted",
+            task: updatedTask
+        });
     } catch (error) {
         next(error);
     }

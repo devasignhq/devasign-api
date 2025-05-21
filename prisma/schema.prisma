@@ -46,18 +46,20 @@ model User {
   projects               Project[]               @relation("UserProjects")
   userProjectPermissions UserProjectPermission[]
   transactions           Transaction[]
+  tasksAppliedFor        Task[]                  @relation("UserApplications")
 }
 
+// TODO: Update contribution summary upon task completion/acceptance
 model ContributionSummary {
   id             String @id @default(cuid())
-  tasksTaken     Int    @default(0)
   tasksCompleted Int    @default(0)
-  averageRating  Float  @default(0.0)
+  activeTasks    Int    @default(0)
   totalEarnings  Float  @default(0.0)
+  user           User   @relation(fields: [userId], references: [userId])
+  userId         String @unique
+  // averageRating  Float  @default(0.0)
   // projectIds     String[]  @default([])
   // projects       Project[] @relation(fields: [projectIds], references: [id])
-  userId         String @unique
-  user           User   @relation(fields: [userId], references: [userId])
 }
 
 model SubscriptionPackage {
@@ -96,23 +98,24 @@ model Project {
 model Task {
   id            String        @id @default(cuid())
   no            Int           @default(autoincrement())
-  creatorId     String
-  contributorId String?
-  project       Project       @relation("ProjectTasks", fields: [projectId], references: [id])
-  projectId     String
   issue         Json
   timeline      Int?          @default(0)
   timelineType  TimelineType? @default(WEEK)
   bounty        Float         @default(0.0)
-  acceptedAt    DateTime?
-  completedAt   DateTime?
   status        TaskStatus    @default(OPEN)
   settled       Boolean       @default(false)
   pullRequests  String[]      @default([])
+  applications  User[]        @relation("UserApplications")
+  acceptedAt    DateTime?
+  completedAt   DateTime?
+  creator       User          @relation("TaskCreator", fields: [creatorId], references: [userId])
+  creatorId     String
+  contributor   User?         @relation("TaskContributor", fields: [contributorId], references: [userId])
+  contributorId String?
+  project       Project       @relation("ProjectTasks", fields: [projectId], references: [id])
+  projectId     String
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
-  creator       User          @relation("TaskCreator", fields: [creatorId], references: [userId])
-  contributor   User?         @relation("TaskContributor", fields: [contributorId], references: [userId])
   transactions  Transaction[]
 }
 
