@@ -236,6 +236,12 @@ export const deleteTaskValidator = [
         .withMessage('Task ID is required')
 ];
 
+export const submitTaskApplicationValidator = [
+    param('id')
+        .exists()
+        .withMessage('Task ID is required')
+];
+
 export const acceptTaskApplicationValidator = [
     param('id')
         .exists()

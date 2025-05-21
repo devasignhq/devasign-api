@@ -12,7 +12,8 @@ import {
     getTasks,
     addTaskComment,
     updateTaskComment,
-    createManyTasks
+    createManyTasks,
+    submitTaskApplication
 } from "../controllers/taskController";
 import {
     getTasksValidator,
@@ -26,7 +27,8 @@ import {
     deleteTaskValidator,
     acceptTaskApplicationValidator,
     replyTimelineModificationValidator,
-    createManyTasksValidator
+    createManyTasksValidator,
+    submitTaskApplicationValidator
 } from "../validators/taskValidators";
 
 export const taskRoutes = Router();
@@ -42,6 +44,7 @@ taskRoutes.patch("/:id/bounty", updateTaskBountyValidator, updateTaskBounty as R
 taskRoutes.delete("/:id", deleteTaskValidator, deleteTask as RequestHandler);
 
 // Task status changes
+taskRoutes.post("/:id/apply", submitTaskApplicationValidator, submitTaskApplication as RequestHandler);
 taskRoutes.post("/:id/accept/:contributorId", acceptTaskApplicationValidator, acceptTaskApplication as RequestHandler);
 taskRoutes.post("/:id/complete", markAsCompleteValidator, markAsComplete as RequestHandler);
 taskRoutes.post("/:id/validate", validateCompletionValidator, validateCompletion as RequestHandler);

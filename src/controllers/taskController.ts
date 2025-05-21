@@ -420,6 +420,43 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
     }
 };
 
+export const submitTaskApplication = async (req: Request, res: Response, next: NextFunction) => {
+    const { id: taskId } = req.params;
+    const { userId } = req.body;
+
+    try {
+        const task = await prisma.task.findUnique({ 
+            where: { id: taskId },
+            select: { status: true, applications: { select: { userId: true } } }
+        });
+
+        if (!task) {
+            throw new NotFoundErrorClass("Task not found");
+        }
+        if (task.status !== "OPEN") {
+            throw new ErrorClass("TaskError", null, "Task is not open");
+        }
+
+        const alreadyApplied = task.applications.some(user => user.userId === userId);
+        if (alreadyApplied) {
+            throw new ErrorClass("TaskError", null, "You have already applied for this task!");
+        }
+
+        await prisma.task.update({
+            where: { id: taskId },
+            data: {
+                applications: {
+                    connect: { userId }
+                }
+            }
+        });
+
+        res.status(200).json({ message: "Task application submitted" });
+    } catch (error) {
+        next(error);
+    }
+};
+
 export const acceptTaskApplication = async (req: Request, res: Response, next: NextFunction) => {
     const { id: taskId, contributorId } = req.params;
     const { userId } = req.body;
