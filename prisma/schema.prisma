@@ -22,7 +22,7 @@ enum TimelineType {
   DAY
 }
 
-enum TransactionType {
+enum TransactionCategory {
   BOUNTY
   SWAP_USDC
   SWAP_XLM
@@ -144,7 +144,7 @@ model UserProjectPermission {
 
 model Transaction {
   id       String          @id @default(cuid())
-  category TransactionType
+  category TransactionCategory
   amount   Float
   doneAt   DateTime        @default(now())
 

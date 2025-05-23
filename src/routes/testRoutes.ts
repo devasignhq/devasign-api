@@ -146,9 +146,9 @@ router.get('/select',
 );
 
 router.get('/github', 
-    [
-        body('username').isString().withMessage('Text to encrypt is required'),
-    ],
+    // [
+    //     body('username').isString().withMessage('Text to encrypt is required'),
+    // ],
     (async (req: Request, res: Response, next: NextFunction) => {
         try {
             const errors = validationResult(req);
@@ -156,12 +156,14 @@ router.get('/github',
                 return res.status(400).json({ errors: errors.array() });
             }
 
-            const { username } = req.body;
+            // const { username } = req.body;
 
             const octokit = new Octokit({ auth: process.env.GITHUB_ACCESS_TOKEN });
 
-            const response = await octokit.rest.users.getByUsername({
-                username,
+            const response = await octokit.rest.issues.get({
+                owner: "calcom",
+                repo: "cal.com",
+                issue_number: 21050,
             });
 
             // const repoDetails = await getRepoDetails(repoUrl, process.env.GITHUB_ACCESS_TOKEN!);

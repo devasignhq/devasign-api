@@ -2,11 +2,13 @@ import { RequestHandler, Router } from "express";
 import { 
     withdrawCrypto, 
     swapCrypto, 
-    getWalletInfo 
+    getWalletInfo, 
+    getTransactions
 } from "../controllers/walletController";
 import {
     withdrawCryptoValidator,
-    swapCryptoValidator
+    swapCryptoValidator,
+    getTransactionsValidator
 } from "../validators/walletValidators";
 
 export const walletRoutes = Router();
@@ -19,3 +21,6 @@ walletRoutes.post("/withdraw", withdrawCryptoValidator, withdrawCrypto as Reques
 
 // Swap between XLM and USDC
 walletRoutes.post("/swap", swapCryptoValidator, swapCrypto as RequestHandler);
+
+// Get transactions
+walletRoutes.get("/transactions/:projectId", getTransactionsValidator, getTransactions as RequestHandler);

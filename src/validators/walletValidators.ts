@@ -1,4 +1,4 @@
-import { body } from 'express-validator';
+import { body, param } from 'express-validator';
 
 export const withdrawCryptoValidator = [
     body('walletAddress')
@@ -33,4 +33,10 @@ export const swapCryptoValidator = [
         .withMessage('Amount must be a string')
         .custom((value) => !isNaN(parseFloat(value)) && parseFloat(value) > 0)
         .withMessage('Amount must be a positive number')
+];
+
+export const getTransactionsValidator = [
+    param('projectId')
+        .exists()
+        .withMessage('Project ID is required')
 ];

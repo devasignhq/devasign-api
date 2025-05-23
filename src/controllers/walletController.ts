@@ -4,6 +4,7 @@ import { stellarService, usdcAssetId, xlmAssetId } from "../config/stellar";
 import { decrypt } from "../helper";
 import { ErrorClass, NotFoundErrorClass } from "../types/general";
 import { HorizonApi } from "../types/horizonapi";
+import { TransactionCategory } from "../generated/client";
 
 type USDCBalance = HorizonApi.BalanceLineAsset<"credit_alphanum12">;
 
@@ -179,3 +180,51 @@ export const getWalletInfo = async (req: Request, res: Response, next: NextFunct
         next(error);
     }
 };
+
+export const getTransactions = async (req: Request, res: Response, next: NextFunction) => {
+    const { projectId } = req.params;
+    const { userId, categories } = req.body;
+
+    try {
+        // Validate categories if provided
+        if (categories && Array.isArray(categories)) {
+            const validCategories = Object.values(TransactionCategory);
+            const invalid = categories.filter((cat: TransactionCategory) => !validCategories.includes(cat));
+
+            if (invalid.length > 0) {
+                throw new ErrorClass("ValidationError", null, `Invalid categories: ${invalid.join(", ")}`);
+            }
+        }
+
+        // Check if user is part of the project
+        const userProject = await prisma.project.findFirst({
+            where: {
+                id: projectId,
+                users: {
+                    some: {
+                        userId: userId
+                    }
+                }
+            }
+        });
+
+        if (!userProject) {
+            throw new ErrorClass("TransactionError", null, "User is not part of this project.");
+        }
+
+        // Build filter for categories if provided
+        const whereClause: any = { projectId };
+        if (categories && Array.isArray(categories) && categories.length > 0) {
+            whereClause.category = { in: categories };
+        }
+
+        // Get filtered transactions for the project
+        const transactions = await prisma.transaction.findMany({
+            where: whereClause
+        });
+
+        res.status(200).json(transactions);
+    } catch (error) {
+        next(error);
+    }
+}
