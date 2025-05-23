@@ -224,7 +224,8 @@ export const getTransactions = async (req: Request, res: Response, next: NextFun
             where: whereClause,
             orderBy: { doneAt: 'desc' },
             skip: Number(skip) || 0,
-            take
+            take,
+            include: { task: true }
         });
 
         res.status(200).json({

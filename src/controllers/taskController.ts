@@ -124,6 +124,7 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
 // TODO: add publishTaskToIssue route
 // TODO: add saveTAskDraft route
 
+// ? Delete this
 export const createManyTasks = async (req: Request, res: Response, next: NextFunction) => {
     const { userId, payload, projectId } = req.body;
     const tasks = payload as CreateTask[];
