@@ -183,14 +183,13 @@ export const getWalletInfo = async (req: Request, res: Response, next: NextFunct
 
 export const getTransactions = async (req: Request, res: Response, next: NextFunction) => {
     const { projectId } = req.params;
-    const { userId, categories } = req.body;
+    const { userId, categories, skip = 0, limit } = req.body;
 
     try {
         // Validate categories if provided
         if (categories && Array.isArray(categories)) {
             const validCategories = Object.values(TransactionCategory);
             const invalid = categories.filter((cat: TransactionCategory) => !validCategories.includes(cat));
-
             if (invalid.length > 0) {
                 throw new ErrorClass("ValidationError", null, `Invalid categories: ${invalid.join(", ")}`);
             }
@@ -212,18 +211,27 @@ export const getTransactions = async (req: Request, res: Response, next: NextFun
             throw new ErrorClass("TransactionError", null, "User is not part of this project.");
         }
 
+        // Pagination defaults
+        const take = Math.min(Number(limit) || 20, 50); // max 50 per page
+
         // Build filter for categories if provided
         const whereClause: any = { projectId };
         if (categories && Array.isArray(categories) && categories.length > 0) {
             whereClause.category = { in: categories };
         }
 
-        // Get filtered transactions for the project
         const transactions = await prisma.transaction.findMany({
-            where: whereClause
+            where: whereClause,
+            orderBy: { doneAt: 'desc' },
+            skip: Number(skip) || 0,
+            take
         });
 
-        res.status(200).json(transactions);
+        res.status(200).json({
+            transactions,
+            hasMore: transactions.length < take,
+            nextSkip: (Number(skip) || 0) + transactions.length
+        });
     } catch (error) {
         next(error);
     }
