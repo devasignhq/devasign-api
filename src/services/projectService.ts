@@ -112,6 +112,29 @@ export async function getRepoLabels(repoUrl: string, githubToken: string) {
     }
 };
 
+export async function createBountyLabel(repoUrl: string, githubToken: string) {
+    const octokit = new Octokit({ auth: githubToken });
+    const [owner, repo] = getOwnerAndRepo(repoUrl);
+
+    try {
+        const response = await octokit.issues.createLabel({
+            owner,
+            repo,
+            name: "💵 Bounty",
+            color: "85BB65",
+            description: "Issues with a monetary reward"
+        });
+
+        return response.data;
+    } catch (error) {
+        throw new ErrorClass(
+            "OctakitError",
+            error,
+            "Failed to create bounty label"
+        );
+    }
+};
+
 export async function getRepoMilestones(repoUrl: string, githubToken: string) {
     const octokit = new Octokit({ auth: githubToken });
     const [owner, repo] = getOwnerAndRepo(repoUrl);

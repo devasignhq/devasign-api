@@ -2,6 +2,7 @@ import { NextFunction, Request, Response } from "express";
 import { prisma } from "../config/database";
 import { 
     checkGithubUser, 
+    createBountyLabel, 
     getRepoDetails, 
     getRepoIssues, 
     getRepoLabels, 
@@ -303,6 +304,8 @@ export const connectRepository = async (req: Request, res: Response, next: NextF
             where: { id: projectId },
             data: { repoUrls: updatedRepoUrls }
         });
+
+        await createBountyLabel(repoUrl, githubToken);
 
         res.status(200).json({ message: "Repository connected successfully", repoUrls: updatedRepoUrls });
     } catch (error) {
