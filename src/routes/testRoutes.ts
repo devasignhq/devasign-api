@@ -3,7 +3,7 @@ import { body, query, validationResult } from 'express-validator';
 import createError from 'http-errors';
 import { encrypt, decrypt } from '../helper';
 import { prisma } from '../config/database';
-import { getRepoDetails } from '../services/projectService';
+import { getRepoDetails } from '../services/githubService';
 import axios from 'axios';
 import { Octokit } from "@octokit/rest";
 

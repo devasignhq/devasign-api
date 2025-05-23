@@ -91,6 +91,68 @@ export async function getRepoIssues(
     }
 };
 
+export async function getRepoIssue(
+    repoUrl: string,
+    githubToken: string,
+    issueNumber: number
+) {
+    const octokit = new Octokit({ auth: githubToken });
+    const [owner, repo] = getOwnerAndRepo(repoUrl);
+
+    try {
+        const response = await octokit.issues.get({
+            owner,
+            repo,
+            issue_number: issueNumber,
+        });
+
+        return response.data;
+    } catch (error) {
+        throw new ErrorClass(
+            "OctakitError",
+            error,
+            `Failed to fetch issue number ${issueNumber}`
+        );
+    }
+};
+
+export async function updateRepoIssue(
+    repoUrl: string,
+    githubToken: string,
+    issueNumber: number,
+    title?: string,
+    body?: string,
+    labels?: string[],
+    assignees?: string[],
+    state?: "open" | "closed",
+    state_reason?: string,
+) {
+    const octokit = new Octokit({ auth: githubToken });
+    const [owner, repo] = getOwnerAndRepo(repoUrl);
+
+    try {
+        const response = await octokit.issues.update({
+            owner,
+            repo,
+            issue_number: issueNumber,
+            title,
+            body,
+            state,
+            state_reason,
+            labels,
+            assignees
+        });
+
+        return response.data;
+    } catch (error) {
+        throw new ErrorClass(
+            "OctakitError",
+            error,
+            `Failed to fetch issue number ${issueNumber}`
+        );
+    }
+};
+
 export async function getRepoLabels(repoUrl: string, githubToken: string) {
     const octokit = new Octokit({ auth: githubToken });
     const [owner, repo] = getOwnerAndRepo(repoUrl);
@@ -131,6 +193,27 @@ export async function createBountyLabel(repoUrl: string, githubToken: string) {
             "OctakitError",
             error,
             "Failed to create bounty label"
+        );
+    }
+};
+
+export async function getBountyLabel(repoUrl: string, githubToken: string) {
+    const octokit = new Octokit({ auth: githubToken });
+    const [owner, repo] = getOwnerAndRepo(repoUrl);
+
+    try {
+        const response = await octokit.issues.getLabel({
+            owner,
+            repo,
+            name: "💵 Bounty",
+        });
+
+        return response.data;
+    } catch (error) {
+        throw new ErrorClass(
+            "OctakitError",
+            error,
+            "Failed to get bounty label"
         );
     }
 };

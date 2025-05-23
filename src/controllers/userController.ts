@@ -108,7 +108,7 @@ export const getUser = async (req: Request, res: Response, next: NextFunction) =
             } catch (error: any) {
                 // Return user data even if getting Stellar account info fails
                 next({
-                    ...error,
+                    error,
                     user,
                     message: "User found but failed to fetch Stellar account info"
                 });
@@ -164,7 +164,7 @@ export const createUser = async (req: Request, res: Response, next: NextFunction
             res.status(201).json(user);
         } catch (error: any) {
             next({ 
-                ...error, 
+                error, 
                 user, 
                 message: "User successfully created. Failed to fund wallet/add USDC trustline."
             });

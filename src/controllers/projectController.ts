@@ -8,7 +8,7 @@ import {
     getRepoLabels, 
     getRepoMilestones, 
     sendInvitation 
-} from "../services/projectService";
+} from "../services/githubService";
 import { ErrorClass, NotFoundErrorClass } from "../types/general";
 import { stellarService, usdcAssetId } from "../config/stellar";
 import { decrypt, encrypt } from "../helper";
@@ -258,7 +258,7 @@ export const createProject = async (req: Request, res: Response, next: NextFunct
         } catch (error: any) {
             // Return project data even if adding USDC trustline fails
             next({ 
-                ...error, 
+                error, 
                 project, 
                 message: "Project successfully created. Failed to add USDC trustlines."
             });

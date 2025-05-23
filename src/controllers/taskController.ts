@@ -1,15 +1,16 @@
 import { NextFunction, Request, Response } from "express";
 import { prisma } from "../config/database";
-import { commentsCollection, createComment, updateComment } from "../services/taskService";
+import { commentsCollection, createComment, updateComment } from "../services/firebaseService";
 import { stellarService, usdcAssetId } from "../config/stellar";
 import { decrypt } from "../helper";
-import { CommentType, CreateTask, ErrorClass, NotFoundErrorClass } from "../types/general";
+import { CommentType, CreateTask, ErrorClass, IssueLabel, NotFoundErrorClass } from "../types/general";
 import { HorizonApi } from "../types/horizonapi";
+import { getRepoIssue, updateRepoIssue } from "../services/githubService";
 
 type USDCBalance = HorizonApi.BalanceLineAsset<"credit_alphanum12">;
 
 export const createTask = async (req: Request, res: Response, next: NextFunction) => {
-    const { userId, payload: data } = req.body;
+    const { userId, githubToken, payload: data, repoUrl } = req.body;
     const payload = data as CreateTask;
 
     try {
@@ -81,9 +82,37 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
         });
 
         try {
-            // TODO: Update issue on GitHub
+            const issue = await getRepoIssue(repoUrl, githubToken, payload.issue.number);
+
+            if (typeof issue.labels[0] === "string") {
+                issue.labels = [...issue.labels, "💵 Bounty"];
+            } else {
+                const labelNames = issue.labels.reduce((acc: any[], label) => [...acc, (label as any).name], []);
+                issue.labels = [...labelNames, "💵 Bounty"];
+            }
+
+            await updateRepoIssue(
+                repoUrl, 
+                githubToken, 
+                issue.number,
+                issue.title + ` (${payload.bounty} USDC)`,
+                issue.body + `
+## 💵 500 USDC bounty
+ 
+### ❗ Important guidelines:
+- To claim a bounty, you need to **provide a short demo video** of your changes in your pull request.
+- If anything is unclear, **ask for clarification** before starting as this will help avoid potential rework.
+
+**To work on this task, [Apply here](https://dev.devasign.com?taskId=${task.id})**`,
+                issue.labels as unknown as string[]
+            )
         } catch (error) {
-            
+                // Return task data even if updating issue fails
+                next({
+                    error,
+                    task,
+                    message: "Task created but failed to update repo issue"
+                });
         }
 
         res.status(201).json(task);
@@ -91,6 +120,9 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
         next(error);
     }
 };
+
+// TODO: add publishTaskToIssue route
+// TODO: add saveTAskDraft route
 
 export const createManyTasks = async (req: Request, res: Response, next: NextFunction) => {
     const { userId, payload, projectId } = req.body;
@@ -830,7 +862,7 @@ export const validateCompletion = async (req: Request, res: Response, next: Next
             res.status(201).json(updatedTask);
         } catch (error: any) {
             next({ 
-                ...error, 
+                error, 
                 validated: true, 
                 task,
                 message: "Validation complete. Failed to update contribution summary."

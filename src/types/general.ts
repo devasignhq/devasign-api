@@ -61,15 +61,25 @@ export type Project = {
 
 export type IssueLabel = {
     id: number;
+    node_id: string;
+    url: string;
     name: string;
+    description: string | null;
     color: string;
+    default: boolean;
 }
 
 export type Issue = {
+    id: number;
+    node_id: string;
     url: string;
+    repository_url: string;
+    html_url: string;
     number: number;
+    state: string;
+    state_reason?: string | null;
     title: string;
-    label?: IssueLabel;
+    body?: string | null;
 }
 
 export type Task = {

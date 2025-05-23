@@ -97,7 +97,7 @@ model Project {
 
 model Task {
   id            String        @id @default(cuid())
-  no            Int           @default(autoincrement())
+  number        Int           @default(autoincrement())
   issue         Json
   timeline      Int?          @default(0)
   timelineType  TimelineType? @default(WEEK)
@@ -143,10 +143,10 @@ model UserProjectPermission {
 }
 
 model Transaction {
-  id       String          @id @default(cuid())
+  id       String              @id @default(cuid())
   category TransactionCategory
   amount   Float
-  doneAt   DateTime        @default(now())
+  doneAt   DateTime            @default(now())
 
   // For BOUNTY transactions
   task   Task?   @relation(fields: [taskId], references: [id])
