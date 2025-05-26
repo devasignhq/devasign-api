@@ -12,7 +12,6 @@ import {
 import { ErrorClass, NotFoundErrorClass } from "../types/general";
 import { stellarService, usdcAssetId } from "../config/stellar";
 import { decrypt, encrypt } from "../helper";
-import { connect } from "http2";
 
 export const getProjects = async (req: Request, res: Response, next: NextFunction) => {
     const { 
@@ -59,20 +58,7 @@ export const getProjects = async (req: Request, res: Response, next: NextFunctio
                 name: true,
                 description: true,
                 repoUrls: true,
-                escrowAddress: true,
-                tasks: {
-                    select: {
-                        id: true,
-                        status: true,
-                        bounty: true
-                    }
-                },
-                users: {
-                    select: {
-                        userId: true,
-                        username: true
-                    }
-                },
+                walletAddress: true,
                 createdAt: true,
                 updatedAt: true,
                 _count: {
@@ -89,26 +75,8 @@ export const getProjects = async (req: Request, res: Response, next: NextFunctio
             take: Number(limit)
         });
 
-        // Calculate project stats
-        const projectsWithStats = projects.map(project => {
-            const totalBounty = project.tasks.reduce((sum, task) => sum + task.bounty, 0);
-            const openTasks = project.tasks.filter(task => task.status === 'OPEN').length;
-            const completedTasks = project.tasks.filter(task => task.status === 'COMPLETED').length;
-
-            return {
-                ...project,
-                stats: {
-                    totalBounty,
-                    openTasks,
-                    completedTasks,
-                    totalTasks: project._count.tasks,
-                    totalMembers: project._count.users
-                }
-            };
-        });
-
         res.status(200).json({
-            data: projectsWithStats,
+            data: projects,
             pagination: {
                 currentPage: Number(page),
                 totalPages,
@@ -134,7 +102,7 @@ export const getProject = async (req: Request, res: Response, next: NextFunction
                 name: true,
                 description: true,
                 repoUrls: true,
-                escrowAddress: true,
+                walletAddress: true,
                 tasks: {
                     select: {
                         id: true,
@@ -430,7 +398,12 @@ export const addTeamMember = async (req: Request, res: Response, next: NextFunct
         const project = await prisma.project.findUnique({
             where: { id: projectId },
             select: { 
-                users: true, 
+                users: {
+                    select: {
+                        userId: true,
+                        username: true
+                    }
+                },
                 name: true 
             }
         });
@@ -446,8 +419,17 @@ export const addTeamMember = async (req: Request, res: Response, next: NextFunct
         });
 
         let result: Record<string, unknown> = {};
-
         if (existingUser) {
+            // Check if user is already a member of the project
+            const isAlreadyMember = project.users.some(user => user.userId === existingUser.userId);
+            if (isAlreadyMember) {
+                return res.status(400).json({ 
+                    message: "User is already a member of this project",
+                    username,
+                    status: "already_member"
+                });
+            }
+
             // Add user to project
             await prisma.project.update({
                 where: { id: projectId },
@@ -476,11 +458,11 @@ export const addTeamMember = async (req: Request, res: Response, next: NextFunct
 
             result = { username, status: "added" };
         } else {
-            const githubUserExists = await checkGithubUser(username);
+            const githubUserExists = await checkGithubUser(username);            
             if (githubUserExists) {
                 // Send invitation
                 await sendInvitation(username, project.name);
-                return { username, status: "invited" };
+                result = { username, status: "invited" };
             }
 
             result = { username, status: "not_found" };
@@ -589,7 +571,7 @@ export const getProjectIssues = async (req: Request, res: Response, next: NextFu
 
     try {
         const filters: any = {
-            ...(labels && { labels: (labels as string).split(',') }),
+            ...(labels && { labels: (labels as string).split('_') }),
             milestone: milestone || undefined,
             sort: sort || "created",
             direction: direction || "desc"
