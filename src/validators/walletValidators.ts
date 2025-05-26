@@ -1,6 +1,6 @@
 import { body, param } from 'express-validator';
 
-export const withdrawCryptoValidator = [
+export const withdrawAssetValidator = [
     body('walletAddress')
         .exists()
         .withMessage('Wallet address is required')
@@ -21,7 +21,7 @@ export const withdrawCryptoValidator = [
         .withMessage('Amount must be a positive number')
 ];
 
-export const swapCryptoValidator = [
+export const swapAssetValidator = [
     body('toAssetType')
         .optional()
         .isIn(['USDC', 'XLM'])

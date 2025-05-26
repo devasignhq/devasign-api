@@ -1,26 +1,26 @@
 import { RequestHandler, Router } from "express";
 import { 
-    withdrawCrypto, 
-    swapCrypto, 
+    withdrawAsset, 
+    swapAsset, 
     getWalletInfo, 
     getTransactions
 } from "../controllers/walletController";
 import {
-    withdrawCryptoValidator,
-    swapCryptoValidator,
+    withdrawAssetValidator,
+    swapAssetValidator,
     getTransactionsValidator
 } from "../validators/walletValidators";
 
 export const walletRoutes = Router();
 
 // Get wallet info
-walletRoutes.get("/wallet", getWalletInfo as RequestHandler);
+walletRoutes.get("/account", getWalletInfo as RequestHandler);
 
 // Withdraw crypto
-walletRoutes.post("/withdraw", withdrawCryptoValidator, withdrawCrypto as RequestHandler);
+walletRoutes.post("/withdraw", withdrawAssetValidator, withdrawAsset as RequestHandler);
 
 // Swap between XLM and USDC
-walletRoutes.post("/swap", swapCryptoValidator, swapCrypto as RequestHandler);
+walletRoutes.post("/swap", swapAssetValidator, swapAsset as RequestHandler);
 
 // Get transactions
 walletRoutes.get("/transactions/:projectId", getTransactionsValidator, getTransactions as RequestHandler);

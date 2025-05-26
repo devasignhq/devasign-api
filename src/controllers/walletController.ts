@@ -8,8 +8,8 @@ import { TransactionCategory } from "../generated/client";
 
 type USDCBalance = HorizonApi.BalanceLineAsset<"credit_alphanum12">;
 
-export const withdrawCrypto = async (req: Request, res: Response, next: NextFunction) => {
-    const { userId, walletAddress, assetType = "USDC", amount } = req.body;
+export const withdrawAsset = async (req: Request, res: Response, next: NextFunction) => {
+    const { userId, walletAddress, assetType = "XLM", amount } = req.body;
 
     try {
         if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
@@ -82,7 +82,7 @@ export const withdrawCrypto = async (req: Request, res: Response, next: NextFunc
     }
 };
 
-export const swapCrypto = async (req: Request, res: Response, next: NextFunction) => {
+export const swapAsset = async (req: Request, res: Response, next: NextFunction) => {
     const { userId, toAssetType = "USDC", amount } = req.body;
 
     try {
@@ -183,13 +183,17 @@ export const getWalletInfo = async (req: Request, res: Response, next: NextFunct
 
 export const getTransactions = async (req: Request, res: Response, next: NextFunction) => {
     const { projectId } = req.params;
-    const { userId, categories, skip = 0, limit } = req.body;
+    const { userId } = req.body;
+    const { categories, page = 1, limit, sort } = req.query;
 
     try {
-        // Validate categories if provided
-        if (categories && Array.isArray(categories)) {
+        let categoryList: TransactionCategory[] | undefined;
+        if (categories) {
+            categoryList = (categories as string).split(",") as TransactionCategory[];
+            
+            // Validate categories
             const validCategories = Object.values(TransactionCategory);
-            const invalid = categories.filter((cat: TransactionCategory) => !validCategories.includes(cat));
+            const invalid = categoryList.filter((cat) => !validCategories.includes(cat));
             if (invalid.length > 0) {
                 throw new ErrorClass("ValidationError", null, `Invalid categories: ${invalid.join(", ")}`);
             }
@@ -216,14 +220,14 @@ export const getTransactions = async (req: Request, res: Response, next: NextFun
 
         // Build filter for categories if provided
         const whereClause: any = { projectId };
-        if (categories && Array.isArray(categories) && categories.length > 0) {
-            whereClause.category = { in: categories };
+        if (categoryList && categoryList.length > 0) {
+            whereClause.category = { in: categoryList };
         }
 
         const transactions = await prisma.transaction.findMany({
             where: whereClause,
-            orderBy: { doneAt: 'desc' },
-            skip: Number(skip) || 0,
+            orderBy: { doneAt: (sort as "asc" | "desc") || 'desc' },
+            skip: ((Number(page) - 1) * take) || 0,
             take,
             include: { task: true }
         });
@@ -231,7 +235,6 @@ export const getTransactions = async (req: Request, res: Response, next: NextFun
         res.status(200).json({
             transactions,
             hasMore: transactions.length < take,
-            nextSkip: (Number(skip) || 0) + transactions.length
         });
     } catch (error) {
         next(error);
