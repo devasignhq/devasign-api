@@ -174,8 +174,8 @@ export const createUser = async (req: Request, res: Response, next: NextFunction
     }
 }
 
-export const updateUser = async (req: Request, res: Response, next: NextFunction) => {
-    const { userId, username } = req.body;
+export const updateUsername = async (req: Request, res: Response, next: NextFunction) => {
+    const { userId, githubUsername } = req.body;
 
     try {
         const existingUser = await prisma.user.findUnique({
@@ -188,7 +188,7 @@ export const updateUser = async (req: Request, res: Response, next: NextFunction
 
         const user = await prisma.user.update({
             where: { userId },
-            data: { username },
+            data: { username: githubUsername },
             select: {
                 userId: true,
                 username: true,
@@ -225,6 +225,7 @@ export const updateAddressBook = async (req: Request, res: Response, next: NextF
             throw new ErrorClass("ValidationError", null, "Address already exists in address book");
         }
 
+        // TODO: Add a way to delete or replace other addresses
         // Limit address book size
         if (user.addressBook.length >= 20) {
             throw new ErrorClass("ValidationError", null, "Address book limit reached (max 20)");

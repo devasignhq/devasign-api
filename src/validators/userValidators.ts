@@ -8,15 +8,6 @@ export const getUserValidator = [
         .withMessage('View must be either basic, full, or profile')
 ];
 
-// Validator for PUT /
-export const updateUserValidator = [
-    body('username')
-        .exists()
-        .withMessage('Username is required')
-        .isString()
-        .withMessage('Username must be a string')
-];
-
 // Validator for PUT /address-book
 export const updateAddressBookValidator = [
     body('address')

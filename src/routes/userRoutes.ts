@@ -1,7 +1,12 @@
 import { RequestHandler, Router } from "express";
-import { createUser, updateUser, updateAddressBook, getUser } from "../controllers/userController";import { 
+import { 
+    createUser, 
+    updateUsername, 
+    updateAddressBook, 
+    getUser 
+} from "../controllers/userController";
+import { 
     getUserValidator,
-    updateUserValidator,
     updateAddressBookValidator 
 } from "../validators/userValidators";
 
@@ -14,7 +19,7 @@ userRoutes.post("/", createUser as RequestHandler);
 userRoutes.get('/', getUserValidator, getUser as RequestHandler);
 
 // Update user details
-userRoutes.patch("/", updateUserValidator, updateUser as RequestHandler);
+userRoutes.patch("/username", updateUsername as RequestHandler);
 
 // Update user's address book
 userRoutes.patch("/address-book", updateAddressBookValidator, updateAddressBook as RequestHandler);
