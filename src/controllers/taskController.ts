@@ -3,14 +3,15 @@ import { prisma } from "../config/database";
 import { commentsCollection, createComment, updateComment } from "../services/firebaseService";
 import { stellarService, usdcAssetId } from "../config/stellar";
 import { decrypt } from "../helper";
-import { CommentType, CreateTask, ErrorClass, IssueLabel, NotFoundErrorClass } from "../types/general";
+import { CommentType, CreateTask, ErrorClass, NotFoundErrorClass } from "../types/general";
 import { HorizonApi } from "../types/horizonapi";
 import { getRepoIssue, updateRepoIssue } from "../services/githubService";
+import { TimelineType } from "../generated/client";
 
 type USDCBalance = HorizonApi.BalanceLineAsset<"credit_alphanum12">;
 
 export const createTask = async (req: Request, res: Response, next: NextFunction) => {
-    const { userId, githubToken, payload: data, repoUrl } = req.body;
+    const { userId, githubToken, payload: data } = req.body;
     const payload = data as CreateTask;
 
     try {
@@ -68,6 +69,12 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
 
         const { projectId, ...others } = payload;
 
+        if (others.timeline && others.timelineType && others.timelineType === "DAY" && others.timeline > 6) {
+            const weeks = Math.floor(others.timeline / 7);
+            const days = others.timeline % 7;
+            others.timeline = weeks + (days / 10);
+        }
+
         const task = await prisma.task.create({
             data: {
                 ...others,
@@ -82,7 +89,7 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
         });
 
         try {
-            const issue = await getRepoIssue(repoUrl, githubToken, payload.issue.number);
+            const issue = await getRepoIssue(payload.repoUrl, githubToken, payload.issue.number);
 
             if (typeof issue.labels[0] === "string") {
                 issue.labels = [...issue.labels, "💵 Bounty"];
@@ -92,7 +99,7 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
             }
 
             await updateRepoIssue(
-                repoUrl, 
+                payload.repoUrl, 
                 githubToken, 
                 issue.number,
                 issue.title + ` (${payload.bounty} USDC)`,
@@ -120,9 +127,6 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
         next(error);
     }
 };
-
-// TODO: add publishTaskToIssue route
-// TODO: add saveTAskDraft route
 
 // ? Delete this
 export const createManyTasks = async (req: Request, res: Response, next: NextFunction) => {
@@ -215,15 +219,20 @@ export const createManyTasks = async (req: Request, res: Response, next: NextFun
     }
 };
 
+// TODO: add publishTaskToIssue route
+// TODO: add saveTaskDraft route
+
 export const getTasks = async (req: Request, res: Response, next: NextFunction) => {
     const { 
         status, 
-        projectId, 
-        userId,
+        projectId,
         role,  // 'creator' | 'contributor'
+        detailed,
         page = 1,
-        limit = 10
+        limit = 10,
+        sort,
     } = req.query;
+    const { userId } = req.body;
 
     try {
         // Build where clause based on filters
@@ -242,6 +251,32 @@ export const getTasks = async (req: Request, res: Response, next: NextFunction) 
                 where.creatorId = userId;
             } else if (role === 'contributor') {
                 where.contributorId = userId;
+            }
+        }
+
+        let selectRelations: any = {};
+
+        if (detailed) {
+            selectRelations = {
+                project: {
+                    select: {
+                        id: true,
+                        name: true,
+                        repoUrls: true
+                    }
+                },
+                creator: {
+                    select: {
+                        userId: true,
+                        username: true
+                    }
+                },
+                contributor: {
+                    select: {
+                        userId: true,
+                        username: true
+                    }
+                },
             }
         }
 
@@ -264,30 +299,12 @@ export const getTasks = async (req: Request, res: Response, next: NextFunction) 
                 acceptedAt: true,
                 completedAt: true,
                 pullRequests: true,
-                project: {
-                    select: {
-                        id: true,
-                        name: true,
-                        repoUrls: true
-                    }
-                },
-                creator: {
-                    select: {
-                        userId: true,
-                        username: true
-                    }
-                },
-                contributor: {
-                    select: {
-                        userId: true,
-                        username: true
-                    }
-                },
                 createdAt: true,
-                updatedAt: true
+                updatedAt: true,
+                ...selectRelations
             },
             orderBy: {
-                createdAt: 'desc'
+                createdAt: (sort as "asc" | "desc") || 'desc'
             },
             skip,
             take: Number(limit)
@@ -452,6 +469,8 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
         next(error);
     }
 };
+
+// TODO: Add updateTaskTimeline
 
 export const submitTaskApplication = async (req: Request, res: Response, next: NextFunction) => {
     const { id: taskId } = req.params;
@@ -619,9 +638,16 @@ export const updateTaskComment = async (req: Request, res: Response, next: NextF
     }
 };
 
-export const requestTimelineModification = async (req: Request, res: Response, next: NextFunction) => {
+export const requestTimelineExtension = async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;
-    const { userId, newTimeline, reason, attachments } = req.body;
+    const { 
+        userId, 
+        githubUsername,
+        requestedTimeline, 
+        timelineType, 
+        reason, 
+        attachments 
+    } = req.body;
 
     try {
         const task = await prisma.task.findUnique({ 
@@ -642,11 +668,11 @@ export const requestTimelineModification = async (req: Request, res: Response, n
             throw new ErrorClass(
                 "TaskError", 
                 null, 
-                "Timeline adjustment can only be requested by active contributor"
+                "Requesting timeline extension can only be requested by the active contributor"
             );
         }
 
-        if (task.timeline! >= Number(newTimeline)) {
+        if (task.timeline! >= requestedTimeline) {
             throw new ErrorClass(
                 "ValidationError",
                 null,
@@ -654,13 +680,20 @@ export const requestTimelineModification = async (req: Request, res: Response, n
             );
         }
 
+        const message = `${githubUsername} is requesting for a ${requestedTimeline} ${(timelineType as string).toLowerCase()} 
+            time extension for this task. Kindly approve or reject it below.`;
+
         const comment = await createComment({
             userId,
             taskId: id,
             type: CommentType.TIMELINE_MODIFICATION,
-            message: reason || "Timeline modification requested",
+            message,
             attachments: attachments || [],
-            metadata: { requestedTimeline: Number(newTimeline) }
+            metadata: { 
+                requestedTimeline,
+                timelineType,
+                reason
+            }
         });
 
         res.status(200).json(comment);
@@ -669,59 +702,113 @@ export const requestTimelineModification = async (req: Request, res: Response, n
     }
 };
 
-export const replyTimelineModificationRequest = async (req: Request, res: Response, next: NextFunction) => {
+export const replyTimelineExtensionRequest = async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;
     const { 
         userId, 
-        accepted, 
-        newTimeline, 
-        reason, 
-        attachments 
+        accept, 
+        requestedTimeline, 
+        timelineType,
     } = req.body;
 
     try {
         const task = await prisma.task.findUnique({ 
             where: { id },
-            select: { creatorId: true } 
+            select: { 
+                creatorId: true,
+                timeline: true,
+                timelineType: true 
+            } 
         });
 
         if (!task) {
             throw new NotFoundErrorClass("Task not found");
         }
 
-        // TODO: Update to allow team members
         if (task.creatorId !== userId) { 
             throw new ErrorClass(
                 "TaskError", 
                 null, 
-                "Only task creator can respond to timeline adjustments"
+                "Only task creator can respond to timeline extension requests"
             );
         }
 
-        if (accepted === "TRUE") {
-            await prisma.task.update({
+        if (accept) {
+            let newTimeline: number, newTimelineType: TimelineType;
+
+            if (timelineType === "WEEK" && task.timelineType! == "WEEK") {
+                newTimeline = task.timeline! + requestedTimeline;
+                newTimelineType = "WEEK";
+            }
+            if (timelineType === "DAY" && task.timelineType! == "DAY") {
+                newTimeline = task.timeline! + requestedTimeline;
+                newTimelineType = "DAY";
+                
+                if (requestedTimeline > 6) {
+                    const weeks = Math.floor(newTimeline / 7);
+                    const days = newTimeline % 7;
+                    newTimeline = task.timeline! + weeks + (days / 10);
+                    newTimelineType = "WEEK";
+                }
+            }
+
+            if (timelineType === "DAY" && task.timelineType! == "WEEK") {
+                if (requestedTimeline === 7) newTimeline = task.timeline! + 1;
+                if (requestedTimeline > 7) {
+                    const weeks = Math.floor(requestedTimeline / 7);
+                    const days = requestedTimeline % 7;
+                    newTimeline = task.timeline! + weeks + (days / 10);
+                } else {
+                    newTimeline = task.timeline! + (requestedTimeline / 10);
+                }
+                newTimelineType = "WEEK";
+            }
+
+            if (timelineType === "WEEK" && task.timelineType! == "DAY") {
+                newTimeline = requestedTimeline + (task.timeline! / 10);
+                newTimelineType = "WEEK";
+            }
+
+            const updatedTask = await prisma.task.update({
                 where: { id },
-                data: { timeline: Number(newTimeline) }
+                data: { 
+                    timeline: newTimeline!,
+                    timelineType: newTimelineType!,
+                    status: "IN_PROGRESS"
+                },
+                select: {
+                    timeline: true,
+                    timelineType: true,
+                    status: true
+                }
             });
+            
+            const comment = await createComment({
+                userId,
+                taskId: id,
+                type: CommentType.TIMELINE_MODIFICATION,
+                message: `You’ve extended the timeline of this task by ${requestedTimeline} ${(timelineType as string).toLowerCase()}.`,
+                attachments: [],
+                metadata: { 
+                    requestedTimeline,
+                    timelineType,
+                }
+            });
+
+            return res.status(200).json({ comment, task: updatedTask });
         }
 
         const comment = await createComment({
             userId,
             taskId: id,
             type: CommentType.TIMELINE_MODIFICATION,
-            message: reason || "",
-            attachments: attachments || [],
+            message: "Timeline extension rejected.",
+            attachments: [],
             metadata: { 
-                newTimeline: accepted === "TRUE" ? Number(newTimeline) : undefined
+                requestedTimeline,
+                timelineType,
             }
         });
-
-        if (accepted === "TRUE") {
-            return res.status(200).json({ 
-                comment, 
-                task: { ...task, timeline: Number(newTimeline) } 
-            });
-        }
 
         res.status(200).json(comment);
     } catch (error) {
@@ -731,7 +818,7 @@ export const replyTimelineModificationRequest = async (req: Request, res: Respon
 
 export const markAsComplete = async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;
-    const { userId, pullRequests } = req.body;
+    const { userId, pullRequest, videoUrl } = req.body;
 
     try {
         const task = await prisma.task.findUnique({ 
@@ -811,7 +898,7 @@ export const validateCompletion = async (req: Request, res: Response, next: Next
             throw new ErrorClass("TaskError", null, "Task has not been marked as completed");
         }
 
-        // TODO: Update to allow team members
+        // TODO: Update to allow team members with permission
         if (task.creator.userId !== userId) { 
             throw new ErrorClass(
                 "TaskError", 
@@ -849,6 +936,8 @@ export const validateCompletion = async (req: Request, res: Response, next: Next
                 updatedAt: true
             }
         });
+
+        // TODO: Update issue on GitHub
 
         try {
             // Update contribution summary

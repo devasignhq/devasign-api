@@ -48,12 +48,17 @@ export const createTaskValidator = [
         .withMessage('Task payload is required')
         .isObject()
         .withMessage('Task payload must be an object'),
+    body('payload.repoUrl')
+        .exists()
+        .withMessage('Repository URL is required')
+        .isString()
+        .withMessage('Repository URL must be a string'),
     body('payload.projectId')
         .exists()
         .withMessage('Project ID is required')
         .isString()
         .withMessage('Project ID must be a string'),
-    body('payload.issue')
+    body('payload.issue') // TODO: Issue validation
         .exists()
         .withMessage('Issue details are required')
         .isObject()
@@ -100,6 +105,9 @@ export const createManyTasksValidator = [
             }
             return true;
         }),
+    body('payload.*.repoUrl')
+        .exists()
+        .withMessage('Repository URL is required for each task'),
     body('payload.*.issue')
         .exists()
         .withMessage('Issue details are required for each task'),
@@ -145,30 +153,6 @@ export const updateTaskBountyValidator = [
         .withMessage('Bounty must be a positive number')
 ];
 
-export const requestTimelineModificationValidator = [
-    param('id')
-        .exists()
-        .withMessage('Task ID is required'),
-    body('newTimeline')
-        .exists()
-        .trim()
-        .notEmpty()
-        .toInt() 
-        .withMessage('New timeline is required')
-        .isInt({ min: 1 })
-        .withMessage('Timeline must be a positive integer')
-        .custom((value) => {
-            if (isNaN(value)) {
-                throw new Error('New timeline must be a valid number');
-            }
-            return true;
-        }),
-    body('reason')
-        .optional()
-        .isString()
-        .withMessage('Reason must be a string')
-];
-
 export const addTaskCommentValidator = [
     param('id')
         .exists()
@@ -212,16 +196,37 @@ export const markAsCompleteValidator = [
     param('id')
         .exists()
         .withMessage('Task ID is required'),
-    body('pullRequests')
+    body('pullRequest')
         .exists()
-        .withMessage('Pull requests are required')
-        .isArray()
-        .withMessage('Pull requests must be an array')
-        .custom((urls: string[]) => {
+        .withMessage('Pull request url is required')
+        .custom((url: string) => {
             const validUrlPattern = /^https:\/\/github\.com\/[^/]+\/[^/]+\/pull\/\d+$/;
-            return urls.every(url => validUrlPattern.test(url));
-        })
-        .withMessage('Invalid pull request URL format. Must be GitHub pull request URLs')
+            try {
+                new URL(url);
+            } catch {
+                throw new Error('Pull request must be a valid URL');
+            }
+            if (!validUrlPattern.test(url)) {
+                throw new Error('Invalid pull request URL format. Must be a GitHub pull request');
+            }
+            return true;
+        }),
+    body('videoUrl')
+        .exists()
+        .withMessage('An explanation video URL is required')
+        .isString()
+        .withMessage('Message must be a string')
+        .trim()
+        .notEmpty()
+        .withMessage('Message cannot be empty')
+        .custom((url: string) => {
+            try {
+                new URL(url);
+                return true;
+            } catch {
+                throw new Error('Video URL must be a valid link');
+            }
+        }),
 ];
 
 export const validateCompletionValidator = [
@@ -251,16 +256,50 @@ export const acceptTaskApplicationValidator = [
         .withMessage('Contributor ID is required')
 ];
 
+export const requestTimelineExtensionValidator = [
+    param('id')
+        .exists()
+        .withMessage('Task ID is required'),
+    body('requestedTimeline')
+        .exists()
+        .trim()
+        .notEmpty()
+        .toInt() 
+        .withMessage('New timeline is required')
+        .isInt({ min: 1 })
+        .withMessage('Timeline must be a positive integer')
+        .custom((value) => {
+            if (isNaN(value)) {
+                throw new Error('New timeline must be a valid number');
+            }
+            return true;
+        }),
+    body('timelineType')
+        .exists()
+        .withMessage('Timeline type is required')
+        .isIn(Object.values(TimelineType))
+        .withMessage('Invalid timeline type'),
+    body('reason')
+        .exists()
+        .withMessage('Reason is required')
+        .isString()
+        .withMessage('Reason must be a string'),
+    body('attachments')
+        .optional()
+        .isArray()
+        .withMessage('Attachments must be an array'),
+];
+
 export const replyTimelineModificationValidator = [
     param('id')
         .exists()
         .withMessage('Task ID is required'),
-    body('accepted')
+    body('accept')
         .exists()
         .withMessage('Acceptance status is required')
-        .isIn(['TRUE', 'FALSE'])
-        .withMessage('Acceptance status must be TRUE or FALSE'),
-    body('newTimeline')
+        .isBoolean()
+        .withMessage('Acceptance status must be a boolean'),
+    body('requestedTimeline')
         .if(body('accepted').equals('TRUE'))
         .exists()
         .trim()
@@ -275,12 +314,9 @@ export const replyTimelineModificationValidator = [
             }
             return true;
         }),
-    body('reason')
-        .optional()
-        .isString()
-        .withMessage('Reason must be a string'),
-    body('attachments')
-        .optional()
-        .isArray()
-        .withMessage('Attachments must be an array')
+    body('timelineType')
+        .exists()
+        .withMessage('Timeline type is required')
+        .isIn(Object.values(TimelineType))
+        .withMessage('Invalid timeline type'),
 ];

@@ -587,7 +587,7 @@ export const getProjectIssues = async (req: Request, res: Response, next: NextFu
 
         res.status(200).json({
             issues,
-            hasMore: (issues.length + 1) === PER_PAGE
+            hasMore: issues.length === 0
         });
     } catch (error) {
         next(error);

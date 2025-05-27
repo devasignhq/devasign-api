@@ -104,6 +104,7 @@ export type Task = {
 }
 
 export type CreateTask = {
+    repoUrl: string;
     projectId: string;
     issue: Issue;
     timeline?: number;
@@ -119,8 +120,9 @@ export class IssueFilters {
 }
 
 export type CommentMetadata = {
-    requestedTimeline?: number;
-    newTimeline?: number;
+    requestedTimeline: number;
+    timelineType: TimelineType;
+    reason?: string
 }
 
 export type Comment = {

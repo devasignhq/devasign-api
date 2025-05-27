@@ -3,8 +3,8 @@ import {
     createTask,
     updateTaskBounty,
     acceptTaskApplication,
-    requestTimelineModification,
-    replyTimelineModificationRequest,
+    requestTimelineExtension,
+    replyTimelineExtensionRequest,
     markAsComplete,
     validateCompletion,
     deleteTask,
@@ -19,7 +19,7 @@ import {
     getTasksValidator,
     createTaskValidator,
     updateTaskBountyValidator,
-    requestTimelineModificationValidator,
+    requestTimelineExtensionValidator,
     addTaskCommentValidator,
     updateTaskCommentValidator,
     markAsCompleteValidator,
@@ -50,8 +50,8 @@ taskRoutes.post("/:id/complete", markAsCompleteValidator, markAsComplete as Requ
 taskRoutes.post("/:id/validate", validateCompletionValidator, validateCompletion as RequestHandler);
 
 // Timeline
-taskRoutes.post("/:id/timeline", requestTimelineModificationValidator, requestTimelineModification as RequestHandler);
-taskRoutes.post("/:id/timeline/reply", replyTimelineModificationValidator, replyTimelineModificationRequest as RequestHandler);
+taskRoutes.post("/:id/timeline", requestTimelineExtensionValidator, requestTimelineExtension as RequestHandler);
+taskRoutes.post("/:id/timeline/reply", replyTimelineModificationValidator, replyTimelineExtensionRequest as RequestHandler);
 
 // Comments
 taskRoutes.post("/:id/comments", addTaskCommentValidator, addTaskComment as RequestHandler);
