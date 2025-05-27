@@ -47,6 +47,7 @@ model User {
   userProjectPermissions UserProjectPermission[]
   transactions           Transaction[]
   tasksAppliedFor        Task[]                  @relation("UserApplications")
+  taskSubmissions        TaskSubmission[]
 }
 
 // TODO: Update contribution summary upon task completion/acceptance
@@ -77,55 +78,72 @@ model SubscriptionPackage {
 }
 
 model Project {
-  id                    String                  @id @default(cuid())
-  name                  String
-  description           String
-  repoUrls              String[]
-  walletAddress         String
-  walletSecret          String
-  escrowAddress         String
-  escrowSecret          String
-  subscriptionPackage   SubscriptionPackage?    @relation(fields: [subscriptionPackageId], references: [id])
-  subscriptionPackageId String?
-  createdAt             DateTime                @default(now())
-  updatedAt             DateTime                @updatedAt
-  tasks                 Task[]                  @relation("ProjectTasks")
-  users                 User[]                  @relation("UserProjects")
-  userProjectPermission UserProjectPermission[]
-  transactions          Transaction[]
+  id                     String                  @id @default(cuid())
+  name                   String
+  description            String
+  repoUrls               String[]
+  walletAddress          String
+  walletSecret           String
+  escrowAddress          String
+  escrowSecret           String
+  subscriptionPackage    SubscriptionPackage?    @relation(fields: [subscriptionPackageId], references: [id])
+  subscriptionPackageId  String?
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
+  tasks                  Task[]                  @relation("ProjectTasks")
+  users                  User[]                  @relation("UserProjects")
+  userProjectPermissions UserProjectPermission[]
+  transactions           Transaction[]
+  taskSubmissions        TaskSubmission[]
 }
 
 model Task {
-  id            String        @id @default(cuid())
-  number        Int           @default(autoincrement())
-  issue         Json
-  timeline      Int?          @default(0)
-  timelineType  TimelineType? @default(WEEK)
-  bounty        Float         @default(0.0)
-  status        TaskStatus    @default(OPEN)
-  settled       Boolean       @default(false)
-  pullRequests  String[]      @default([])
-  applications  User[]        @relation("UserApplications")
-  acceptedAt    DateTime?
-  completedAt   DateTime?
-  creator       User          @relation("TaskCreator", fields: [creatorId], references: [userId])
-  creatorId     String
-  contributor   User?         @relation("TaskContributor", fields: [contributorId], references: [userId])
-  contributorId String?
-  project       Project       @relation("ProjectTasks", fields: [projectId], references: [id])
-  projectId     String
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-  transactions  Transaction[]
+  id              String           @id @default(cuid())
+  number          Int              @default(autoincrement())
+  issue           Json
+  timeline        Float?           @default(0)
+  timelineType    TimelineType?    @default(WEEK)
+  bounty          Float            @default(0.0)
+  status          TaskStatus       @default(OPEN)
+  settled         Boolean          @default(false)
+  applications    User[]           @relation("UserApplications")
+  acceptedAt      DateTime?
+  completedAt     DateTime?
+  creator         User             @relation("TaskCreator", fields: [creatorId], references: [userId])
+  creatorId       String
+  contributor     User?            @relation("TaskContributor", fields: [contributorId], references: [userId])
+  contributorId   String?
+  project         Project          @relation("ProjectTasks", fields: [projectId], references: [id])
+  projectId       String
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  transactions    Transaction[]
+  taskSubmissions TaskSubmission[]
+}
+
+model TaskSubmission {
+  id          String   @id @default(cuid())
+  user        User     @relation(fields: [userId], references: [userId])
+  userId      String
+  task        Task     @relation(fields: [taskId], references: [id])
+  taskId      String
+  project     Project  @relation(fields: [projectId], references: [id])
+  projectId   String
+  pullRequest String
+  videoUrl    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([taskId, userId])
 }
 
 model Permission {
-  code                  String                  @id
-  name                  String
-  isDefault             Boolean
-  createdAt             DateTime                @default(now())
-  updatedAt             DateTime                @updatedAt
-  userProjectPermission UserProjectPermission[] @relation("UserProjectPermissionPermissions")
+  code                   String                  @id
+  name                   String
+  isDefault              Boolean
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
+  userProjectPermissions UserProjectPermission[] @relation("UserProjectPermissionPermissions")
 }
 
 model UserProjectPermission {
@@ -166,8 +184,8 @@ model Transaction {
   assetTo   String?
 
   // Balance tracking
-  previousBalance Float
-  newBalance      Float
+  // previousBalance Float
+  // newBalance      Float
 
   project   Project @relation(fields: [projectId], references: [id])
   projectId String

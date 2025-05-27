@@ -256,6 +256,7 @@ export const getTasks = async (req: Request, res: Response, next: NextFunction) 
 
         let selectRelations: any = {};
 
+        // TODO: Check user type (dev or pm). Also in getTask.
         if (detailed) {
             selectRelations = {
                 project: {
@@ -277,6 +278,18 @@ export const getTasks = async (req: Request, res: Response, next: NextFunction) 
                         username: true
                     }
                 },
+                applications: {
+                    select: {
+                        userId: true,
+                        username: true
+                    }
+                },
+                taskSubmissions: {
+                    select: {
+                        pullRequest: true,
+                        videoUrl: true
+                    }
+                }
             }
         }
 
@@ -341,7 +354,6 @@ export const getTask = async (req: Request, res: Response, next: NextFunction) =
                 settled: true,
                 acceptedAt: true,
                 completedAt: true,
-                pullRequests: true,
                 project: {
                     select: {
                         id: true,
@@ -359,6 +371,18 @@ export const getTask = async (req: Request, res: Response, next: NextFunction) =
                     select: {
                         userId: true,
                         username: true
+                    }
+                },
+                applications: {
+                    select: {
+                        userId: true,
+                        username: true
+                    }
+                },
+                taskSubmissions: {
+                    select: {
+                        pullRequest: true,
+                        videoUrl: true
                     }
                 },
                 createdAt: true,
@@ -779,7 +803,8 @@ export const replyTimelineExtensionRequest = async (req: Request, res: Response,
                 select: {
                     timeline: true,
                     timelineType: true,
-                    status: true
+                    status: true,
+                    updatedAt: true
                 }
             });
             
@@ -810,7 +835,7 @@ export const replyTimelineExtensionRequest = async (req: Request, res: Response,
             }
         });
 
-        res.status(200).json(comment);
+        res.status(200).json({ comment });
     } catch (error) {
         next(error);
     }
@@ -825,31 +850,56 @@ export const markAsComplete = async (req: Request, res: Response, next: NextFunc
             where: { id },
             select: {
                 status: true,
-                contributorId: true
+                contributorId: true,
+                projectId: true,
             } 
         });
 
         if (!task) {
             throw new NotFoundErrorClass("Task not found");
         }
-        if (task.status !== "IN_PROGRESS" || task.contributorId !== userId) {
+        if (task.contributorId !== userId) {
             throw new ErrorClass(
                 "TaskError", 
                 null, 
                 "Only the active contributor can make this action"
             );
         }
+        if (task.status !== "IN_PROGRESS" && task.status !== "MARKED_AS_COMPLETED") {
+            throw new ErrorClass(
+                "TaskError", 
+                null, 
+                "Task is not active"
+            );
+        }
 
+        await prisma.taskSubmission.create({
+            data: {
+                user: { connect: { userId } },
+                task: { connect: { id } },
+                project: { connect: { id: task.projectId } },
+                pullRequest,
+                videoUrl
+            }
+        });
+
+        // Update task status
         const updatedTask = await prisma.task.update({
             where: { id },
             data: {
-                status: "MARKED_AS_COMPLETED",
-                pullRequests
+                status: "MARKED_AS_COMPLETED"
             },
             select: {
                 status: true,
-                pullRequests: true,
-                updatedAt: true
+                updatedAt: true,
+                taskSubmissions: {
+                    where: { userId },
+                    select: {
+                        id: true,
+                        pullRequest: true,
+                        videoUrl: true,
+                    }
+                }
             }
         });
 
