@@ -26,9 +26,8 @@ export const getUser = async (req: Request, res: Response, next: NextFunction) =
             ...(view === "full" || view === "profile" ? {
                 contributionSummary: {
                     select: {
-                        tasksTaken: true,
                         tasksCompleted: true,
-                        averageRating: true,
+                        activeTasks: true,
                         totalEarnings: true
                     }
                 }

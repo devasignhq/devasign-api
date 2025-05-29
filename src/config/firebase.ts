@@ -24,6 +24,9 @@ export const validateUser = async (req: Request, res: Response, next: NextFuncti
             const githubCredential = user.providerData.find(
                 provider => provider.providerId === 'github.com'
             );
+
+            console.log("gitHubCredential", githubCredential);
+            console.log("githubToken", user.customClaims?.githubToken);
             
             // Add user info and GitHub token to request
             req.body = { 
@@ -31,7 +34,7 @@ export const validateUser = async (req: Request, res: Response, next: NextFuncti
                 currentUser: decodedToken,
                 userId: decodedToken.uid,
                 githubToken: user.customClaims?.githubToken || null,
-                githubUsername: githubCredential?.displayName || null
+                githubUsername: githubCredential?.uid || null
             };
             
             next();

@@ -19,10 +19,10 @@ import { walletRoutes } from './routes/walletRoutes';
 import { stellarService } from './config/stellar';
 
 const app = express();
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 5000;
 
 app.use(helmet());
-app.use(cors({ origin: 'http://localhost:5173' }));
+app.use(cors({ origin: 'http://localhost:3000' }));
 app.use(morgan('dev'));
 app.use(express.json());
 
@@ -42,6 +42,17 @@ app.get(
         }
     }) as RequestHandler
 );
+
+app.get('/', (req: Request, res: Response) => {
+    res.send('Hello, TypeScript Express Server!');
+});
+
+app.use("/users", validateUser as RequestHandler, userRoutes);
+app.use("/projects", validateUser as RequestHandler, projectRoutes);
+app.use("/tasks", validateUser as RequestHandler, taskRoutes);
+app.use("/wallet", validateUser as RequestHandler, walletRoutes);
+app.use("/stellar", stellarRoutes);
+app.use("/test", testRoutes);
 
 app.use(((error: any, req: Request, res: Response, next: NextFunction) => {
     console.error('Error:', error);
@@ -69,17 +80,6 @@ app.use(((error: any, req: Request, res: Response, next: NextFunction) => {
         }
     });
 }) as express.ErrorRequestHandler);
-
-app.get('/', (req: Request, res: Response) => {
-    res.send('Hello, TypeScript Express Server!');
-});
-
-app.use("/users", validateUser as RequestHandler, userRoutes);
-app.use("/projects", validateUser as RequestHandler, projectRoutes);
-app.use("/tasks", validateUser as RequestHandler, taskRoutes);
-app.use("/wallet", validateUser as RequestHandler, walletRoutes);
-app.use("/stellar", stellarRoutes);
-app.use("/test", testRoutes);
 
 prisma.$connect();
 
