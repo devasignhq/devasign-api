@@ -260,6 +260,13 @@ export const requestTimelineExtensionValidator = [
     param('id')
         .exists()
         .withMessage('Task ID is required'),
+    body('githubUsername')
+        .exists()
+        .withMessage('Github username is required')
+        .isString()
+        .withMessage('Username must be a string')
+        .trim()
+        .withMessage('Username must be greater than 1 character'),
     body('requestedTimeline')
         .exists()
         .trim()

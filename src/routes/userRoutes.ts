@@ -6,20 +6,22 @@ import {
     getUser 
 } from "../controllers/userController";
 import { 
+    createUserValidator,
     getUserValidator,
-    updateAddressBookValidator 
+    updateAddressBookValidator, 
+    updateUsernameValidator
 } from "../validators/userValidators";
 
 export const userRoutes = Router();
 
 // Create a new user
-userRoutes.post("/", createUser as RequestHandler);
+userRoutes.post("/", createUserValidator, createUser as RequestHandler);
 
 // Get user
 userRoutes.get('/', getUserValidator, getUser as RequestHandler);
 
 // Update user details
-userRoutes.patch("/username", updateUsername as RequestHandler);
+userRoutes.patch("/username", updateUsernameValidator, updateUsername as RequestHandler);
 
 // Update user's address book
 userRoutes.patch("/address-book", updateAddressBookValidator, updateAddressBook as RequestHandler);

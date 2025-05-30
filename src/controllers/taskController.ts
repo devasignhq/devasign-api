@@ -104,7 +104,7 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
                 issue.number,
                 issue.title + ` (${payload.bounty} USDC)`,
                 issue.body + `
-## 💵 500 USDC bounty
+## 💵 ${payload.bounty} USDC bounty
  
 ### ❗ Important guidelines:
 - To claim a bounty, you need to **provide a short demo video** of your changes in your pull request.

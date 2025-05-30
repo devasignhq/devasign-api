@@ -8,6 +8,26 @@ export const getUserValidator = [
         .withMessage('View must be either basic, full, or profile')
 ];
 
+export const createUserValidator = [
+    body('githubUsername')
+        .exists()
+        .withMessage('Github username is required')
+        .isString()
+        .withMessage('Username must be a string')
+        .trim()
+        .withMessage('Username must be greater than 1 character')
+]
+
+export const updateUsernameValidator = [
+    body('githubUsername')
+        .exists()
+        .withMessage('Github username is required')
+        .isString()
+        .withMessage('Username must be a string')
+        .trim()
+        .withMessage('Username must be greater than 1 character')
+]
+
 // Validator for PUT /address-book
 export const updateAddressBookValidator = [
     body('address')
