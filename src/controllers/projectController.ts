@@ -59,6 +59,7 @@ export const getProjects = async (req: Request, res: Response, next: NextFunctio
                 description: true,
                 repoUrls: true,
                 walletAddress: true,
+                subscriptionPackage: true,
                 createdAt: true,
                 updatedAt: true,
                 _count: {
@@ -139,6 +140,7 @@ export const getProject = async (req: Request, res: Response, next: NextFunction
                         }
                     }
                 },
+                subscriptionPackage: true,
                 createdAt: true,
                 updatedAt: true
             }
@@ -200,6 +202,9 @@ export const createProject = async (req: Request, res: Response, next: NextFunct
                 escrowSecret: encryptedEscrowSecret,
                 users: {
                     connect: { userId }
+                },
+                subscriptionPackage: {
+                    connect: { id: process.env.DEFAULT_SUBSCRIPTION_PACKAGE_ID! }
                 }
             },
             select: {
@@ -207,6 +212,7 @@ export const createProject = async (req: Request, res: Response, next: NextFunct
                 name: true,
                 description: true,
                 walletAddress: true,
+                subscriptionPackage: true,
                 createdAt: true,
                 updatedAt: true
             }
