@@ -18,23 +18,12 @@ export const validateUser = async (req: Request, res: Response, next: NextFuncti
     
         try {
             const decodedToken = await admin.auth().verifyIdToken(idToken);
-            const user = await admin.auth().getUser(decodedToken.uid);
-            
-            // Get GitHub credentials
-            const githubCredential = user.providerData.find(
-                provider => provider.providerId === 'github.com'
-            );
-
-            console.log("gitHubCredential", githubCredential);
-            console.log("githubToken", user.customClaims?.githubToken);
             
             // Add user info and GitHub token to request
             req.body = { 
                 ...req.body, 
                 currentUser: decodedToken,
-                userId: decodedToken.uid,
-                githubToken: user.customClaims?.githubToken || null,
-                githubUsername: githubCredential?.uid || null
+                userId: decodedToken.uid
             };
             
             next();
