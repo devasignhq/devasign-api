@@ -5,28 +5,25 @@ import { stellarService, usdcAssetId } from "../config/stellar";
 import { decrypt } from "../helper";
 import { CommentType, CreateTask, ErrorClass, NotFoundErrorClass } from "../types/general";
 import { HorizonApi } from "../types/horizonapi";
-import { getRepoIssue, updateRepoIssue } from "../services/githubService";
 import { TimelineType } from "../generated/client";
 
 type USDCBalance = HorizonApi.BalanceLineAsset<"credit_alphanum12">;
 
 export const createTask = async (req: Request, res: Response, next: NextFunction) => {
-    const { userId, githubToken, payload: data } = req.body;
+    const { userId, payload: data } = req.body;
     const payload = data as CreateTask;
 
     try {
-        const user = await prisma.user.findUnique({
-            where: { userId },
-            select: { walletSecret: true, walletAddress: true }
-        });
-
-        if (!user) {
-            throw new NotFoundErrorClass("User not found");
-        }
+        // TODO: Check for neccessary permissions
 
         const project = await prisma.project.findUnique({
             where: { id: payload.projectId },
-            select: { escrowSecret: true, escrowAddress: true }
+            select: { 
+                walletSecret: true,
+                walletAddress: true,
+                escrowSecret: true, 
+                escrowAddress: true 
+            }
         });
 
         if (!project) {
@@ -34,7 +31,7 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
         }
 
         // Check user balance
-        const accountInfo = await stellarService.getAccountInfo(user.walletAddress);
+        const accountInfo = await stellarService.getAccountInfo(project.walletAddress);
         const usdcAsset = accountInfo.balances.find(
             (asset): asset is USDCBalance => "asset_code" in asset && asset.asset_code === "USDC"
         ) as USDCBalance;
@@ -44,23 +41,32 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
         }
 
         // Confirm USDC trustline
-        const decryptedUserSecret = decrypt(user.walletSecret);
-        const projectWallet = await stellarService.getAccountInfo(project.escrowAddress!);
+        const decryptedProjectWalletSecret = decrypt(project.walletSecret);
+        const decryptedEscrowWalletSecret = decrypt(project.escrowSecret);
+        const projectEscrowWallet = await stellarService.getAccountInfo(project.escrowAddress!);
 
         if (
-            !(projectWallet.balances.find(
+            !(projectEscrowWallet.balances.find(
                 (asset): asset is USDCBalance => "asset_code" in asset && asset.asset_code === "USDC"
             ))
         ) {
             await stellarService.addTrustLineViaSponsor(
-                decryptedUserSecret,
-                project.escrowSecret!,
+                decryptedProjectWalletSecret,
+                decryptedEscrowWalletSecret,
             );
         }
 
+        console.log(
+            decryptedProjectWalletSecret,
+            project.escrowAddress!,
+            usdcAssetId,
+            usdcAssetId,
+            payload.bounty
+        )
+
         // Transfer to escrow
         await stellarService.transferAsset(
-            decryptedUserSecret,
+            decryptedProjectWalletSecret,
             project.escrowAddress!,
             usdcAssetId,
             usdcAssetId,
@@ -87,40 +93,6 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
                 }
             }
         });
-
-        try {
-            const issue = await getRepoIssue(payload.repoUrl, githubToken, payload.issue.number);
-
-            if (typeof issue.labels[0] === "string") {
-                issue.labels = [...issue.labels, "💵 Bounty"];
-            } else {
-                const labelNames = issue.labels.reduce((acc: any[], label) => [...acc, (label as any).name], []);
-                issue.labels = [...labelNames, "💵 Bounty"];
-            }
-
-            await updateRepoIssue(
-                payload.repoUrl, 
-                githubToken, 
-                issue.number,
-                issue.title + ` (${payload.bounty} USDC)`,
-                issue.body + `
-## 💵 ${payload.bounty} USDC bounty
- 
-### ❗ Important guidelines:
-- To claim a bounty, you need to **provide a short demo video** of your changes in your pull request.
-- If anything is unclear, **ask for clarification** before starting as this will help avoid potential rework.
-
-**To work on this task, [Apply here](https://dev.devasign.com?taskId=${task.id})**`,
-                issue.labels as unknown as string[]
-            )
-        } catch (error) {
-                // Return task data even if updating issue fails
-                next({
-                    error,
-                    task,
-                    message: "Task created but failed to update repo issue"
-                });
-        }
 
         res.status(201).json(task);
     } catch (error) {
