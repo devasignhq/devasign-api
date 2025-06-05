@@ -4,9 +4,6 @@ import {
     updateProject,
     deleteProject,
     addTeamMember,
-    getProjectIssues,
-    getProjectMilestones,
-    getProjectLabels,
     getProject,
     getProjects,
     connectRepository,
@@ -18,7 +15,6 @@ import {
     createProjectValidator,
     updateProjectValidator,
     addTeamMemberValidator,
-    getProjectIssuesValidator,
     connectRepositoryValidator,
     removeTeamMemberValidator,
     updateTeamMemberPermissionsValidator
@@ -38,8 +34,3 @@ projectRoutes.delete("/:id", deleteProject as RequestHandler);
 projectRoutes.post("/:id/team", addTeamMemberValidator, addTeamMember as RequestHandler);
 projectRoutes.patch("/:id/team/:userId", updateTeamMemberPermissionsValidator, updateTeamMemberPermissions as RequestHandler);
 projectRoutes.delete("/:id/team/:userId", removeTeamMemberValidator, removeTeamMember as RequestHandler);
-
-// GitHub repository
-projectRoutes.get("/issues", getProjectIssuesValidator, getProjectIssues as RequestHandler);
-projectRoutes.get("/milestones", getProjectMilestones as RequestHandler);
-projectRoutes.get("/labels", getProjectLabels as RequestHandler);
