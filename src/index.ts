@@ -1,7 +1,6 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
-import { EventSource } from 'eventsource'
 import express, { Request, Response, NextFunction, RequestHandler } from 'express';
 import createError from 'http-errors';
 import helmet from 'helmet';
@@ -16,7 +15,6 @@ import { stellarRoutes } from './routes/stellarRoutes';
 import { testRoutes } from './routes/testRoutes';
 import { ErrorClass } from './types/general';
 import { walletRoutes } from './routes/walletRoutes';
-import { stellarService } from './config/stellar';
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -30,11 +28,17 @@ app.get(
     '/clear-db',
     (async (req: Request, res: Response, next: NextFunction) => {
         try {
-            // Delete all records from each table
+            // Delete all records from each table in correct order
+            // due to foreign key constraints
+            await prisma.transaction.deleteMany();
+            await prisma.taskSubmission.deleteMany();
+            await prisma.userProjectPermission.deleteMany();
             await prisma.task.deleteMany();
             await prisma.contributionSummary.deleteMany();
             await prisma.project.deleteMany();
             await prisma.user.deleteMany();
+            await prisma.permission.deleteMany();
+            // await prisma.subscriptionPackage.deleteMany();
 
             res.status(201).json({ message: "Database cleared" });
         } catch (error) {
@@ -42,6 +46,16 @@ app.get(
         }
     }) as RequestHandler
 );
+
+app.post('/get-packages', async (req, res) => {
+    try {
+        const packages = await prisma.subscriptionPackage.findMany();
+
+        res.status(201).json(packages);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch subscription packages' });
+    }
+});
 
 app.get('/', (req: Request, res: Response) => {
     res.send('Hello, TypeScript Express Server!');
@@ -84,30 +98,5 @@ app.use(((error: any, req: Request, res: Response, next: NextFunction) => {
 prisma.$connect();
 
 app.listen(port, async () => {
-    // const accountToWatch = "GD6LFE72VUGGPYDAWOEL5I34JODO746PSEFBUCDZECXTVWB6VFLOPFUM"
-    // const accountSream = await stellarService.buildPaymentTransactionStream(accountToWatch);
-
-    // // console.log('--- Transaction Stream ---');
-
-    // // const es = new EventSource(
-    // //     "https://horizon-testnet.stellar.org/accounts/GD6LFE72VUGGPYDAWOEL5I34JODO746PSEFBUCDZECXTVWB6VFLOPFUM/payments",
-    // // );
-    // // es.onmessage = function (message: any) {
-    // //     console.log("start")
-    // //     const result = message.data ? JSON.parse(message.data) : message;
-    // //     console.log("New payment:");
-    // //     console.log(result);
-    // // };
-    // // es.onerror = function (error: any) {
-    // //     console.log("An error occurred!", error);
-    // // };
-
-    // // console.log('--- Transaction Ran ---');
-
-    // const one = "91af86cd024af6b7e2e12d802d089f7fd07b1906dbe7b526b8decc65e6ef97e7";
-    // const two = "91af86cd024af6b7e2e12d802d089f7fd07b1906dbe7b526b8decc65e6ef97e7";
-
-    // if (one === two) console.log("The Same SHIT!!!!!!!")
-
     console.log(`Server is running on port ${port}`);
 });
