@@ -189,8 +189,8 @@ export const createProject = async (req: Request, res: Response, next: NextFunct
         const decryptedUserSecret = decrypt(user.walletSecret);
         const projectWallet = await stellarService.createWalletViaSponsor(decryptedUserSecret);
         const escrowWallet = await stellarService.createWalletViaSponsor(decryptedUserSecret);
+        const encryptedProjectSecret = encrypt(projectWallet.secretKey);
         const encryptedEscrowSecret = encrypt(escrowWallet.secretKey);
-        const encryptedProjectSecret = encrypt(escrowWallet.secretKey);
 
         const project = await prisma.project.create({
             data: {
@@ -244,10 +244,9 @@ export const createProject = async (req: Request, res: Response, next: NextFunct
 
 export const connectRepository = async (req: Request, res: Response, next: NextFunction) => {
     const { id: projectId } = req.params;
-    const { githubToken, repoUrl, userId } = req.body;
+    const { repoUrl, userId } = req.body;
 
     try {
-        // 1. Fetch the project and check if user is a team member
         const project = await prisma.project.findUnique({
             where: { id: projectId },
             select: {
@@ -265,21 +264,13 @@ export const connectRepository = async (req: Request, res: Response, next: NextF
             throw new ErrorClass("AuthorizationError", null, "Not authorized to connect repository to this project");
         }
 
-        // 2. Validate if user is an admin on the repository
-        const repoDetails = await getRepoDetails(repoUrl, githubToken);
-        if (!repoDetails.permissions || !repoDetails.permissions.admin) {
-            throw new ErrorClass("AuthorizationError", null, "User is not an admin on the repository");
-        }
-
-        // 3. Add repoUrl to repoUrls array if not already present
+        // Add repoUrl to repoUrls array if not already present
         const updatedRepoUrls = Array.from(new Set([...(project.repoUrls || []), repoUrl]));
 
         await prisma.project.update({
             where: { id: projectId },
             data: { repoUrls: updatedRepoUrls }
         });
-
-        await createBountyLabel(repoUrl, githubToken);
 
         res.status(200).json({ message: "Repository connected successfully", repoUrls: updatedRepoUrls });
     } catch (error) {
