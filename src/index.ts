@@ -20,7 +20,20 @@ const app = express();
 const port = process.env.PORT || 5000;
 
 app.use(helmet());
-app.use(cors({ origin: 'http://localhost:3000' }));
+app.use(cors({
+    origin: function (origin, callback) {
+        // Allow requests with no origin (like mobile apps or curl requests)
+        if (!origin) return callback(null, true);
+        
+        // Allow any localhost port
+        if (origin.match(/^http:\/\/localhost:\d+$/)) {
+            return callback(null, true);
+        }
+        
+        // Reject other origins
+        callback(new Error('Not allowed by CORS'));
+    }
+}));
 app.use(morgan('dev'));
 app.use(express.json());
 
