@@ -40,6 +40,10 @@ export const getTasksValidator = [
             }
             return true;
         }),
+    query('sort')
+        .optional()
+        .isIn(['asc', 'desc'])
+        .withMessage('Sort field must be either asc or desc'),
 ];
 
 export const createTaskValidator = [
@@ -314,4 +318,38 @@ export const replyTimelineModificationValidator = [
         .withMessage('Timeline type is required')
         .isIn(Object.values(TimelineType))
         .withMessage('Invalid timeline type'),
+];
+
+
+export const getTaskActivitiesValidator = [
+    query('page')
+        .optional()
+        .trim()
+        .notEmpty()
+        .toInt() 
+        .isInt({ min: 1 })
+        .withMessage('Page must be a positive integer')
+        .custom((value) => {
+            if (isNaN(value)) {
+                throw new Error('Page must be a valid number');
+            }
+            return true;
+        }),
+    query('limit')
+        .optional()
+        .trim()
+        .notEmpty()
+        .toInt() 
+        .isInt({ min: 1, max: 100 })
+        .withMessage('Page must be a positive integer')
+        .custom((value) => {
+            if (isNaN(value)) {
+                throw new Error('Limit must be a valid number');
+            }
+            return true;
+        }),
+    query('sort')
+        .optional()
+        .isIn(['asc', 'desc'])
+        .withMessage('Sort field must be either asc or desc'),
 ];

@@ -203,7 +203,7 @@ export const getTasks = async (req: Request, res: Response, next: NextFunction) 
         limit = 10,
         sort,
     } = req.query;
-    const { userId } = req.body;
+    const { userId, filters } = req.body;
 
     try {
         // Build where clause based on filters
@@ -282,7 +282,6 @@ export const getTasks = async (req: Request, res: Response, next: NextFunction) 
                 settled: true,
                 acceptedAt: true,
                 completedAt: true,
-                pullRequests: true,
                 createdAt: true,
                 updatedAt: true,
                 ...selectRelations
@@ -1005,6 +1004,64 @@ export const validateCompletion = async (req: Request, res: Response, next: Next
                 message: "Validation complete. Failed to update contribution summary."
             });
         }
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const getTaskActivities = async (req: Request, res: Response, next: NextFunction) => {
+    const { 
+        page = 1,
+        limit = 10,
+        sort,
+    } = req.query;
+    const { id: taskId } = req.params;
+    const { userId } = req.body;
+
+    try {
+        // Get total count for pagination
+        const totalActivities = await prisma.taskActivity.count({ where: { taskId } });
+        const totalPages = Math.ceil(totalActivities / Number(limit));
+        const skip = (Number(page) - 1) * Number(limit);
+
+        // Get task activities with pagination
+        const activities = await prisma.taskActivity.findMany({
+            where: { taskId },
+            select: {
+                id: true,
+                taskId: true,
+                userId: true,
+                taskSubmissionId: true,
+                user: {
+                    select: { username: true, contributionSummary: true  }
+                },
+                taskSubmission: {
+                    select: {
+                        user: { select: { username: true, contributionSummary: true  } },
+                        pullRequest: true,
+                        attachmentUrl: true
+                    }
+                },
+                createdAt: true,
+                updatedAt: true
+            },
+            orderBy: {
+                createdAt: (sort as "asc" | "desc") || 'desc'
+            },
+            skip,
+            take: Number(limit)
+        });
+
+        res.status(200).json({
+            data: activities,
+            pagination: {
+                currentPage: Number(page),
+                totalPages,
+                totalItems: totalActivities,
+                itemsPerPage: Number(limit),
+                hasMore: Number(page) < totalPages
+            }
+        });
     } catch (error) {
         next(error);
     }

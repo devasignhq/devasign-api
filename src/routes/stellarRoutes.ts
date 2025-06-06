@@ -1,6 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { body } from 'express-validator';
-import { stellarService, xlmAssetId } from '../config/stellar';
+import { stellarService, usdcAssetId, xlmAssetId } from '../config/stellar';
 
 const router = Router();
 
@@ -132,8 +132,8 @@ router.post('/transfer/sponsor',
                 sponsorSecret,
                 accountSecret,
                 destinationAddress,
-                xlmAssetId,
-                xlmAssetId,
+                usdcAssetId,
+                usdcAssetId,
                 amount
             );
             res.status(200).json({

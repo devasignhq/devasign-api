@@ -13,7 +13,8 @@ import {
     addTaskComment,
     updateTaskComment,
     createManyTasks,
-    submitTaskApplication
+    submitTaskApplication,
+    getTaskActivities
 } from "../controllers/taskController";
 import {
     getTasksValidator,
@@ -28,7 +29,8 @@ import {
     acceptTaskApplicationValidator,
     replyTimelineModificationValidator,
     createManyTasksValidator,
-    submitTaskApplicationValidator
+    submitTaskApplicationValidator,
+    getTaskActivitiesValidator
 } from "../validators/taskValidators";
 
 export const taskRoutes = Router();
@@ -36,6 +38,7 @@ export const taskRoutes = Router();
 // Task queries
 taskRoutes.get('/', getTasksValidator, getTasks as RequestHandler);
 taskRoutes.get('/:id', getTask as RequestHandler);
+taskRoutes.get('/activities/:id', getTaskActivitiesValidator, getTaskActivities as RequestHandler);
 
 // Task management
 taskRoutes.post("/", createTaskValidator, createTask as RequestHandler);

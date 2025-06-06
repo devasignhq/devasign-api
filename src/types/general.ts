@@ -119,6 +119,13 @@ export class IssueFilters {
     direction?: "asc" | "desc" = "desc";
 }
 
+export type FilterTasks = {
+    repoUrl?: string;
+    issueTitle?: string;
+    issueLabels?: string[];
+    issueMilestone?: string;
+}
+
 export type CommentMetadata = {
     requestedTimeline: number;
     timelineType: TimelineType;
