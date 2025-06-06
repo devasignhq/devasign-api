@@ -211,22 +211,10 @@ export const markAsCompleteValidator = [
             }
             return true;
         }),
-    body('videoUrl')
-        .exists()
-        .withMessage('An explanation video URL is required')
+    body('attachmentUrl')
+        .optional()
         .isString()
-        .withMessage('Message must be a string')
-        .trim()
-        .notEmpty()
-        .withMessage('Message cannot be empty')
-        .custom((url: string) => {
-            try {
-                new URL(url);
-                return true;
-            } catch {
-                throw new Error('Video URL must be a valid link');
-            }
-        }),
+        .withMessage('Attachment URL must be a string')
 ];
 
 export const validateCompletionValidator = [

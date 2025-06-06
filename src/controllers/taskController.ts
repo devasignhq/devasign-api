@@ -192,7 +192,6 @@ export const createManyTasks = async (req: Request, res: Response, next: NextFun
 };
 
 // TODO: add publishTaskToIssue route
-// TODO: add saveTaskDraft route
 
 export const getTasks = async (req: Request, res: Response, next: NextFunction) => {
     const { 
@@ -259,7 +258,7 @@ export const getTasks = async (req: Request, res: Response, next: NextFunction) 
                 taskSubmissions: {
                     select: {
                         pullRequest: true,
-                        videoUrl: true
+                        attachmentUrl: true
                     }
                 }
             }
@@ -354,7 +353,7 @@ export const getTask = async (req: Request, res: Response, next: NextFunction) =
                 taskSubmissions: {
                     select: {
                         pullRequest: true,
-                        videoUrl: true
+                        attachmentUrl: true
                     }
                 },
                 createdAt: true,
@@ -496,6 +495,17 @@ export const submitTaskApplication = async (req: Request, res: Response, next: N
                 applications: {
                     connect: { userId }
                 }
+            }
+        });
+
+        await prisma.taskActivity.create({
+            data: {
+                task: {
+                    connect: { id: taskId }
+                },
+                user: {
+                    connect: { userId }
+                },
             }
         });
 
@@ -814,12 +824,12 @@ export const replyTimelineExtensionRequest = async (req: Request, res: Response,
 };
 
 export const markAsComplete = async (req: Request, res: Response, next: NextFunction) => {
-    const { id } = req.params;
-    const { userId, pullRequest, videoUrl } = req.body;
+    const { id: taskId } = req.params;
+    const { userId, pullRequest, attachmentUrl } = req.body;
 
     try {
         const task = await prisma.task.findUnique({ 
-            where: { id },
+            where: { id: taskId },
             select: {
                 status: true,
                 contributorId: true,
@@ -845,19 +855,20 @@ export const markAsComplete = async (req: Request, res: Response, next: NextFunc
             );
         }
 
-        await prisma.taskSubmission.create({
+        const submission = await prisma.taskSubmission.create({
             data: {
                 user: { connect: { userId } },
-                task: { connect: { id } },
+                task: { connect: { id: taskId } },
                 project: { connect: { id: task.projectId } },
                 pullRequest,
-                videoUrl
-            }
+                attachmentUrl
+            },
+            select: { id: true }
         });
 
         // Update task status
         const updatedTask = await prisma.task.update({
-            where: { id },
+            where: { id: taskId },
             data: {
                 status: "MARKED_AS_COMPLETED"
             },
@@ -869,9 +880,23 @@ export const markAsComplete = async (req: Request, res: Response, next: NextFunc
                     select: {
                         id: true,
                         pullRequest: true,
-                        videoUrl: true,
+                        attachmentUrl: true,
                     }
                 }
+            }
+        });
+
+        await prisma.taskActivity.create({
+            data: {
+                task: {
+                    connect: { id: taskId }
+                },
+                taskSubmission: {
+                    connect: { id: submission.id }
+                },
+                user: {
+                    connect: { userId }
+                },
             }
         });
 

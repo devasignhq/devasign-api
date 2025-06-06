@@ -48,6 +48,7 @@ model User {
   transactions           Transaction[]
   tasksAppliedFor        Task[]                  @relation("UserApplications")
   taskSubmissions        TaskSubmission[]
+  taskActivity           TaskActivity[]
 }
 
 // TODO: Update contribution summary upon task completion/acceptance
@@ -99,7 +100,6 @@ model Project {
 
 model Task {
   id              String           @id @default(cuid())
-  number          Int              @default(autoincrement())
   issue           Json
   timeline        Float?           @default(0)
   timelineType    TimelineType?    @default(WEEK)
@@ -119,22 +119,36 @@ model Task {
   updatedAt       DateTime         @updatedAt
   transactions    Transaction[]
   taskSubmissions TaskSubmission[]
+  taskActivity    TaskActivity[]
 }
 
 model TaskSubmission {
-  id          String   @id @default(cuid())
-  user        User     @relation(fields: [userId], references: [userId])
-  userId      String
-  task        Task     @relation(fields: [taskId], references: [id])
-  taskId      String
-  project     Project  @relation(fields: [projectId], references: [id])
-  projectId   String
-  pullRequest String
-  videoUrl    String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id            String         @id @default(cuid())
+  user          User           @relation(fields: [userId], references: [userId])
+  userId        String
+  task          Task           @relation(fields: [taskId], references: [id])
+  taskId        String
+  project       Project        @relation(fields: [projectId], references: [id])
+  projectId     String
+  pullRequest   String
+  attachmentUrl String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  taskActivity  TaskActivity[]
 
   @@unique([taskId, userId])
+}
+
+model TaskActivity {
+  id               String          @id @default(cuid())
+  task             Task            @relation(fields: [taskId], references: [id])
+  taskId           String
+  user             User?           @relation(fields: [userId], references: [userId])
+  userId           String?
+  taskSubmission   TaskSubmission? @relation(fields: [taskSubmissionId], references: [id])
+  taskSubmissionId String?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
 }
 
 model Permission {
@@ -182,10 +196,6 @@ model Transaction {
   // For SWAP transactions
   assetFrom String?
   assetTo   String?
-
-  // Balance tracking
-  // previousBalance Float
-  // newBalance      Float
 
   project   Project @relation(fields: [projectId], references: [id])
   projectId String
