@@ -18,7 +18,14 @@ export const withdrawAssetValidator = [
         .isString()
         .withMessage('Amount must be a string')
         .custom((value) => !isNaN(parseFloat(value)) && parseFloat(value) > 0)
-        .withMessage('Amount must be a positive number')
+        .withMessage('Amount must be a positive number'),
+    body('projectId')
+        .optional()
+        .isString()
+        .withMessage('Project ID must be a string')
+        .trim()
+        .notEmpty()
+        .withMessage('Project ID cannot be empty')
 ];
 
 export const swapAssetValidator = [
@@ -32,11 +39,22 @@ export const swapAssetValidator = [
         .isString()
         .withMessage('Amount must be a string')
         .custom((value) => !isNaN(parseFloat(value)) && parseFloat(value) > 0)
-        .withMessage('Amount must be a positive number')
+        .withMessage('Amount must be a positive number'),
+    body('projectId')
+        .optional()
+        .isString()
+        .withMessage('Project ID must be a string')
+        .trim()
+        .notEmpty()
+        .withMessage('Project ID cannot be empty')
 ];
 
-export const getProjectTransactionsValidator = [
-    param('projectId')
-        .exists()
-        .withMessage('Project ID is required')
+export const walletProjectIdValidator = [
+    body('projectId')
+        .optional()
+        .isString()
+        .withMessage('Project ID must be a string')
+        .trim()
+        .notEmpty()
+        .withMessage('Project ID cannot be empty')
 ];

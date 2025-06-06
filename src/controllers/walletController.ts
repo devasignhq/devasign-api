@@ -9,24 +9,61 @@ import { TransactionCategory } from "../generated/client";
 type USDCBalance = HorizonApi.BalanceLineAsset<"credit_alphanum12">;
 
 export const withdrawAsset = async (req: Request, res: Response, next: NextFunction) => {
-    const { userId, walletAddress, assetType = "XLM", amount } = req.body;
+    const { 
+        userId, 
+        projectId, 
+        walletAddress: destinationAddress, 
+        assetType = "XLM", 
+        amount 
+    } = req.body;
 
     try {
         if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
             throw new ErrorClass("ValidationError", null, "Invalid amount specified");
         }
 
-        const user = await prisma.user.findUnique({
-            where: { userId },
-            select: { walletSecret: true, walletAddress: true }
-        });
+        let walletAddress = "";
+        let walletSecret = "";
 
-        if (!user) {
-            throw new NotFoundErrorClass("User not found");
+        if (projectId) {
+            const project = await prisma.project.findFirst({
+                where: {
+                    id: projectId,
+                    users: {
+                        some: {
+                            userId: userId
+                        }
+                    }
+                },
+                select: { walletSecret: true, walletAddress: true }
+            });
+
+            if (!project) {
+                throw new ErrorClass(
+                    "TransactionError", 
+                    null, 
+                    "Project does not exist or user is not part of this project."
+                );
+            }
+
+            walletAddress = project.walletAddress;
+            walletSecret = decrypt(project.walletSecret);
+        } else {
+            const user = await prisma.user.findUnique({
+                where: { userId },
+                select: { walletSecret: true, walletAddress: true }
+            });
+
+            if (!user) {
+                throw new NotFoundErrorClass("User not found");
+            }
+
+            walletAddress = user.walletAddress;
+            walletSecret = decrypt(user.walletSecret);
         }
 
         // Check balance before withdrawal
-        const accountInfo = await stellarService.getAccountInfo(user.walletAddress);
+        const accountInfo = await stellarService.getAccountInfo(walletAddress);
         
         if (assetType === "USDC") {
             const usdcAsset = accountInfo.balances.find(
@@ -64,43 +101,88 @@ export const withdrawAsset = async (req: Request, res: Response, next: NextFunct
             }
         }
 
-        const decryptedUserSecret = decrypt(user.walletSecret);
-
-        await stellarService.transferAsset(
-            decryptedUserSecret,
-            walletAddress,
+        const { txHash } = await stellarService.transferAsset(
+            walletSecret,
+            destinationAddress,
             assetType === "USDC" ? usdcAssetId : xlmAssetId,
             assetType === "USDC" ? usdcAssetId : xlmAssetId,
             amount
         );
-        
-        const updatedAccountInfo = await stellarService.getAccountInfo(user.walletAddress);
 
-        res.status(200).json(updatedAccountInfo);
+        const transactionPayload = {
+            txHash,
+            category: TransactionCategory.WITHDRAWAL,
+            amount: parseFloat(amount.toString()),
+            destinationAddress,
+            ...(projectId 
+                    ? { project: { connect: { id: projectId } } }
+                    : { user: { connect: { userId } } }
+            )
+        };
+
+        const withdrawal = await prisma.transaction.create({ data: transactionPayload });
+
+        res.status(200).json(withdrawal);
     } catch (error) {
         next(error);
     }
 };
 
 export const swapAsset = async (req: Request, res: Response, next: NextFunction) => {
-    const { userId, toAssetType = "USDC", amount } = req.body;
+    const { 
+        userId, 
+        projectId,
+        toAssetType = "USDC", 
+        amount 
+    } = req.body;
 
     try {
         if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
             throw new ErrorClass("ValidationError", null, "Invalid amount specified");
         }
-        
-        const user = await prisma.user.findUnique({
-            where: { userId },
-            select: { walletSecret: true, walletAddress: true }
-        });
 
-        if (!user) {
-            throw new NotFoundErrorClass("User not found");
+        let walletAddress = "";
+        let walletSecret = "";
+
+        if (projectId) {
+            const project = await prisma.project.findFirst({
+                where: {
+                    id: projectId,
+                    users: {
+                        some: {
+                            userId: userId
+                        }
+                    }
+                },
+                select: { walletSecret: true, walletAddress: true }
+            });
+
+            if (!project) {
+                throw new ErrorClass(
+                    "TransactionError", 
+                    null, 
+                    "Project does not exist or user is not part of this project."
+                );
+            }
+
+            walletAddress = project.walletAddress;
+            walletSecret = decrypt(project.walletSecret);
+        } else {
+            const user = await prisma.user.findUnique({
+                where: { userId },
+                select: { walletSecret: true, walletAddress: true }
+            });
+
+            if (!user) {
+                throw new NotFoundErrorClass("User not found");
+            }
+
+            walletAddress = user.walletAddress;
+            walletSecret = decrypt(user.walletSecret);
         }
 
         // Check balance before swap
-        const accountInfo = await stellarService.getAccountInfo(user.walletAddress);
+        const accountInfo = await stellarService.getAccountInfo(walletAddress);
         
         if (toAssetType === "USDC") {
             // Check XLM balance for swap to USDC
@@ -139,41 +221,82 @@ export const swapAsset = async (req: Request, res: Response, next: NextFunction)
             }
         }
 
-        const decryptedUserSecret = decrypt(user.walletSecret);
-
+        let txHash = "";
         if (toAssetType === "USDC") {
-            await stellarService.swapAsset(decryptedUserSecret, amount);
+            const result = await stellarService.swapAsset(walletSecret, amount);
+            txHash = result.txHash;
         } else {
-            await stellarService.swapAsset(
-                decryptedUserSecret,
+            const result = await stellarService.swapAsset(
+                walletSecret,
                 amount,
                 usdcAssetId,
                 xlmAssetId
             );
+            txHash = result.txHash;
         }
-        
-        const updatedAccountInfo = await stellarService.getAccountInfo(user.walletAddress);
 
-        res.status(200).json(updatedAccountInfo);
+        const transactionPayload = {
+            txHash,
+            category: TransactionCategory.WITHDRAWAL,
+            amount: parseFloat(amount.toString()),
+            assetFrom: toAssetType === "USDC" ? "XLM" : "USDC",
+            assetTo: toAssetType,
+            ...(projectId 
+                    ? { project: { connect: { id: projectId } } }
+                    : { user: { connect: { userId } } }
+            )
+        };
+
+        const swap = await prisma.transaction.create({ data: transactionPayload });
+
+        res.status(200).json(swap);
     } catch (error) {
         next(error);
     }
 };
 
 export const getWalletInfo = async (req: Request, res: Response, next: NextFunction) => {
-    const { userId } = req.body;
+    const { userId, projectId } = req.body;
 
     try {
-        const user = await prisma.user.findUnique({
-            where: { userId },
-            select: { walletAddress: true }
-        });
+        let walletAddress = "";
 
-        if (!user) {
-            throw new NotFoundErrorClass("User not found");
+        if (projectId) {
+            const project = await prisma.project.findFirst({
+                where: {
+                    id: projectId,
+                    users: {
+                        some: {
+                            userId: userId
+                        }
+                    }
+                },
+                select: { walletAddress: true }
+            });
+
+            if (!project) {
+                throw new ErrorClass(
+                    "TransactionError", 
+                    null, 
+                    "Project does not exist or user is not part of this project."
+                );
+            }
+
+            walletAddress = project.walletAddress;
+        } else {
+            const user = await prisma.user.findUnique({
+                where: { userId },
+                select: { walletAddress: true }
+            });
+
+            if (!user) {
+                throw new NotFoundErrorClass("User not found");
+            }
+
+            walletAddress = user.walletAddress;
         }
         
-        const accountInfo = await stellarService.getAccountInfo(user.walletAddress);
+        const accountInfo = await stellarService.getAccountInfo(walletAddress);
 
         res.status(200).json(accountInfo);
     } catch (error) {
@@ -181,9 +304,8 @@ export const getWalletInfo = async (req: Request, res: Response, next: NextFunct
     }
 };
 
-export const getProjectTransactions = async (req: Request, res: Response, next: NextFunction) => {
-    const { projectId } = req.params;
-    const { userId } = req.body;
+export const getTransactions = async (req: Request, res: Response, next: NextFunction) => {
+    const { userId, projectId } = req.body;
     const { categories, page = 1, limit, sort } = req.query;
 
     try {
@@ -199,79 +321,39 @@ export const getProjectTransactions = async (req: Request, res: Response, next: 
             }
         }
 
-        // Check if user is part of the project
-        const userProject = await prisma.project.findFirst({
-            where: {
-                id: projectId,
-                users: {
-                    some: {
-                        userId: userId
+        if (projectId) {
+            // Check if user is part of the project
+            const userProject = await prisma.project.findFirst({
+                where: {
+                    id: projectId,
+                    users: {
+                        some: {
+                            userId: userId
+                        }
                     }
-                }
+                },
+                select: { id: true }
+            });
+
+            if (!userProject) {
+                throw new ErrorClass("TransactionError", null, "User is not part of this project.");
             }
-        });
-
-        if (!userProject) {
-            throw new ErrorClass("TransactionError", null, "User is not part of this project.");
-        }
-
-        // Pagination defaults
-        const take = Math.min(Number(limit) || 20, 50); // max 50 per page
-
-        // Build filter for categories if provided
-        const whereClause: any = { projectId };
-        if (categoryList && categoryList.length > 0) {
-            whereClause.category = { in: categoryList };
-        }
-
-        const transactions = await prisma.transaction.findMany({
-            where: whereClause,
-            orderBy: { doneAt: (sort as "asc" | "desc") || 'desc' },
-            skip: ((Number(page) - 1) * take) || 0,
-            take,
-            include: { task: true }
-        });
-
-        res.status(200).json({
-            transactions,
-            hasMore: transactions.length < take,
-        });
-    } catch (error) {
-        next(error);
-    }
-}
-
-export const getPersonalTransactions = async (req: Request, res: Response, next: NextFunction) => {
-    const { userId } = req.body;
-    const { categories, page = 1, limit, sort } = req.query;
-
-    try {
-        let categoryList: TransactionCategory[] | undefined;
-        if (categories) {
-            categoryList = (categories as string).split(",") as TransactionCategory[];
+        } else {
+            const user = await prisma.user.findUnique({
+                where: { userId }, 
+                select: { username: true }
+            });
             
-            // Validate categories
-            const validCategories = Object.values(TransactionCategory);
-            const invalid = categoryList.filter((cat) => !validCategories.includes(cat));
-            if (invalid.length > 0) {
-                throw new ErrorClass("ValidationError", null, `Invalid categories: ${invalid.join(", ")}`);
+            if (!user) {
+                throw new NotFoundErrorClass("User not found");
             }
-        }
-
-        const user = await prisma.user.findUnique({
-            where: { userId },            
-            select: { username: true }
-        });
-        
-        if (!user) {
-            throw new NotFoundErrorClass("User not found");
         }
 
         // Pagination defaults
         const take = Math.min(Number(limit) || 20, 50); // max 50 per page
 
         // Build filter for categories if provided
-        const whereClause: any = { userId };
+        const whereClause: any = projectId ? { projectId } : { userId };
         if (categoryList && categoryList.length > 0) {
             whereClause.category = { in: categoryList };
         }
@@ -286,7 +368,7 @@ export const getPersonalTransactions = async (req: Request, res: Response, next:
 
         res.status(200).json({
             transactions,
-            hasMore: transactions.length < take,
+            hasMore: transactions.length === take,
         });
     } catch (error) {
         next(error);

@@ -64,6 +64,19 @@ export class StellarService {
         });
     }
 
+    // Helper method to check if two assets are the same
+    private isSameAsset(asset1: StellarAssetId, asset2: StellarAssetId): boolean {
+        if (asset1 instanceof NativeAssetId && asset2 instanceof NativeAssetId) {
+            return true;
+        }
+        
+        if (asset1 instanceof IssuedAssetId && asset2 instanceof IssuedAssetId) {
+            return asset1.code === asset2.code && asset1.issuer === asset2.issuer;
+        }
+        
+        return false;
+    }
+
     async createWallet() {
         try {
             const accountKeyPair = account.createKeypair();
@@ -192,7 +205,7 @@ export class StellarService {
                     destinationAddress: destinationAddress,
                     sendAsset: sendAssetId,
                     destAsset: destAssetId,
-                    sendAmount: amount,
+                    sendAmount: amount.toString(),
                 })
                 .build();
                 

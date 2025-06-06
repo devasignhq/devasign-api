@@ -906,12 +906,12 @@ export const markAsComplete = async (req: Request, res: Response, next: NextFunc
 };
 
 export const validateCompletion = async (req: Request, res: Response, next: NextFunction) => {
-    const { id } = req.params;
+    const { id: taskId } = req.params;
     const { userId } = req.body;
 
     try {
         const task = await prisma.task.findUnique({
-            where: { id },
+            where: { id: taskId },
             select: {
                 creator: {
                     select: {
@@ -959,7 +959,7 @@ export const validateCompletion = async (req: Request, res: Response, next: Next
         const decryptedUserSecret = decrypt(task.creator.walletSecret);
         const decryptedEscrowSecret = decrypt(task.project.escrowSecret!);
 
-        await stellarService.transferAssetViaSponsor(
+        const transactionResponse = await stellarService.transferAssetViaSponsor(
             decryptedUserSecret,
             decryptedEscrowSecret,
             task.contributor!.walletAddress,
@@ -969,7 +969,7 @@ export const validateCompletion = async (req: Request, res: Response, next: Next
         );
 
         const updatedTask = await prisma.task.update({
-            where: { id },
+            where: { id: taskId },
             data: {
                 status: "COMPLETED",
                 completedAt: new Date(),
@@ -983,7 +983,29 @@ export const validateCompletion = async (req: Request, res: Response, next: Next
             }
         });
 
-        // TODO: Update issue on GitHub
+        // TODO: Update issue on GitHubx
+
+        // Record transaction for project and contributor
+        await prisma.$transaction([
+            prisma.transaction.create({
+                data: {
+                    txHash: transactionResponse.sponsorTxHash,
+                    category: "BOUNTY",
+                    amount: parseFloat(task.bounty.toString()),
+                    task: { connect: { id: taskId } },
+                    project: { connect: { id: task.project.id } }
+                }
+            }),
+            prisma.transaction.create({
+                data: {
+                    txHash: transactionResponse.txHash,
+                    category: "BOUNTY",
+                    amount: parseFloat(task.bounty.toString()),
+                    task: { connect: { id: taskId } },
+                    user: { connect: { userId: task.contributor.userId } }
+                }
+            }),
+        ]);
 
         try {
             // Update contribution summary
