@@ -176,6 +176,7 @@ model UserProjectPermission {
 
 model Transaction {
   id       String              @id @default(cuid())
+  txHash   String
   category TransactionCategory
   amount   Float
   doneAt   DateTime            @default(now())
@@ -197,8 +198,8 @@ model Transaction {
   assetFrom String?
   assetTo   String?
 
-  project   Project @relation(fields: [projectId], references: [id])
-  projectId String
-  user      User    @relation(fields: [userId], references: [userId])
-  userId    String
+  project   Project? @relation(fields: [projectId], references: [id])
+  projectId String?
+  user      User?    @relation(fields: [userId], references: [userId])
+  userId    String?
 }

@@ -35,7 +35,7 @@ export const swapAssetValidator = [
         .withMessage('Amount must be a positive number')
 ];
 
-export const getTransactionsValidator = [
+export const getProjectTransactionsValidator = [
     param('projectId')
         .exists()
         .withMessage('Project ID is required')

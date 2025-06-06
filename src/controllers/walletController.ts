@@ -181,7 +181,7 @@ export const getWalletInfo = async (req: Request, res: Response, next: NextFunct
     }
 };
 
-export const getTransactions = async (req: Request, res: Response, next: NextFunction) => {
+export const getProjectTransactions = async (req: Request, res: Response, next: NextFunction) => {
     const { projectId } = req.params;
     const { userId } = req.body;
     const { categories, page = 1, limit, sort } = req.query;
@@ -220,6 +220,58 @@ export const getTransactions = async (req: Request, res: Response, next: NextFun
 
         // Build filter for categories if provided
         const whereClause: any = { projectId };
+        if (categoryList && categoryList.length > 0) {
+            whereClause.category = { in: categoryList };
+        }
+
+        const transactions = await prisma.transaction.findMany({
+            where: whereClause,
+            orderBy: { doneAt: (sort as "asc" | "desc") || 'desc' },
+            skip: ((Number(page) - 1) * take) || 0,
+            take,
+            include: { task: true }
+        });
+
+        res.status(200).json({
+            transactions,
+            hasMore: transactions.length < take,
+        });
+    } catch (error) {
+        next(error);
+    }
+}
+
+export const getPersonalTransactions = async (req: Request, res: Response, next: NextFunction) => {
+    const { userId } = req.body;
+    const { categories, page = 1, limit, sort } = req.query;
+
+    try {
+        let categoryList: TransactionCategory[] | undefined;
+        if (categories) {
+            categoryList = (categories as string).split(",") as TransactionCategory[];
+            
+            // Validate categories
+            const validCategories = Object.values(TransactionCategory);
+            const invalid = categoryList.filter((cat) => !validCategories.includes(cat));
+            if (invalid.length > 0) {
+                throw new ErrorClass("ValidationError", null, `Invalid categories: ${invalid.join(", ")}`);
+            }
+        }
+
+        const user = await prisma.user.findUnique({
+            where: { userId },            
+            select: { username: true }
+        });
+        
+        if (!user) {
+            throw new NotFoundErrorClass("User not found");
+        }
+
+        // Pagination defaults
+        const take = Math.min(Number(limit) || 20, 50); // max 50 per page
+
+        // Build filter for categories if provided
+        const whereClause: any = { userId };
         if (categoryList && categoryList.length > 0) {
             whereClause.category = { in: categoryList };
         }
