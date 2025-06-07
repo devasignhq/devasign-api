@@ -343,29 +343,6 @@ export const getTask = async (req: Request, res: Response, next: NextFunction) =
                         username: true
                     }
                 },
-                taskActivities: {
-                    select: {
-                        id: true,
-                        userId: true,
-                        taskSubmissionId: true,
-                        user: {
-                            select: {
-                                userId: true,
-                                username: true,
-                                contributionSummary: true,
-                            }
-                        },
-                        taskSubmission: {
-                            select: {
-                                id: true,
-                                pullRequest: true,
-                                attachmentUrl: true
-                            }
-                        },
-                        createdAt: true,
-                        updatedAt: true
-                    }
-                },
                 createdAt: true,
                 updatedAt: true
             }
