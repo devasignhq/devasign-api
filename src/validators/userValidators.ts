@@ -9,7 +9,7 @@ export const getUserValidator = [
 ];
 
 export const createUserValidator = [
-    body('githubUsername')
+    body('gitHubUsername')
         .exists()
         .withMessage('Github username is required')
         .isString()
@@ -19,7 +19,7 @@ export const createUserValidator = [
 ]
 
 export const updateUsernameValidator = [
-    body('githubUsername')
+    body('gitHubUsername')
         .exists()
         .withMessage('Github username is required')
         .isString()

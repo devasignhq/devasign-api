@@ -126,7 +126,7 @@ export const getUser = async (req: Request, res: Response, next: NextFunction) =
 };
 
 export const createUser = async (req: Request, res: Response, next: NextFunction) => {
-    const { userId, githubUsername } = req.body;
+    const { userId, gitHubUsername } = req.body;
 
     try {
         // Check if user already exists
@@ -144,7 +144,7 @@ export const createUser = async (req: Request, res: Response, next: NextFunction
         const user = await prisma.user.create({
             data: {
                 userId,
-                username: githubUsername,
+                username: gitHubUsername,
                 walletAddress: userWallet.publicKey,
                 walletSecret: encryptedUserSecret,
                 contributionSummary: {

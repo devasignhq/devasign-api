@@ -19,7 +19,7 @@ export const validateUser = async (req: Request, res: Response, next: NextFuncti
         try {
             const decodedToken = await admin.auth().verifyIdToken(idToken);
             
-            // Add user info and GitHub token to request
+            // Add user info to request
             req.body = { 
                 ...req.body, 
                 currentUser: decodedToken,
