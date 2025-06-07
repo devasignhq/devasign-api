@@ -48,7 +48,7 @@ taskRoutes.delete("/:id", deleteTaskValidator, deleteTask as RequestHandler);
 
 // Task status changes
 taskRoutes.post("/:id/apply", submitTaskApplicationValidator, submitTaskApplication as RequestHandler);
-taskRoutes.post("/:id/accept/:c6", acceptTaskApplicationValidator, acceptTaskApplication as RequestHandler);
+taskRoutes.post("/:id/accept/:contributorId", acceptTaskApplicationValidator, acceptTaskApplication as RequestHandler);
 taskRoutes.post("/:id/complete", markAsCompleteValidator, markAsComplete as RequestHandler);
 taskRoutes.post("/:id/validate", validateCompletionValidator, validateCompletion as RequestHandler);
 

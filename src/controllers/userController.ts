@@ -23,6 +23,11 @@ export const getUser = async (req: Request, res: Response, next: NextFunction) =
         // Build select object based on view type
         const selectObject: any = {
             ...baseSelect,
+            _count: {
+                select: {
+                    projects: true
+                }
+            },
             ...(view === "full" || view === "profile" ? {
                 contributionSummary: {
                     select: {
