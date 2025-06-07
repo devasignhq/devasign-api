@@ -48,7 +48,7 @@ model User {
   transactions           Transaction[]
   tasksAppliedFor        Task[]                  @relation("UserApplications")
   taskSubmissions        TaskSubmission[]
-  taskActivity           TaskActivity[]
+  taskActivities         TaskActivity[]
 }
 
 // TODO: Update contribution summary upon task completion/acceptance
@@ -119,22 +119,22 @@ model Task {
   updatedAt       DateTime         @updatedAt
   transactions    Transaction[]
   taskSubmissions TaskSubmission[]
-  taskActivity    TaskActivity[]
+  taskActivities  TaskActivity[]
 }
 
 model TaskSubmission {
-  id            String         @id @default(cuid())
-  user          User           @relation(fields: [userId], references: [userId])
-  userId        String
-  task          Task           @relation(fields: [taskId], references: [id])
-  taskId        String
-  project       Project        @relation(fields: [projectId], references: [id])
-  projectId     String
-  pullRequest   String
-  attachmentUrl String?
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  taskActivity  TaskActivity[]
+  id             String         @id @default(cuid())
+  user           User           @relation(fields: [userId], references: [userId])
+  userId         String
+  task           Task           @relation(fields: [taskId], references: [id])
+  taskId         String
+  project        Project        @relation(fields: [projectId], references: [id])
+  projectId      String
+  pullRequest    String
+  attachmentUrl  String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  taskActivities TaskActivity[]
 
   @@unique([taskId, userId])
 }

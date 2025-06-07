@@ -343,16 +343,27 @@ export const getTask = async (req: Request, res: Response, next: NextFunction) =
                         username: true
                     }
                 },
-                applications: {
+                taskActivities: {
                     select: {
+                        id: true,
                         userId: true,
-                        username: true
-                    }
-                },
-                taskSubmissions: {
-                    select: {
-                        pullRequest: true,
-                        attachmentUrl: true
+                        taskSubmissionId: true,
+                        user: {
+                            select: {
+                                userId: true,
+                                username: true,
+                                contributionSummary: true,
+                            }
+                        },
+                        taskSubmission: {
+                            select: {
+                                id: true,
+                                pullRequest: true,
+                                attachmentUrl: true
+                            }
+                        },
+                        createdAt: true,
+                        updatedAt: true
                     }
                 },
                 createdAt: true,
@@ -566,10 +577,7 @@ export const acceptTaskApplication = async (req: Request, res: Response, next: N
             }
         });
 
-        res.status(200).json({
-            message: "Task application accepted",
-            task: updatedTask
-        });
+        res.status(200).json(updatedTask);
     } catch (error) {
         next(error);
     }
