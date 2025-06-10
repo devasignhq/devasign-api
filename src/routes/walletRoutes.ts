@@ -23,4 +23,4 @@ walletRoutes.post("/withdraw", withdrawAssetValidator, withdrawAsset as RequestH
 walletRoutes.post("/swap", swapAssetValidator, swapAsset as RequestHandler);
 
 // Get transactions
-walletRoutes.get("/transactions/:projectId", walletProjectIdValidator, getTransactions as RequestHandler);
+walletRoutes.get("/transactions", walletProjectIdValidator, getTransactions as RequestHandler);

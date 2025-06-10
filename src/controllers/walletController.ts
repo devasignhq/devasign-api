@@ -309,17 +309,7 @@ export const getTransactions = async (req: Request, res: Response, next: NextFun
     const { categories, page = 1, limit, sort } = req.query;
 
     try {
-        let categoryList: TransactionCategory[] | undefined;
-        if (categories) {
-            categoryList = (categories as string).split(",") as TransactionCategory[];
-            
-            // Validate categories
-            const validCategories = Object.values(TransactionCategory);
-            const invalid = categoryList.filter((cat) => !validCategories.includes(cat));
-            if (invalid.length > 0) {
-                throw new ErrorClass("ValidationError", null, `Invalid categories: ${invalid.join(", ")}`);
-            }
-        }
+        const categoryList = (categories as string)?.split(",") as TransactionCategory[];
 
         if (projectId) {
             // Check if user is part of the project
@@ -363,7 +353,16 @@ export const getTransactions = async (req: Request, res: Response, next: NextFun
             orderBy: { doneAt: (sort as "asc" | "desc") || 'desc' },
             skip: ((Number(page) - 1) * take) || 0,
             take,
-            include: { task: true }
+            include: { 
+                task: {
+                    select: { 
+                        id: true, 
+                        issue: true, 
+                        bounty: true, 
+                        contributor: { select: { userId: true, username: true } } 
+                    },
+                }
+            }
         });
 
         res.status(200).json({

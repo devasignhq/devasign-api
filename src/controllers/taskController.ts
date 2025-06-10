@@ -1040,11 +1040,21 @@ export const getTaskActivities = async (req: Request, res: Response, next: NextF
                 userId: true,
                 taskSubmissionId: true,
                 user: {
-                    select: { username: true, contributionSummary: true  }
+                    select: { 
+                        userId: true, 
+                        username: true, 
+                        contributionSummary: true 
+                    }
                 },
                 taskSubmission: {
                     select: {
-                        user: { select: { username: true, contributionSummary: true  } },
+                        user: {
+                            select: { 
+                                userId: true, 
+                                username: true, 
+                                contributionSummary: true 
+                            }
+                        },
                         pullRequest: true,
                         attachmentUrl: true
                     }
