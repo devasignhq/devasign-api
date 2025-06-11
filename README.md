@@ -12,7 +12,7 @@
 <br/>
 
 <p align="center">
-  Backed by <a href="https://communityfund.stellar.org/" style="margin-left: 10px;"><img src="https://devasign.com/assets/scf%20logo-39ec023b.svg" height="50" alt="Stellar Community Fund" align="center" /></a>
+  <strong style="font-size: 16px;">Backed by</strong> <a href="https://communityfund.stellar.org/" style="margin-left: 10px;"><img src="https://devasign.com/assets/scf%20logo-39ec023b.svg" height="40" alt="Stellar Community Fund" align="center" /></a>
 </p>
 
 </div>
@@ -51,3 +51,7 @@ npm run dev
 ## Contributing
 
 We welcome community contributions. For guidelines, refer to our [CONTRIBUTING.md](/CONTRIBUTING.md).
+
+## License
+
+Attribution-NonCommercial 4.0 International, see [LICENSE](https://github.com/devasignhq/devasign-api/blob/main/LICENSE).
