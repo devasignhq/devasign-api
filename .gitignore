@@ -4,3 +4,4 @@ node_modules
 
 requirements.txt
 /src/generated/client
+/no-git/*
