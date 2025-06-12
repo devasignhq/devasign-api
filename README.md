@@ -12,7 +12,7 @@
 <br/>
 
 <p align="center">
-  <strong style="font-size: 16px;">Backed by</strong> <a href="https://communityfund.stellar.org/" style="margin-left: 10px;"><img src="https://devasign.com/assets/scf%20logo-39ec023b.svg" height="40" alt="Stellar Community Fund" align="center" /></a>
+  <strong style="font-size: 16px; margin-right: 10px;">Backed by</strong> <a href="https://communityfund.stellar.org/"><img src="https://devasign.com/assets/scf%20logo-39ec023b.svg" height="40" alt="Stellar Community Fund" align="center" /></a>
 </p>
 
 </div>
