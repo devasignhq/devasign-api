@@ -2,9 +2,9 @@
 <div align="center">
   <a href="https://www.devasign.com" style="display: block; margin: 0 auto;">
     <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="./public/readme-cover-nobg.png">
-      <source media="(prefers-color-scheme: light)" srcset="./public/readme-cover.png">
-      <img alt="DevAsign Logo" src="./public/readme-cover-nobg.png" height="150" style="display: block; margin: 0 auto;">
+      <source media="(prefers-color-scheme: dark)" srcset="./public/devasign-white.png">
+      <source media="(prefers-color-scheme: light)" srcset="./public/devasign-black.png">
+      <img alt="DevAsign Logo" src="./public/devasign-white.png" height="120" style="display: block; margin: 0 auto;">
     </picture>
   </a>
 <br/>
@@ -16,6 +16,8 @@
 </p>
 
 </div>
+
+<br/>
 
 DevAsign streamlines open-source project management by automating contributor payments and intelligently handling pull requests with advanced AI review.
 
