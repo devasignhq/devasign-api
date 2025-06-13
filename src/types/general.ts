@@ -30,7 +30,7 @@ export type User = {
     contributionSummary?: ContributionSummary;
     createdTasks: Task[];
     contributedTasks: Task[];
-    projects: Project[];
+    installations: Installation[];
     addressBook: AddressBook[];
     createdAt: Date;
     updatedAt: Date;
@@ -46,7 +46,7 @@ export type ContributionSummary = {
     user: User;
 }
 
-export type Project = {
+export type Installation = {
     id: string;
     name: string;
     description: string;
@@ -85,9 +85,9 @@ export type Issue = {
 export type Task = {
     id: string;
     creatorId: string;
-    contributorId?: string;
-    project: Project;
-    projectId: string;
+    contributorId?: string;    
+    installation: Installation;
+    installationId: string;
     issue: Issue;
     timeline?: number;
     timelineType?: TimelineType;
@@ -105,7 +105,7 @@ export type Task = {
 
 export type CreateTask = {
     repoUrl: string;
-    projectId: string;
+    installationId: string;
     issue: Issue;
     timeline?: number;
     timelineType?: TimelineType;

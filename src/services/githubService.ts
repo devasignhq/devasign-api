@@ -3,9 +3,9 @@ import { Octokit } from "@octokit/rest";
 import { ErrorClass, IssueFilters } from "../types/general";
 
 // Helper function to send invitation email
-export async function sendInvitation(username: string, projectName: string) {
+export async function sendInvitation(username: string, email: string) {
     // TODO: Implement email service integration
-    console.log(`Invitation sent to ${username} for project ${projectName}`);
+    console.log(`Invitation sent to ${username} for installation ${email}`);
 };
 
 // Helper function to check if GitHub user exists

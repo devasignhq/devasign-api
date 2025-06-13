@@ -5,11 +5,11 @@ export const getTasksValidator = [
     query('status')
         .optional()
         .isIn(['OPEN', 'IN_PROGRESS', 'MARKED_AS_COMPLETED', 'COMPLETED'])
-        .withMessage('Invalid task status'),
-    query('projectId')
+        .withMessage('Invalid task status'),    
+    query('installationId')
         .optional()
         .isString()
-        .withMessage('Project ID must be a string'),
+        .withMessage('Installation ID must be a string'),
     query('role')
         .optional()
         .isIn(['creator', 'contributor'])
@@ -57,11 +57,11 @@ export const createTaskValidator = [
         .withMessage('Repository URL is required')
         .isString()
         .withMessage('Repository URL must be a string'),
-    body('payload.projectId')
+    body('payload.installationId')
         .exists()
-        .withMessage('Project ID is required')
+        .withMessage('Installation ID is required')
         .isString()
-        .withMessage('Project ID must be a string'),
+        .withMessage('Installation ID must be a string'),
     body('payload.issue') // TODO: Issue validation
         .exists()
         .withMessage('Issue details are required')
@@ -94,9 +94,9 @@ export const createTaskValidator = [
 ];
 
 export const createManyTasksValidator = [
-    body('projectId')
+    body('installationId')
         .exists()
-        .withMessage('Project ID is required'),
+        .withMessage('Installation ID is required'),
     body('payload')
         .isArray()
         .withMessage('Payload must be an array')

@@ -16,8 +16,8 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
     try {
         // TODO: Check for neccessary permissions
 
-        const project = await prisma.project.findUnique({
-            where: { id: payload.projectId },
+        const installation = await prisma.installation.findUnique({
+            where: { id: payload.installationId },
             select: { 
                 walletSecret: true,
                 walletAddress: true,
@@ -26,12 +26,12 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
             }
         });
 
-        if (!project) {
-            throw new NotFoundErrorClass("Project not found");
+        if (!installation) {
+            throw new NotFoundErrorClass("Installation not found");
         }
 
         // Check user balance
-        const accountInfo = await stellarService.getAccountInfo(project.walletAddress);
+        const accountInfo = await stellarService.getAccountInfo(installation.walletAddress);
         const usdcAsset = accountInfo.balances.find(
             (asset): asset is USDCBalance => "asset_code" in asset && asset.asset_code === "USDC"
         ) as USDCBalance;
@@ -41,24 +41,24 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
         }
 
         // Confirm USDC trustline
-        const decryptedProjectWalletSecret = decrypt(project.walletSecret);
-        const decryptedEscrowWalletSecret = decrypt(project.escrowSecret);
-        const projectEscrowWallet = await stellarService.getAccountInfo(project.escrowAddress!);
+        const decryptedInstallationWalletSecret = decrypt(installation.walletSecret);
+        const decryptedEscrowWalletSecret = decrypt(installation.escrowSecret);
+        const installationEscrowWallet = await stellarService.getAccountInfo(installation.escrowAddress!);
 
         if (
-            !(projectEscrowWallet.balances.find(
+            !(installationEscrowWallet.balances.find(
                 (asset): asset is USDCBalance => "asset_code" in asset && asset.asset_code === "USDC"
             ))
         ) {
             await stellarService.addTrustLineViaSponsor(
-                decryptedProjectWalletSecret,
+                decryptedInstallationWalletSecret,
                 decryptedEscrowWalletSecret,
             );
         }
 
         console.log(
-            decryptedProjectWalletSecret,
-            project.escrowAddress!,
+            decryptedInstallationWalletSecret,
+            installation.escrowAddress!,
             usdcAssetId,
             usdcAssetId,
             payload.bounty
@@ -66,14 +66,14 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
 
         // Transfer to escrow
         await stellarService.transferAsset(
-            decryptedProjectWalletSecret,
-            project.escrowAddress!,
+            decryptedInstallationWalletSecret,
+            installation.escrowAddress!,
             usdcAssetId,
             usdcAssetId,
             payload.bounty,
         );
 
-        const { projectId, ...others } = payload;
+        const { installationId, ...others } = payload;
 
         if (others.timeline && others.timelineType && others.timelineType === "DAY" && others.timeline > 6) {
             const weeks = Math.floor(others.timeline / 7);
@@ -85,8 +85,8 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
             data: {
                 ...others,
                 bounty: parseFloat(payload.bounty),
-                project: {
-                    connect: { id: projectId }
+                installation: {
+                    connect: { id: installationId }
                 },
                 creator: {
                     connect: { userId }
@@ -102,7 +102,7 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
 
 // ? Delete this
 export const createManyTasks = async (req: Request, res: Response, next: NextFunction) => {
-    const { userId, payload, projectId } = req.body;
+    const { userId, payload, installationId } = req.body;
     const tasks = payload as CreateTask[];
 
     try {
@@ -132,31 +132,31 @@ export const createManyTasks = async (req: Request, res: Response, next: NextFun
 
         const decryptedUserSecret = decrypt(user.walletSecret);
 
-        // Get project details once for all tasks
-        const project = await prisma.project.findUnique({
-            where: { id: projectId },
+        // Get installation details once for all tasks
+        const installation = await prisma.installation.findUnique({
+            where: { id: installationId },
             select: { escrowSecret: true, escrowAddress: true }
         });
 
-        if (!project) {
-            throw new NotFoundErrorClass(`Project not found`);
+        if (!installation) {
+            throw new NotFoundErrorClass(`Installation not found`);
         }
 
         // Ensure USDC trustline exists
-        const projectWallet = await stellarService.getAccountInfo(project.escrowAddress!);
-        if (!projectWallet.balances.find(
+        const installationWallet = await stellarService.getAccountInfo(installation.escrowAddress!);
+        if (!installationWallet.balances.find(
             (asset): asset is USDCBalance => "asset_code" in asset && asset.asset_code === "USDC"
         )) {
             await stellarService.addTrustLineViaSponsor(
                 decryptedUserSecret,
-                project.escrowSecret!,
+                installation.escrowSecret!,
             );
         }
 
         // Transfer total bounty to escrow in one transaction
         await stellarService.transferAsset(
             decryptedUserSecret,
-            project.escrowAddress!,
+            installation.escrowAddress!,
             usdcAssetId,
             usdcAssetId,
             totalBounty.toString(),
@@ -166,13 +166,13 @@ export const createManyTasks = async (req: Request, res: Response, next: NextFun
         // Create all tasks in a single transaction
         const createdTasks = await prisma.$transaction(
             tasks.map(task => {
-                const { projectId, ...others } = task;
+                const { installationId, ...others } = task;
                 return prisma.task.create({
                     data: {
                         ...others,
                         bounty: parseFloat(task.bounty),
-                        project: {
-                            connect: { id: projectId }
+                        installation: {
+                            connect: { id: installationId }
                         },
                         creator: {
                             connect: { userId }
@@ -196,7 +196,7 @@ export const createManyTasks = async (req: Request, res: Response, next: NextFun
 export const getTasks = async (req: Request, res: Response, next: NextFunction) => {
     const { 
         status, 
-        projectId,
+        installationId,
         role,  // 'creator' | 'contributor'
         detailed,
         page = 1,
@@ -213,8 +213,8 @@ export const getTasks = async (req: Request, res: Response, next: NextFunction) 
             where.status = status;
         }
         
-        if (projectId) {
-            where.projectId = projectId;
+        if (installationId) {
+            where.installationId = installationId;
         }
 
         if (userId && role) {
@@ -230,7 +230,7 @@ export const getTasks = async (req: Request, res: Response, next: NextFunction) 
         // TODO: Check user type (dev or pm). Also in getTask.
         if (detailed) {
             selectRelations = {
-                project: {
+                installation: {
                     select: {
                         id: true,
                         name: true,
@@ -324,11 +324,10 @@ export const getTask = async (req: Request, res: Response, next: NextFunction) =
                 settled: true,
                 acceptedAt: true,
                 completedAt: true,
-                project: {
+                installation: {
                     select: {
                         id: true,
-                        name: true,
-                        repoUrls: true
+                        account: true
                     }
                 },
                 creator: {
@@ -368,9 +367,9 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
             select: { 
                 status: true, 
                 bounty: true,
-                projectId: true,
+                installationId: true,
                 creatorId: true,
-                project: {
+                installation: {
                     select: {
                         escrowAddress: true,
                         escrowSecret: true
@@ -418,14 +417,14 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
 
             await stellarService.transferAsset(
                 decryptedUserSecret,
-                task.project.escrowAddress!,
+                task.installation.escrowAddress!,
                 usdcAssetId,
                 usdcAssetId,
                 bountyDifference.toString()
             );
         } else {
             // Excess funds - return from escrow to user
-            const decryptedEscrowSecret = decrypt(task.project.escrowSecret!);
+            const decryptedEscrowSecret = decrypt(task.installation.escrowSecret!);
             await stellarService.transferAssetViaSponsor(
                 decryptedUserSecret,
                 decryptedEscrowSecret,
@@ -817,7 +816,7 @@ export const markAsComplete = async (req: Request, res: Response, next: NextFunc
             select: {
                 status: true,
                 contributorId: true,
-                projectId: true,
+                installationId: true,
             } 
         });
 
@@ -843,7 +842,7 @@ export const markAsComplete = async (req: Request, res: Response, next: NextFunc
             data: {
                 user: { connect: { userId } },
                 task: { connect: { id: taskId } },
-                project: { connect: { id: task.projectId } },
+                installation: { connect: { id: task.installationId } },
                 pullRequest,
                 attachmentUrl
             },
@@ -910,7 +909,7 @@ export const validateCompletion = async (req: Request, res: Response, next: Next
                         walletAddress: true
                     }
                 },
-                project: {
+                installation: {
                     select: {
                         id: true,
                         escrowSecret: true
@@ -942,7 +941,7 @@ export const validateCompletion = async (req: Request, res: Response, next: Next
         }
         
         const decryptedUserSecret = decrypt(task.creator.walletSecret);
-        const decryptedEscrowSecret = decrypt(task.project.escrowSecret!);
+        const decryptedEscrowSecret = decrypt(task.installation.escrowSecret!);
 
         const transactionResponse = await stellarService.transferAssetViaSponsor(
             decryptedUserSecret,
@@ -970,7 +969,7 @@ export const validateCompletion = async (req: Request, res: Response, next: Next
 
         // TODO: Update issue on GitHubx
 
-        // Record transaction for project and contributor
+        // Record transaction for installation and contributor
         await prisma.$transaction([
             prisma.transaction.create({
                 data: {
@@ -978,7 +977,7 @@ export const validateCompletion = async (req: Request, res: Response, next: Next
                     category: "BOUNTY",
                     amount: parseFloat(task.bounty.toString()),
                     task: { connect: { id: taskId } },
-                    project: { connect: { id: task.project.id } }
+                    installation: { connect: { id: task.installation.id } }
                 }
             }),
             prisma.transaction.create({
@@ -1102,7 +1101,7 @@ export const deleteTask = async (req: Request, res: Response, next: NextFunction
                         walletSecret: true
                     }
                 },
-                project: {
+                installation: {
                     select: {
                         escrowSecret: true
                     }
@@ -1128,7 +1127,7 @@ export const deleteTask = async (req: Request, res: Response, next: NextFunction
         // Return bounty to creator if exists
         if (task.bounty > 0) {
             const decryptedUserSecret = decrypt(task.creator.walletSecret);
-            const decryptedEscrowSecret = decrypt(task.project.escrowSecret!);
+            const decryptedEscrowSecret = decrypt(task.installation.escrowSecret!);
 
             await stellarService.transferAssetViaSponsor(
                 decryptedUserSecret,
