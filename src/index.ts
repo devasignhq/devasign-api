@@ -9,7 +9,7 @@ import morgan from 'morgan';
 import { prisma } from './config/database';
 import { userRoutes } from './routes/userRoutes';
 import { validateUser } from './config/firebase';
-import { projectRoutes } from './routes/projectRoutes';
+import { installationRoutes } from './routes/installationRoutes';
 import { taskRoutes } from './routes/taskRoutes';
 import { stellarRoutes } from './routes/stellarRoutes';
 import { testRoutes } from './routes/testRoutes';
@@ -45,10 +45,10 @@ app.get(
             // due to foreign key constraints
             await prisma.transaction.deleteMany();
             await prisma.taskSubmission.deleteMany();
-            await prisma.userProjectPermission.deleteMany();
+            await prisma.userInstallationPermission.deleteMany();
             await prisma.task.deleteMany();
             await prisma.contributionSummary.deleteMany();
-            await prisma.project.deleteMany();
+            await prisma.installation.deleteMany();
             await prisma.user.deleteMany();
             await prisma.permission.deleteMany();
             // await prisma.subscriptionPackage.deleteMany();
@@ -75,7 +75,7 @@ app.get('/', (req: Request, res: Response) => {
 });
 
 app.use("/users", validateUser as RequestHandler, userRoutes);
-app.use("/projects", validateUser as RequestHandler, projectRoutes);
+app.use("/installations", validateUser as RequestHandler, installationRoutes);
 app.use("/tasks", validateUser as RequestHandler, taskRoutes);
 app.use("/wallet", validateUser as RequestHandler, walletRoutes);
 app.use("/stellar", stellarRoutes);

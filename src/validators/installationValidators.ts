@@ -1,10 +1,6 @@
 import { body, query, param } from 'express-validator';
 
-export const getProjectsValidator = [
-    query('searchTerm')
-        .optional()
-        .isString()
-        .withMessage('Search term must be a string'),
+export const getInstallationsValidator = [
     query('page')
         .optional()
         .trim()
@@ -33,46 +29,71 @@ export const getProjectsValidator = [
         }),
 ];
 
-export const createProjectValidator = [
-    body('name')
+export const createInstallationValidator = [
+    body('installationId')
         .exists()
-        .withMessage('Name is required')
+        .withMessage('Installation ID is required')
         .isString()
-        .withMessage('Name must be a string'),
-    query('description')
-        .optional()
+        .withMessage('Installation ID must be a string'),
+    body('htmlUrl')
+        .exists()
+        .withMessage('HTML URL is required')
         .isString()
-        .withMessage('Description must be a string'),
+        .withMessage('HTML URL must be a string')
+        .isURL()
+        .withMessage('HTML URL must be a valid URL'),
+    body('targetId')
+        .exists()
+        .withMessage('Target ID is required')
+        .isInt()
+        .withMessage('Target ID must be an integer'),
+    body('targetType')
+        .exists()
+        .withMessage('Target type is required')
+        .isString()
+        .withMessage('Target type must be a string'),
+    body('account')
+        .exists()
+        .withMessage('Account is required')
+        .isObject()
+        .withMessage('Account must be an object')
+        .custom((value) => {
+            if (!value.login || !value.node_id || !value.avatar_url || !value.html_url) {
+                throw new Error('Account object must contain login, node_id, avatar_url, and html_url');
+            }
+            return true;
+        }),
 ];
 
-export const connectRepositoryValidator = [
-    body('repoUrl')
-        .exists()
-        .withMessage('Repository URL is required')
-        .isString()
-        .withMessage('Repository URL must be a string')
-        .matches(/^https:\/\/github\.com\/[^/]+\/[^/]+$/)
-        .withMessage('Invalid GitHub repository URL format')
-];
-
-export const updateProjectValidator = [
-    body('name')
-        .exists()
-        .withMessage('Name is required')
-        .isString()
-        .withMessage('Name must be a string'),
-    query('description')
+export const updateInstallationValidator = [
+    body('htmlUrl')
         .optional()
         .isString()
-        .withMessage('Description must be a string'),
+        .withMessage('HTML URL must be a string')
+        .isURL()
+        .withMessage('HTML URL must be a valid URL'),
+    body('targetId')
+        .optional()
+        .isInt()
+        .withMessage('Target ID must be an integer'),
+    body('account')
+        .optional()
+        .isObject()
+        .withMessage('Account must be an object')
+        .custom((value) => {
+            if (!value.login || !value.node_id || !value.avatar_url || !value.html_url) {
+                throw new Error('Account object must contain login, node_id, avatar_url, and html_url');
+            }
+            return true;
+        }),
 ];
 
 export const addTeamMemberValidator = [
     param('id')
         .exists()
-        .withMessage('Project ID is required')
+        .withMessage('Installation ID is required')
         .isString()
-        .withMessage('Project ID must be a string'),
+        .withMessage('Installation ID must be a string'),
     body('username')
         .exists()
         .withMessage('Username is required')
@@ -95,9 +116,9 @@ export const addTeamMemberValidator = [
 export const updateTeamMemberPermissionsValidator = [
     param('id')
         .exists()
-        .withMessage('Project ID is required')
+        .withMessage('Installation ID is required')
         .isString()
-        .withMessage('Project ID must be a string'),
+        .withMessage('Installation ID must be a string'),
     param('userId')
         .exists()
         .withMessage('User ID is required')
@@ -116,9 +137,9 @@ export const updateTeamMemberPermissionsValidator = [
 export const removeTeamMemberValidator = [
     param('id')
         .exists()
-        .withMessage('Project ID is required')
+        .withMessage('Installation ID is required')
         .isString()
-        .withMessage('Project ID must be a string'),
+        .withMessage('Installation ID must be a string'),
     param('userId')
         .exists()
         .withMessage('User ID is required')
