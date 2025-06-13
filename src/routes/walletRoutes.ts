@@ -8,13 +8,13 @@ import {
 import {
     withdrawAssetValidator,
     swapAssetValidator,
-    walletProjectIdValidator,
+    walletInstallationIdValidator,
 } from "../validators/walletValidators";
 
 export const walletRoutes = Router();
 
 // Get wallet info
-walletRoutes.get("/account", walletProjectIdValidator, getWalletInfo as RequestHandler);
+walletRoutes.get("/account", walletInstallationIdValidator, getWalletInfo as RequestHandler);
 
 // Withdraw crypto
 walletRoutes.post("/withdraw", withdrawAssetValidator, withdrawAsset as RequestHandler);
@@ -23,4 +23,4 @@ walletRoutes.post("/withdraw", withdrawAssetValidator, withdrawAsset as RequestH
 walletRoutes.post("/swap", swapAssetValidator, swapAsset as RequestHandler);
 
 // Get transactions
-walletRoutes.get("/transactions", walletProjectIdValidator, getTransactions as RequestHandler);
+walletRoutes.get("/transactions", walletInstallationIdValidator, getTransactions as RequestHandler);

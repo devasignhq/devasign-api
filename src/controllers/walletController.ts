@@ -10,8 +10,7 @@ type USDCBalance = HorizonApi.BalanceLineAsset<"credit_alphanum12">;
 
 export const withdrawAsset = async (req: Request, res: Response, next: NextFunction) => {
     const { 
-        userId, 
-        projectId, 
+        userId,        installationId, 
         walletAddress: destinationAddress, 
         assetType = "XLM", 
         amount 
@@ -25,10 +24,10 @@ export const withdrawAsset = async (req: Request, res: Response, next: NextFunct
         let walletAddress = "";
         let walletSecret = "";
 
-        if (projectId) {
-            const project = await prisma.project.findFirst({
+        if (installationId) {
+            const installation = await prisma.installation.findFirst({
                 where: {
-                    id: projectId,
+                    id: installationId,
                     users: {
                         some: {
                             userId: userId
@@ -38,16 +37,16 @@ export const withdrawAsset = async (req: Request, res: Response, next: NextFunct
                 select: { walletSecret: true, walletAddress: true }
             });
 
-            if (!project) {
+            if (!installation) {
                 throw new ErrorClass(
                     "TransactionError", 
                     null, 
-                    "Project does not exist or user is not part of this project."
+                    "Installation does not exist or user is not part of this installation."
                 );
             }
 
-            walletAddress = project.walletAddress;
-            walletSecret = decrypt(project.walletSecret);
+            walletAddress = installation.walletAddress;
+            walletSecret = decrypt(installation.walletSecret);
         } else {
             const user = await prisma.user.findUnique({
                 where: { userId },
@@ -114,8 +113,8 @@ export const withdrawAsset = async (req: Request, res: Response, next: NextFunct
             category: TransactionCategory.WITHDRAWAL,
             amount: parseFloat(amount.toString()),
             destinationAddress,
-            ...(projectId 
-                    ? { project: { connect: { id: projectId } } }
+            ...(installationId 
+                    ? { installation: { connect: { id: installationId } } }
                     : { user: { connect: { userId } } }
             )
         };
@@ -131,7 +130,7 @@ export const withdrawAsset = async (req: Request, res: Response, next: NextFunct
 export const swapAsset = async (req: Request, res: Response, next: NextFunction) => {
     const { 
         userId, 
-        projectId,
+        installationId,
         toAssetType = "USDC", 
         amount 
     } = req.body;
@@ -144,10 +143,10 @@ export const swapAsset = async (req: Request, res: Response, next: NextFunction)
         let walletAddress = "";
         let walletSecret = "";
 
-        if (projectId) {
-            const project = await prisma.project.findFirst({
+        if (installationId) {
+            const installation = await prisma.installation.findFirst({
                 where: {
-                    id: projectId,
+                    id: installationId,
                     users: {
                         some: {
                             userId: userId
@@ -157,16 +156,16 @@ export const swapAsset = async (req: Request, res: Response, next: NextFunction)
                 select: { walletSecret: true, walletAddress: true }
             });
 
-            if (!project) {
+            if (!installation) {
                 throw new ErrorClass(
                     "TransactionError", 
                     null, 
-                    "Project does not exist or user is not part of this project."
+                    "Installation does not exist or user is not part of this installation."
                 );
             }
 
-            walletAddress = project.walletAddress;
-            walletSecret = decrypt(project.walletSecret);
+            walletAddress = installation.walletAddress;
+            walletSecret = decrypt(installation.walletSecret);
         } else {
             const user = await prisma.user.findUnique({
                 where: { userId },
@@ -241,8 +240,8 @@ export const swapAsset = async (req: Request, res: Response, next: NextFunction)
             amount: parseFloat(amount.toString()),
             assetFrom: toAssetType === "USDC" ? "XLM" : "USDC",
             assetTo: toAssetType,
-            ...(projectId 
-                    ? { project: { connect: { id: projectId } } }
+            ...(installationId 
+                    ? { installation: { connect: { id: installationId } } }
                     : { user: { connect: { userId } } }
             )
         };
@@ -256,15 +255,13 @@ export const swapAsset = async (req: Request, res: Response, next: NextFunction)
 };
 
 export const getWalletInfo = async (req: Request, res: Response, next: NextFunction) => {
-    const { userId, projectId } = req.body;
+    const { userId, installationId } = req.body;
 
     try {
-        let walletAddress = "";
-
-        if (projectId) {
-            const project = await prisma.project.findFirst({
+        let walletAddress = "";        if (installationId) {
+            const installation = await prisma.installation.findFirst({
                 where: {
-                    id: projectId,
+                    id: installationId,
                     users: {
                         some: {
                             userId: userId
@@ -274,15 +271,15 @@ export const getWalletInfo = async (req: Request, res: Response, next: NextFunct
                 select: { walletAddress: true }
             });
 
-            if (!project) {
+            if (!installation) {
                 throw new ErrorClass(
                     "TransactionError", 
                     null, 
-                    "Project does not exist or user is not part of this project."
+                    "Installation does not exist or user is not part of this installation."
                 );
             }
 
-            walletAddress = project.walletAddress;
+            walletAddress = installation.walletAddress;
         } else {
             const user = await prisma.user.findUnique({
                 where: { userId },
@@ -305,17 +302,16 @@ export const getWalletInfo = async (req: Request, res: Response, next: NextFunct
 };
 
 export const getTransactions = async (req: Request, res: Response, next: NextFunction) => {
-    const { userId, projectId } = req.body;
+    const { userId, installationId } = req.body;
     const { categories, page = 1, limit, sort } = req.query;
 
     try {
         const categoryList = (categories as string)?.split(",") as TransactionCategory[];
-
-        if (projectId) {
-            // Check if user is part of the project
-            const userProject = await prisma.project.findFirst({
+        if (installationId) {
+            // Check if user is part of the installation
+            const userInstallation = await prisma.installation.findFirst({
                 where: {
-                    id: projectId,
+                    id: installationId,
                     users: {
                         some: {
                             userId: userId
@@ -325,8 +321,8 @@ export const getTransactions = async (req: Request, res: Response, next: NextFun
                 select: { id: true }
             });
 
-            if (!userProject) {
-                throw new ErrorClass("TransactionError", null, "User is not part of this project.");
+            if (!userInstallation) {
+                throw new ErrorClass("TransactionError", null, "User is not part of this installation.");
             }
         } else {
             const user = await prisma.user.findUnique({
@@ -343,7 +339,7 @@ export const getTransactions = async (req: Request, res: Response, next: NextFun
         const take = Math.min(Number(limit) || 20, 50); // max 50 per page
 
         // Build filter for categories if provided
-        const whereClause: any = projectId ? { projectId } : { userId };
+        const whereClause: any = installationId ? { installationId } : { userId };
         if (categoryList && categoryList.length > 0) {
             whereClause.category = { in: categoryList };
         }

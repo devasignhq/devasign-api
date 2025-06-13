@@ -1,4 +1,4 @@
-import { body, param } from 'express-validator';
+import { body } from 'express-validator';
 
 export const withdrawAssetValidator = [
     body('walletAddress')
@@ -19,13 +19,13 @@ export const withdrawAssetValidator = [
         .withMessage('Amount must be a string')
         .custom((value) => !isNaN(parseFloat(value)) && parseFloat(value) > 0)
         .withMessage('Amount must be a positive number'),
-    body('projectId')
+    body('installationId')
         .optional()
         .isString()
-        .withMessage('Project ID must be a string')
+        .withMessage('Installation ID must be a string')
         .trim()
         .notEmpty()
-        .withMessage('Project ID cannot be empty')
+        .withMessage('Installation ID cannot be empty')
 ];
 
 export const swapAssetValidator = [
@@ -40,21 +40,21 @@ export const swapAssetValidator = [
         .withMessage('Amount must be a string')
         .custom((value) => !isNaN(parseFloat(value)) && parseFloat(value) > 0)
         .withMessage('Amount must be a positive number'),
-    body('projectId')
+    body('installationId')
         .optional()
         .isString()
-        .withMessage('Project ID must be a string')
+        .withMessage('Installation ID must be a string')
         .trim()
         .notEmpty()
-        .withMessage('Project ID cannot be empty')
+        .withMessage('Installation ID cannot be empty')
 ];
 
-export const walletProjectIdValidator = [
-    body('projectId')
+export const walletInstallationIdValidator = [
+    body('installationId')
         .optional()
         .isString()
-        .withMessage('Project ID must be a string')
+        .withMessage('Installation ID must be a string')
         .trim()
         .notEmpty()
-        .withMessage('Project ID cannot be empty')
+        .withMessage('Installation ID cannot be empty')
 ];
