@@ -33,22 +33,22 @@ enum TransactionCategory {
 // Model Definitions
 
 model User {
-  userId                 String                  @id
-  username               String                  @unique
-  walletAddress          String
-  walletSecret           String
-  contributionSummary    ContributionSummary?
-  addressBook            Json[]                  @default([])
-  createdAt              DateTime                @default(now())
-  updatedAt              DateTime                @updatedAt
-  createdTasks           Task[]                  @relation("TaskCreator")
-  contributedTasks       Task[]                  @relation("TaskContributor")
-  projects               Project[]               @relation("UserProjects")
-  userProjectPermissions UserProjectPermission[]
-  transactions           Transaction[]
-  tasksAppliedFor        Task[]                  @relation("UserApplications")
-  taskSubmissions        TaskSubmission[]
-  taskActivities         TaskActivity[]
+  userId                      String                       @id
+  username                    String                       @unique
+  walletAddress               String
+  walletSecret                String
+  contributionSummary         ContributionSummary?
+  addressBook                 Json[]                       @default([])
+  createdAt                   DateTime                     @default(now())
+  updatedAt                   DateTime                     @updatedAt
+  createdTasks                Task[]                       @relation("TaskCreator")
+  contributedTasks            Task[]                       @relation("TaskContributor")
+  installations               Installation[]               @relation("UserInstallations")
+  userInstallationPermissions UserInstallationPermission[]
+  transactions                Transaction[]
+  tasksAppliedFor             Task[]                       @relation("UserApplications")
+  taskSubmissions             TaskSubmission[]
+  taskActivities              TaskActivity[]
 }
 
 // TODO: Update contribution summary upon task completion/acceptance
@@ -60,42 +60,44 @@ model ContributionSummary {
   user           User   @relation(fields: [userId], references: [userId])
   userId         String @unique
   // averageRating  Float  @default(0.0)
-  // projectIds     String[]  @default([])
-  // projects       Project[] @relation(fields: [projectIds], references: [id])
+  // installationIds     String[]  @default([])
+  // installations       Installation[] @relation(fields: [installationIds], references: [id])
 }
 
 model SubscriptionPackage {
-  id          String    @id @default(cuid())
-  name        String
-  description String
-  maxTasks    Int
-  maxUsers    Int
-  paid        Boolean   @default(true)
-  price       Float
-  active      Boolean   @default(true)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  projects    Project[]
+  id            String         @id @default(cuid())
+  name          String
+  description   String
+  maxTasks      Int
+  maxUsers      Int
+  paid          Boolean        @default(true)
+  price         Float
+  active        Boolean        @default(true)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  installations Installation[]
 }
 
-model Project {
-  id                     String                  @id @default(cuid())
-  name                   String
-  description            String
-  repoUrls               String[]
-  walletAddress          String
-  walletSecret           String
-  escrowAddress          String
-  escrowSecret           String
-  subscriptionPackage    SubscriptionPackage?    @relation(fields: [subscriptionPackageId], references: [id])
-  subscriptionPackageId  String?
-  createdAt              DateTime                @default(now())
-  updatedAt              DateTime                @updatedAt
-  tasks                  Task[]                  @relation("ProjectTasks")
-  users                  User[]                  @relation("UserProjects")
-  userProjectPermissions UserProjectPermission[]
-  transactions           Transaction[]
-  taskSubmissions        TaskSubmission[]
+model Installation {
+  id                          String                       @id @default(cuid())
+  installationId              String
+  html_url                    String
+  target_id                   Int
+  target_type                 String
+  account                     Json // { login String node_id String avatar_url String html_url String }
+  walletAddress               String
+  walletSecret                String
+  escrowAddress               String
+  escrowSecret                String
+  subscriptionPackage         SubscriptionPackage?         @relation(fields: [subscriptionPackageId], references: [id])
+  subscriptionPackageId       String?
+  createdAt                   DateTime                     @default(now())
+  updatedAt                   DateTime                     @updatedAt
+  tasks                       Task[]                       @relation("InstallationTasks")
+  users                       User[]                       @relation("UserInstallations")
+  userInstallationPermissions UserInstallationPermission[]
+  transactions                Transaction[]
+  taskSubmissions             TaskSubmission[]
 }
 
 model Task {
@@ -113,8 +115,8 @@ model Task {
   creatorId       String
   contributor     User?            @relation("TaskContributor", fields: [contributorId], references: [userId])
   contributorId   String?
-  project         Project          @relation("ProjectTasks", fields: [projectId], references: [id])
-  projectId       String
+  installation    Installation     @relation("InstallationTasks", fields: [installationId], references: [id])
+  installationId  String
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
   transactions    Transaction[]
@@ -128,8 +130,8 @@ model TaskSubmission {
   userId         String
   task           Task           @relation(fields: [taskId], references: [id])
   taskId         String
-  project        Project        @relation(fields: [projectId], references: [id])
-  projectId      String
+  installation   Installation   @relation(fields: [installationId], references: [id])
+  installationId String
   pullRequest    String
   attachmentUrl  String?
   createdAt      DateTime       @default(now())
@@ -152,26 +154,26 @@ model TaskActivity {
 }
 
 model Permission {
-  code                   String                  @id
-  name                   String
-  isDefault              Boolean
-  createdAt              DateTime                @default(now())
-  updatedAt              DateTime                @updatedAt
-  userProjectPermissions UserProjectPermission[] @relation("UserProjectPermissionPermissions")
+  code                        String                       @id
+  name                        String
+  isDefault                   Boolean
+  createdAt                   DateTime                     @default(now())
+  updatedAt                   DateTime                     @updatedAt
+  userInstallationPermissions UserInstallationPermission[] @relation("UserInstallationPermissionPermissions")
 }
 
-model UserProjectPermission {
+model UserInstallationPermission {
   id              String       @id @default(cuid())
   user            User         @relation(fields: [userId], references: [userId])
   userId          String
-  project         Project      @relation(fields: [projectId], references: [id])
-  projectId       String
+  installation    Installation @relation(fields: [installationId], references: [id])
+  installationId  String
   permissionCodes String[]
   assignedBy      String?
   assignedAt      DateTime     @default(now())
-  permissions     Permission[] @relation("UserProjectPermissionPermissions")
+  permissions     Permission[] @relation("UserInstallationPermissionPermissions")
 
-  @@unique([userId, projectId])
+  @@unique([userId, installationId])
 }
 
 model Transaction {
@@ -198,8 +200,8 @@ model Transaction {
   assetFrom String?
   assetTo   String?
 
-  project   Project? @relation(fields: [projectId], references: [id])
-  projectId String?
-  user      User?    @relation(fields: [userId], references: [userId])
-  userId    String?
+  installation   Installation? @relation(fields: [installationId], references: [id])
+  installationId String?
+  user           User?         @relation(fields: [userId], references: [userId])
+  userId         String?
 }
