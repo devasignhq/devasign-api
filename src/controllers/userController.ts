@@ -25,7 +25,7 @@ export const getUser = async (req: Request, res: Response, next: NextFunction) =
             ...baseSelect,
             _count: {
                 select: {
-                    projects: true
+                    installations: true
                 }
             },
             ...(view === "full" || view === "profile" ? {
@@ -35,59 +35,6 @@ export const getUser = async (req: Request, res: Response, next: NextFunction) =
                         activeTasks: true,
                         totalEarnings: true
                     }
-                }
-            } : {}),
-            ...(view === "full" ? {
-                projects: {
-                    select: {
-                        id: true,
-                        name: true,
-                        repoUrl: true,
-                        _count: {
-                            select: {
-                                tasks: true
-                            }
-                        }
-                    },
-                    orderBy: {
-                        createdAt: "desc"
-                    },
-                    take: 5 // Limit to recent 5 projects
-                },
-                createdTasks: {
-                    where: {
-                        status: {
-                            in: ["OPEN", "IN_PROGRESS"]
-                        }
-                    },
-                    select: {
-                        id: true,
-                        issue: true,
-                        bounty: true,
-                        status: true
-                    },
-                    orderBy: {
-                        createdAt: "desc"
-                    },
-                    take: 10 // Limit to recent 10 tasks
-                },
-                contributedTasks: {
-                    where: {
-                        status: {
-                            in: ["IN_PROGRESS", "MARKED_AS_COMPLETED", "COMPLETED"]
-                        }
-                    },
-                    select: {
-                        id: true,
-                        issue: true,
-                        bounty: true,
-                        status: true,
-                        completedAt: true
-                    },
-                    orderBy: {
-                        createdAt: "desc"
-                    },
-                    take: 10
                 }
             } : {})
         };
@@ -101,8 +48,8 @@ export const getUser = async (req: Request, res: Response, next: NextFunction) =
             throw new NotFoundErrorClass("User not found");
         }
 
-        // Get Stellar info only for profile or full view
-        if (view === "profile" || view === "full") {
+        // Get Stellar balance only for full view
+        if (view === "full") {
             try {
                 const accountInfo = await stellarService.getAccountInfo((user as any).walletAddress);
                 return res.status(200).json({

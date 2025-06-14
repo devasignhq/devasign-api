@@ -48,9 +48,15 @@ export type ContributionSummary = {
 
 export type Installation = {
     id: string;
-    name: string;
-    description: string;
-    repoUrl: string;
+    htmlUrl: string;
+    targetId: number;
+    targetType: string;
+    account: { 
+        login: string; 
+        nodeId: string; 
+        avatarUrl: string; 
+        htmlUrl: string;
+    }
     escrowAddress?: string;
     escrowSecret?: string;
     tasks: Task[];
