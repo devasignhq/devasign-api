@@ -58,8 +58,8 @@ export const createInstallationValidator = [
         .isObject()
         .withMessage('Account must be an object')
         .custom((value) => {
-            if (!value.login || !value.node_id || !value.avatar_url || !value.html_url) {
-                throw new Error('Account object must contain login, node_id, avatar_url, and html_url');
+            if (!value.login || !value.nodeId || !value.avatarUrl || !value.htmlUrl) {
+                throw new Error('Account object must contain login, nodeId, avatarUrl, and htmlUrl');
             }
             return true;
         }),
@@ -81,8 +81,8 @@ export const updateInstallationValidator = [
         .isObject()
         .withMessage('Account must be an object')
         .custom((value) => {
-            if (!value.login || !value.node_id || !value.avatar_url || !value.html_url) {
-                throw new Error('Account object must contain login, node_id, avatar_url, and html_url');
+            if (!value.login || !value.nodeId || !value.avatarUrl || !value.htmlUrl) {
+                throw new Error('Account object must contain login, nodeId, avatarUrl, and htmlUrl');
             }
             return true;
         }),

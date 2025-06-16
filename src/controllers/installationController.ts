@@ -174,9 +174,18 @@ export const createInstallation = async (req: Request, res: Response, next: Next
             where: { userId },            
             select: { walletSecret: true }
         });
-        
+
         if (!user) {
             throw new NotFoundErrorClass("User not found");
+        }
+
+        const existingInstallation = await prisma.installation.findUnique({
+            where: { id: installationId },
+            select: { id: true }
+        });
+
+        if (existingInstallation) {
+            throw new ErrorClass("ValidationError", null, "Installation already exists");
         }
 
         const decryptedUserSecret = decrypt(user.walletSecret);

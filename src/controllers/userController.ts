@@ -72,6 +72,7 @@ export const getUser = async (req: Request, res: Response, next: NextFunction) =
     }
 };
 
+// TODO: Add route to create user wallet separately
 export const createUser = async (req: Request, res: Response, next: NextFunction) => {
     const { userId, gitHubUsername } = req.body;
 
