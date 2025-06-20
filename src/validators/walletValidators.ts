@@ -40,6 +40,13 @@ export const swapAssetValidator = [
         .withMessage('Amount must be a string')
         .custom((value) => !isNaN(parseFloat(value)) && parseFloat(value) > 0)
         .withMessage('Amount must be a positive number'),
+    body('equivalentAmount')
+        .exists()
+        .withMessage('Equivalent amount is required')
+        .isString()
+        .withMessage('Equivalent amount must be a string')
+        .custom((value) => !isNaN(parseFloat(value)) && parseFloat(value) > 0)
+        .withMessage('Equivalent amount must be a positive number'),
     body('installationId')
         .optional()
         .isString()

@@ -196,8 +196,10 @@ model Transaction {
   asset String?
 
   // For SWAP transactions
-  assetFrom String?
-  assetTo   String?
+  assetFrom  String?
+  assetTo    String?
+  fromAmount Float?
+  toAmount   Float?
 
   installation   Installation? @relation(fields: [installationId], references: [id])
   installationId String?

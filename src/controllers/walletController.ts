@@ -113,6 +113,7 @@ export const withdrawAsset = async (req: Request, res: Response, next: NextFunct
             txHash,
             category: TransactionCategory.WITHDRAWAL,
             amount: parseFloat(amount.toString()),
+            asset: "XLM",
             destinationAddress,
             ...(installationId 
                     ? { installation: { connect: { id: installationId } } }
@@ -133,7 +134,8 @@ export const swapAsset = async (req: Request, res: Response, next: NextFunction)
         userId, 
         installationId,
         toAssetType = "USDC", 
-        amount 
+        amount,
+        equivalentAmount 
     } = req.body;
 
     try {
@@ -239,6 +241,8 @@ export const swapAsset = async (req: Request, res: Response, next: NextFunction)
             txHash,
             category: toAssetType === "USDC" ? TransactionCategory.SWAP_XLM : TransactionCategory.SWAP_USDC,
             amount: parseFloat(amount.toString()),
+            fromAmount: parseFloat(amount.toString()),
+            toAmount: parseFloat(equivalentAmount.toString()),
             assetFrom: toAssetType === "USDC" ? "XLM" : "USDC",
             assetTo: toAssetType,
             ...(installationId 
