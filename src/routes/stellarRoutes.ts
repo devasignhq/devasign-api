@@ -13,8 +13,7 @@ router.post('/wallet', async (req: Request, res: Response, next: NextFunction) =
             data: wallet
         });
     } catch (error) {
-        // next(createError(500, 'Failed to create wallet'));
-        res.status(601).json({ error });
+        next(error);
     }
 });
 
@@ -32,8 +31,7 @@ router.post('/wallet/sponsor',
                 data: wallet
             });
         } catch (error) {
-            // next(createError(500, 'Failed to create wallet'));
-            res.status(601).json({ error });
+            next(error);
         }
     }
 );
@@ -51,7 +49,7 @@ router.post('/trustline',
                 message: 'USDC trustline added successfully'
             });
         } catch (error) {
-            res.status(601).json({ error });
+            next(error);
         }
     }
 );
@@ -70,7 +68,7 @@ router.post('/trustline/sponsor',
                 message: 'USDC trustline added successfully'
             });
         } catch (error) {
-            res.status(601).json({ error });
+            next(error);
         }
     }
 );
@@ -85,7 +83,7 @@ router.post('/fund',
                 message: 'Wallet funded successfully'
             });
         } catch (error) {
-            res.status(601).json({ error });
+            next(error);
         }
     }
 );
@@ -112,7 +110,7 @@ router.post('/transfer',
                 data: result
             });
         } catch (error) {
-            res.status(601).json({ error });
+            next(error);
         }
     }
 )
@@ -161,7 +159,7 @@ router.post('/swap',
                 data: result
             });
         } catch (error) {
-            res.status(601).json({ error });
+            next(error);
         }
     }
 );
@@ -175,7 +173,7 @@ router.get('/account/:publicKey', async (req: Request, res: Response, next: Next
             data: accountInfo
         });
     } catch (error) {
-        res.status(601).json({ error });
+        next(error);
     }
 });
 
@@ -221,7 +219,7 @@ router.get('/stream/:publicKey', async (req: Request, res: Response, next: NextF
             message: 'Transaction stream started successfully',
         });
     } catch (error) {
-        res.status(601).json({ error });
+        next(error);
     }
 });
 
