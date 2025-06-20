@@ -2,7 +2,6 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 import express, { Request, Response, NextFunction, RequestHandler } from 'express';
-import createError from 'http-errors';
 import helmet from 'helmet';
 import cors from 'cors';
 import morgan from 'morgan'; 
@@ -43,19 +42,23 @@ app.get(
         try {
             // Delete all records from each table in correct order
             // due to foreign key constraints
+            
             await prisma.transaction.deleteMany();
             await prisma.taskSubmission.deleteMany();
+            await prisma.taskActivity.deleteMany();
             await prisma.userInstallationPermission.deleteMany();
             await prisma.task.deleteMany();
             await prisma.contributionSummary.deleteMany();
             await prisma.installation.deleteMany();
             await prisma.user.deleteMany();
             await prisma.permission.deleteMany();
+
             // await prisma.subscriptionPackage.deleteMany();
 
             res.status(201).json({ message: "Database cleared" });
         } catch (error) {
-            next(createError(500, 'Error clearing database'));
+            res.status(400).json(error);
+            console.log(error);
         }
     }) as RequestHandler
 );

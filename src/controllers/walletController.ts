@@ -10,7 +10,8 @@ type USDCBalance = HorizonApi.BalanceLineAsset<"credit_alphanum12">;
 
 export const withdrawAsset = async (req: Request, res: Response, next: NextFunction) => {
     const { 
-        userId,        installationId, 
+        userId,
+        installationId, 
         walletAddress: destinationAddress, 
         assetType = "XLM", 
         amount 
@@ -236,7 +237,7 @@ export const swapAsset = async (req: Request, res: Response, next: NextFunction)
 
         const transactionPayload = {
             txHash,
-            category: TransactionCategory.WITHDRAWAL,
+            category: toAssetType === "USDC" ? TransactionCategory.SWAP_XLM : TransactionCategory.SWAP_USDC,
             amount: parseFloat(amount.toString()),
             assetFrom: toAssetType === "USDC" ? "XLM" : "USDC",
             assetTo: toAssetType,
@@ -255,10 +256,12 @@ export const swapAsset = async (req: Request, res: Response, next: NextFunction)
 };
 
 export const getWalletInfo = async (req: Request, res: Response, next: NextFunction) => {
-    const { userId, installationId } = req.body;
+    const installationId = req.query.installationId as string;
+    const { userId } = req.body;
 
     try {
-        let walletAddress = "";        if (installationId) {
+        let walletAddress = "";
+        if (installationId) {
             const installation = await prisma.installation.findFirst({
                 where: {
                     id: installationId,
@@ -302,8 +305,14 @@ export const getWalletInfo = async (req: Request, res: Response, next: NextFunct
 };
 
 export const getTransactions = async (req: Request, res: Response, next: NextFunction) => {
-    const { userId, installationId } = req.body;
-    const { categories, page = 1, limit, sort } = req.query;
+    const { userId,  } = req.body;
+    const {
+        categories,
+        page = 1,
+        limit,
+        sort
+    } = req.query;
+    const installationId = req.query.installationId as string;
 
     try {
         const categoryList = (categories as string)?.split(",") as TransactionCategory[];
