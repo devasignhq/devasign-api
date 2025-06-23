@@ -11,7 +11,7 @@ export enum TimelineType {
     DAY = "DAY"
 }
 
-export enum CommentType {
+export enum MessageType {
     GENERAL = 'GENERAL',
     TIMELINE_MODIFICATION = 'TIMELINE_MODIFICATION'
 }
@@ -132,19 +132,19 @@ export type FilterTasks = {
     issueMilestone?: string;
 }
 
-export type CommentMetadata = {
+export type MessageMetadata = {
     requestedTimeline: number;
     timelineType: TimelineType;
     reason?: string
 }
 
-export type Comment = {
+export type Message = {
     id?: string;
     userId: string;
     taskId: string;
-    type?: CommentType;
-    message: string;
-    metadata?: CommentMetadata;
+    type?: MessageType;
+    body: string;
+    metadata?: MessageMetadata;
     attachments: string[];
     createdAt?: string;
     updatedAt?: string;

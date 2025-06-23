@@ -1,9 +1,9 @@
 import { NextFunction, Request, Response } from "express";
 import { prisma } from "../config/database";
-import { commentsCollection, createComment, updateComment } from "../services/firebaseService";
+import { messagesCollection, createMessage, updateMessage } from "../services/firebaseService";
 import { stellarService, usdcAssetId } from "../config/stellar";
 import { decrypt } from "../helper";
-import { CommentType, CreateTask, ErrorClass, NotFoundErrorClass } from "../types/general";
+import { MessageType, CreateTask, ErrorClass, NotFoundErrorClass } from "../types/general";
 import { HorizonApi } from "../types/horizonapi";
 import { TimelineType } from "../generated/client";
 
@@ -559,9 +559,9 @@ export const acceptTaskApplication = async (req: Request, res: Response, next: N
     }
 };
 
-export const addTaskComment = async (req: Request, res: Response, next: NextFunction) => {
+export const addTaskMessage = async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;
-    const { userId, message, attachments } = req.body;
+    const { userId, body, attachments } = req.body;
 
     try {
         const task = await prisma.task.findUnique({ 
@@ -573,32 +573,32 @@ export const addTaskComment = async (req: Request, res: Response, next: NextFunc
             throw new NotFoundErrorClass("Task not found");
         }
 
-        // Check if user can comment
+        // Check if user can message
         if (userId !== task.creatorId && userId !== task.contributorId) {
-            throw new ErrorClass("TaskError", null, "Not authorized to comment");
+            throw new ErrorClass("TaskError", null, "Not authorized to message");
         }
 
-        // ? Review (Allow comments on completed tasks)
+        // ? Review (Allow messages on completed tasks)
         if (["OPEN", "COMPLETED"].includes(task.status)) {
-            throw new ErrorClass("TaskError", null, "Can only comment on active tasks");
+            throw new ErrorClass("TaskError", null, "Can only message on active tasks");
         }
 
-        const comment = await createComment({
+        const message = await createMessage({
             userId,
             taskId: id,
-            message,
+            body,
             attachments,
-            type: CommentType.GENERAL
+            type: MessageType.GENERAL
         });
-        res.status(201).json(comment);
+        res.status(201).json(message);
     } catch (error) {
         next(error);
     }
 };
 
-export const updateTaskComment = async (req: Request, res: Response, next: NextFunction) => {
-    const { id: taskId, commentId } = req.params;
-    const { userId, message, attachments } = req.body;
+export const updateTaskMessage = async (req: Request, res: Response, next: NextFunction) => {
+    const { id: taskId, messageId } = req.params;
+    const { userId, body, attachments } = req.body;
 
     try {
         const task = await prisma.task.findUnique({ 
@@ -610,18 +610,18 @@ export const updateTaskComment = async (req: Request, res: Response, next: NextF
             throw new NotFoundErrorClass("Task not found");
         }
 
-        // Check if user can edit comment (must be comment creator)
-        const comment = (await commentsCollection.doc(commentId).get()).data();
-        if (!comment || comment.userId !== userId) {
-            throw new ErrorClass("TaskError", null, "Not authorized to edit this comment");
+        // Check if user can edit message (must be message creator)
+        const message = (await messagesCollection.doc(messageId).get()).data();
+        if (!message || message.userId !== userId) {
+            throw new ErrorClass("TaskError", null, "Not authorized to edit this message");
         }
 
-        const updatedComment = await updateComment(commentId, {
-            message,
+        const updatedMessage = await updateMessage(messageId, {
+            body,
             attachments
         });
 
-        res.status(200).json(updatedComment);
+        res.status(200).json(updatedMessage);
     } catch (error) {
         next(error);
     }
@@ -669,14 +669,14 @@ export const requestTimelineExtension = async (req: Request, res: Response, next
             );
         }
 
-        const message = `${githubUsername} is requesting for a ${requestedTimeline} ${(timelineType as string).toLowerCase()} 
+        const body = `${githubUsername} is requesting for a ${requestedTimeline} ${(timelineType as string).toLowerCase()} 
             time extension for this task. Kindly approve or reject it below.`;
 
-        const comment = await createComment({
+        const message = await createMessage({
             userId,
             taskId: id,
-            type: CommentType.TIMELINE_MODIFICATION,
-            message,
+            type: MessageType.TIMELINE_MODIFICATION,
+            body,
             attachments: attachments || [],
             metadata: { 
                 requestedTimeline,
@@ -685,7 +685,7 @@ export const requestTimelineExtension = async (req: Request, res: Response, next
             }
         });
 
-        res.status(200).json(comment);
+        res.status(200).json(message);
     } catch (error) {
         next(error);
     }
@@ -773,11 +773,11 @@ export const replyTimelineExtensionRequest = async (req: Request, res: Response,
                 }
             });
             
-            const comment = await createComment({
+            const message = await createMessage({
                 userId,
                 taskId: id,
-                type: CommentType.TIMELINE_MODIFICATION,
-                message: `You’ve extended the timeline of this task by ${requestedTimeline} ${(timelineType as string).toLowerCase()}.`,
+                type: MessageType.TIMELINE_MODIFICATION,
+                body: `You’ve extended the timeline of this task by ${requestedTimeline} ${(timelineType as string).toLowerCase()}.`,
                 attachments: [],
                 metadata: { 
                     requestedTimeline,
@@ -785,14 +785,14 @@ export const replyTimelineExtensionRequest = async (req: Request, res: Response,
                 }
             });
 
-            return res.status(200).json({ comment, task: updatedTask });
+            return res.status(200).json({ message, task: updatedTask });
         }
 
-        const comment = await createComment({
+        const message = await createMessage({
             userId,
             taskId: id,
-            type: CommentType.TIMELINE_MODIFICATION,
-            message: "Timeline extension rejected.",
+            type: MessageType.TIMELINE_MODIFICATION,
+            body: "Timeline extension rejected.",
             attachments: [],
             metadata: { 
                 requestedTimeline,
@@ -800,7 +800,7 @@ export const replyTimelineExtensionRequest = async (req: Request, res: Response,
             }
         });
 
-        res.status(200).json({ comment });
+        res.status(200).json({ message });
     } catch (error) {
         next(error);
     }

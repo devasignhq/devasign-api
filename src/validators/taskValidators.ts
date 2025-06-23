@@ -157,39 +157,39 @@ export const updateTaskBountyValidator = [
         .withMessage('Bounty must be a positive number')
 ];
 
-export const addTaskCommentValidator = [
+export const addTaskMessageValidator = [
     param('id')
         .exists()
         .withMessage('Task ID is required'),
-    body('message')
+    body('body')
         .exists()
-        .withMessage('Message is required')
+        .withMessage('Body is required')
         .isString()
-        .withMessage('Message must be a string')
+        .withMessage('Body must be a string')
         .trim()
         .notEmpty()
-        .withMessage('Message cannot be empty'),
+        .withMessage('Body cannot be empty'),
     body('attachments')
         .optional()
         .isArray()
         .withMessage('Attachments must be an array'),
 ];
 
-export const updateTaskCommentValidator = [
+export const updateTaskMessageValidator = [
     param('id')
         .exists()
         .withMessage('Task ID is required'),
-    param('commentId')
+    param('messageId')
         .exists()
-        .withMessage('Comment ID is required'),
-    body('message')
+        .withMessage('Message ID is required'),
+    body('body')
         .exists()
-        .withMessage('Message is required')
+        .withMessage('Body is required')
         .isString()
-        .withMessage('Message must be a string')
+        .withMessage('Body must be a string')
         .trim()
         .notEmpty()
-        .withMessage('Message cannot be empty'),
+        .withMessage('Body cannot be empty'),
     body('attachments')
         .optional()
         .isArray()

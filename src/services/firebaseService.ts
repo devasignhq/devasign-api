@@ -1,41 +1,41 @@
 import { db } from "../config/firebase";
 import { Timestamp } from "firebase-admin/firestore";
-import { Comment, CommentType } from "../types/general";
+import { Message, MessageType } from "../types/general";
 
-export const commentsCollection = db.collection('comments');
+export const messagesCollection = db.collection('messages');
 
-export const createComment = async ({
+export const createMessage = async ({
     userId,
     taskId,
-    type = CommentType.GENERAL,
-    message,
-    metadata = {},
+    type = MessageType.GENERAL,
+    body,
+    metadata = {} as any,
     attachments = []
-}: Comment) => {
-    const commentRef = commentsCollection.doc();
+}: Message) => {
+    const messageRef = messagesCollection.doc();
     const timestamp = new Date().toISOString();
 
-    const commentData = {
-        id: commentRef.id,
+    const messageData = {
+        id: messageRef.id,
         userId,
         taskId,
         type,
-        message,
+        body,
         metadata,
         attachments,
         createdAt: timestamp,
         updatedAt: timestamp
     };
 
-    await commentRef.set(commentData);
-    return commentData;
+    await messageRef.set(messageData);
+    return messageData;
 };
 
-export const updateComment = async (commentId: string, data: Partial<Comment>) => {
-    const comment = await commentsCollection.doc(commentId).get();
+export const updateMessage = async (messageId: string, data: Partial<Message>) => {
+    const message = await messagesCollection.doc(messageId).get();
     
-    if (!comment.exists) {
-        throw new Error('Comment not found');
+    if (!message.exists) {
+        throw new Error('Message not found');
     }
 
     const updateData = {
@@ -43,17 +43,17 @@ export const updateComment = async (commentId: string, data: Partial<Comment>) =
         updatedAt: Timestamp.now()
     };
 
-    await commentsCollection.doc(commentId).update(updateData);
+    await messagesCollection.doc(messageId).update(updateData);
     
-    const updatedComment = await commentsCollection.doc(commentId).get();
+    const updatedMessage = await messagesCollection.doc(messageId).get();
     return {
-        id: updatedComment.id,
-        ...updatedComment.data()
+        id: updatedMessage.id,
+        ...updatedMessage.data()
     };
 };
 
-export const getTaskComments = async (taskId: string) => {
-    const snapshot = await commentsCollection
+export const getTaskMessages = async (taskId: string) => {
+    const snapshot = await messagesCollection
         .where('taskId', '==', taskId)
         .orderBy('createdAt', 'desc')
         .get();
