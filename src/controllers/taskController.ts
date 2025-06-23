@@ -282,6 +282,8 @@ export const getTasks = async (req: Request, res: Response, next: NextFunction) 
                 settled: true,
                 acceptedAt: true,
                 completedAt: true,
+                contributorId: true,
+                creatorId: true,
                 createdAt: true,
                 updatedAt: true,
                 ...selectRelations
@@ -669,7 +671,7 @@ export const requestTimelineExtension = async (req: Request, res: Response, next
             );
         }
 
-        const body = `${githubUsername} is requesting for a ${requestedTimeline} ${(timelineType as string).toLowerCase()} 
+        const body = `${githubUsername} is requesting for a ${requestedTimeline} ${(timelineType as string).toLowerCase()}(s) 
             time extension for this task. Kindly approve or reject it below.`;
 
         const message = await createMessage({
@@ -777,11 +779,12 @@ export const replyTimelineExtensionRequest = async (req: Request, res: Response,
                 userId,
                 taskId: id,
                 type: MessageType.TIMELINE_MODIFICATION,
-                body: `You’ve extended the timeline of this task by ${requestedTimeline} ${(timelineType as string).toLowerCase()}.`,
+                body: `You’ve extended the timeline of this task by ${requestedTimeline} ${(timelineType as string).toLowerCase()}(s).`,
                 attachments: [],
                 metadata: { 
                     requestedTimeline,
                     timelineType,
+                    reason: "ACCEPTED"
                 }
             });
 
@@ -797,6 +800,7 @@ export const replyTimelineExtensionRequest = async (req: Request, res: Response,
             metadata: { 
                 requestedTimeline,
                 timelineType,
+                reason: "REJECTED"
             }
         });
 
