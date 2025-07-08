@@ -894,10 +894,7 @@ export const validateCompletion = async (req: Request, res: Response, next: Next
             where: { id: taskId },
             select: {
                 creator: {
-                    select: {
-                        userId: true,
-                        walletSecret: true
-                    }
+                    select: { userId: true }
                 },
                 contributor: {
                     select: {
@@ -908,6 +905,7 @@ export const validateCompletion = async (req: Request, res: Response, next: Next
                 installation: {
                     select: {
                         id: true,
+                        walletSecret: true,
                         escrowSecret: true
                     }
                 },
@@ -936,11 +934,11 @@ export const validateCompletion = async (req: Request, res: Response, next: Next
             throw new ErrorClass("TaskError", null, "Contributor not found");
         }
         
-        const decryptedUserSecret = decrypt(task.creator.walletSecret);
+        const decryptedWalletSecret = decrypt(task.installation.walletSecret);
         const decryptedEscrowSecret = decrypt(task.installation.escrowSecret!);
 
         const transactionResponse = await stellarService.transferAssetViaSponsor(
-            decryptedUserSecret,
+            decryptedWalletSecret,
             decryptedEscrowSecret,
             task.contributor!.walletAddress,
             usdcAssetId,
