@@ -191,7 +191,7 @@ export const createManyTasks = async (req: Request, res: Response, next: NextFun
     }
 };
 
-// TODO: add publishTaskToIssue route
+// ? Add publishTaskToIssue route
 
 export const getTasks = async (req: Request, res: Response, next: NextFunction) => {
     const { 
@@ -374,7 +374,9 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
                 installation: {
                     select: {
                         escrowAddress: true,
-                        escrowSecret: true
+                        escrowSecret: true,
+                        walletAddress: true,
+                        walletSecret: true
                     }
                 }
             } 
@@ -393,22 +395,12 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
             throw new ErrorClass("TaskError", null, "Only task creator can update bounty");
         }
 
-        // Get user wallet info
-        const user = await prisma.user.findUnique({
-            where: { userId },
-            select: { walletAddress: true, walletSecret: true }
-        });
-
-        if (!user) {
-            throw new NotFoundErrorClass("User not found");
-        }
-
         const bountyDifference = Number(newbounty) - task.bounty;
-        const decryptedUserSecret = decrypt(user.walletSecret!);
+        const decryptedWalletSecret = decrypt(task.installation.walletSecret!);
 
         if (bountyDifference > 0) {
-            // Additional funds needed - transfer from user to escrow
-            const accountInfo = await stellarService.getAccountInfo(user.walletAddress!);
+            // Additional funds needed - transfer from wallet to escrow
+            const accountInfo = await stellarService.getAccountInfo(task.installation.walletAddress!);
             const usdcAsset = accountInfo.balances.find(
                 (asset): asset is USDCBalance => "asset_code" in asset && asset.asset_code === "USDC"
             );
@@ -418,19 +410,19 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
             }
 
             await stellarService.transferAsset(
-                decryptedUserSecret,
+                decryptedWalletSecret,
                 task.installation.escrowAddress!,
                 usdcAssetId,
                 usdcAssetId,
                 bountyDifference.toString()
             );
         } else {
-            // Excess funds - return from escrow to user
+            // Excess funds - return from escrow to wallet
             const decryptedEscrowSecret = decrypt(task.installation.escrowSecret!);
             await stellarService.transferAssetViaSponsor(
-                decryptedUserSecret,
+                decryptedWalletSecret,
                 decryptedEscrowSecret,
-                user.walletAddress!,
+                task.installation.walletAddress!,
                 usdcAssetId,
                 usdcAssetId,
                 Math.abs(bountyDifference).toString()
@@ -1107,7 +1099,7 @@ export const deleteTask = async (req: Request, res: Response, next: NextFunction
                 },
                 installation: {
                     select: {
-                        escrowSecret: true
+                        escrowSecret: true,
                     }
                 }
             }
