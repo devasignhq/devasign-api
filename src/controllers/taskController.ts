@@ -1091,15 +1091,11 @@ export const deleteTask = async (req: Request, res: Response, next: NextFunction
                 bounty: true,
                 creatorId: true,
                 contributorId: true,
-                creator: {
-                    select: {
-                        walletAddress: true,
-                        walletSecret: true
-                    }
-                },
                 installation: {
                     select: {
                         escrowSecret: true,
+                        walletAddress: true,
+                        walletSecret: true
                     }
                 }
             }
@@ -1120,15 +1116,15 @@ export const deleteTask = async (req: Request, res: Response, next: NextFunction
             throw new ErrorClass("TaskError", null, "Cannot delete task with assigned contributor");
         }
 
-        // Return bounty to creator if exists
+        // Return bounty to wallet if it exists
         if (task.bounty > 0) {
-            const decryptedUserSecret = decrypt(task.creator.walletSecret);
+            const decryptedWalletSecret = decrypt(task.installation.walletSecret);
             const decryptedEscrowSecret = decrypt(task.installation.escrowSecret!);
 
             await stellarService.transferAssetViaSponsor(
-                decryptedUserSecret,
+                decryptedWalletSecret,
                 decryptedEscrowSecret,
-                task.creator.walletAddress,
+                task.installation.walletAddress,
                 usdcAssetId,
                 usdcAssetId,
                 task.bounty.toString()
