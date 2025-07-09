@@ -157,6 +157,27 @@ export const updateTaskBountyValidator = [
         .withMessage('Bounty must be a positive number')
 ];
 
+export const updateTaskTimelineValidator = [
+    param('id')
+        .exists()
+        .withMessage('Task ID is required'),
+    body('timeline')
+        .trim()
+        .notEmpty()
+        .toInt() 
+        .isInt({ min: 1 })
+        .withMessage('Timeline must be a positive integer')
+        .custom((value) => {
+            if (isNaN(value)) {
+                throw new Error('Timeline must be a valid number');
+            }
+            return true;
+        }),
+    body('timelineType')
+        .isIn(Object.values(TimelineType))
+        .withMessage('Invalid timeline type')
+];
+
 export const addTaskMessageValidator = [
     param('id')
         .exists()

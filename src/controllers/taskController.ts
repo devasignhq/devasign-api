@@ -79,6 +79,7 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
             const weeks = Math.floor(others.timeline / 7);
             const days = others.timeline % 7;
             others.timeline = weeks + (days / 10);
+            others.timelineType = "WEEK" as any;
         }
 
         const task = await prisma.task.create({
@@ -445,7 +446,60 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
     }
 };
 
-// TODO: Add updateTaskTimeline
+export const updateTaskTimeline = async (req: Request, res: Response, next: NextFunction) => {
+    const { id } = req.params;
+    const { userId, newTimeline, newTimelineType } = req.body;
+
+    try {
+        // Fetch the task and check if it exists and is open
+        const task = await prisma.task.findUnique({
+            where: { id },
+            select: {
+                status: true,
+                creatorId: true,
+                timeline: true,
+                timelineType: true
+            }
+        });
+
+        if (!task) {
+            throw new NotFoundErrorClass("Task not found");
+        }
+        if (task.status !== "OPEN") {
+            throw new ErrorClass("TaskError", null, "Only open tasks can be updated");
+        }
+        if (task.creatorId !== userId) {
+            throw new ErrorClass("TaskError", null, "Only task creator can update timeline");
+        }
+
+        // Optionally, convert days > 6 to weeks+days as in createTask
+        let timeline = newTimeline;
+        let timelineType = newTimelineType as TimelineType;
+        if (timelineType === "DAY" && timeline > 6) {
+            const weeks = Math.floor(timeline / 7);
+            const days = timeline % 7;
+            timeline = weeks + (days / 10);
+            timelineType = "WEEK";
+        }
+
+        const updatedTask = await prisma.task.update({
+            where: { id },
+            data: {
+                timeline,
+                timelineType
+            },
+            select: {
+                timeline: true,
+                timelineType: true,
+                updatedAt: true
+            }
+        });
+
+        res.status(200).json(updatedTask);
+    } catch (error) {
+        next(error);
+    }
+};
 
 export const submitTaskApplication = async (req: Request, res: Response, next: NextFunction) => {
     const { id: taskId } = req.params;

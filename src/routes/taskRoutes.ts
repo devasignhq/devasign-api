@@ -14,7 +14,8 @@ import {
     updateTaskMessage,
     createManyTasks,
     submitTaskApplication,
-    getTaskActivities
+    getTaskActivities,
+    updateTaskTimeline
 } from "../controllers/taskController";
 import {
     getTasksValidator,
@@ -30,7 +31,8 @@ import {
     replyTimelineModificationValidator,
     createManyTasksValidator,
     submitTaskApplicationValidator,
-    getTaskActivitiesValidator
+    getTaskActivitiesValidator,
+    updateTaskTimelineValidator
 } from "../validators/taskValidators";
 
 export const taskRoutes = Router();
@@ -44,6 +46,7 @@ taskRoutes.get('/activities/:id', getTaskActivitiesValidator, getTaskActivities 
 taskRoutes.post("/", createTaskValidator, createTask as RequestHandler);
 taskRoutes.post("/batch", createManyTasksValidator, createManyTasks as RequestHandler);
 taskRoutes.patch("/:id/bounty", updateTaskBountyValidator, updateTaskBounty as RequestHandler);
+taskRoutes.patch("/:id/timeline", updateTaskTimelineValidator, updateTaskTimeline as RequestHandler);
 taskRoutes.delete("/:id", deleteTaskValidator, deleteTask as RequestHandler);
 
 // Task status changes
