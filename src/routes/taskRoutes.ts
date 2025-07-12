@@ -15,7 +15,8 @@ import {
     createManyTasks,
     submitTaskApplication,
     getTaskActivities,
-    updateTaskTimeline
+    updateTaskTimeline,
+    addBountyCommentId
 } from "../controllers/taskController";
 import {
     getTasksValidator,
@@ -32,7 +33,8 @@ import {
     createManyTasksValidator,
     submitTaskApplicationValidator,
     getTaskActivitiesValidator,
-    updateTaskTimelineValidator
+    updateTaskTimelineValidator,
+    addBountyCommentIdValidator
 } from "../validators/taskValidators";
 
 export const taskRoutes = Router();
@@ -45,6 +47,7 @@ taskRoutes.get('/activities/:id', getTaskActivitiesValidator, getTaskActivities 
 // Task management
 taskRoutes.post("/", createTaskValidator, createTask as RequestHandler);
 taskRoutes.post("/batch", createManyTasksValidator, createManyTasks as RequestHandler);
+taskRoutes.patch("/:id/issue-comment", addBountyCommentIdValidator, addBountyCommentId as RequestHandler);
 taskRoutes.patch("/:id/bounty", updateTaskBountyValidator, updateTaskBounty as RequestHandler);
 taskRoutes.patch("/:id/timeline", updateTaskTimelineValidator, updateTaskTimeline as RequestHandler);
 taskRoutes.delete("/:id", deleteTaskValidator, deleteTask as RequestHandler);

@@ -360,9 +360,48 @@ export const getTask = async (req: Request, res: Response, next: NextFunction) =
     }
 };
 
+export const addBountyCommentId = async (req: Request, res: Response, next: NextFunction) => {
+    const { id } = req.params;
+    const { userId, bountyCommentId } = req.body;
+
+    try {
+        const task = await prisma.task.findUnique({ 
+            where: { id },
+            select: { 
+                id: true, 
+                status: true, 
+                creatorId: true, 
+                issue: true 
+            } 
+        });
+
+        if (!task) {
+            throw new NotFoundErrorClass("Task not found");
+        }
+        if (task.status !== "OPEN") {
+            throw new ErrorClass("TaskError", null, "Only open tasks can be updated");
+        }
+        if (task.creatorId !== userId) {
+            throw new ErrorClass("TaskError", null, "Only task creator can perform action");
+        }
+
+        const updatedTask = await prisma.task.update({
+            where: { id },
+            data: { 
+                issue: { ...(typeof task.issue === "object" && task.issue !== null ? task.issue : {}), bountyCommentId }
+            },
+            select: { id: true }
+        });
+
+        res.status(200).json(updatedTask);
+    } catch (error) {
+        next(error);
+    }
+};
+
 export const updateTaskBounty = async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;
-    const { userId, newbounty } = req.body;
+    const { userId, newBounty } = req.body;
 
     try {
         const task = await prisma.task.findUnique({ 
@@ -389,14 +428,14 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
         if (task.status !== "OPEN") {
             throw new ErrorClass("TaskError", null, "Only open tasks can be updated");
         }
-        if (task.bounty === newbounty) {
+        if (task.bounty === newBounty) {
             throw new ErrorClass("TaskError", null, "New bounty is the same as current bounty");
         }
         if (task.creatorId !== userId) {
             throw new ErrorClass("TaskError", null, "Only task creator can update bounty");
         }
 
-        const bountyDifference = Number(newbounty) - task.bounty;
+        const bountyDifference = Number(newBounty) - task.bounty;
         const decryptedWalletSecret = decrypt(task.installation.walletSecret!);
 
         if (bountyDifference > 0) {
@@ -433,7 +472,7 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
         // Update task bounty
         const updatedTask = await prisma.task.update({
             where: { id },
-            data: { bounty: newbounty },
+            data: { bounty: parseFloat(newBounty) },
             select: {
                 bounty: true,
                 updatedAt: true

@@ -144,6 +144,22 @@ export const createManyTasksValidator = [
         .withMessage('Invalid timeline type')
 ];
 
+export const addBountyCommentIdValidator = [
+    param('id')
+        .exists()
+        .withMessage('Task ID is required'),
+    body('bountyCommentId')
+        .trim()
+        .notEmpty()
+        .toInt() 
+        .custom((value) => {
+            if (isNaN(value)) {
+                throw new Error('Comment ID must be a valid number');
+            }
+            return true;
+        }),
+];
+
 export const updateTaskBountyValidator = [
     param('id')
         .exists()
