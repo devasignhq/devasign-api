@@ -13,7 +13,7 @@ export const createMessage = async ({
     attachments = []
 }: Message) => {
     const messageRef = messagesCollection.doc();
-    const timestamp = new Date().toISOString();
+    const timestamp = Timestamp.now();
 
     const messageData = {
         id: messageRef.id,

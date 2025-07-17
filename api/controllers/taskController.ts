@@ -56,14 +56,6 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
             );
         }
 
-        console.log(
-            decryptedInstallationWalletSecret,
-            installation.escrowAddress!,
-            usdcAssetId,
-            usdcAssetId,
-            payload.bounty
-        )
-
         // Transfer to escrow
         await stellarService.transferAsset(
             decryptedInstallationWalletSecret,
@@ -234,8 +226,7 @@ export const getTasks = async (req: Request, res: Response, next: NextFunction) 
                 installation: {
                     select: {
                         id: true,
-                        name: true,
-                        repoUrls: true
+                        account: true
                     }
                 },
                 creator: {
@@ -748,14 +739,6 @@ export const requestTimelineExtension = async (req: Request, res: Response, next
             );
         }
 
-        if (task.timeline! >= requestedTimeline) {
-            throw new ErrorClass(
-                "ValidationError",
-                null,
-                "New timeline must be greater than current timeline"
-            );
-        }
-
         const body = `${githubUsername} is requesting for a ${requestedTimeline} ${(timelineType as string).toLowerCase()}(s) 
             time extension for this task. Kindly approve or reject it below.`;
 
@@ -810,7 +793,8 @@ export const replyTimelineExtensionRequest = async (req: Request, res: Response,
         }
 
         if (accept) {
-            let newTimeline: number, newTimelineType: TimelineType;
+            let newTimeline: number = task.timeline! + requestedTimeline,
+            newTimelineType: TimelineType = timelineType;
 
             if (timelineType === "WEEK" && task.timelineType! == "WEEK") {
                 newTimeline = task.timeline! + requestedTimeline;
@@ -820,16 +804,18 @@ export const replyTimelineExtensionRequest = async (req: Request, res: Response,
                 newTimeline = task.timeline! + requestedTimeline;
                 newTimelineType = "DAY";
                 
-                if (requestedTimeline > 6) {
+                if (newTimeline > 6) {
                     const weeks = Math.floor(newTimeline / 7);
                     const days = newTimeline % 7;
-                    newTimeline = task.timeline! + weeks + (days / 10);
+                    newTimeline = weeks + (days / 10);
                     newTimelineType = "WEEK";
                 }
             }
 
             if (timelineType === "DAY" && task.timelineType! == "WEEK") {
-                if (requestedTimeline === 7) newTimeline = task.timeline! + 1;
+                if (requestedTimeline === 7) {
+                    newTimeline = task.timeline! + 1;
+                }
                 if (requestedTimeline > 7) {
                     const weeks = Math.floor(requestedTimeline / 7);
                     const days = requestedTimeline % 7;
@@ -860,6 +846,7 @@ export const replyTimelineExtensionRequest = async (req: Request, res: Response,
                 }
             });
             
+            // ? Add newTimeline and newTimelineType for clarity
             const message = await createMessage({
                 userId,
                 taskId: id,
@@ -867,8 +854,8 @@ export const replyTimelineExtensionRequest = async (req: Request, res: Response,
                 body: `You’ve extended the timeline of this task by ${requestedTimeline} ${(timelineType as string).toLowerCase()}(s).`,
                 attachments: [],
                 metadata: { 
-                    requestedTimeline,
-                    timelineType,
+                    requestedTimeline: newTimeline,
+                    timelineType: newTimelineType as any,
                     reason: "ACCEPTED"
                 }
             });
@@ -1054,8 +1041,6 @@ export const validateCompletion = async (req: Request, res: Response, next: Next
             }
         });
 
-        // TODO: Update issue on GitHubx
-
         // Record transaction for installation and contributor
         await prisma.$transaction([
             prisma.transaction.create({
@@ -1226,8 +1211,6 @@ export const deleteTask = async (req: Request, res: Response, next: NextFunction
         await prisma.task.delete({
             where: { id }
         });
-
-        // TODO: Update issue on GitHub
 
         res.status(200).json({
             message: "Task deleted successfully",
