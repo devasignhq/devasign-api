@@ -442,7 +442,7 @@ export class StellarService {
         const allPayments = await stellar.server.payments()
             .forAccount(publicKey)
             .order('desc')
-            .limit(200)
+            .limit(100)
             .call();
 
         const incomingFunds = allPayments.records.filter(payment => {

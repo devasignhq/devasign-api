@@ -3,7 +3,8 @@ import {
     withdrawAsset, 
     swapAsset, 
     getWalletInfo, 
-    getTransactions
+    getTransactions,
+    recordWalletTopups
 } from "../controllers/walletController";
 import {
     withdrawAssetValidator,
@@ -24,3 +25,6 @@ walletRoutes.post("/swap", swapAssetValidator, swapAsset as RequestHandler);
 
 // Get transactions
 walletRoutes.get("/transactions", walletInstallationIdValidator, getTransactions as RequestHandler);
+
+// Record wallet topups
+walletRoutes.get("/transactions/record-topups", walletInstallationIdValidator, recordWalletTopups as RequestHandler);

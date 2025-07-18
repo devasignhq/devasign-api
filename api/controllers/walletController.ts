@@ -309,7 +309,7 @@ export const getWalletInfo = async (req: Request, res: Response, next: NextFunct
 };
 
 export const getTransactions = async (req: Request, res: Response, next: NextFunction) => {
-    const { userId,  } = req.body;
+    const { userId } = req.body;
     const {
         categories,
         page = 1,
@@ -377,6 +377,138 @@ export const getTransactions = async (req: Request, res: Response, next: NextFun
         res.status(200).json({
             transactions,
             hasMore: transactions.length === take,
+        });
+    } catch (error) {
+        next(error);
+    }
+}
+
+export const recordWalletTopups = async (req: Request, res: Response, next: NextFunction) => {
+    const { userId } = req.body;
+    const installationId = req.query.installationId as string;
+
+    try {
+        let walletAddress: string;
+
+        if (installationId) {
+            // Check if user is part of the installation
+            const installation = await prisma.installation.findFirst({
+                where: {
+                    id: installationId,
+                    users: {
+                        some: {
+                            userId: userId
+                        }
+                    }
+                },
+                select: { id: true, walletAddress: true }
+            });
+
+            if (!installation) {
+                throw new ErrorClass("TransactionError", null, "User is not part of this installation.");
+            }
+
+            walletAddress = installation.walletAddress;
+        } else {
+            const user = await prisma.user.findUnique({
+                where: { userId }, 
+                select: { username: true, walletAddress: true }
+            });
+            
+            if (!user) {
+                throw new NotFoundErrorClass("User not found");
+            }
+
+            walletAddress = user.walletAddress;
+        }
+
+        // Get stellar topup transactions
+        const stellarTopups = await stellarService.getTopUpTransactions(walletAddress);
+
+        if (stellarTopups.length === 0) {
+            return res.status(200).json({ 
+                message: "No new topup transactions found",
+                processed: 0 
+            });
+        }
+
+        // Get the last recorded topup transaction for comparison
+        const lastRecordedTopup = await prisma.transaction.findFirst({
+            where: {
+                category: "TOP_UP",
+                ...(installationId ? { installationId } : { userId }),
+            },
+            orderBy: {
+                doneAt: "desc"
+            }
+        });
+
+        // Find the most recent stellar transaction hash for comparison
+        const mostRecentStellarTxHash = stellarTopups[0]?.transaction_hash;
+
+        // If last recorded topup matches the most recent stellar topup, no new transactions
+        if (lastRecordedTopup && lastRecordedTopup.txHash === mostRecentStellarTxHash) {
+            return res.status(200).json({ 
+                message: "No new topup transactions found",
+                processed: 0 
+            });
+        }
+
+        // Process stellar topup transactions until we find a match with existing records
+        const newTransactions = [];
+        let processed = 0;
+
+        for (const stellarTx of stellarTopups) {
+            // Stop if we've reached a transaction we've already recorded
+            if (lastRecordedTopup && stellarTx.transaction_hash === lastRecordedTopup.txHash) {
+                break;
+            }
+
+            // Extract transaction details based on operation type
+            let amount: number;
+            let asset: string;
+            let sourceAddress: string;
+
+            const paymentTx = stellarTx as (HorizonApi.PaymentOperationResponse | HorizonApi.PathPaymentOperationResponse);
+            amount = parseFloat(paymentTx.amount);
+            asset = paymentTx.asset_type === "native" ? "XLM" : paymentTx.asset_code!;
+            sourceAddress = paymentTx.from;
+
+            // Create transaction record
+            const transactionData = {
+                txHash: stellarTx.transaction_hash,
+                category: TransactionCategory.TOP_UP,
+                amount,
+                asset,
+                sourceAddress,
+                doneAt: new Date(stellarTx.created_at),
+                ...(installationId 
+                        ? { installation: { connect: { id: installationId } } }
+                        : { user: { connect: { userId } } }
+                )
+            };
+
+            newTransactions.push(transactionData);
+            processed++;
+        }
+
+        // Bulk insert new transactions
+        if (newTransactions.length > 0) {
+            await prisma.transaction.createMany({
+                data: newTransactions
+            });
+        }
+
+        res.status(200).json({
+            message: `Successfully processed ${processed} topup transactions`,
+            processed,
+            transactions: newTransactions.map(tx => ({
+                txHash: tx.txHash,
+                amount: tx.amount,
+                asset: tx.asset,
+                sourceAddress: tx.sourceAddress,
+                doneAt: tx.doneAt
+            }))
         });
     } catch (error) {
         next(error);

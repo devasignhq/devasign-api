@@ -1,4 +1,4 @@
-import { body } from 'express-validator';
+import { body, query } from 'express-validator';
 
 export const withdrawAssetValidator = [
     body('walletAddress')
@@ -57,7 +57,7 @@ export const swapAssetValidator = [
 ];
 
 export const walletInstallationIdValidator = [
-    body('installationId')
+    query('installationId')
         .optional()
         .isString()
         .withMessage('Installation ID must be a string')
