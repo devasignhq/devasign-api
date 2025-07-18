@@ -4,5 +4,5 @@ node_modules
 
 prisma/migrations
 requirements.txt
-/src/generated/client
+/app/generated/client
 /no-git/*

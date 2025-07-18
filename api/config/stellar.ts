@@ -256,24 +256,21 @@ export class StellarService {
             const txBuilder = await stellar.transaction({
                 sourceAddress: new AccountKeypair(sourceKeypair),
             });
+
+            let transaction;
             
             // If sending the same asset type, use regular payment instead of path payment
             if (this.isSameAsset(sendAssetId, destAssetId)) {
-                const txPayment = txBuilder
+                transaction = txBuilder
                     .transfer(
                         destinationAddress,
                         sendAssetId,
                         amount,
                     )
                     .build();
-                    
-                txPayment.sign(sourceKeypair);
-                await stellar.submitTransaction(txPayment);
-
-                return { txHash: txPayment.hash().toString('hex') };
             } else {
                 // Use path payment for asset conversion
-                const txPathPay = txBuilder
+                transaction = txBuilder
                     .pathPay({
                         destinationAddress: destinationAddress,
                         sendAsset: sendAssetId,
@@ -281,12 +278,12 @@ export class StellarService {
                         sendAmount: amount,
                     })
                     .build();
-                    
-                txPathPay.sign(sourceKeypair);
-                await stellar.submitTransaction(txPathPay);
-
-                return { txHash: txPathPay.hash().toString('hex') };
             }
+
+            transaction.sign(sourceKeypair);
+            await stellar.submitTransaction(transaction);
+
+            return { txHash: transaction.hash().toString('hex') };
         } catch (error: any) {
             if (error.response?.status === 400) {
                 const errorData = error.response?.data;
@@ -322,20 +319,34 @@ export class StellarService {
                 sourceAddress: new AccountKeypair(accountKeyPair),
             });
             
-            const txPathPay = txBuilder
-                .pathPay({
-                    destinationAddress: destinationAddress,
-                    sendAsset: sendAssetId,
-                    destAsset: destAssetId,
-                    sendAmount: amount,
-                })
-                .build();
+            let transaction;
+            
+            // If sending the same asset type, use regular payment instead of path payment
+            if (this.isSameAsset(sendAssetId, destAssetId)) {
+                transaction = txBuilder
+                    .transfer(
+                        destinationAddress,
+                        sendAssetId,
+                        amount,
+                    )
+                    .build();
+            } else {
+                // Use path payment for asset conversion
+                transaction = txBuilder
+                    .pathPay({
+                        destinationAddress: destinationAddress,
+                        sendAsset: sendAssetId,
+                        destAsset: destAssetId,
+                        sendAmount: amount,
+                    })
+                    .build();
+            }
 
-            txPathPay.sign(accountKeyPair);
+            transaction.sign(accountKeyPair);
 
             const feeBump = stellar.makeFeeBump({
                 feeAddress: new AccountKeypair(sponsorKeyPair),
-                transaction: txPathPay,
+                transaction: transaction,
             });
 
             feeBump.sign(sponsorKeyPair);
@@ -343,7 +354,7 @@ export class StellarService {
             await stellar.submitTransaction(feeBump);
 
             return { 
-                txHash: txPathPay.hash().toString('hex'),
+                txHash: transaction.hash().toString('hex'),
                 sponsorTxHash: feeBump.hash().toString('hex'),
             };
         } catch (error: any) {
