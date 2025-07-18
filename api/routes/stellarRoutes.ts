@@ -223,4 +223,18 @@ router.get('/stream/:publicKey', async (req: Request, res: Response, next: NextF
     }
 });
 
+// Top ups
+router.get('/topup/:publicKey', async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const transactions = await stellarService.getTopUpTransactions(req.params.publicKey);
+
+        res.status(200).json({
+            message: 'Top up transactions retrieved successfully',
+            data: transactions
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
 export const stellarRoutes = router;

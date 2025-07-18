@@ -11,6 +11,7 @@ import {
 } from '@stellar/typescript-wallet-sdk';
 import axios, { AxiosInstance } from 'axios';
 import { ErrorClass } from '../types/general';
+import { HorizonApi } from '../types/horizonapi';
 
 const customClient: AxiosInstance = axios.create({
     timeout: 20000,
@@ -435,6 +436,29 @@ export class StellarService {
             
             throw new StellarServiceError("Failed to get account info", error);
         }
+    }
+
+    async getTopUpTransactions(publicKey: string) {
+        const allPayments = await stellar.server.payments()
+            .forAccount(publicKey)
+            .order('desc')
+            .limit(200)
+            .call();
+
+        const incomingFunds = allPayments.records.filter(payment => {
+            switch(payment.type as HorizonApi.OperationResponseType) {
+                case "payment":
+                    return (payment as HorizonApi.PaymentOperationResponse).to === publicKey;
+                
+                case "path_payment_strict_receive":
+                    return (payment as HorizonApi.PathPaymentOperationResponse).to === publicKey;
+                
+                default:
+                    return false;
+            }
+        });
+
+        return incomingFunds;
     }
 
     async buildPaymentTransactionStream(publicKey: string) {
