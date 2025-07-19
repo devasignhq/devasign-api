@@ -34,7 +34,7 @@ COPY api ./api/
 # Install all dependencies (including dev dependencies for building)
 RUN npm ci
 
-# Generate Prisma client and build the application
+# Build the application
 RUN npm run build
 
 # Production stage
@@ -66,7 +66,7 @@ ENV PORT=8080
 ENV NODE_ENV=production
 
 # Health check for Cloud Run
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
   CMD node -e "require('http').get('http://localhost:8080/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"
 
 # Start the application
