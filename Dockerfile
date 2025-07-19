@@ -14,9 +14,6 @@ COPY prisma ./prisma/
 # Install dependencies
 RUN npm ci --only=production && npm cache clean --force
 
-# Generate Prisma client
-RUN npx prisma generate
-
 # Build stage
 FROM node:18-alpine AS builder
 
@@ -33,6 +30,9 @@ COPY api ./api/
 
 # Install all dependencies (including dev dependencies for building)
 RUN npm ci
+
+# Generate Prisma client (this creates api/generated/client)
+RUN npm run p-gen
 
 # Build the application
 RUN npm run build
@@ -53,6 +53,7 @@ WORKDIR /app
 COPY --from=base --chown=nodejs:nodejs /app/node_modules ./node_modules
 COPY --from=base --chown=nodejs:nodejs /app/prisma ./prisma
 COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
+COPY --from=builder --chown=nodejs:nodejs /app/api/generated ./dist/generated
 COPY --from=builder --chown=nodejs:nodejs /app/package*.json ./
 
 # Switch to non-root user
