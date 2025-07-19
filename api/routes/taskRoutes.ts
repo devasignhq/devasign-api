@@ -10,8 +10,6 @@ import {
     deleteTask,
     getTask,
     getTasks,
-    addTaskMessage,
-    updateTaskMessage,
     createManyTasks,
     submitTaskApplication,
     getTaskActivities,
@@ -25,8 +23,6 @@ import {
     createTaskValidator,
     updateTaskBountyValidator,
     requestTimelineExtensionValidator,
-    addTaskMessageValidator,
-    updateTaskMessageValidator,
     markAsCompleteValidator,
     validateCompletionValidator,
     deleteTaskValidator,
@@ -66,7 +62,3 @@ taskRoutes.post("/:id/validate", validateCompletionValidator, validateCompletion
 // Timeline
 taskRoutes.post("/:id/timeline", requestTimelineExtensionValidator, requestTimelineExtension as RequestHandler);
 taskRoutes.post("/:id/timeline/reply", replyTimelineModificationValidator, replyTimelineExtensionRequest as RequestHandler);
-
-// Messages
-taskRoutes.post("/:id/messages", addTaskMessageValidator, addTaskMessage as RequestHandler);
-taskRoutes.patch("/:id/messages/:messageId", updateTaskMessageValidator, updateTaskMessage as RequestHandler);

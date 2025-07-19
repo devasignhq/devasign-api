@@ -203,45 +203,6 @@ export const updateTaskTimelineValidator = [
         .withMessage('Invalid timeline type')
 ];
 
-export const addTaskMessageValidator = [
-    param('id')
-        .exists()
-        .withMessage('Task ID is required'),
-    body('body')
-        .exists()
-        .withMessage('Body is required')
-        .isString()
-        .withMessage('Body must be a string')
-        .trim()
-        .notEmpty()
-        .withMessage('Body cannot be empty'),
-    body('attachments')
-        .optional()
-        .isArray()
-        .withMessage('Attachments must be an array'),
-];
-
-export const updateTaskMessageValidator = [
-    param('id')
-        .exists()
-        .withMessage('Task ID is required'),
-    param('messageId')
-        .exists()
-        .withMessage('Message ID is required'),
-    body('body')
-        .exists()
-        .withMessage('Body is required')
-        .isString()
-        .withMessage('Body must be a string')
-        .trim()
-        .notEmpty()
-        .withMessage('Body cannot be empty'),
-    body('attachments')
-        .optional()
-        .isArray()
-        .withMessage('Attachments must be an array'),
-];
-
 export const markAsCompleteValidator = [
     param('id')
         .exists()
