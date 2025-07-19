@@ -16,7 +16,7 @@ import { ErrorClass } from './types/general';
 import { walletRoutes } from './routes/walletRoutes';
 
 const app = express();
-const port = process.env.PORT || 5000;
+const PORT = process.env.PORT || 8080;
 
 app.use(helmet());
 app.use(cors({
@@ -122,6 +122,6 @@ app.use(((error: any, req: Request, res: Response, next: NextFunction) => {
 
 prisma.$connect();
 
-app.listen(port, async () => {
-    console.log(`Server is running on port ${port}`);
+app.listen(Number(PORT), '0.0.0.0', () => {
+    console.log(`Server is running on port ${PORT}`);
 });
