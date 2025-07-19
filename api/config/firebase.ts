@@ -39,3 +39,4 @@ export const validateUser = async (req: Request, res: Response, next: NextFuncti
 }
 
 export const db = admin.firestore();
+export const auth = admin.auth();
