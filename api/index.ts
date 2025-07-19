@@ -77,6 +77,15 @@ app.get('/', (req: Request, res: Response) => {
     res.send('Hello, TypeScript Express Server!');
 });
 
+// Health check endpoint for Google Cloud Run
+app.get('/health', (req: Request, res: Response) => {
+    res.status(200).json({ 
+        status: 'healthy', 
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime()
+    });
+});
+
 app.use("/users", validateUser as RequestHandler, userRoutes);
 app.use("/installations", validateUser as RequestHandler, installationRoutes);
 app.use("/tasks", validateUser as RequestHandler, taskRoutes);
