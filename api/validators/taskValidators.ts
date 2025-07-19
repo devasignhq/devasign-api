@@ -46,6 +46,15 @@ export const getTasksValidator = [
         .withMessage('Sort field must be either asc or desc'),
 ];
 
+export const getInstallationTasksValidator = [
+    param('installationId')
+        .exists()
+        .withMessage('Installation ID is required'),
+
+    getTasksValidator[0],
+    ...getTasksValidator.slice(2),
+];
+
 export const createTaskValidator = [
     body('payload')
         .exists()

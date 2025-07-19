@@ -5,7 +5,7 @@ import { stellarService, usdcAssetId } from "../config/stellar";
 import { decrypt } from "../helper";
 import { MessageType, CreateTask, ErrorClass, NotFoundErrorClass } from "../types/general";
 import { HorizonApi } from "../types/horizonapi";
-import { TimelineType } from "../generated/client";
+import { Prisma, TaskStatus, TimelineType } from "../generated/client";
 
 type USDCBalance = HorizonApi.BalanceLineAsset<"credit_alphanum12">;
 
@@ -184,13 +184,10 @@ export const createManyTasks = async (req: Request, res: Response, next: NextFun
     }
 };
 
-// ? Add publishTaskToIssue route
-
 export const getTasks = async (req: Request, res: Response, next: NextFunction) => {
     const { 
-        status, 
         installationId,
-        role,  // 'creator' | 'contributor'
+        status, 
         detailed,
         page = 1,
         limit = 10,
@@ -199,28 +196,111 @@ export const getTasks = async (req: Request, res: Response, next: NextFunction) 
     const { userId, filters } = req.body;
 
     try {
-        // Build where clause based on filters
-        const where: any = {};
+        const where: Prisma.TaskWhereInput = {};
         
         if (status) {
-            where.status = status;
+            where.status = status as TaskStatus;
         }
         
         if (installationId) {
-            where.installationId = installationId;
-        }
-
-        if (userId && role) {
-            if (role === 'creator') {
-                where.creatorId = userId;
-            } else if (role === 'contributor') {
-                where.contributorId = userId;
-            }
+            where.installationId = installationId as string;
         }
 
         let selectRelations: any = {};
 
-        // TODO: Check user type (dev or pm). Also in getTask.
+        if (detailed) {
+            selectRelations = {
+                installation: {
+                    select: { account: true  }
+                },
+                creator: {
+                    select: {
+                        userId: true,
+                        username: true
+                    }
+                },
+                contributor: {
+                    select: {
+                        userId: true,
+                        username: true
+                    }
+                },
+            }
+        }
+
+        // Get total count for pagination
+        const totalTasks = await prisma.task.count({ where });
+        const totalPages = Math.ceil(totalTasks / Number(limit));
+        const skip = (Number(page) - 1) * Number(limit);
+
+        // Get tasks with pagination
+        const tasks = await prisma.task.findMany({
+            where,
+            select: {
+                id: true,
+                issue: true,
+                bounty: true,
+                timeline: true,
+                timelineType: true,
+                status: true,
+                settled: true,
+                acceptedAt: true,
+                completedAt: true,
+                contributorId: true,
+                creatorId: true,
+                createdAt: true,
+                updatedAt: true,
+                ...selectRelations
+            },
+            orderBy: {
+                createdAt: (sort as "asc" | "desc") || 'desc'
+            },
+            skip,
+            take: Number(limit)
+        });
+
+        res.status(200).json({
+            data: tasks,
+            pagination: {
+                currentPage: Number(page),
+                totalPages,
+                totalItems: totalTasks,
+                itemsPerPage: Number(limit),
+                hasMore: Number(page) < totalPages
+            }
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const getInstallationTasks = async (req: Request, res: Response, next: NextFunction) => {
+    const { 
+        status,
+        detailed,
+        page = 1,
+        limit = 10,
+        sort,
+    } = req.query;
+    const { installationId } = req.params;
+    const { userId, filters } = req.body;
+
+    try {
+        const where: Prisma.TaskWhereInput = {
+            installation: {
+                id: installationId,
+                users: {
+                    some: { userId: userId as string }
+                }
+            }
+        };
+        
+        if (status) {
+            where.status = status as TaskStatus;
+        }
+
+        let selectRelations: any = {};
+
         if (detailed) {
             selectRelations = {
                 installation: {
@@ -249,6 +329,7 @@ export const getTasks = async (req: Request, res: Response, next: NextFunction) 
                 },
                 taskSubmissions: {
                     select: {
+                        id: true,
                         pullRequest: true,
                         attachmentUrl: true
                     }
@@ -281,7 +362,7 @@ export const getTasks = async (req: Request, res: Response, next: NextFunction) 
                 ...selectRelations
             },
             orderBy: {
-                createdAt: (sort as "asc" | "desc") || 'desc'
+                createdAt: (sort as "asc" | "desc") || "desc"
             },
             skip,
             take: Number(limit)
@@ -334,6 +415,76 @@ export const getTask = async (req: Request, res: Response, next: NextFunction) =
                     select: {
                         userId: true,
                         username: true
+                    }
+                },
+                createdAt: true,
+                updatedAt: true
+            }
+        });
+
+        if (!task) {
+            throw new NotFoundErrorClass("Task not found");
+        }
+
+        res.status(200).json(task);
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const getInstallationTask = async (req: Request, res: Response, next: NextFunction) => {
+    const { id } = req.params;
+    const { userId } = req.body;
+
+    try {
+        const task = await prisma.task.findUnique({
+            where: { 
+                id,
+                installation: {
+                    users: {
+                        some: { userId: userId as string }
+                    }
+                }
+            },
+            select: {
+                id: true,
+                issue: true,
+                bounty: true,
+                timeline: true,
+                timelineType: true,
+                status: true,
+                settled: true,
+                acceptedAt: true,
+                completedAt: true,
+                installation: {
+                    select: {
+                        id: true,
+                        account: true
+                    }
+                },
+                creator: {
+                    select: {
+                        userId: true,
+                        username: true
+                    }
+                },
+                contributor: {
+                    select: {
+                        userId: true,
+                        username: true
+                    }
+                },
+                applications: {
+                    select: {
+                        userId: true,
+                        username: true
+                    }
+                },
+                taskSubmissions: {
+                    select: {
+                        id: true,
+                        pullRequest: true,
+                        attachmentUrl: true
                     }
                 },
                 createdAt: true,
