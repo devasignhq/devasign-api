@@ -86,12 +86,21 @@ app.get('/health', (req: Request, res: Response) => {
     });
 });
 
-app.use("/users", validateUser as RequestHandler, userRoutes);
-app.use("/installations", validateUser as RequestHandler, installationRoutes);
-app.use("/tasks", validateUser as RequestHandler, taskRoutes);
-app.use("/wallet", validateUser as RequestHandler, walletRoutes);
-app.use("/stellar", stellarRoutes);
-app.use("/test", testRoutes);
+const dynamicRoute = (req: Request, res: Response, next: NextFunction) => {
+    res.set({
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+    });
+    next();
+}
+
+app.use("/users", dynamicRoute, validateUser as RequestHandler, userRoutes);
+app.use("/installations", dynamicRoute, validateUser as RequestHandler, installationRoutes);
+app.use("/tasks", dynamicRoute, validateUser as RequestHandler, taskRoutes);
+app.use("/wallet", dynamicRoute, validateUser as RequestHandler, walletRoutes);
+app.use("/stellar", dynamicRoute, stellarRoutes);
+app.use("/test", dynamicRoute, testRoutes);
 
 app.use(((error: any, req: Request, res: Response, next: NextFunction) => {
     console.error('Error:', error);
