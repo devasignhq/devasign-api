@@ -21,7 +21,9 @@ import { ErrorClass } from "./types/general";
 import { walletRoutes } from "./routes/walletRoutes";
 
 const app = express();
-const PORT = process.env.PORT || 8080;
+const PORT = process.env.NODE_ENV === "development" 
+    ? 5000 
+    : (Number(process.env.PORT) || 8080);
 
 app.use(helmet());
 app.use(
@@ -168,6 +170,6 @@ app.use(((error: any, req: Request, res: Response, next: NextFunction) => {
 
 prisma.$connect();
 
-app.listen(Number(PORT), "0.0.0.0", () => {
+app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server is running on port ${PORT}`);
 });
