@@ -3,7 +3,7 @@ import { prisma } from "../config/database";
 import { messagesCollection, createMessage, updateMessage } from "../services/firebaseService";
 import { stellarService, usdcAssetId } from "../config/stellar";
 import { decrypt } from "../helper";
-import { MessageType, CreateTask, ErrorClass, NotFoundErrorClass } from "../types/general";
+import { MessageType, CreateTask, ErrorClass, NotFoundErrorClass, IssueLabel } from "../types/general";
 import { HorizonApi } from "../types/horizonapi";
 import { Prisma, TaskStatus, TimelineType } from "../generated/client";
 
@@ -206,6 +206,52 @@ export const getTasks = async (req: Request, res: Response, next: NextFunction) 
             where.installationId = installationId as string;
         }
 
+        // Apply filters if provided
+        if (filters) {
+            // Filter by repo URL
+            if (filters.repoUrl) {
+                where.issue = {
+                    path: ["repository_url"],
+                    string_contains: filters.repoUrl,
+                };
+            }
+    
+            // Filter by issue title
+            if (filters.issueTitle) {
+                where.issue = {
+                    ...where.issue,
+                    path: ["title"],
+                    string_contains: filters.issueTitle,
+                };
+            }
+    
+            // Filter by issue labels
+            if (filters.issueLabels && filters.issueLabels.length > 0) {
+                where.issue = {
+                    ...where.issue,
+                    path: ["labels"],
+                    array_contains: filters.issueLabels.map((label: IssueLabel) => ({ name: label })),
+                };
+            }
+    
+            // Filter by milestone
+            if (filters.issueMilestone) {
+                if (filters.issueMilestone === "none") {
+                    where.issue = {
+                        ...where.issue,
+                        path: ["milestone"],
+                        equals: Prisma.AnyNull,
+                    };
+                } else {
+                    where.issue = {
+                        ...where.issue,
+                        path: ["milestone", "title"],
+                        string_contains: filters.issueMilestone,
+                    };
+                }
+            }
+        }
+
         let selectRelations: any = {};
 
         if (detailed) {
@@ -297,6 +343,52 @@ export const getInstallationTasks = async (req: Request, res: Response, next: Ne
         
         if (status) {
             where.status = status as TaskStatus;
+        }
+
+        // Apply filters if provided
+        if (filters) {
+            // Filter by repo URL
+            if (filters.repoUrl) {
+                where.issue = {
+                    path: ["repository_url"],
+                    string_contains: filters.repoUrl,
+                };
+            }
+    
+            // Filter by issue title
+            if (filters.issueTitle) {
+                where.issue = {
+                    ...where.issue,
+                    path: ["title"],
+                    string_contains: filters.issueTitle,
+                };
+            }
+    
+            // Filter by issue labels
+            if (filters.issueLabels && filters.issueLabels.length > 0) {
+                where.issue = {
+                    ...where.issue,
+                    path: ["labels"],
+                    array_contains: filters.issueLabels.map((label: IssueLabel) => ({ name: label })),
+                };
+            }
+    
+            // Filter by milestone
+            if (filters.issueMilestone) {
+                if (filters.issueMilestone === "none") {
+                    where.issue = {
+                        ...where.issue,
+                        path: ["milestone"],
+                        equals: Prisma.AnyNull,
+                    };
+                } else {
+                    where.issue = {
+                        ...where.issue,
+                        path: ["milestone", "title"],
+                        string_contains: filters.issueMilestone,
+                    };
+                }
+            }
         }
 
         let selectRelations: any = {};

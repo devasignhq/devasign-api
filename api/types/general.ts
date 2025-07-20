@@ -83,6 +83,7 @@ export type Issue = {
     html_url: string;
     number: number;
     state: string;
+    labels: IssueLabel[];
     state_reason?: string | null;
     title: string;
     body?: string | null;
