@@ -237,8 +237,7 @@ export const createInstallation = async (req: Request, res: Response, next: Next
             
             res.status(201).json(installation);
         } catch (error: any) {
-            // Return installation data even if adding USDC trustline fails
-            next({ 
+            res.status(204).json({ 
                 error, 
                 installation, 
                 message: "Installation successfully created. Failed to add USDC trustlines."

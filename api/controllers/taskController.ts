@@ -1250,7 +1250,7 @@ export const validateCompletion = async (req: Request, res: Response, next: Next
             
             res.status(201).json(updatedTask);
         } catch (error: any) {
-            next({ 
+            res.status(204).json({ 
                 error, 
                 validated: true, 
                 task,
