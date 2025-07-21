@@ -7,7 +7,7 @@ import { AddressBook, ErrorClass, NotFoundErrorClass } from "../types/general";
 
 export const getUser = async (req: Request, res: Response, next: NextFunction) => {
     const { userId } = req.body;
-    const { view = "basic" } = req.query; // "basic" | "full" | "profile"
+    const { view = "basic", setWallet } = req.query; // view: "basic" | "full"
 
     try {
         // Base selection - always included
@@ -21,14 +21,14 @@ export const getUser = async (req: Request, res: Response, next: NextFunction) =
         };
 
         // Build select object based on view type
-        const selectObject: any = {
+        const selectObject = {
             ...baseSelect,
             _count: {
                 select: {
                     installations: true
                 }
             },
-            ...(view === "full" || view === "profile" ? {
+            ...(view === "full" ? {
                 contributionSummary: {
                     select: {
                         tasksCompleted: true,
@@ -39,42 +39,61 @@ export const getUser = async (req: Request, res: Response, next: NextFunction) =
             } : {})
         };
 
-        const user = await prisma.user.findUnique({
+        let user = await prisma.user.findUnique({
             where: { userId },
-            select: selectObject
+            select: selectObject,
         });
-
+    
         if (!user) {
             throw new NotFoundErrorClass("User not found");
         }
 
-        // Get Stellar balance only for full view
-        if (view === "full") {
+        const walletStatus = { wallet: false, usdcTrustline: false };
+    
+        if ((!user.walletAddress || user.walletAddress === "") && setWallet === "true") {
             try {
-                const accountInfo = await stellarService.getAccountInfo((user as any).walletAddress);
-                return res.status(200).json({
-                    ...user,
-                    assets: accountInfo.balances
+                const userWallet = await stellarService.createWallet();
+                const encryptedUserSecret = encrypt(userWallet.secretKey);
+        
+                // Update user with wallet information
+                const updatedUser = await prisma.user.update({
+                    where: { userId },
+                    data: {
+                        walletAddress: userWallet.publicKey,
+                        walletSecret: encryptedUserSecret,
+                    },
+                    select: selectObject,
                 });
-            } catch (error: any) {
-                // Return user data even if getting Stellar account info fails
-                next({
-                    error,
-                    user,
-                    message: "User found but failed to fetch Stellar account info"
-                });
+        
+                // Fund wallet and add trustline in background
+                try {
+                    await stellarService.fundWallet(userWallet.publicKey);
+                    await stellarService.addTrustLine(userWallet.secretKey);
+                    walletStatus.usdcTrustline = true;
+                } catch (walletError) {
+                    console.warn("Failed to fund wallet or add trustline:", walletError);
+                }
+        
+                user = updatedUser;
+                walletStatus.wallet = true;
+            } catch (walletCreationError) {
+                console.warn("Failed to create wallet for existing user:", walletCreationError);
             }
         }
-
+    
+        if (setWallet === "true") {
+            return res.status(200).json({ user, walletStatus });
+        }
+        
         res.status(200).json(user);
     } catch (error) {
         next(error);
     }
 };
 
-// TODO: Add route to create user wallet separately
 export const createUser = async (req: Request, res: Response, next: NextFunction) => {
     const { userId, gitHubUsername } = req.body;
+    const { skipWallet } = req.query;
 
     try {
         // Check if user already exists
@@ -85,7 +104,34 @@ export const createUser = async (req: Request, res: Response, next: NextFunction
         if (existingUser) {
             throw new ErrorClass("UserError", null, "User already exists");
         }
+
+        const select = {
+            userId: true,
+            username: true,
+            walletAddress: true,
+            contributionSummary: true,
+            createdAt: true,
+            updatedAt: true,
+        };
+
+        if (skipWallet === "true") {
+            const user = await prisma.user.create({
+                data: {
+                    userId,
+                    username: gitHubUsername,
+                    walletAddress: "",
+                    walletSecret: "",
+                    contributionSummary: {
+                        create: {},
+                    },
+                },
+                select,
+            });
         
+            return res.status(201).json(user);
+        }
+    
+        // Create wallet for contributor.devasign.com or when not skipping
         const userWallet = await stellarService.createWallet();
         const encryptedUserSecret = encrypt(userWallet.secretKey);
 
@@ -99,14 +145,7 @@ export const createUser = async (req: Request, res: Response, next: NextFunction
                     create: {}
                 }
             },
-            select: {
-                userId: true,
-                username: true,
-                walletAddress: true,
-                contributionSummary: true,
-                createdAt: true,
-                updatedAt: true,
-            }
+            select,
         });
 
         try {
@@ -115,7 +154,7 @@ export const createUser = async (req: Request, res: Response, next: NextFunction
             
             res.status(201).json(user);
         } catch (error: any) {
-            next({ 
+            res.status(204).json({ 
                 error, 
                 user, 
                 message: "User successfully created. Failed to fund wallet/add USDC trustline."
