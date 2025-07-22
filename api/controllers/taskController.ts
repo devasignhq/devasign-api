@@ -1,11 +1,12 @@
 import { NextFunction, Request, Response } from "express";
 import { prisma } from "../config/database";
-import { messagesCollection, createMessage, updateMessage } from "../services/firebaseService";
+import { createMessage } from "../services/firebaseService";
 import { stellarService, usdcAssetId } from "../config/stellar";
 import { decrypt } from "../helper";
-import { MessageType, CreateTask, ErrorClass, NotFoundErrorClass, IssueLabel } from "../types/general";
+import { MessageType, CreateTask, ErrorClass, NotFoundErrorClass } from "../types/general";
 import { HorizonApi } from "../types/horizonapi";
 import { Prisma, TaskStatus, TimelineType } from "../generated/client";
+import { IssueLabel } from "../types/github";
 
 type USDCBalance = HorizonApi.BalanceLineAsset<"credit_alphanum12">;
 

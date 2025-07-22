@@ -1,15 +1,5 @@
-// Enums
-export enum TaskStatus {
-    OPEN = "OPEN",
-    IN_PROGRESS = "IN_PROGRESS",
-    MARKED_AS_COMPLETED = "MARKED_AS_COMPLETED",
-    COMPLETED = "COMPLETED"
-}
-
-export enum TimelineType {
-    WEEK = "WEEK",
-    DAY = "DAY"
-}
+import { TimelineType } from "../generated/client";
+import { IssueDto } from "./github";
 
 export enum MessageType {
     GENERAL = 'GENERAL',
@@ -21,109 +11,18 @@ export type AddressBook = {
     address: string;
 }
 
-export type User = {
-    userId: string;
-    username: string;
-    walletAddress?: string;
-    walletSecret?: string;
-    balance: number;
-    contributionSummary?: ContributionSummary;
-    createdTasks: Task[];
-    contributedTasks: Task[];
-    installations: Installation[];
-    addressBook: AddressBook[];
-    createdAt: Date;
-    updatedAt: Date;
-}
-
-export type ContributionSummary = {
-    id: string;
-    tasksTaken: number;
-    tasksCompleted: number;
-    averageRating: number;
-    totalEarnings: number;
-    userId: string;
-    user: User;
-}
-
-export type Installation = {
-    id: string;
-    htmlUrl: string;
-    targetId: number;
-    targetType: string;
-    account: { 
-        login: string; 
-        nodeId: string; 
-        avatarUrl: string; 
-        htmlUrl: string;
-    }
-    escrowAddress?: string;
-    escrowSecret?: string;
-    tasks: Task[];
-    users: User[];
-    createdAt: Date;
-    updatedAt: Date;
-}
-
-export type IssueLabel = {
-    id: number;
-    node_id: string;
-    url: string;
-    name: string;
-    description: string | null;
-    color: string;
-    default: boolean;
-}
-
-export type Issue = {
-    id: number;
-    node_id: string;
-    url: string;
-    repository_url: string;
-    html_url: string;
-    number: number;
-    state: string;
-    labels: IssueLabel[];
-    state_reason?: string | null;
-    title: string;
-    body?: string | null;
-}
-
-export type Task = {
-    id: string;
-    creatorId: string;
-    contributorId?: string;    
-    installation: Installation;
-    installationId: string;
-    issue: Issue;
-    timeline?: number;
-    timelineType?: TimelineType;
-    bounty: number;
-    acceptedAt?: Date;
-    completedAt?: Date;
-    status: TaskStatus;
-    settled: boolean;
-    pullRequests: string[];
-    creator: User;
-    contributor?: User;
-    createdAt: Date;
-    updatedAt: Date;
+export type TaskIssue = Pick<IssueDto, "id" | "number" | "title" | "url" | "labels" | "locked" | "state" | "repository_url" | "created_at" | "updated_at"> & {
+    html_url?: string;
+    body?: string;
+    bountyCommentId?: number;
 }
 
 export type CreateTask = {
-    repoUrl: string;
     installationId: string;
-    issue: Issue;
+    issue: TaskIssue;
     timeline?: number;
     timelineType?: TimelineType;
     bounty: string;
-}
-
-export class IssueFilters {
-    labels?: string[];
-    milestone?: string | "none" | "*";
-    sort?: "created" | "updated" | "comments" = "created";
-    direction?: "asc" | "desc" = "desc";
 }
 
 export type FilterTasks = {
@@ -131,6 +30,13 @@ export type FilterTasks = {
     issueTitle?: string;
     issueLabels?: string[];
     issueMilestone?: string;
+}
+
+export class IssueFilters {
+    labels?: string[];
+    milestone?: string | "none" | "*";
+    sort?: "created" | "updated" | "comments" = "created";
+    direction?: "asc" | "desc" = "desc";
 }
 
 export type MessageMetadata = {

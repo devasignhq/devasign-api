@@ -1,6 +1,5 @@
 import { NextFunction, Request, Response } from "express";
 import { prisma } from "../config/database";
-import { checkGithubUser, sendInvitation } from "../services/githubService";
 import { ErrorClass, NotFoundErrorClass } from "../types/general";
 import { stellarService, usdcAssetId } from "../config/stellar";
 import { decrypt, encrypt } from "../helper";
@@ -435,12 +434,12 @@ export const addTeamMember = async (req: Request, res: Response, next: NextFunct
 
             result = { username, status: "added" };
         } else {
-            const githubUserExists = await checkGithubUser(username);            
-            if (githubUserExists) {
-                // Send invitation
-                await sendInvitation(username, email);
-                result = { username, status: "invited" };
-            }
+            // const githubUserExists = await checkGithubUser(username);            
+            // if (githubUserExists) {
+            //     // Send invitation
+            //     await sendInvitation(username, email);
+            //     result = { username, status: "invited" };
+            // }
 
             result = { username, status: "not_found" };
         }

@@ -1,5 +1,6 @@
 import { body, query, param } from 'express-validator';
-import { CreateTask, TimelineType } from '../types/general';
+import { CreateTask } from '../types/general';
+import { TimelineType } from '../generated/client';
 
 export const getTasksValidator = [
     query('status')
