@@ -33,6 +33,7 @@ export type FilterTasks = {
 }
 
 export class IssueFilters {
+    title?: string;
     labels?: string[];
     milestone?: string | "none" | "*";
     sort?: "created" | "updated" | "comments" = "created";

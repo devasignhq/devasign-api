@@ -113,13 +113,6 @@ export type GitHubUser = {
     starred_at?: string | undefined;
 }
 
-export class IssueFilters {
-    labels?: string[];
-    milestone?: string | "none" | "*";
-    sort?: "created" | "updated" | "comments" = "created";
-    direction?: "asc" | "desc" = "desc";
-}
-
 export type InstallationOctokit = Octokit & {
     paginate: import("@octokit/plugin-paginate-rest").PaginateInterface;
 } & import("@octokit/plugin-paginate-graphql").paginateGraphQLInterface & import("@octokit/plugin-rest-endpoint-methods").Api & {

@@ -24,22 +24,6 @@ export class GitHubService {
     }
 
     /**
-     * Validate installation access for a user
-     */
-    static async validateInstallationAccess(installationId: string): Promise<boolean> {
-        try {
-            const octokit = await this.getOctokit(installationId);
-            // Get installation details to verify access
-            const installation = await octokit.rest.apps.getInstallation({
-                installation_id: Number(installationId)
-            });
-            return installation.status === 200;
-        } catch {
-            return false;
-        }
-    }
-
-    /**
      * Get repositories for an installation
      */
     static async getInstallationRepositories(installationId: string) {
@@ -109,12 +93,20 @@ export class GitHubService {
 
         let queryString = `repo:${owner}/${repo} is:issue is:open`;
 
+        if (filters?.title) {
+            queryString += ` "${filters.title}" in:title`;
+        }
+
         if (filters?.labels?.length) {
             queryString += ` ${filters.labels.map(label => `label:"${label}"`).join(' ')}`;
         }
 
         if (filters?.milestone) {
             queryString += ` milestone:"${filters.milestone}"`;
+        }
+
+        if (filters?.sort && filters?.direction) {
+            queryString += ` sort:"${filters.sort}-${filters.direction}"`;
         }
 
         queryString += ` -label:"💵 Bounty"`;
