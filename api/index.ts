@@ -19,6 +19,7 @@ import { stellarRoutes } from "./routes/stellarRoutes";
 import { testRoutes } from "./routes/testRoutes";
 import { ErrorClass } from "./types/general";
 import { walletRoutes } from "./routes/walletRoutes";
+import { githubRoutes } from "./routes/githubRoutes";
 
 const app = express();
 const PORT = process.env.NODE_ENV === "development" 
@@ -137,6 +138,12 @@ app.use(
     dynamicRoute, 
     validateUser as RequestHandler, 
     walletRoutes
+);
+app.use(
+    "/github", 
+    dynamicRoute, 
+    validateUser as RequestHandler, 
+    githubRoutes
 );
 app.use("/stellar", dynamicRoute, stellarRoutes);
 app.use("/test", dynamicRoute, testRoutes);
