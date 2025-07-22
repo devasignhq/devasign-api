@@ -1,185 +1,279 @@
-import axios from "axios";
-import { Octokit } from "@octokit/rest";
-import { ErrorClass, IssueFilters } from "../types/general";
+import { App } from "octokit";
+import { IssueFilters } from "../types/general";
+import { InstallationOctokit, GraphqlIssueDto } from "../types/github";
 
-// Helper function to send invitation email
-export async function sendInvitation(username: string, email: string) {
-    // TODO: Implement email service integration
-    console.log(`Invitation sent to ${username} for installation ${email}`);
-};
+export class GitHubService {
+    private static githubApp = new App({
+        appId: process.env.GITHUB_APP_ID!,
+        privateKey: process.env.GITHUB_APP_PRIVATE_KEY!
+    });
 
-// Helper function to check if GitHub user exists
-export async function checkGithubUser(username: string): Promise<boolean> {
-    const octokit = new Octokit({ auth: process.env.GITHUB_ACCESS_TOKEN });
-
-    try {
-        const response = await octokit.rest.users.getByUsername({
-            username,
-        });
-
-        return response.status === 200;
-    } catch (error) {
-        throw new ErrorClass(
-            "OctakitError",
-            error,
-            `Failed to check GitHub user ${username}`
-        );
+    /**
+     * Get Octokit instance for a specific installation
+     */
+    private static async getOctokit(installationId: string): Promise<InstallationOctokit> {
+        return await this.githubApp.getInstallationOctokit(Number(installationId));
     }
-};
 
-// Extract owner and repo from GitHub URL
-// Example URL: https://github.com/owner/repo
-function getOwnerAndRepo(repoUrl: string) {
-    const [owner, repo] = repoUrl
-        .split("https://github.com/")[1]
-        .split("/");
+    /**
+     * Extract owner and repo from GitHub URL
+     */
+    private static getOwnerAndRepo(repoUrl: string): [string, string] {
+        const [owner, repo] = repoUrl.split("/").slice(-2);
+        return [owner, repo];
+    }
 
-    return [owner, repo];
-}
+    /**
+     * Validate installation access for a user
+     */
+    static async validateInstallationAccess(installationId: string): Promise<boolean> {
+        try {
+            const octokit = await this.getOctokit(installationId);
+            // Get installation details to verify access
+            const installation = await octokit.rest.apps.getInstallation({
+                installation_id: Number(installationId)
+            });
+            return installation.status === 200;
+        } catch {
+            return false;
+        }
+    }
 
-export async function getRepoDetails(repoUrl: string, githubToken: string) {
-    const octokit = new Octokit({ auth: githubToken });
-    const [owner, repo] = getOwnerAndRepo(repoUrl);
+    /**
+     * Get repositories for an installation
+     */
+    static async getInstallationRepositories(installationId: string) {
+        const octokit = await this.getOctokit(installationId);
 
-    try {
-        const response = await octokit.repos.get({
+        const response = await octokit.request("GET /installation/repositories");
+        return response.data.repositories;
+    }
+
+    /**
+     * Get installation details from GitHub
+     */
+    static async getInstallationDetails(installationId: string) {
+        const octokit = await this.getOctokit(installationId);
+
+        const response = await octokit.request(
+            "GET /app/installations/{installation_id}",
+            { installation_id: Number(installationId) }
+        );
+
+        return response.data;
+    }
+
+    /**
+     * Check if GitHub user exists
+     */
+    static async checkGithubUser(username: string, installationId: string): Promise<boolean> {
+        const octokit = await this.getOctokit(installationId);
+
+        try {
+            const response = await octokit.rest.users.getByUsername({
+                username,
+            });
+            return response.status === 200;
+        } catch {
+            return false;
+        }
+    }
+
+    /**
+     * Get repository details
+     */
+    static async getRepoDetails(repoUrl: string, installationId: string) {
+        const octokit = await this.getOctokit(installationId);
+        const [owner, repo] = this.getOwnerAndRepo(repoUrl);
+
+        const response = await octokit.rest.repos.get({
             owner,
             repo,
         });
 
         return response.data;
-    } catch (error) {
-        throw new ErrorClass(
-            "OctakitError",
-            error,
-            "Failed to fetch repository details"
-        );
     }
-};
 
-export async function getRepoIssues(
-    repoUrl: string,
-    githubToken: string,
-    page: number = 1,
-    perPage: number = 10,
-    filters?: IssueFilters
-) {
-    const octokit = new Octokit({ auth: githubToken });
-    const [owner, repo] = getOwnerAndRepo(repoUrl);
+    /**
+     * Get repository issues with search functionality
+     */
+    static async getRepoIssuesWithSearch(
+        repoUrl: string,
+        installationId: string,
+        filters?: IssueFilters,
+        page = 1,
+        perPage = 30,
+    ) {
+        const octokit = await this.getOctokit(installationId);
+        const [owner, repo] = this.getOwnerAndRepo(repoUrl);
 
-    try {
-        const response = await octokit.issues.listForRepo({
-            owner,
-            repo,
-            state: "open",
-            per_page: perPage,
-            page,
-            ...filters,
-            labels: filters?.labels?.join(','),
-            milestone: filters?.milestone
-        });
+        let queryString = `repo:${owner}/${repo} is:issue is:open`;
 
-        const issues = response.data.filter(issue => issue.pull_request === null);
+        if (filters?.labels?.length) {
+            queryString += ` ${filters.labels.map(label => `label:"${label}"`).join(' ')}`;
+        }
 
-        return issues;
-    } catch (error) {
-        throw new ErrorClass(
-            "OctakitError",
-            error,
-            "Failed to fetch repository issues"
-        );
+        if (filters?.milestone) {
+            queryString += ` milestone:"${filters.milestone}"`;
+        }
+
+        queryString += ` -label:"💵 Bounty"`;
+
+        const after = page > 1 ? `after: "${btoa(`cursor:${(page - 1) * perPage}`)}",` : '';
+
+        const query = `
+            query($queryString: String!) {
+                search(
+                    query: $queryString,
+                    type: ISSUE,
+                    first: ${perPage},
+                    ${after}
+                ) {
+                    nodes {
+                        ... on Issue {
+                            id
+                            number
+                            title
+                            body
+                            url
+                            locked
+                            state
+                            createdAt
+                            updatedAt
+                            labels(first: 20) {
+                                nodes {
+                                    id
+                                    name
+                                    color
+                                    description
+                                }
+                            }
+                            repository {
+                                url
+                            }
+                        }
+                    }
+                    pageInfo {
+                        hasNextPage
+                        hasPreviousPage
+                        startCursor
+                        endCursor
+                    }
+                    issueCount
+                }
+            }
+        `;
+
+        const response = await octokit.graphql(query, { queryString });
+        return {
+            issues: (response as any)?.search?.nodes as GraphqlIssueDto[],
+            hasMore: (response as any)?.search?.pageInfo?.hasNextPage as boolean
+        };
     }
-};
 
-export async function getRepoIssue(
-    repoUrl: string,
-    githubToken: string,
-    issueNumber: number
-) {
-    const octokit = new Octokit({ auth: githubToken });
-    const [owner, repo] = getOwnerAndRepo(repoUrl);
+    /**
+     * Get single repository issue
+     */
+    static async getRepoIssue(
+        repoUrl: string,
+        installationId: string,
+        issueNumber: number
+    ) {
+        const octokit = await this.getOctokit(installationId);
+        const [owner, repo] = this.getOwnerAndRepo(repoUrl);
 
-    try {
-        const response = await octokit.issues.get({
+        const response = await octokit.rest.issues.get({
             owner,
             repo,
             issue_number: issueNumber,
         });
 
         return response.data;
-    } catch (error) {
-        throw new ErrorClass(
-            "OctakitError",
-            error,
-            `Failed to fetch issue number ${issueNumber}`
-        );
     }
-};
 
-export async function updateRepoIssue(
-    repoUrl: string,
-    githubToken: string,
-    issueNumber: number,
-    title?: string,
-    body?: string,
-    labels?: string[],
-    assignees?: string[],
-    state?: "open" | "closed",
-    state_reason?: string,
-) {
-    const octokit = new Octokit({ auth: githubToken });
-    const [owner, repo] = getOwnerAndRepo(repoUrl);
+    /**
+     * Update repository issue
+     */
+    static async updateRepoIssue(
+        repoUrl: string,
+        installationId: string,
+        issueNumber: number,
+        body?: string,
+        labels?: string[],
+        assignees?: string[],
+        state?: "open" | "closed",
+    ) {
+        const octokit = await this.getOctokit(installationId);
+        const [owner, repo] = this.getOwnerAndRepo(repoUrl);
 
-    try {
-        const response = await octokit.issues.update({
+        const response = await octokit.rest.issues.update({
             owner,
             repo,
             issue_number: issueNumber,
-            title,
             body,
             state,
-            state_reason,
             labels,
             assignees
         });
 
         return response.data;
-    } catch (error) {
-        throw new ErrorClass(
-            "OctakitError",
-            error,
-            `Failed to fetch issue number ${issueNumber}`
-        );
     }
-};
 
-export async function getRepoLabels(repoUrl: string, githubToken: string) {
-    const octokit = new Octokit({ auth: githubToken });
-    const [owner, repo] = getOwnerAndRepo(repoUrl);
+    /**
+     * Get repository labels and milestones
+     */
+    static async getRepoLabelsAndMilestones(repoUrl: string, installationId: string) {
+        const octokit = await this.getOctokit(installationId);
+        const [owner, repo] = this.getOwnerAndRepo(repoUrl);
 
-    try {
-        const response = await octokit.issues.listLabelsForRepo({
+        const query = `
+            query GetRepoLabelsAndMilestones($owner: String!, $name: String!) {
+                repository(owner: $owner, name: $name) {
+                    labels(first: 100) {
+                        nodes {
+                            id
+                            name
+                            color
+                        }
+                        pageInfo {
+                            hasNextPage
+                            endCursor
+                        }
+                    }
+                    milestones(first: 100, states: [OPEN], orderBy: {field: DUE_DATE, direction: ASC}) {
+                        nodes {
+                            id
+                            number
+                            title
+                        }
+                        pageInfo {
+                            hasNextPage
+                            endCursor
+                        }
+                    }
+                }
+            }
+        `;
+
+        const response = await octokit.graphql(query, {
             owner,
-            repo,
-            per_page: 100,
+            name: repo,
         });
 
-        return response.data;
-    } catch (error) {
-        throw new ErrorClass(
-            "OctakitError",
-            error,
-            "Failed to fetch repository labels"
-        );
+        return {
+            labels: (response as any).repository.labels.nodes,
+            milestones: (response as any).repository.milestones.nodes,
+        };
     }
-};
 
-export async function createBountyLabel(repoUrl: string, githubToken: string) {
-    const octokit = new Octokit({ auth: githubToken });
-    const [owner, repo] = getOwnerAndRepo(repoUrl);
+    /**
+     * Create bounty label
+     */
+    static async createBountyLabel(repoUrl: string, installationId: string) {
+        const octokit = await this.getOctokit(installationId);
+        const [owner, repo] = this.getOwnerAndRepo(repoUrl);
 
-    try {
-        const response = await octokit.issues.createLabel({
+        const response = await octokit.rest.issues.createLabel({
             owner,
             repo,
             name: "💵 Bounty",
@@ -188,56 +282,139 @@ export async function createBountyLabel(repoUrl: string, githubToken: string) {
         });
 
         return response.data;
-    } catch (error) {
-        throw new ErrorClass(
-            "OctakitError",
-            error,
-            "Failed to create bounty label"
-        );
     }
-};
 
-export async function getBountyLabel(repoUrl: string, githubToken: string) {
-    const octokit = new Octokit({ auth: githubToken });
-    const [owner, repo] = getOwnerAndRepo(repoUrl);
+    /**
+     * Get bounty label
+     */
+    static async getBountyLabel(repoUrl: string, installationId: string) {
+        const octokit = await this.getOctokit(installationId);
+        const [owner, repo] = this.getOwnerAndRepo(repoUrl);
 
-    try {
-        const response = await octokit.issues.getLabel({
+        const response = await octokit.rest.issues.getLabel({
             owner,
             repo,
             name: "💵 Bounty",
         });
 
         return response.data;
-    } catch (error) {
-        throw new ErrorClass(
-            "OctakitError",
-            error,
-            "Failed to get bounty label"
-        );
     }
-};
 
-export async function getRepoMilestones(repoUrl: string, githubToken: string) {
-    const octokit = new Octokit({ auth: githubToken });
-    const [owner, repo] = getOwnerAndRepo(repoUrl);
+    /**
+     * Add bounty label and create bounty comment
+     */
+    static async addBountyLabelAndCreateComment(
+        installationId: string,
+        issueId: number,
+        bountyLabelId: number,
+        body: string
+    ) {
+        const octokit = await this.getOctokit(installationId);
 
-    try {
-        const response = await octokit.issues.listMilestones({
+        const mutation = `
+            mutation AddLabelAndCreateComment($issueId: ID!, $labelIds: [ID!]!, $body: String!) {
+                addLabelsToLabelable(input: {labelableId: $issueId, labelIds: $labelIds}) {
+                    labelable {
+                        ... on Issue {
+                            id
+                            labels(first: 100) {
+                                nodes {
+                                    id
+                                    name
+                                    color
+                                }
+                            }
+                        }
+                    }
+                }
+                addComment(input: {subjectId: $issueId, body: $body}) {
+                    commentEdge {
+                        node {
+                            id
+                            body
+                            createdAt
+                            author {
+                                login
+                            }
+                        }
+                    }
+                }
+            }
+        `;
+
+        const response = await octokit.graphql(mutation, {
+            issueId,
+            labelIds: [bountyLabelId],
+            body,
+        });
+
+        return {
+            labels: (response as any).addLabelsToLabelable.labelable.labels.nodes,
+            comment: (response as any).addComment.commentEdge.node,
+        };
+    }
+
+    /**
+     * Update issue comment
+     */
+    static async updateIssueComment(
+        repoUrl: string,
+        installationId: string,
+        commentId: number,
+        body: string
+    ) {
+        const octokit = await this.getOctokit(installationId);
+        const [owner, repo] = this.getOwnerAndRepo(repoUrl);
+
+        const response = await octokit.rest.issues.updateComment({
             owner,
             repo,
-            state: "open",
-            per_page: 100,
-            sort: "due_on",
-            direction: "asc"
+            comment_id: commentId,
+            body,
         });
 
         return response.data;
-    } catch (error) {
-        throw new ErrorClass(
-            "OctakitError",
-            error,
-            "Failed to fetch repository milestones"
-        );
+    }
+
+    /**
+     * Remove bounty label and delete bounty comment
+     */
+    static async removeBountyLabelAndDeleteComment(
+        installationId: string,
+        issueId: number,
+        bountyLabelId: number,
+        commentId: string
+    ) {
+        const octokit = await this.getOctokit(installationId);
+    
+        const mutation = `
+            mutation RemoveLabelAndDeleteComment($issueId: ID!, $labelIds: [ID!]!, $commentId: ID!) {
+                removeLabelsFromLabelable(input: {labelableId: $issueId, labelIds: $labelIds}) {
+                    labelable {
+                        ... on Issue {
+                            id
+                            labels(first: 100) {
+                                nodes {
+                                    id
+                                    name
+                                    color
+                                }
+                            }
+                        }
+                    }
+                }
+                deleteIssueComment(input: {id: $commentId}) {
+                    clientMutationId
+                }
+            }
+        `;
+    
+        await octokit.graphql(mutation, {
+            issueId,
+            labelIds: [bountyLabelId],
+            commentId,
+        });
+    
+        return "SUCCESS";
     }
 }
