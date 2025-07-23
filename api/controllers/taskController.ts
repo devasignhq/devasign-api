@@ -3,7 +3,7 @@ import { prisma } from "../config/database";
 import { createMessage } from "../services/firebaseService";
 import { stellarService, usdcAssetId } from "../config/stellar";
 import { decrypt } from "../helper";
-import { MessageType, CreateTask, ErrorClass, NotFoundErrorClass } from "../types/general";
+import { MessageType, CreateTask, ErrorClass, NotFoundErrorClass, TaskIssue } from "../types/general";
 import { HorizonApi } from "../types/horizonapi";
 import { Prisma, TaskStatus, TimelineType } from "../generated/client";
 import { IssueLabel } from "../types/github";
@@ -114,8 +114,6 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
                 message: "Failed to either create bounty comment or add bounty label."
             });
         }
-
-        res.status(201).json(task);
     } catch (error) {
         next(error);
     }
@@ -662,16 +660,17 @@ export const addBountyCommentId = async (req: Request, res: Response, next: Next
 };
 
 export const updateTaskBounty = async (req: Request, res: Response, next: NextFunction) => {
-    const { id } = req.params;
+    const { id: taskId } = req.params;
     const { userId, newBounty } = req.body;
 
     try {
         const task = await prisma.task.findUnique({ 
-            where: { id },
+            where: { id: taskId },
             select: { 
                 status: true, 
                 bounty: true,
                 installationId: true,
+                issue: true,
                 creatorId: true,
                 installation: {
                     select: {
@@ -733,7 +732,7 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
 
         // Update task bounty
         const updatedTask = await prisma.task.update({
-            where: { id },
+            where: { id: taskId },
             data: { bounty: parseFloat(newBounty) },
             select: {
                 bounty: true,
@@ -741,7 +740,22 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
             }
         });
 
-        res.status(200).json(updatedTask);
+        try {
+            await GitHubService.updateIssueComment(
+                (task.issue as TaskIssue).repository_url,
+                task.installationId,
+                (task.issue as TaskIssue).bountyCommentId!,
+                GitHubService.customBountyMessage(newBounty as string, taskId),
+            );
+
+            res.status(200).json(updatedTask);
+        } catch (error: any) {
+            res.status(202).json({ 
+                error, 
+                task,
+                message: "Failed to updated bounty amount on GitHub."
+            });
+        }
     } catch (error) {
         next(error);
     }
