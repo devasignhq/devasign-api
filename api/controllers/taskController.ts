@@ -15,8 +15,6 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
     const payload = data as CreateTask;
 
     try {
-        // TODO: Check for neccessary permissions
-
         const installation = await prisma.installation.findUnique({
             where: { id: payload.installationId },
             select: { 
@@ -1251,11 +1249,11 @@ export const validateCompletion = async (req: Request, res: Response, next: Next
             
             res.status(201).json(updatedTask);
         } catch (error: any) {
-            res.status(204).json({ 
+            res.status(202).json({ 
                 error, 
                 validated: true, 
                 task,
-                message: "Validation complete. Failed to update contribution summary."
+                message: "Failed to update the developer contribution summary."
             });
         }
     } catch (error) {

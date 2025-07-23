@@ -225,10 +225,12 @@ export const createInstallation = async (req: Request, res: Response, next: Next
         });
 
         try {
+            // Add trustline for installation wallet
             await stellarService.addTrustLineViaSponsor(
                 decryptedUserSecret,
                 installationWallet.secretKey
             );
+            // Add trustline for installation escrow wallet
             await stellarService.addTrustLineViaSponsor(
                 decryptedUserSecret,
                 escrowWallet.secretKey
@@ -236,10 +238,10 @@ export const createInstallation = async (req: Request, res: Response, next: Next
             
             res.status(201).json(installation);
         } catch (error: any) {
-            res.status(204).json({ 
+            res.status(202).json({ 
                 error, 
                 installation, 
-                message: "Installation successfully created. Failed to add USDC trustlines."
+                message: "Failed to add USDC trustlines."
             });
         }
     } catch (error) {

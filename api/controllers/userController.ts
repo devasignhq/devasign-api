@@ -154,10 +154,10 @@ export const createUser = async (req: Request, res: Response, next: NextFunction
             
             res.status(201).json(user);
         } catch (error: any) {
-            res.status(204).json({ 
+            res.status(202).json({ 
                 error, 
                 user, 
-                message: "User successfully created. Failed to fund wallet/add USDC trustline."
+                message: "Failed to fund wallet/add USDC trustline."
             });
         }
     } catch (error) {
