@@ -23,6 +23,7 @@ export type CreateTask = {
     timeline?: number;
     timelineType?: TimelineType;
     bounty: string;
+    bountyLabelId: number;
 }
 
 export type FilterTasks = {

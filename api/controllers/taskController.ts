@@ -7,6 +7,7 @@ import { MessageType, CreateTask, ErrorClass, NotFoundErrorClass } from "../type
 import { HorizonApi } from "../types/horizonapi";
 import { Prisma, TaskStatus, TimelineType } from "../generated/client";
 import { IssueLabel } from "../types/github";
+import { GitHubService } from "../services/githubService";
 
 type USDCBalance = HorizonApi.BalanceLineAsset<"credit_alphanum12">;
 
@@ -64,7 +65,7 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
             payload.bounty,
         );
 
-        const { installationId, ...others } = payload;
+        const { installationId, bountyLabelId, ...others } = payload;
 
         if (others.timeline && others.timelineType && others.timelineType === "DAY" && others.timeline > 6) {
             const weeks = Math.floor(others.timeline / 7);
@@ -85,6 +86,34 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
                 }
             }
         });
+
+        try {
+            const bountyComment = await GitHubService.addBountyLabelAndCreateBountyComment(
+                installationId,
+                others.issue.id,
+                bountyLabelId,
+                GitHubService.customBountyMessage(others.bounty, task.id),
+            );
+
+            const updatedTask = await prisma.task.update({
+                where: { id: task.id },
+                data: { 
+                    issue: { 
+                        ...(typeof task.issue === "object" && task.issue !== null ? task.issue : {}), 
+                        bountyCommentId: bountyComment.id 
+                    }
+                },
+                select: { issue: true }
+            });
+
+            res.status(201).json({ ...task, ...updatedTask });
+        } catch (error: any) {
+            res.status(202).json({ 
+                error, 
+                task,
+                message: "Failed to either create bounty comment or add bounty label."
+            });
+        }
 
         res.status(201).json(task);
     } catch (error) {

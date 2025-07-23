@@ -1,12 +1,25 @@
 import { App } from "octokit";
 import { IssueFilters } from "../types/general";
 import { InstallationOctokit, GraphqlIssueDto, IssueLabel, IssueMilestone } from "../types/github";
+import { moneyFormat } from "../helper";
+
+const commentCTA = process.env.CONTRIBUTOR_APP_URL! + "/application";
 
 export class GitHubService {
     private static githubApp = new App({
         appId: process.env.GITHUB_APP_ID!,
         privateKey: process.env.GITHUB_APP_PRIVATE_KEY!
     });
+
+    public static customBountyMessage = (bounty: string, taskId: string) => {
+        return `\n\n\n## 💵 ${moneyFormat(bounty)} USDC Bounty\n\n### Steps to solve:\n1. 
+        **Accept task**: Follow the CTA and apply to solve this issue.\n2. **Submit work**: 
+        If your application was accepted, you'll be required to submit the link to your pull 
+        request and an optional link to a reference that will give more credibility to the 
+        work done.\n3. **Receive payment**: When your pull request is approved, 100% of the 
+        bounty is instantly transferred to your wallet.\n\n**To work on this task, 
+        [Apply here](${commentCTA}?taskId=${taskId})**` 
+     }
 
     /**
      * Get Octokit instance for a specific installation
@@ -295,7 +308,7 @@ export class GitHubService {
     /**
      * Add bounty label and create bounty comment
      */
-    static async addBountyLabelAndCreateComment(
+    static async addBountyLabelAndCreateBountyComment(
         installationId: string,
         issueId: number,
         bountyLabelId: number,
@@ -306,18 +319,7 @@ export class GitHubService {
         const mutation = `
             mutation AddLabelAndCreateComment($issueId: ID!, $labelIds: [ID!]!, $body: String!) {
                 addLabelsToLabelable(input: {labelableId: $issueId, labelIds: $labelIds}) {
-                    labelable {
-                        ... on Issue {
-                            id
-                            labels(first: 100) {
-                                nodes {
-                                    id
-                                    name
-                                    color
-                                }
-                            }
-                        }
-                    }
+                    clientMutationId
                 }
                 addComment(input: {subjectId: $issueId, body: $body}) {
                     commentEdge {
@@ -340,10 +342,7 @@ export class GitHubService {
             body,
         });
 
-        return {
-            labels: (response as any).addLabelsToLabelable.labelable.labels.nodes,
-            comment: (response as any).addComment.commentEdge.node,
-        };
+        return (response as any).addComment.commentEdge.node;
     }
 
     /**
