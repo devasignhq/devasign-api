@@ -1375,6 +1375,7 @@ export const getTaskActivities = async (req: Request, res: Response, next: NextF
 export const deleteTask = async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;
     const { userId } = req.body;
+    const { bountyLabelId } = req.query;
 
     try {
         const task = await prisma.task.findUnique({
@@ -1382,10 +1383,12 @@ export const deleteTask = async (req: Request, res: Response, next: NextFunction
             select: {
                 status: true,
                 bounty: true,
+                issue: true,
                 creatorId: true,
                 contributorId: true,
                 installation: {
                     select: {
+                        id: true,
                         escrowSecret: true,
                         walletAddress: true,
                         walletSecret: true
@@ -1429,10 +1432,28 @@ export const deleteTask = async (req: Request, res: Response, next: NextFunction
             where: { id }
         });
 
-        res.status(200).json({
-            message: "Task deleted successfully",
-            refunded: `${task.bounty} USDC`
-        });
+        try {
+            await GitHubService.removeBountyLabelAndDeleteBountyComment(
+                task.installation.id,
+                (task.issue as TaskIssue).id,
+                Number(bountyLabelId),
+                (task.issue as TaskIssue).bountyCommentId!,
+            );
+            
+            res.status(200).json({
+                message: "Task deleted successfully",
+                refunded: `${task.bounty} USDC`
+            });
+        } catch (error: any) {
+            res.status(202).json({ 
+                error, 
+                data: {
+                    message: "Task deleted successfully",
+                    refunded: `${task.bounty} USDC`
+                },
+                message: "Failed to either remove bounty label from the task issue or delete bounty comment."
+            });
+        }
     } catch (error) {
         next(error);
     }

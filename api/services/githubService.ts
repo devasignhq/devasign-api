@@ -370,29 +370,18 @@ export class GitHubService {
     /**
      * Remove bounty label and delete bounty comment
      */
-    static async removeBountyLabelAndDeleteComment(
+    static async removeBountyLabelAndDeleteBountyComment(
         installationId: string,
         issueId: number,
         bountyLabelId: number,
-        commentId: string
+        commentId: number
     ) {
         const octokit = await this.getOctokit(installationId);
     
         const mutation = `
             mutation RemoveLabelAndDeleteComment($issueId: ID!, $labelIds: [ID!]!, $commentId: ID!) {
                 removeLabelsFromLabelable(input: {labelableId: $issueId, labelIds: $labelIds}) {
-                    labelable {
-                        ... on Issue {
-                            id
-                            labels(first: 100) {
-                                nodes {
-                                    id
-                                    name
-                                    color
-                                }
-                            }
-                        }
-                    }
+                    clientMutationId
                 }
                 deleteIssueComment(input: {id: $commentId}) {
                     clientMutationId
