@@ -1,6 +1,6 @@
 import { App } from "octokit";
 import { IssueFilters } from "../types/general";
-import { InstallationOctokit, GraphqlIssueDto } from "../types/github";
+import { InstallationOctokit, GraphqlIssueDto, IssueLabel, IssueMilestone } from "../types/github";
 
 export class GitHubService {
     private static githubApp = new App({
@@ -253,8 +253,8 @@ export class GitHubService {
         });
 
         return {
-            labels: (response as any).repository.labels.nodes,
-            milestones: (response as any).repository.milestones.nodes,
+            labels: (response as any).repository.labels.nodes as IssueLabel[],
+            milestones: (response as any).repository.milestones.nodes as IssueMilestone[],
         };
     }
 
