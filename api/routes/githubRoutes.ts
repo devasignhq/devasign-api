@@ -2,12 +2,14 @@ import { RequestHandler, Router } from "express";
 import {
     getInstallationRepositories,
     getRepositoryIssues,
-    getRepositoryResources
+    getRepositoryResources,
+    setBountyLabel
 } from "../controllers/githubController";
 import {
     getInstallationRepositoriesValidator,
     getRepositoryIssuesValidator,
-    getRepositoryResourcesValidator
+    getRepositoryResourcesValidator,
+    setBountyLabelValidator
 } from "../validators/githubValidators";
 
 export const githubRoutes = Router();
@@ -31,4 +33,11 @@ githubRoutes.get(
     '/installations/:installationId/resources', 
     getRepositoryResourcesValidator, 
     getRepositoryResources as RequestHandler
+);
+
+// Set bounty label on repo
+githubRoutes.get(
+    '/installations/:installationId/set-bounty-label', 
+    setBountyLabelValidator, 
+    setBountyLabel as RequestHandler
 );

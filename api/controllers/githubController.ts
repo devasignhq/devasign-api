@@ -2,9 +2,10 @@ import { Request, Response, NextFunction } from 'express';
 import { GitHubService } from '../services/githubService';
 import { ErrorClass, IssueFilters } from '../types/general';
 
-/**
- * Get installation repositories
- */
+const validateUserInstallation = () => {
+
+}
+
 export const getInstallationRepositories = async (req: Request, res: Response, next: NextFunction) => {
     const { installationId } = req.params;
 
@@ -20,9 +21,6 @@ export const getInstallationRepositories = async (req: Request, res: Response, n
     }
 };
 
-/**
- * Get repository issues
- */
 export const getRepositoryIssues = async (req: Request, res: Response, next: NextFunction) => {
     const { installationId } = req.params;
     const {
@@ -66,9 +64,6 @@ export const getRepositoryIssues = async (req: Request, res: Response, next: Nex
     }
 };
 
-/**
- * Get repository resources (labels and milestones)
- */
 export const getRepositoryResources = async (req: Request, res: Response, next: NextFunction) => {
     const { installationId } = req.params;
     const { repoUrl } = req.query;
@@ -80,6 +75,31 @@ export const getRepositoryResources = async (req: Request, res: Response, next: 
         );
 
         res.status(200).json(resources);
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const setBountyLabel = async (req: Request, res: Response, next: NextFunction) => {
+    const { installationId } = req.params;
+    const { repoUrl } = req.query;
+    
+    try {
+        const bountyLabel = await GitHubService.getBountyLabel(
+            repoUrl as string,
+            installationId
+        );
+
+        if (bountyLabel) {
+            return res.status(200).json({ valid: true });
+        }
+        
+        await GitHubService.createBountyLabel(
+            repoUrl as string,
+            installationId
+        );
+
+        res.status(200).json({ valid: true });
     } catch (error) {
         next(error);
     }
