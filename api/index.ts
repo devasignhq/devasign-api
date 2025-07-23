@@ -20,10 +20,11 @@ import { testRoutes } from "./routes/testRoutes";
 import { ErrorClass } from "./types/general";
 import { walletRoutes } from "./routes/walletRoutes";
 import { githubRoutes } from "./routes/githubRoutes";
+import { dynamicRoute, localhostOnly } from "./helper";
 
 const app = express();
-const PORT = process.env.NODE_ENV === "development" 
-    ? 5000 
+const PORT = process.env.NODE_ENV === "development"
+    ? 5000
     : (Number(process.env.PORT) || 8080);
 
 app.use(helmet());
@@ -83,7 +84,7 @@ app.post(
     }) as RequestHandler
 );
 
-app.get("/get-packages", async (req, res) => {
+app.get("/get-packages", validateUser as RequestHandler, async (req, res) => {
     try {
         const packages = await prisma.subscriptionPackage.findMany();
 
@@ -94,7 +95,7 @@ app.get("/get-packages", async (req, res) => {
 });
 
 app.get("/", (req: Request, res: Response) => {
-    res.send("Hello, TypeScript Express Server!");
+    res.send("Hello, DevAsign Server!");
 });
 
 // Health check endpoint for Google Cloud Run
@@ -106,47 +107,38 @@ app.get("/health", (req: Request, res: Response) => {
     });
 });
 
-const dynamicRoute = (req: Request, res: Response, next: NextFunction) => {
-    res.set({
-        "Cache-Control": "no-cache, no-store, must-revalidate",
-        Pragma: "no-cache",
-        Expires: "0",
-    });
-    next();
-};
-
 app.use(
-    "/users", 
-    dynamicRoute, 
-    validateUser as RequestHandler, 
+    "/users",
+    dynamicRoute,
+    validateUser as RequestHandler,
     userRoutes
 );
 app.use(
-    "/installations", 
-    dynamicRoute, 
-    validateUser as RequestHandler, 
+    "/installations",
+    dynamicRoute,
+    validateUser as RequestHandler,
     installationRoutes
 );
 app.use(
-    "/tasks", 
-    dynamicRoute, 
-    validateUser as RequestHandler, 
+    "/tasks",
+    dynamicRoute,
+    validateUser as RequestHandler,
     taskRoutes
 );
 app.use(
-    "/wallet", 
-    dynamicRoute, 
-    validateUser as RequestHandler, 
+    "/wallet",
+    dynamicRoute,
+    validateUser as RequestHandler,
     walletRoutes
 );
 app.use(
-    "/github", 
-    dynamicRoute, 
-    validateUser as RequestHandler, 
+    "/github",
+    dynamicRoute,
+    validateUser as RequestHandler,
     githubRoutes
 );
-app.use("/stellar", dynamicRoute, stellarRoutes);
-app.use("/test", dynamicRoute, testRoutes);
+app.use("/stellar", dynamicRoute, localhostOnly, stellarRoutes);
+app.use("/test", dynamicRoute, localhostOnly, testRoutes);
 
 app.use(((error: any, req: Request, res: Response, next: NextFunction) => {
     console.error("Error:", error);
