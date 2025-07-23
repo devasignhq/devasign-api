@@ -109,21 +109,21 @@ export const setBountyLabel = async (req: Request, res: Response, next: NextFunc
     try {
         await validateUserInstallation(installationId, userId);
 
-        const bountyLabel = await GitHubService.getBountyLabel(
+        let bountyLabel = await GitHubService.getBountyLabel(
             repoUrl as string,
             installationId
         );
 
         if (bountyLabel) {
-            return res.status(200).json({ valid: true });
+            return res.status(200).json({ valid: true, bountyLabel });
         }
         
-        await GitHubService.createBountyLabel(
+        bountyLabel = await GitHubService.createBountyLabel(
             repoUrl as string,
             installationId
         );
 
-        res.status(200).json({ valid: true });
+        res.status(200).json({ valid: true, bountyLabel });
     } catch (error) {
         next(error);
     }
