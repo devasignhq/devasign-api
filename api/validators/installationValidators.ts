@@ -35,34 +35,6 @@ export const createInstallationValidator = [
         .withMessage('Installation ID is required')
         .isString()
         .withMessage('Installation ID must be a string'),
-    body('htmlUrl')
-        .exists()
-        .withMessage('HTML URL is required')
-        .isString()
-        .withMessage('HTML URL must be a string')
-        .isURL()
-        .withMessage('HTML URL must be a valid URL'),
-    body('targetId')
-        .exists()
-        .withMessage('Target ID is required')
-        .isInt()
-        .withMessage('Target ID must be an integer'),
-    body('targetType')
-        .exists()
-        .withMessage('Target type is required')
-        .isString()
-        .withMessage('Target type must be a string'),
-    body('account')
-        .exists()
-        .withMessage('Account is required')
-        .isObject()
-        .withMessage('Account must be an object')
-        .custom((value) => {
-            if (!value.login || !value.nodeId || !value.avatarUrl || !value.htmlUrl) {
-                throw new Error('Account object must contain login, nodeId, avatarUrl, and htmlUrl');
-            }
-            return true;
-        }),
 ];
 
 export const updateInstallationValidator = [

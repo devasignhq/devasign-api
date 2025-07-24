@@ -1,5 +1,5 @@
 import { App } from "octokit";
-import { IssueFilters } from "../types/general";
+import { ErrorClass, IssueFilters } from "../types/general";
 import { InstallationOctokit, GraphqlIssueDto, IssueLabel, IssueMilestone } from "../types/github";
 import { moneyFormat } from "../helper";
 
@@ -47,15 +47,63 @@ export class GitHubService {
     }
 
     /**
-     * Get installation details from GitHub
+     * Get installation details from GitHub with user verification
      */
-    static async getInstallationDetails(installationId: string) {
+    static async getInstallationDetails(installationId: string, githubUsername: string) {
         const octokit = await this.getOctokit(installationId);
 
         const response = await octokit.request(
             "GET /app/installations/{installation_id}",
             { installation_id: Number(installationId) }
         );
+
+        const installation = response.data;
+        
+        // Check if user is authorized to access this installation
+        if (installation.target_type === "User") {
+            // For user installations, check if the requesting user is the account owner
+            if (installation.account && "login" in installation.account && 
+                installation.account.login !== githubUsername
+            ) {
+                throw new ErrorClass(
+                    "OctokitError", 
+                    null,
+                    "Unauthorized: You can only access installations on your own account"
+                );
+            }
+        } else if (installation.target_type === "Organization" &&
+            installation.account && "name" in installation.account
+        ) {
+            // For organization installations, check if user is a member
+            try {
+                const membership = await octokit.request("GET /orgs/{org}/memberships/{username}", {
+                    org: installation.account.name!,
+                    username: githubUsername
+                });
+
+                // Ensure user is an active member
+                if (membership.data.state === "pending") {
+                    throw new ErrorClass(
+                        "OctokitError", 
+                        null,
+                        "Unauthorized: You must be an active member of this organization to access its installation"
+                    );
+                }
+            } catch (error: any) {
+                if (error.status === 404 || error.status === 403) {
+                    throw new ErrorClass(
+                        "OctokitError", 
+                        error,
+                        "Unauthorized: You must be a member of this organization to access its installation"
+                    );
+                }
+                throw new ErrorClass(
+                    "OctokitError", 
+                    error,
+                    "An error occured while verifying the installation"
+                );
+            }
+        }
 
         return response.data;
     }

@@ -3,6 +3,7 @@ import { prisma } from "../config/database";
 import { ErrorClass, NotFoundErrorClass } from "../types/general";
 import { stellarService, usdcAssetId } from "../config/stellar";
 import { decrypt, encrypt } from "../helper";
+import { GitHubService } from "../services/githubService";
 
 export const getInstallations = async (req: Request, res: Response, next: NextFunction) => {
     const { page = 1, limit = 10} = req.query;
@@ -159,19 +160,12 @@ export const getInstallation = async (req: Request, res: Response, next: NextFun
 };
 
 export const createInstallation = async (req: Request, res: Response, next: NextFunction) => {
-    const { 
-        userId, 
-        installationId,
-        htmlUrl,
-        targetId,
-        targetType,
-        account, 
-    } = req.body;
+    const { userId, installationId } = req.body;
 
     try {
         const user = await prisma.user.findUnique({
             where: { userId },            
-            select: { walletSecret: true }
+            select: { walletSecret: true, username: true }
         });
 
         if (!user) {
@@ -187,6 +181,11 @@ export const createInstallation = async (req: Request, res: Response, next: Next
             throw new ErrorClass("ValidationError", null, "Installation already exists");
         }
 
+        const githubInstallation = await GitHubService.getInstallationDetails(
+            installationId,
+            user.username
+        );
+
         const decryptedUserSecret = decrypt(user.walletSecret);
         const installationWallet = await stellarService.createWalletViaSponsor(decryptedUserSecret);
         const escrowWallet = await stellarService.createWalletViaSponsor(decryptedUserSecret);
@@ -196,10 +195,17 @@ export const createInstallation = async (req: Request, res: Response, next: Next
         const installation = await prisma.installation.create({
             data: {
                 id: installationId,
-                htmlUrl,
-                targetId,
-                targetType,
-                account,
+                htmlUrl: githubInstallation.html_url,
+                targetId: githubInstallation.target_id,
+                targetType: githubInstallation.target_type,
+                account: {
+                    login: "login" in githubInstallation.account! 
+                        ? githubInstallation.account!.login
+                        : githubInstallation.account!.name,
+                    nodeId: githubInstallation.account!.node_id,
+                    avatarUrl: githubInstallation.account!.avatar_url,
+                    htmlUrl: githubInstallation.account!.html_url
+                },
                 walletAddress: installationWallet.publicKey,
                 walletSecret: encryptedInstallationSecret,
                 escrowAddress: escrowWallet.publicKey,
