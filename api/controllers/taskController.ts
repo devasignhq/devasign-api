@@ -119,6 +119,8 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
     }
 };
 
+// ? TODO: Add publishTaskToGithub route
+
 // ? Delete this
 export const createManyTasks = async (req: Request, res: Response, next: NextFunction) => {
     const { userId, payload, installationId } = req.body;
@@ -752,7 +754,7 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
         } catch (error: any) {
             res.status(202).json({ 
                 error, 
-                task,
+                task: updatedTask,
                 message: "Failed to updated bounty amount on GitHub."
             });
         }
@@ -1436,7 +1438,6 @@ export const deleteTask = async (req: Request, res: Response, next: NextFunction
             await GitHubService.removeBountyLabelAndDeleteBountyComment(
                 task.installation.id,
                 (task.issue as TaskIssue).id,
-                Number(bountyLabelId),
                 (task.issue as TaskIssue).bountyCommentId!,
             );
             

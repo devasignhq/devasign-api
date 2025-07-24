@@ -313,8 +313,11 @@ export class GitHubService {
             name: repo,
         });
 
+        const allLabels = (response as any).repository.labels.nodes as IssueLabel[];
+        const filteredLabels = allLabels.filter(label => label.name !== "💵 Bounty");
+    
         return {
-            labels: (response as any).repository.labels.nodes as IssueLabel[],
+            labels: filteredLabels,
             milestones: (response as any).repository.milestones.nodes as IssueMilestone[],
         };
     }
@@ -421,11 +424,35 @@ export class GitHubService {
     static async removeBountyLabelAndDeleteBountyComment(
         installationId: string,
         issueId: number,
-        bountyLabelId: number,
         commentId: number
     ) {
         const octokit = await this.getOctokit(installationId);
     
+        // First, get the issue and find the bounty label ID
+        const issueQuery = `
+            query GetIssueLabels($issueId: ID!) {
+                node(id: $issueId) {
+                    ... on Issue {
+                        labels(first: 100) {
+                            nodes {
+                                id
+                                name
+                            }
+                        }
+                    }
+                }
+            }
+        `;
+    
+        const issueResponse = await octokit.graphql(issueQuery, { issueId });
+        const labels = (issueResponse as any).node.labels.nodes;
+        const bountyLabel = labels.find((label: any) => label.name === "💵 Bounty");
+    
+        if (!bountyLabel) {
+            throw new Error("Bounty label not found on this issue");
+        }
+    
+        // Then remove the label and delete the comment
         const mutation = `
             mutation RemoveLabelAndDeleteComment($issueId: ID!, $labelIds: [ID!]!, $commentId: ID!) {
                 removeLabelsFromLabelable(input: {labelableId: $issueId, labelIds: $labelIds}) {
@@ -439,7 +466,7 @@ export class GitHubService {
     
         await octokit.graphql(mutation, {
             issueId,
-            labelIds: [bountyLabelId],
+            labelIds: [bountyLabel.id],
             commentId,
         });
     
