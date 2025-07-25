@@ -55,7 +55,7 @@ export const getRepositoryIssues = async (req: Request, res: Response, next: Nex
 
         const filters: IssueFilters = {
             title: title as string,
-            labels: labels ? (labels as string).split(',') : undefined,
+            labels: labels ? labels as string[] : undefined,
             milestone: milestone as string,
             sort: sort as ("created" | "updated" | "comments"),
             direction: direction as ("asc" | "desc"),

@@ -1,5 +1,13 @@
 import { Octokit } from "@octokit/core";
 
+export type InstallationOctokit = Octokit & {
+    paginate: import("@octokit/plugin-paginate-rest").PaginateInterface;
+} & import("@octokit/plugin-paginate-graphql").paginateGraphQLInterface & import("@octokit/plugin-rest-endpoint-methods").Api & {
+    retry: {
+        retryRequest: (error: import("@octokit/request-error").RequestError, retries: number, retryAfter: number) => import("@octokit/request-error").RequestError;
+    };
+}
+
 export type RepositoryDto = {
     id: number;
     node_id: string;
@@ -111,12 +119,4 @@ export type GitHubUser = {
     type: string;
     site_admin: boolean;
     starred_at?: string | undefined;
-}
-
-export type InstallationOctokit = Octokit & {
-    paginate: import("@octokit/plugin-paginate-rest").PaginateInterface;
-} & import("@octokit/plugin-paginate-graphql").paginateGraphQLInterface & import("@octokit/plugin-rest-endpoint-methods").Api & {
-    retry: {
-        retryRequest: (error: import("@octokit/request-error").RequestError, retries: number, retryAfter: number) => import("@octokit/request-error").RequestError;
-    };
 }

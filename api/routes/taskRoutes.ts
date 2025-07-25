@@ -42,7 +42,7 @@ export const taskRoutes = Router();
 taskRoutes.get('/', getTasksValidator, getTasks as RequestHandler);
 taskRoutes.get('/installation/:installationId', getInstallationTasksValidator, getInstallationTasks as RequestHandler);
 taskRoutes.get('/:id', getTask as RequestHandler);
-taskRoutes.get('/installation/:id', getInstallationTask as RequestHandler);
+taskRoutes.get('/installation/single-task/:id', getInstallationTask as RequestHandler);
 taskRoutes.get('/activities/:id', getTaskActivitiesValidator, getTaskActivities as RequestHandler);
 
 // Task management

@@ -8,8 +8,7 @@
     "dev": "ts-node-dev --respawn --transpile-only api/index.ts",
     "start": "node dist/index.js",
     "build": "tsc",
-    "p-gen": "npx prisma generate --no-engine",
-    "vercel-build": "echo hello"
+    "p-gen": "npx prisma generate --no-engine"
   },
   "keywords": [],
   "author": "",
@@ -33,7 +32,7 @@
     "http-errors": "^2.0.0",
     "morgan": "^1.10.0",
     "nodemon": "^3.1.9",
-    "octokit": "^5.0.3",
+    "octokit": "^3.2.2",
     "ts-node": "^10.9.2",
     "typescript": "^5.8.2"
   },
@@ -45,6 +44,7 @@
     "@types/http-errors": "^2.0.4",
     "@types/morgan": "^1.9.9",
     "prisma": "^6.6.0",
-    "ts-node-dev": "^2.0.0"
+    "ts-node-dev": "^2.0.0",
+    "tsx": "^4.20.3"
   }
 }
