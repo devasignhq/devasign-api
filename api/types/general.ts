@@ -1,5 +1,5 @@
 import { TimelineType } from "../generated/client";
-import { IssueDto } from "./github";
+import { IssueDto, IssueLabel } from "./github";
 
 export enum MessageType {
     GENERAL = 'GENERAL',
@@ -11,10 +11,9 @@ export type AddressBook = {
     address: string;
 }
 
-export type TaskIssue = Pick<IssueDto, "id" | "number" | "title" | "url" | "labels" | "locked" | "state" | "repository_url" | "created_at" | "updated_at"> & {
-    html_url?: string;
-    body?: string;
-    bountyCommentId?: number;
+export type TaskIssue = Omit<IssueDto, "labels"> & {
+    labels: IssueLabel[];
+    bountyCommentId?: string;
 }
 
 export type CreateTask = {
@@ -23,7 +22,7 @@ export type CreateTask = {
     timeline?: number;
     timelineType?: TimelineType;
     bounty: string;
-    bountyLabelId: number;
+    bountyLabelId: string;
 }
 
 export type FilterTasks = {
