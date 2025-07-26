@@ -103,23 +103,27 @@ export const getRepositoryResources = async (req: Request, res: Response, next: 
 
 export const setBountyLabel = async (req: Request, res: Response, next: NextFunction) => {
     const { installationId } = req.params;
-    const { repoUrl } = req.query;
+    const { repositoryId } = req.query;
     const { userId } = req.body;
 
     try {
         await validateUserInstallation(installationId, userId);
 
-        let bountyLabel = await GitHubService.getBountyLabel(
-            repoUrl as string,
-            installationId
-        );
+        let bountyLabel;
+
+        try {
+            bountyLabel = await GitHubService.getBountyLabel(
+                repositoryId as string,
+                installationId
+            );
+        } catch {}
 
         if (bountyLabel) {
             return res.status(200).json({ valid: true, bountyLabel });
         }
         
         bountyLabel = await GitHubService.createBountyLabel(
-            repoUrl as string,
+            repositoryId as string,
             installationId
         );
 

@@ -553,7 +553,7 @@ export const getTask = async (req: Request, res: Response, next: NextFunction) =
 };
 
 export const getInstallationTask = async (req: Request, res: Response, next: NextFunction) => {
-    const { id } = req.params;
+    const { id, installationId } = req.params;
     const { userId } = req.body;
 
     try {
@@ -561,6 +561,7 @@ export const getInstallationTask = async (req: Request, res: Response, next: Nex
             where: { 
                 id,
                 installation: {
+                    id: installationId,
                     users: {
                         some: { userId: userId as string }
                     }
@@ -744,7 +745,6 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
 
         try {
             await GitHubService.updateIssueComment(
-                (task.issue as TaskIssue).repository_url,
                 task.installationId,
                 (task.issue as TaskIssue).bountyCommentId!,
                 GitHubService.customBountyMessage(newBounty as string, taskId),
@@ -1377,7 +1377,6 @@ export const getTaskActivities = async (req: Request, res: Response, next: NextF
 export const deleteTask = async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;
     const { userId } = req.body;
-    const { bountyLabelId } = req.query;
 
     try {
         const task = await prisma.task.findUnique({

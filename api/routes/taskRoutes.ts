@@ -10,7 +10,6 @@ import {
     deleteTask,
     getTask,
     getTasks,
-    createManyTasks,
     submitTaskApplication,
     getTaskActivities,
     updateTaskTimeline,
@@ -28,7 +27,6 @@ import {
     deleteTaskValidator,
     acceptTaskApplicationValidator,
     replyTimelineModificationValidator,
-    createManyTasksValidator,
     submitTaskApplicationValidator,
     getTaskActivitiesValidator,
     updateTaskTimelineValidator,
@@ -42,12 +40,11 @@ export const taskRoutes = Router();
 taskRoutes.get('/', getTasksValidator, getTasks as RequestHandler);
 taskRoutes.get('/installation/:installationId', getInstallationTasksValidator, getInstallationTasks as RequestHandler);
 taskRoutes.get('/:id', getTask as RequestHandler);
-taskRoutes.get('/installation/single-task/:id', getInstallationTask as RequestHandler);
+taskRoutes.get('/installation/:installationId/:id', getInstallationTask as RequestHandler);
 taskRoutes.get('/activities/:id', getTaskActivitiesValidator, getTaskActivities as RequestHandler);
 
 // Task management
 taskRoutes.post("/", createTaskValidator, createTask as RequestHandler);
-taskRoutes.post("/batch", createManyTasksValidator, createManyTasks as RequestHandler);
 taskRoutes.patch("/:id/issue-comment", addBountyCommentIdValidator, addBountyCommentId as RequestHandler);
 taskRoutes.patch("/:id/bounty", updateTaskBountyValidator, updateTaskBounty as RequestHandler);
 taskRoutes.patch("/:id/timeline", updateTaskTimelineValidator, updateTaskTimeline as RequestHandler);
