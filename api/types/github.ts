@@ -2,7 +2,20 @@ import { Octokit } from "@octokit/core";
 
 export type InstallationOctokit = Octokit & {
     paginate: import("@octokit/plugin-paginate-rest").PaginateInterface;
-} & import("@octokit/plugin-paginate-graphql").paginateGraphQLInterface & import("@octokit/plugin-rest-endpoint-methods").Api & {
+} & {
+    graphql: import("@octokit/graphql/dist-types/types").graphql & {
+        paginate: (<ResponseType extends object = any>(query: string, initialParameters?: Record<string, any>) => Promise<ResponseType>) & {
+            iterator: <ResponseType = any>(query: string, initialParameters?: Record<string, any>) => {
+                [Symbol.asyncIterator]: () => {
+                    next(): Promise<{
+                        done: boolean;
+                        value: ResponseType;
+                    }>;
+                };
+            };
+        };
+    };
+} & import("@octokit/plugin-rest-endpoint-methods").Api & {
     retry: {
         retryRequest: (error: import("@octokit/request-error").RequestError, retries: number, retryAfter: number) => import("@octokit/request-error").RequestError;
     };
