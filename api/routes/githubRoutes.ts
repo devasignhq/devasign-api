@@ -3,13 +3,13 @@ import {
     getInstallationRepositories,
     getRepositoryIssues,
     getRepositoryResources,
-    setBountyLabel
+    getOrCreateBountyLabel
 } from "../controllers/githubController";
 import {
     getInstallationRepositoriesValidator,
     getRepositoryIssuesValidator,
     getRepositoryResourcesValidator,
-    setBountyLabelValidator
+    getOrCreateBountyLabelValidator
 } from "../validators/githubValidators";
 
 export const githubRoutes = Router();
@@ -38,6 +38,6 @@ githubRoutes.get(
 // Set bounty label on repo
 githubRoutes.get(
     "/installations/:installationId/set-bounty-label", 
-    setBountyLabelValidator, 
-    setBountyLabel as RequestHandler
+    getOrCreateBountyLabelValidator, 
+    getOrCreateBountyLabel as RequestHandler
 );

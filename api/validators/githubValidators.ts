@@ -55,4 +55,13 @@ export const getRepositoryIssuesValidator = [
 
 export const getRepositoryResourcesValidator = validateInstallationBasics;
 
-export const setBountyLabelValidator = validateInstallationBasics;
+export const getOrCreateBountyLabelValidator = [
+    param('repositoryId')
+        .trim()
+        .notEmpty()
+        .withMessage('Repository ID is required')
+        .isString()
+        .withMessage('Repository ID must be a string')
+        .isLength({ min: 1 })
+        .withMessage('Repository ID cannot be empty'),
+];

@@ -101,7 +101,7 @@ export const getRepositoryResources = async (req: Request, res: Response, next: 
     }
 };
 
-export const setBountyLabel = async (req: Request, res: Response, next: NextFunction) => {
+export const getOrCreateBountyLabel = async (req: Request, res: Response, next: NextFunction) => {
     const { installationId } = req.params;
     const { repositoryId } = req.query;
     const { userId } = req.body;
