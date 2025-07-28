@@ -1,11 +1,13 @@
 import { NextFunction, Request, Response } from "express";
 import { prisma } from "../config/database";
-import { messagesCollection, createMessage, updateMessage } from "../services/firebaseService";
+import { createMessage } from "../services/firebaseService";
 import { stellarService, usdcAssetId } from "../config/stellar";
 import { decrypt } from "../helper";
-import { MessageType, CreateTask, ErrorClass, NotFoundErrorClass, IssueLabel } from "../types/general";
+import { MessageType, CreateTask, ErrorClass, NotFoundErrorClass, TaskIssue } from "../types/general";
 import { HorizonApi } from "../types/horizonapi";
 import { Prisma, TaskStatus, TimelineType } from "../generated/client";
+import { IssueLabel } from "../types/github";
+import { GitHubService } from "../services/githubService";
 
 type USDCBalance = HorizonApi.BalanceLineAsset<"credit_alphanum12">;
 
@@ -14,8 +16,6 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
     const payload = data as CreateTask;
 
     try {
-        // TODO: Check for neccessary permissions
-
         const installation = await prisma.installation.findUnique({
             where: { id: payload.installationId },
             select: { 
@@ -65,7 +65,7 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
             payload.bounty,
         );
 
-        const { installationId, ...others } = payload;
+        const { installationId, bountyLabelId, ...others } = payload;
 
         if (others.timeline && others.timelineType && others.timelineType === "DAY" && others.timeline > 6) {
             const weeks = Math.floor(others.timeline / 7);
@@ -87,11 +87,39 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
             }
         });
 
-        res.status(201).json(task);
+        try {
+            const bountyComment = await GitHubService.addBountyLabelAndCreateBountyComment(
+                installationId,
+                others.issue.id,
+                bountyLabelId,
+                GitHubService.customBountyMessage(others.bounty, task.id),
+            );
+
+            const updatedTask = await prisma.task.update({
+                where: { id: task.id },
+                data: { 
+                    issue: { 
+                        ...(typeof task.issue === "object" && task.issue !== null ? task.issue : {}), 
+                        bountyCommentId: bountyComment.id 
+                    }
+                },
+                select: { issue: true }
+            });
+
+            res.status(201).json({ ...task, ...updatedTask });
+        } catch (error: any) {
+            res.status(202).json({ 
+                error, 
+                task,
+                message: "Failed to either create bounty comment or add bounty label."
+            });
+        }
     } catch (error) {
         next(error);
     }
 };
+
+// ? TODO: Add publishTaskToGithub route
 
 // ? Delete this
 export const createManyTasks = async (req: Request, res: Response, next: NextFunction) => {
@@ -525,7 +553,7 @@ export const getTask = async (req: Request, res: Response, next: NextFunction) =
 };
 
 export const getInstallationTask = async (req: Request, res: Response, next: NextFunction) => {
-    const { id } = req.params;
+    const { id, installationId } = req.params;
     const { userId } = req.body;
 
     try {
@@ -533,6 +561,7 @@ export const getInstallationTask = async (req: Request, res: Response, next: Nex
             where: { 
                 id,
                 installation: {
+                    id: installationId,
                     users: {
                         some: { userId: userId as string }
                     }
@@ -634,16 +663,17 @@ export const addBountyCommentId = async (req: Request, res: Response, next: Next
 };
 
 export const updateTaskBounty = async (req: Request, res: Response, next: NextFunction) => {
-    const { id } = req.params;
+    const { id: taskId } = req.params;
     const { userId, newBounty } = req.body;
 
     try {
         const task = await prisma.task.findUnique({ 
-            where: { id },
+            where: { id: taskId },
             select: { 
                 status: true, 
                 bounty: true,
                 installationId: true,
+                issue: true,
                 creatorId: true,
                 installation: {
                     select: {
@@ -705,7 +735,7 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
 
         // Update task bounty
         const updatedTask = await prisma.task.update({
-            where: { id },
+            where: { id: taskId },
             data: { bounty: parseFloat(newBounty) },
             select: {
                 bounty: true,
@@ -713,7 +743,21 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
             }
         });
 
-        res.status(200).json(updatedTask);
+        try {
+            await GitHubService.updateIssueComment(
+                task.installationId,
+                (task.issue as TaskIssue).bountyCommentId!,
+                GitHubService.customBountyMessage(newBounty as string, taskId),
+            );
+
+            res.status(200).json(updatedTask);
+        } catch (error: any) {
+            res.status(202).json({ 
+                error, 
+                task: updatedTask,
+                message: "Failed to updated bounty amount on GitHub."
+            });
+        }
     } catch (error) {
         next(error);
     }
@@ -1250,11 +1294,11 @@ export const validateCompletion = async (req: Request, res: Response, next: Next
             
             res.status(201).json(updatedTask);
         } catch (error: any) {
-            res.status(204).json({ 
+            res.status(202).json({ 
                 error, 
                 validated: true, 
                 task,
-                message: "Validation complete. Failed to update contribution summary."
+                message: "Failed to update the developer contribution summary."
             });
         }
     } catch (error) {
@@ -1340,10 +1384,12 @@ export const deleteTask = async (req: Request, res: Response, next: NextFunction
             select: {
                 status: true,
                 bounty: true,
+                issue: true,
                 creatorId: true,
                 contributorId: true,
                 installation: {
                     select: {
+                        id: true,
                         escrowSecret: true,
                         walletAddress: true,
                         walletSecret: true
@@ -1387,10 +1433,27 @@ export const deleteTask = async (req: Request, res: Response, next: NextFunction
             where: { id }
         });
 
-        res.status(200).json({
-            message: "Task deleted successfully",
-            refunded: `${task.bounty} USDC`
-        });
+        try {
+            await GitHubService.removeBountyLabelAndDeleteBountyComment(
+                task.installation.id,
+                (task.issue as TaskIssue).id,
+                (task.issue as TaskIssue).bountyCommentId!,
+            );
+            
+            res.status(200).json({
+                message: "Task deleted successfully",
+                refunded: `${task.bounty} USDC`
+            });
+        } catch (error: any) {
+            res.status(202).json({ 
+                error, 
+                data: {
+                    message: "Task deleted successfully",
+                    refunded: `${task.bounty} USDC`
+                },
+                message: "Failed to either remove bounty label from the task issue or delete bounty comment."
+            });
+        }
     } catch (error) {
         next(error);
     }

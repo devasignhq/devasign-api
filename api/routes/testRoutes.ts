@@ -2,10 +2,6 @@ import { Router, Request, Response, NextFunction, RequestHandler } from 'express
 import { body, query, validationResult } from 'express-validator';
 import createError from 'http-errors';
 import { encrypt, decrypt } from '../helper';
-import { prisma } from '../config/database';
-import { getRepoDetails } from '../services/githubService';
-import axios from 'axios';
-import { Octokit } from "@octokit/rest";
 
 const router = Router();
 
@@ -145,48 +141,48 @@ router.get('/select',
     }) as RequestHandler
 );
 
-router.get('/github', 
-    // [
-    //     body('username').isString().withMessage('Text to encrypt is required'),
-    // ],
-    (async (req: Request, res: Response, next: NextFunction) => {
-        try {
-            const errors = validationResult(req);
-            if (!errors.isEmpty()) {
-                return res.status(400).json({ errors: errors.array() });
-            }
+// router.get('/github', 
+//     // [
+//     //     body('username').isString().withMessage('Text to encrypt is required'),
+//     // ],
+//     (async (req: Request, res: Response, next: NextFunction) => {
+//         try {
+//             const errors = validationResult(req);
+//             if (!errors.isEmpty()) {
+//                 return res.status(400).json({ errors: errors.array() });
+//             }
 
-            // const { username } = req.body;
+//             // const { username } = req.body;
 
-            const octokit = new Octokit({ auth: process.env.GITHUB_ACCESS_TOKEN });
+//             const octokit = new Octokit({ auth: process.env.GITHUB_ACCESS_TOKEN });
 
-            const response = await octokit.rest.issues.get({
-                owner: "calcom",
-                repo: "cal.com",
-                issue_number: 21050,
-            });
+//             const response = await octokit.rest.issues.get({
+//                 owner: "calcom",
+//                 repo: "cal.com",
+//                 issue_number: 21050,
+//             });
 
-            // const repoDetails = await getRepoDetails(repoUrl, process.env.GITHUB_ACCESS_TOKEN!);
-            // if (!repoDetails.permissions || !repoDetails.permissions.admin) {
-            //     res.status(200).json({
-            //         message: 'Not an admin',
-            //         data: repoDetails
-            //     });
-            // }
+//             // const repoDetails = await getRepoDetails(repoUrl, process.env.GITHUB_ACCESS_TOKEN!);
+//             // if (!repoDetails.permissions || !repoDetails.permissions.admin) {
+//             //     res.status(200).json({
+//             //         message: 'Not an admin',
+//             //         data: repoDetails
+//             //     });
+//             // }
 
-            // res.status(200).json({
-            //     message: 'Successful',
-            //     data: repoDetails
-            // });
-            res.status(200).json({
-                message: 'Successful',
-                data: response
-            });
-        } catch (error) {
-            console.log(error)
-            next(error);
-        }
-    }) as RequestHandler
-);
+//             // res.status(200).json({
+//             //     message: 'Successful',
+//             //     data: repoDetails
+//             // });
+//             res.status(200).json({
+//                 message: 'Successful',
+//                 data: response
+//             });
+//         } catch (error) {
+//             console.log(error)
+//             next(error);
+//         }
+//     }) as RequestHandler
+// );
 
 export const testRoutes = router;

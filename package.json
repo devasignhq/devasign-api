@@ -4,18 +4,17 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-		"test": "echo \"Error: no test specified\" && exit 1",
+    "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "ts-node-dev --respawn --transpile-only api/index.ts",
     "start": "node dist/index.js",
     "build": "tsc",
-    "p-gen": "npx prisma generate --no-engine",
-    "vercel-build": "echo hello"
+    "p-gen": "npx prisma generate --no-engine"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@octokit/rest": "^18.12.0",
+    "@octokit/rest": "^22.0.0",
     "@prisma/client": "^6.6.0",
     "@prisma/extension-accelerate": "^1.2.2",
     "@stellar/typescript-wallet-sdk": "^1.9.0",
@@ -33,6 +32,7 @@
     "http-errors": "^2.0.0",
     "morgan": "^1.10.0",
     "nodemon": "^3.1.9",
+    "octokit": "^3.2.2",
     "ts-node": "^10.9.2",
     "typescript": "^5.8.2"
   },

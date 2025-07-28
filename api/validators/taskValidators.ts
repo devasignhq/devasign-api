@@ -1,5 +1,6 @@
 import { body, query, param } from 'express-validator';
-import { CreateTask, TimelineType } from '../types/general';
+import { CreateTask } from '../types/general';
+import { TimelineType } from '../generated/client';
 
 export const getTasksValidator = [
     query('status')
@@ -99,58 +100,12 @@ export const createTaskValidator = [
     body('payload.timelineType')
         .optional()
         .isIn(Object.values(TimelineType))
-        .withMessage('Invalid timeline type')
-];
-
-export const createManyTasksValidator = [
-    body('installationId')
+        .withMessage('Invalid timeline type'),
+    body('payload.bountyLabelId')
         .exists()
-        .withMessage('Installation ID is required'),
-    body('payload')
-        .isArray()
-        .withMessage('Payload must be an array')
-        .custom((tasks: CreateTask[]) => {
-            if (tasks.length === 0) {
-                throw new Error('At least one task is required');
-            }
-            if (tasks.length > 50) {
-                throw new Error('Maximum 50 tasks allowed per batch');
-            }
-            return true;
-        }),
-    body('payload.*.repoUrl')
-        .exists()
-        .withMessage('Repository URL is required for each task'),
-    body('payload.*.issue')
-        .exists()
-        .withMessage('Issue details are required for each task'),
-    body('payload.*.bounty')
-        .exists()
-        .withMessage('Bounty is required for each task')
+        .withMessage('Bounty Label ID is required')
         .isString()
-        .withMessage('Bounty must be a string')
-        .custom((value: string) => {
-            const number = parseFloat(value);
-            return !isNaN(number) && number > 0;
-        })
-        .withMessage('Bounty must be a positive number'),
-    body('payload.*.timeline')
-        .optional()
-        .trim()
-        .notEmpty()
-        .toInt() 
-        .isInt({ min: 1 })
-        .withMessage('Timeline must be a positive integer')
-        .custom((value) => {
-            if (isNaN(value)) {
-                throw new Error('Timeline must be a valid number');
-            }
-            return true;
-        }),
-    body('payload.*.timelineType')
-        .optional()
-        .isIn(Object.values(TimelineType))
-        .withMessage('Invalid timeline type')
+        .withMessage('Bounty Label ID must be a string'),
 ];
 
 export const addBountyCommentIdValidator = [
