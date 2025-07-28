@@ -3,7 +3,7 @@ import { prisma } from "../config/database";
 import { createMessage } from "../services/firebaseService";
 import { stellarService, usdcAssetId } from "../config/stellar";
 import { decrypt } from "../helper";
-import { MessageType, CreateTask, ErrorClass, NotFoundErrorClass, TaskIssue } from "../types/general";
+import { MessageType, CreateTask, ErrorClass, NotFoundErrorClass, TaskIssue, FilterTasks } from "../types/general";
 import { HorizonApi } from "../types/horizonapi";
 import { Prisma, TaskStatus, TimelineType } from "../generated/client";
 import { IssueLabel } from "../types/github";
@@ -220,8 +220,17 @@ export const getTasks = async (req: Request, res: Response, next: NextFunction) 
         page = 1,
         limit = 10,
         sort,
+        repoUrl,
+        issueTitle,
+        issueLabels,
+        issueMilestone,
     } = req.query;
-    const { userId, filters } = req.body;
+    const filters = {
+        repoUrl,
+        issueTitle,
+        issueLabels,
+        issueMilestone,
+    } as FilterTasks;
 
     try {
         const where: Prisma.TaskWhereInput = {};
@@ -229,55 +238,46 @@ export const getTasks = async (req: Request, res: Response, next: NextFunction) 
         if (status) {
             where.status = status as TaskStatus;
         }
-        
         if (installationId) {
             where.installationId = installationId as string;
         }
 
-        // Apply filters if provided
-        if (filters) {
-            // Filter by repo URL
-            if (filters.repoUrl) {
-                where.issue = {
-                    path: ["repository_url"],
-                    string_contains: filters.repoUrl,
-                };
+        const issueFilters: any[] = [];
+        
+        if (filters.repoUrl) {
+            issueFilters.push({
+                path: ["repository", "url"],
+                string_contains: filters.repoUrl,
+            });
+        }
+        if (filters.issueTitle) {
+            issueFilters.push({
+                path: ["title"],
+                string_contains: filters.issueTitle,
+                mode: "insensitive"
+            });
+        }
+        if (filters.issueLabels && filters.issueLabels.length > 0) {
+            issueFilters.push({
+                path: ["labels"],
+                array_contains: filters.issueLabels.map((label) => ({ name: label })),
+            });
+        }
+        if (filters.issueMilestone) {
+            if (filters.issueMilestone === "none") {
+                issueFilters.push({
+                    path: ["milestone"],
+                    equals: Prisma.AnyNull,
+                });
+            } else {
+                issueFilters.push({
+                    path: ["milestone", "title"],
+                    string_contains: filters.issueMilestone,
+                });
             }
-    
-            // Filter by issue title
-            if (filters.issueTitle) {
-                where.issue = {
-                    ...where.issue,
-                    path: ["title"],
-                    string_contains: filters.issueTitle,
-                };
-            }
-    
-            // Filter by issue labels
-            if (filters.issueLabels && filters.issueLabels.length > 0) {
-                where.issue = {
-                    ...where.issue,
-                    path: ["labels"],
-                    array_contains: filters.issueLabels.map((label: IssueLabel) => ({ name: label })),
-                };
-            }
-    
-            // Filter by milestone
-            if (filters.issueMilestone) {
-                if (filters.issueMilestone === "none") {
-                    where.issue = {
-                        ...where.issue,
-                        path: ["milestone"],
-                        equals: Prisma.AnyNull,
-                    };
-                } else {
-                    where.issue = {
-                        ...where.issue,
-                        path: ["milestone", "title"],
-                        string_contains: filters.issueMilestone,
-                    };
-                }
-            }
+        }
+        if (issueFilters.length > 0) {
+            where.AND = issueFilters.map(filter => ({ issue: filter }));
         }
 
         let selectRelations: any = {};
@@ -355,9 +355,19 @@ export const getInstallationTasks = async (req: Request, res: Response, next: Ne
         page = 1,
         limit = 10,
         sort,
+        repoUrl,
+        issueTitle,
+        issueLabels,
+        issueMilestone,
     } = req.query;
     const { installationId } = req.params;
-    const { userId, filters } = req.body;
+    const { userId } = req.body;
+    const filters = {
+        repoUrl,
+        issueTitle,
+        issueLabels,
+        issueMilestone,
+    } as FilterTasks;
 
     try {
         const where: Prisma.TaskWhereInput = {
@@ -373,50 +383,42 @@ export const getInstallationTasks = async (req: Request, res: Response, next: Ne
             where.status = status as TaskStatus;
         }
 
-        // Apply filters if provided
-        if (filters) {
-            // Filter by repo URL
-            if (filters.repoUrl) {
-                where.issue = {
-                    path: ["repository_url"],
-                    string_contains: filters.repoUrl,
-                };
+        const issueFilters: any[] = [];
+        
+        if (filters.repoUrl) {
+            issueFilters.push({
+                path: ["repository", "url"],
+                string_contains: filters.repoUrl,
+            });
+        }
+        if (filters.issueTitle) {
+            issueFilters.push({
+                path: ["title"],
+                string_contains: filters.issueTitle,
+                mode: "insensitive"
+            });
+        }
+        if (filters.issueLabels && filters.issueLabels.length > 0) {
+            issueFilters.push({
+                path: ["labels"],
+                array_contains: filters.issueLabels.map((label) => ({ name: label })),
+            });
+        }
+        if (filters.issueMilestone) {
+            if (filters.issueMilestone === "none") {
+                issueFilters.push({
+                    path: ["milestone"],
+                    equals: Prisma.AnyNull,
+                });
+            } else {
+                issueFilters.push({
+                    path: ["milestone", "title"],
+                    string_contains: filters.issueMilestone,
+                });
             }
-    
-            // Filter by issue title
-            if (filters.issueTitle) {
-                where.issue = {
-                    ...where.issue,
-                    path: ["title"],
-                    string_contains: filters.issueTitle,
-                };
-            }
-    
-            // Filter by issue labels
-            if (filters.issueLabels && filters.issueLabels.length > 0) {
-                where.issue = {
-                    ...where.issue,
-                    path: ["labels"],
-                    array_contains: filters.issueLabels.map((label: IssueLabel) => ({ name: label })),
-                };
-            }
-    
-            // Filter by milestone
-            if (filters.issueMilestone) {
-                if (filters.issueMilestone === "none") {
-                    where.issue = {
-                        ...where.issue,
-                        path: ["milestone"],
-                        equals: Prisma.AnyNull,
-                    };
-                } else {
-                    where.issue = {
-                        ...where.issue,
-                        path: ["milestone", "title"],
-                        string_contains: filters.issueMilestone,
-                    };
-                }
-            }
+        }
+        if (issueFilters.length > 0) {
+            where.AND = issueFilters.map(filter => ({ issue: filter }));
         }
 
         let selectRelations: any = {};
