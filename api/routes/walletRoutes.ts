@@ -27,4 +27,4 @@ walletRoutes.post("/swap", swapAssetValidator, swapAsset as RequestHandler);
 walletRoutes.get("/transactions", walletInstallationIdValidator, getTransactions as RequestHandler);
 
 // Record wallet topups
-walletRoutes.get("/transactions/record-topups", walletInstallationIdValidator, recordWalletTopups as RequestHandler);
+walletRoutes.post("/transactions/record-topups", walletInstallationIdValidator, recordWalletTopups as RequestHandler);
