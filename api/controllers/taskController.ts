@@ -129,7 +129,8 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
 
             if (!bountyTransactionStatus.recorded) {
                 return res.status(202).json({ 
-                    error: bountyTransactionStatus.error, 
+                    error: bountyTransactionStatus.error,
+                    transactionRecord: false,
                     task: updatedTask,
                     message: "Failed to record bounty transaction."
                 });
@@ -145,6 +146,7 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
 
             res.status(202).json({ 
                 error, 
+                transactionRecord: bountyTransactionStatus.recorded,
                 task,
                 message
             });
@@ -823,6 +825,7 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
             if (!additionalFundsTransaction.recorded && additionalFundsTransaction.txHash) {
                 return res.status(202).json({ 
                     error: additionalFundsTransaction.error, 
+                    transactionRecord: false,
                     task: updatedTask,
                     message: "Failed to record additional bounty transaction."
                 });
@@ -836,8 +839,13 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
                 message = "Failed to update bounty amount on GitHub and also record the additional bounty transaction."
             }
 
+            const transactionRecord = additionalFundsTransaction.txHash 
+                ? additionalFundsTransaction.recorded 
+                : null;
+
             res.status(202).json({ 
                 error, 
+                transactionRecord,
                 task: updatedTask,
                 message
             });
