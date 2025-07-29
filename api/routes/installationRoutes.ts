@@ -15,7 +15,8 @@ import {
     updateInstallationValidator,
     addTeamMemberValidator,
     removeTeamMemberValidator,
-    updateTeamMemberPermissionsValidator
+    updateTeamMemberPermissionsValidator,
+    deleteInstallationValidator
 } from "../validators/installationValidators";
 
 export const installationRoutes = Router();
@@ -25,7 +26,7 @@ installationRoutes.get('/:id', getInstallation as RequestHandler);
 
 installationRoutes.post("/", createInstallationValidator, createInstallation as RequestHandler);
 installationRoutes.patch("/:id", updateInstallationValidator, updateInstallation as RequestHandler);
-installationRoutes.delete("/:id", deleteInstallation as RequestHandler);
+installationRoutes.delete("/:id", deleteInstallationValidator, deleteInstallation as RequestHandler);
 
 // Team Members
 installationRoutes.post("/:id/team", addTeamMemberValidator, addTeamMember as RequestHandler);
