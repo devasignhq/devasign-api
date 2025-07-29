@@ -6,7 +6,6 @@ import { decrypt } from "../helper";
 import { MessageType, CreateTask, ErrorClass, NotFoundErrorClass, TaskIssue, FilterTasks } from "../types/general";
 import { HorizonApi } from "../types/horizonapi";
 import { Prisma, TaskStatus, TimelineType } from "../generated/client";
-import { IssueLabel } from "../types/github";
 import { GitHubService } from "../services/githubService";
 
 type USDCBalance = HorizonApi.BalanceLineAsset<"credit_alphanum12">;
@@ -213,9 +212,10 @@ export const createManyTasks = async (req: Request, res: Response, next: NextFun
 };
 
 export const getTasks = async (req: Request, res: Response, next: NextFunction) => {
+    const { userId } = req.body;
     const { 
         installationId,
-        status, 
+        role, // contributor | creator
         detailed,
         page = 1,
         limit = 10,
@@ -233,13 +233,18 @@ export const getTasks = async (req: Request, res: Response, next: NextFunction) 
     } as FilterTasks;
 
     try {
-        const where: Prisma.TaskWhereInput = {};
-        
-        if (status) {
-            where.status = status as TaskStatus;
-        }
+        const where: Prisma.TaskWhereInput = { status: "OPEN" };
+
         if (installationId) {
             where.installationId = installationId as string;
+        }
+        if (role) {
+            if (role === "contributor") {
+                where.contributorId = userId;
+                where.status = { not: "OPEN" };
+            } else if (role === "creator") {
+                where.creatorId = userId;
+            }
         }
 
         const issueFilters: any[] = [];
