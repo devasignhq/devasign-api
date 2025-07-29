@@ -64,25 +64,37 @@ export const getUser = async (req: Request, res: Response, next: NextFunction) =
                     },
                     select: selectObject,
                 });
+                
+                user = updatedUser;
+                walletStatus.wallet = true;
         
                 // Fund wallet and add trustline in background
                 try {
-                    await stellarService.fundWallet(userWallet.publicKey);
-                    await stellarService.addTrustLine(userWallet.secretKey);
+                    await stellarService.addTrustLineViaSponsor(
+                        process.env.STELLAR_MASTER_SECRET_KEY!,
+                        userWallet.secretKey
+                    );
                     walletStatus.usdcTrustline = true;
                 } catch (walletError) {
-                    console.warn("Failed to fund wallet or add trustline:", walletError);
+                    console.warn("Failed to add USDC trustline:", walletError);
+                    return res.status(200).json({ 
+                        user, 
+                        error: walletError,
+                        walletStatus,
+                        message: "Created wallet but failed to add USDC trustline for wallet"
+                    });
                 }
-        
-                user = updatedUser;
-                walletStatus.wallet = true;
+
+                return res.status(200).json({ user, walletStatus });
             } catch (walletCreationError) {
                 console.warn("Failed to create wallet for existing user:", walletCreationError);
+                return res.status(200).json({ 
+                    user, 
+                    error: walletCreationError,
+                    walletStatus,
+                    message: "Failed to create wallet"
+                });
             }
-        }
-    
-        if (setWallet === "true") {
-            return res.status(200).json({ user, walletStatus });
         }
         
         res.status(200).json(user);
@@ -149,15 +161,17 @@ export const createUser = async (req: Request, res: Response, next: NextFunction
         });
 
         try {
-            await stellarService.fundWallet(userWallet.publicKey);
-            await stellarService.addTrustLine(userWallet.secretKey);
+            await stellarService.addTrustLineViaSponsor(
+                process.env.STELLAR_MASTER_SECRET_KEY!,
+                userWallet.secretKey
+            );
             
             res.status(201).json(user);
         } catch (error: any) {
             res.status(202).json({ 
                 error, 
                 user, 
-                message: "Failed to fund wallet/add USDC trustline."
+                message: "Failed to add USDC trustline for wallet."
             });
         }
     } catch (error) {
