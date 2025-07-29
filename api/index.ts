@@ -34,8 +34,13 @@ app.use(
             // Allow requests with no origin (like mobile apps or curl requests)
             if (!origin) return callback(null, true);
 
-            // Allow any localhost port
-            if (origin.match(/^http:\/\/localhost:\d+$/)) {
+            // Allow localhost ports 3000 and 4000
+            if (origin === "http://localhost:3000" || origin === "http://localhost:4000") {
+                return callback(null, true);
+            }
+
+            // Allow devasign.com and its subdomains
+            if (origin === "https://devasign.com" || origin.match(/^https:\/\/.*\.devasign\.com$/)) {
                 return callback(null, true);
             }
 

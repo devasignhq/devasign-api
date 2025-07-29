@@ -9,12 +9,12 @@ import { TransactionCategory } from "../generated/client";
 type USDCBalance = HorizonApi.BalanceLineAsset<"credit_alphanum12">;
 
 export const withdrawAsset = async (req: Request, res: Response, next: NextFunction) => {
-    const { 
+    const {
         userId,
-        installationId, 
-        walletAddress: destinationAddress, 
-        assetType = "XLM", 
-        amount 
+        installationId,
+        walletAddress: destinationAddress,
+        assetType = "XLM",
+        amount
     } = req.body;
 
     try {
@@ -40,8 +40,8 @@ export const withdrawAsset = async (req: Request, res: Response, next: NextFunct
 
             if (!installation) {
                 throw new ErrorClass(
-                    "TransactionError", 
-                    null, 
+                    "TransactionError",
+                    null,
                     "Installation does not exist or user is not part of this installation."
                 );
             }
@@ -64,7 +64,7 @@ export const withdrawAsset = async (req: Request, res: Response, next: NextFunct
 
         // Check balance before withdrawal
         const accountInfo = await stellarService.getAccountInfo(walletAddress);
-        
+
         if (assetType === "USDC") {
             const usdcAsset = accountInfo.balances.find(
                 (asset): asset is USDCBalance => 'asset_code' in asset && asset.asset_code === "USDC"
@@ -76,26 +76,26 @@ export const withdrawAsset = async (req: Request, res: Response, next: NextFunct
 
             if (parseFloat(usdcAsset.balance) < Number(amount)) {
                 throw new ErrorClass(
-                    "InsufficientFundsError", 
-                    { available: usdcAsset.balance }, 
+                    "InsufficientFundsError",
+                    { available: usdcAsset.balance },
                     "Insufficient USDC balance"
                 );
             }
         } else {
             // XLM balance check
             const xlmBalance = accountInfo.balances.find(balance => 'asset_type' in balance && balance.asset_type === 'native');
-            
+
             if (!xlmBalance) {
                 throw new ErrorClass("ValidationError", null, "No XLM balance found");
             }
 
             // Keep 1 XLM as minimum reserve
             const availableXLM = parseFloat(xlmBalance.balance) - 1;
-            
+
             if (availableXLM < Number(amount)) {
                 throw new ErrorClass(
-                    "InsufficientFundsError", 
-                    { available: availableXLM.toString() }, 
+                    "InsufficientFundsError",
+                    { available: availableXLM.toString() },
                     "Insufficient XLM balance (1 XLM reserve required)"
                 );
             }
@@ -115,9 +115,9 @@ export const withdrawAsset = async (req: Request, res: Response, next: NextFunct
             amount: parseFloat(amount.toString()),
             asset: "XLM",
             destinationAddress,
-            ...(installationId 
-                    ? { installation: { connect: { id: installationId } } }
-                    : { user: { connect: { userId } } }
+            ...(installationId
+                ? { installation: { connect: { id: installationId } } }
+                : { user: { connect: { userId } } }
             )
         };
 
@@ -130,12 +130,12 @@ export const withdrawAsset = async (req: Request, res: Response, next: NextFunct
 };
 
 export const swapAsset = async (req: Request, res: Response, next: NextFunction) => {
-    const { 
-        userId, 
+    const {
+        userId,
         installationId,
-        toAssetType = "USDC", 
+        toAssetType = "USDC",
         amount,
-        equivalentAmount 
+        equivalentAmount
     } = req.body;
 
     try {
@@ -161,8 +161,8 @@ export const swapAsset = async (req: Request, res: Response, next: NextFunction)
 
             if (!installation) {
                 throw new ErrorClass(
-                    "TransactionError", 
-                    null, 
+                    "TransactionError",
+                    null,
                     "Installation does not exist or user is not part of this installation."
                 );
             }
@@ -185,22 +185,22 @@ export const swapAsset = async (req: Request, res: Response, next: NextFunction)
 
         // Check balance before swap
         const accountInfo = await stellarService.getAccountInfo(walletAddress);
-        
+
         if (toAssetType === "USDC") {
             // Check XLM balance for swap to USDC
             const xlmBalance = accountInfo.balances.find(balance => 'asset_type' in balance && balance.asset_type === 'native');
-            
+
             if (!xlmBalance) {
                 throw new ErrorClass("ValidationError", null, "No XLM balance found");
             }
 
             // Keep 1 XLM as minimum reserve
             const availableXLM = parseFloat(xlmBalance.balance) - 1;
-            
+
             if (availableXLM < Number(amount)) {
                 throw new ErrorClass(
-                    "InsufficientFundsError", 
-                    { available: availableXLM.toString() }, 
+                    "InsufficientFundsError",
+                    { available: availableXLM.toString() },
                     "Insufficient XLM balance for swap (1 XLM reserve required)"
                 );
             }
@@ -216,8 +216,8 @@ export const swapAsset = async (req: Request, res: Response, next: NextFunction)
 
             if (parseFloat(usdcAsset.balance) < Number(amount)) {
                 throw new ErrorClass(
-                    "InsufficientFundsError", 
-                    { available: usdcAsset.balance }, 
+                    "InsufficientFundsError",
+                    { available: usdcAsset.balance },
                     "Insufficient USDC balance for swap"
                 );
             }
@@ -245,9 +245,9 @@ export const swapAsset = async (req: Request, res: Response, next: NextFunction)
             toAmount: parseFloat(equivalentAmount.toString()),
             assetFrom: toAssetType === "USDC" ? "XLM" : "USDC",
             assetTo: toAssetType,
-            ...(installationId 
-                    ? { installation: { connect: { id: installationId } } }
-                    : { user: { connect: { userId } } }
+            ...(installationId
+                ? { installation: { connect: { id: installationId } } }
+                : { user: { connect: { userId } } }
             )
         };
 
@@ -280,8 +280,8 @@ export const getWalletInfo = async (req: Request, res: Response, next: NextFunct
 
             if (!installation) {
                 throw new ErrorClass(
-                    "TransactionError", 
-                    null, 
+                    "TransactionError",
+                    null,
                     "Installation does not exist or user is not part of this installation."
                 );
             }
@@ -299,7 +299,7 @@ export const getWalletInfo = async (req: Request, res: Response, next: NextFunct
 
             walletAddress = user.walletAddress;
         }
-        
+
         const accountInfo = await stellarService.getAccountInfo(walletAddress);
 
         res.status(200).json(accountInfo);
@@ -339,10 +339,10 @@ export const getTransactions = async (req: Request, res: Response, next: NextFun
             }
         } else {
             const user = await prisma.user.findUnique({
-                where: { userId }, 
+                where: { userId },
                 select: { username: true }
             });
-            
+
             if (!user) {
                 throw new NotFoundErrorClass("User not found");
             }
@@ -362,13 +362,13 @@ export const getTransactions = async (req: Request, res: Response, next: NextFun
             orderBy: { doneAt: (sort as "asc" | "desc") || 'desc' },
             skip: ((Number(page) - 1) * take) || 0,
             take,
-            include: { 
+            include: {
                 task: {
-                    select: { 
-                        id: true, 
-                        issue: true, 
-                        bounty: true, 
-                        contributor: { select: { userId: true, username: true } } 
+                    select: {
+                        id: true,
+                        issue: true,
+                        bounty: true,
+                        contributor: { select: { userId: true, username: true } }
                     },
                 }
             }
@@ -389,6 +389,7 @@ export const recordWalletTopups = async (req: Request, res: Response, next: Next
 
     try {
         let walletAddress: string;
+        let escrowAddress = "";
 
         if (installationId) {
             // Check if user is part of the installation
@@ -401,7 +402,11 @@ export const recordWalletTopups = async (req: Request, res: Response, next: Next
                         }
                     }
                 },
-                select: { id: true, walletAddress: true }
+                select: {
+                    id: true,
+                    walletAddress: true,
+                    escrowAddress: true
+                }
             });
 
             if (!installation) {
@@ -409,12 +414,13 @@ export const recordWalletTopups = async (req: Request, res: Response, next: Next
             }
 
             walletAddress = installation.walletAddress;
+            escrowAddress = installation.escrowAddress;
         } else {
             const user = await prisma.user.findUnique({
-                where: { userId }, 
+                where: { userId },
                 select: { username: true, walletAddress: true }
             });
-            
+
             if (!user) {
                 throw new NotFoundErrorClass("User not found");
             }
@@ -426,9 +432,9 @@ export const recordWalletTopups = async (req: Request, res: Response, next: Next
         const stellarTopups = await stellarService.getTopUpTransactions(walletAddress);
 
         if (stellarTopups.length === 0) {
-            return res.status(200).json({ 
+            return res.status(200).json({
                 message: "No new topup transactions found",
-                processed: 0 
+                processed: 0
             });
         }
 
@@ -448,9 +454,9 @@ export const recordWalletTopups = async (req: Request, res: Response, next: Next
 
         // If last recorded topup matches the most recent stellar topup, no new transactions
         if (lastRecordedTopup && lastRecordedTopup.txHash === mostRecentStellarTxHash) {
-            return res.status(200).json({ 
+            return res.status(200).json({
                 message: "No new topup transactions found",
-                processed: 0 
+                processed: 0
             });
         }
 
@@ -464,7 +470,6 @@ export const recordWalletTopups = async (req: Request, res: Response, next: Next
                 break;
             }
 
-            // Extract transaction details based on operation type
             let amount: number;
             let asset: string;
             let sourceAddress: string;
@@ -472,9 +477,12 @@ export const recordWalletTopups = async (req: Request, res: Response, next: Next
             const paymentTx = stellarTx as (HorizonApi.PaymentOperationResponse | HorizonApi.PathPaymentOperationResponse);
             amount = parseFloat(paymentTx.amount);
             asset = paymentTx.asset_type === "native" ? "XLM" : paymentTx.asset_code!;
-            sourceAddress = paymentTx.from;
+            sourceAddress = installationId
+                ? escrowAddress === paymentTx.from
+                    ? "Escrow Refunds"
+                    : paymentTx.from
+                : paymentTx.from;
 
-            // Create transaction record
             const transactionData = {
                 txHash: stellarTx.transaction_hash,
                 category: TransactionCategory.TOP_UP,
@@ -492,11 +500,15 @@ export const recordWalletTopups = async (req: Request, res: Response, next: Next
             processed++;
         }
 
-        // Bulk insert new transactions
+        // Create transactions individually to support relations
         if (newTransactions.length > 0) {
-            await prisma.transaction.createMany({
-                data: newTransactions
-            });
+            await prisma.$transaction(
+                newTransactions.map(transactionData =>
+                    prisma.transaction.create({
+                        data: transactionData
+                    })
+                )
+            );
         }
 
         res.status(200).json({

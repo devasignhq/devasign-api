@@ -3,10 +3,9 @@ import { prisma } from "../config/database";
 import { createMessage } from "../services/firebaseService";
 import { stellarService, usdcAssetId } from "../config/stellar";
 import { decrypt } from "../helper";
-import { MessageType, CreateTask, ErrorClass, NotFoundErrorClass, TaskIssue } from "../types/general";
+import { MessageType, CreateTask, ErrorClass, NotFoundErrorClass, TaskIssue, FilterTasks } from "../types/general";
 import { HorizonApi } from "../types/horizonapi";
 import { Prisma, TaskStatus, TimelineType } from "../generated/client";
-import { IssueLabel } from "../types/github";
 import { GitHubService } from "../services/githubService";
 
 type USDCBalance = HorizonApi.BalanceLineAsset<"credit_alphanum12">;
@@ -57,7 +56,7 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
         }
 
         // Transfer to escrow
-        await stellarService.transferAsset(
+        const { txHash } = await stellarService.transferAsset(
             decryptedInstallationWalletSecret,
             installation.escrowAddress!,
             usdcAssetId,
@@ -87,6 +86,28 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
             }
         });
 
+        
+        const bountyTransactionStatus: any = { 
+            recorded: false,
+            error: undefined
+        };
+
+        try {
+            await prisma.transaction.create({
+                data: {
+                    txHash: txHash,
+                    category: "BOUNTY",
+                    amount: parseFloat(task.bounty.toString()),
+                    task: { connect: { id: task.id } },
+                    installation: { connect: { id: installationId } }
+                }
+            });
+
+            bountyTransactionStatus.recorded = true;
+        } catch (error) {
+            bountyTransactionStatus.error = error;
+        }
+
         try {
             const bountyComment = await GitHubService.addBountyLabelAndCreateBountyComment(
                 installationId,
@@ -106,12 +127,28 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
                 select: { issue: true }
             });
 
+            if (!bountyTransactionStatus.recorded) {
+                return res.status(202).json({ 
+                    error: bountyTransactionStatus.error,
+                    transactionRecord: false,
+                    task: updatedTask,
+                    message: "Failed to record bounty transaction."
+                });
+            }
+
             res.status(201).json({ ...task, ...updatedTask });
         } catch (error: any) {
+            let message = "Failed to either create bounty comment or add bounty label.";
+            
+            if (!bountyTransactionStatus.recorded) {
+                message = "Failed to record bounty transaction and to either create bounty comment or add bounty label."
+            }
+
             res.status(202).json({ 
                 error, 
+                transactionRecord: bountyTransactionStatus.recorded,
                 task,
-                message: "Failed to either create bounty comment or add bounty label."
+                message
             });
         }
     } catch (error) {
@@ -213,71 +250,77 @@ export const createManyTasks = async (req: Request, res: Response, next: NextFun
 };
 
 export const getTasks = async (req: Request, res: Response, next: NextFunction) => {
+    const { userId } = req.body;
     const { 
         installationId,
-        status, 
+        role, // contributor | creator
         detailed,
         page = 1,
         limit = 10,
         sort,
+        repoUrl,
+        issueTitle,
+        issueLabels,
+        issueMilestone,
     } = req.query;
-    const { userId, filters } = req.body;
+    const filters = {
+        repoUrl,
+        issueTitle,
+        issueLabels,
+        issueMilestone,
+    } as FilterTasks;
 
     try {
-        const where: Prisma.TaskWhereInput = {};
-        
-        if (status) {
-            where.status = status as TaskStatus;
-        }
-        
+        const where: Prisma.TaskWhereInput = { status: "OPEN" };
+
         if (installationId) {
             where.installationId = installationId as string;
         }
+        if (role) {
+            if (role === "contributor") {
+                where.contributorId = userId;
+                where.status = { not: "OPEN" };
+            } else if (role === "creator") {
+                where.creatorId = userId;
+            }
+        }
 
-        // Apply filters if provided
-        if (filters) {
-            // Filter by repo URL
-            if (filters.repoUrl) {
-                where.issue = {
-                    path: ["repository_url"],
-                    string_contains: filters.repoUrl,
-                };
+        const issueFilters: any[] = [];
+        
+        if (filters.repoUrl) {
+            issueFilters.push({
+                path: ["repository", "url"],
+                string_contains: filters.repoUrl,
+            });
+        }
+        if (filters.issueTitle) {
+            issueFilters.push({
+                path: ["title"],
+                string_contains: filters.issueTitle,
+                mode: "insensitive"
+            });
+        }
+        if (filters.issueLabels && filters.issueLabels.length > 0) {
+            issueFilters.push({
+                path: ["labels"],
+                array_contains: filters.issueLabels.map((label) => ({ name: label })),
+            });
+        }
+        if (filters.issueMilestone) {
+            if (filters.issueMilestone === "none") {
+                issueFilters.push({
+                    path: ["milestone"],
+                    equals: Prisma.AnyNull,
+                });
+            } else {
+                issueFilters.push({
+                    path: ["milestone", "title"],
+                    string_contains: filters.issueMilestone,
+                });
             }
-    
-            // Filter by issue title
-            if (filters.issueTitle) {
-                where.issue = {
-                    ...where.issue,
-                    path: ["title"],
-                    string_contains: filters.issueTitle,
-                };
-            }
-    
-            // Filter by issue labels
-            if (filters.issueLabels && filters.issueLabels.length > 0) {
-                where.issue = {
-                    ...where.issue,
-                    path: ["labels"],
-                    array_contains: filters.issueLabels.map((label: IssueLabel) => ({ name: label })),
-                };
-            }
-    
-            // Filter by milestone
-            if (filters.issueMilestone) {
-                if (filters.issueMilestone === "none") {
-                    where.issue = {
-                        ...where.issue,
-                        path: ["milestone"],
-                        equals: Prisma.AnyNull,
-                    };
-                } else {
-                    where.issue = {
-                        ...where.issue,
-                        path: ["milestone", "title"],
-                        string_contains: filters.issueMilestone,
-                    };
-                }
-            }
+        }
+        if (issueFilters.length > 0) {
+            where.AND = issueFilters.map(filter => ({ issue: filter }));
         }
 
         let selectRelations: any = {};
@@ -355,9 +398,19 @@ export const getInstallationTasks = async (req: Request, res: Response, next: Ne
         page = 1,
         limit = 10,
         sort,
+        repoUrl,
+        issueTitle,
+        issueLabels,
+        issueMilestone,
     } = req.query;
     const { installationId } = req.params;
-    const { userId, filters } = req.body;
+    const { userId } = req.body;
+    const filters = {
+        repoUrl,
+        issueTitle,
+        issueLabels,
+        issueMilestone,
+    } as FilterTasks;
 
     try {
         const where: Prisma.TaskWhereInput = {
@@ -373,50 +426,42 @@ export const getInstallationTasks = async (req: Request, res: Response, next: Ne
             where.status = status as TaskStatus;
         }
 
-        // Apply filters if provided
-        if (filters) {
-            // Filter by repo URL
-            if (filters.repoUrl) {
-                where.issue = {
-                    path: ["repository_url"],
-                    string_contains: filters.repoUrl,
-                };
+        const issueFilters: any[] = [];
+        
+        if (filters.repoUrl) {
+            issueFilters.push({
+                path: ["repository", "url"],
+                string_contains: filters.repoUrl,
+            });
+        }
+        if (filters.issueTitle) {
+            issueFilters.push({
+                path: ["title"],
+                string_contains: filters.issueTitle,
+                mode: "insensitive"
+            });
+        }
+        if (filters.issueLabels && filters.issueLabels.length > 0) {
+            issueFilters.push({
+                path: ["labels"],
+                array_contains: filters.issueLabels.map((label) => ({ name: label })),
+            });
+        }
+        if (filters.issueMilestone) {
+            if (filters.issueMilestone === "none") {
+                issueFilters.push({
+                    path: ["milestone"],
+                    equals: Prisma.AnyNull,
+                });
+            } else {
+                issueFilters.push({
+                    path: ["milestone", "title"],
+                    string_contains: filters.issueMilestone,
+                });
             }
-    
-            // Filter by issue title
-            if (filters.issueTitle) {
-                where.issue = {
-                    ...where.issue,
-                    path: ["title"],
-                    string_contains: filters.issueTitle,
-                };
-            }
-    
-            // Filter by issue labels
-            if (filters.issueLabels && filters.issueLabels.length > 0) {
-                where.issue = {
-                    ...where.issue,
-                    path: ["labels"],
-                    array_contains: filters.issueLabels.map((label: IssueLabel) => ({ name: label })),
-                };
-            }
-    
-            // Filter by milestone
-            if (filters.issueMilestone) {
-                if (filters.issueMilestone === "none") {
-                    where.issue = {
-                        ...where.issue,
-                        path: ["milestone"],
-                        equals: Prisma.AnyNull,
-                    };
-                } else {
-                    where.issue = {
-                        ...where.issue,
-                        path: ["milestone", "title"],
-                        string_contains: filters.issueMilestone,
-                    };
-                }
-            }
+        }
+        if (issueFilters.length > 0) {
+            where.AND = issueFilters.map(filter => ({ issue: filter }));
         }
 
         let selectRelations: any = {};
@@ -701,6 +746,12 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
 
         const bountyDifference = Number(newBounty) - task.bounty;
         const decryptedWalletSecret = decrypt(task.installation.walletSecret!);
+        const additionalFundsTransaction: any = { 
+            txHash: "", 
+            amount: "",
+            recorded: false,
+            error: undefined
+        };
 
         if (bountyDifference > 0) {
             // Additional funds needed - transfer from wallet to escrow
@@ -713,13 +764,16 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
                 throw new ErrorClass("TaskError", null, "Insufficient USDC balance for compensation increase");
             }
 
-            await stellarService.transferAsset(
+            const { txHash } =await stellarService.transferAsset(
                 decryptedWalletSecret,
                 task.installation.escrowAddress!,
                 usdcAssetId,
                 usdcAssetId,
                 bountyDifference.toString()
             );
+
+            additionalFundsTransaction.txHash = txHash;
+            additionalFundsTransaction.amount = bountyDifference.toString();
         } else {
             // Excess funds - return from escrow to wallet
             const decryptedEscrowSecret = decrypt(task.installation.escrowSecret!);
@@ -744,18 +798,56 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
         });
 
         try {
+            if (additionalFundsTransaction.txHash) {     
+                await prisma.transaction.create({
+                    data: {
+                        txHash: additionalFundsTransaction.txHash,
+                        category: "BOUNTY",
+                        amount: parseFloat(additionalFundsTransaction.amount),
+                        task: { connect: { id: taskId } },
+                        installation: { connect: { id: task.installationId } }
+                    }
+                });
+
+                additionalFundsTransaction.recorded = true;
+            }
+        } catch (error) {
+            additionalFundsTransaction.error = error;
+        }
+
+        try {
             await GitHubService.updateIssueComment(
                 task.installationId,
                 (task.issue as TaskIssue).bountyCommentId!,
                 GitHubService.customBountyMessage(newBounty as string, taskId),
             );
 
+            if (!additionalFundsTransaction.recorded && additionalFundsTransaction.txHash) {
+                return res.status(202).json({ 
+                    error: additionalFundsTransaction.error, 
+                    transactionRecord: false,
+                    task: updatedTask,
+                    message: "Failed to record additional bounty transaction."
+                });
+            }
+
             res.status(200).json(updatedTask);
         } catch (error: any) {
+            let message = "Failed to update bounty amount on GitHub.";
+            
+            if (!additionalFundsTransaction.recorded && additionalFundsTransaction.txHash) {
+                message = "Failed to update bounty amount on GitHub and also record the additional bounty transaction."
+            }
+
+            const transactionRecord = additionalFundsTransaction.txHash 
+                ? additionalFundsTransaction.recorded 
+                : null;
+
             res.status(202).json({ 
                 error, 
+                transactionRecord,
                 task: updatedTask,
-                message: "Failed to updated bounty amount on GitHub."
+                message
             });
         }
     } catch (error) {
@@ -1260,27 +1352,16 @@ export const validateCompletion = async (req: Request, res: Response, next: Next
             }
         });
 
-        // Record transaction for installation and contributor
-        await prisma.$transaction([
-            prisma.transaction.create({
-                data: {
-                    txHash: transactionResponse.sponsorTxHash,
-                    category: "BOUNTY",
-                    amount: parseFloat(task.bounty.toString()),
-                    task: { connect: { id: taskId } },
-                    installation: { connect: { id: task.installation.id } }
-                }
-            }),
-            prisma.transaction.create({
-                data: {
-                    txHash: transactionResponse.txHash,
-                    category: "BOUNTY",
-                    amount: parseFloat(task.bounty.toString()),
-                    task: { connect: { id: taskId } },
-                    user: { connect: { userId: task.contributor.userId } }
-                }
-            }),
-        ]);
+        // Record transaction for contributor
+        await prisma.transaction.create({
+            data: {
+                txHash: transactionResponse.txHash,
+                category: "BOUNTY",
+                amount: parseFloat(task.bounty.toString()),
+                task: { connect: { id: taskId } },
+                user: { connect: { userId: task.contributor.userId } }
+            }
+        });
 
         try {
             // Update contribution summary

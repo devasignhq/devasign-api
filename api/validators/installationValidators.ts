@@ -60,6 +60,14 @@ export const updateInstallationValidator = [
         }),
 ];
 
+export const deleteInstallationValidator = [
+    body('walletAddress')
+        .exists()
+        .withMessage('Wallet address is required')
+        .isString()
+        .withMessage('Wallet address must be a string'),
+];
+
 export const addTeamMemberValidator = [
     param('id')
         .exists()

@@ -165,7 +165,7 @@ export const createInstallation = async (req: Request, res: Response, next: Next
     try {
         const user = await prisma.user.findUnique({
             where: { userId },            
-            select: { walletSecret: true, username: true }
+            select: { username: true }
         });
 
         if (!user) {
@@ -186,9 +186,8 @@ export const createInstallation = async (req: Request, res: Response, next: Next
             user.username
         );
 
-        const decryptedUserSecret = decrypt(user.walletSecret);
-        const installationWallet = await stellarService.createWalletViaSponsor(decryptedUserSecret);
-        const escrowWallet = await stellarService.createWalletViaSponsor(decryptedUserSecret);
+        const installationWallet = await stellarService.createWallet();
+        const escrowWallet = await stellarService.createWallet();
         const encryptedInstallationSecret = encrypt(installationWallet.secretKey);
         const encryptedEscrowSecret = encrypt(escrowWallet.secretKey); 
         
@@ -231,14 +230,16 @@ export const createInstallation = async (req: Request, res: Response, next: Next
         });
 
         try {
+            const masterAccountSecret = process.env.STELLAR_MASTER_SECRET_KEY!;
+
             // Add trustline for installation wallet
             await stellarService.addTrustLineViaSponsor(
-                decryptedUserSecret,
+                masterAccountSecret,
                 installationWallet.secretKey
             );
             // Add trustline for installation escrow wallet
             await stellarService.addTrustLineViaSponsor(
-                decryptedUserSecret,
+                masterAccountSecret,
                 escrowWallet.secretKey
             );
             
@@ -304,34 +305,26 @@ export const updateInstallation = async (req: Request, res: Response, next: Next
 
 export const deleteInstallation = async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;
-    const { userId } = req.body;
+    const { userId, walletAddress } = req.body;
 
     try {
 
         const installation = await prisma.installation.findUnique({
-            where: { id },
-            select: { 
-                escrowAddress: true,
-                escrowSecret: true,
-                users: { select: { userId: true, walletSecret: true } },
-                tasks: {
-                    select: {
-                        status: true,
-                        bounty: true,
-                        creator: { select: { userId: true, walletAddress: true } },
-                    }
+            where: { 
+                id,
+                users: {
+                    some: { userId: userId as string }
                 }
+            },
+            select: { 
+                walletSecret: true,
+                escrowSecret: true,
+                tasks: { select: { status: true, bounty: true } }
             }
         });
         
         if (!installation) {
             throw new NotFoundErrorClass("Installation not found");
-        }
-        
-        // Check authorization
-        const userIsTeamMember = installation.users.some(user => user.userId === userId);
-        if (!userIsTeamMember) {
-            throw new ErrorClass("AuthorizationError", null, "Not authorized to delete this installation");
         }
 
         // Check if there are active tasks
@@ -344,16 +337,15 @@ export const deleteInstallation = async (req: Request, res: Response, next: Next
         }
 
         // Refund escrow funds
-        const user = installation.users.find(user => user.userId === userId)!;
-        const decryptedUserSecret = decrypt(user.walletSecret);
-        const decryptedEscrowecret = decrypt(installation.escrowSecret!);
+        const decryptedWalletSecret = decrypt(installation.walletSecret!);
+        const decryptedEscrowSecret = decrypt(installation.escrowSecret!);
         let refunded = 0;
 
         installation.tasks.forEach(async (task) => {
             await stellarService.transferAssetViaSponsor(
-                decryptedUserSecret,
-                decryptedEscrowecret,
-                task.creator.walletAddress,
+                decryptedWalletSecret,
+                decryptedEscrowSecret,
+                walletAddress,
                 usdcAssetId,
                 usdcAssetId,
                 task.bounty.toString(),
