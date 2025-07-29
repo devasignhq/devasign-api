@@ -56,7 +56,7 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
         }
 
         // Transfer to escrow
-        await stellarService.transferAsset(
+        const { txHash } = await stellarService.transferAsset(
             decryptedInstallationWalletSecret,
             installation.escrowAddress!,
             usdcAssetId,
@@ -86,6 +86,28 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
             }
         });
 
+        
+        const bountyTransactionStatus: any = { 
+            recorded: false,
+            error: undefined
+        };
+
+        try {
+            await prisma.transaction.create({
+                data: {
+                    txHash: txHash,
+                    category: "BOUNTY",
+                    amount: parseFloat(task.bounty.toString()),
+                    task: { connect: { id: task.id } },
+                    installation: { connect: { id: installationId } }
+                }
+            });
+
+            bountyTransactionStatus.recorded = true;
+        } catch (error) {
+            bountyTransactionStatus.error = error;
+        }
+
         try {
             const bountyComment = await GitHubService.addBountyLabelAndCreateBountyComment(
                 installationId,
@@ -105,12 +127,26 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
                 select: { issue: true }
             });
 
+            if (!bountyTransactionStatus.recorded) {
+                return res.status(202).json({ 
+                    error: bountyTransactionStatus.error, 
+                    task: updatedTask,
+                    message: "Failed to record bounty transaction."
+                });
+            }
+
             res.status(201).json({ ...task, ...updatedTask });
         } catch (error: any) {
+            let message = "Failed to either create bounty comment or add bounty label.";
+            
+            if (!bountyTransactionStatus.recorded) {
+                message = "Failed to record bounty transaction and to either create bounty comment or add bounty label."
+            }
+
             res.status(202).json({ 
                 error, 
                 task,
-                message: "Failed to either create bounty comment or add bounty label."
+                message
             });
         }
     } catch (error) {
@@ -708,6 +744,12 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
 
         const bountyDifference = Number(newBounty) - task.bounty;
         const decryptedWalletSecret = decrypt(task.installation.walletSecret!);
+        const additionalFundsTransaction: any = { 
+            txHash: "", 
+            amount: "",
+            recorded: false,
+            error: undefined
+        };
 
         if (bountyDifference > 0) {
             // Additional funds needed - transfer from wallet to escrow
@@ -720,13 +762,16 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
                 throw new ErrorClass("TaskError", null, "Insufficient USDC balance for compensation increase");
             }
 
-            await stellarService.transferAsset(
+            const { txHash } =await stellarService.transferAsset(
                 decryptedWalletSecret,
                 task.installation.escrowAddress!,
                 usdcAssetId,
                 usdcAssetId,
                 bountyDifference.toString()
             );
+
+            additionalFundsTransaction.txHash = txHash;
+            additionalFundsTransaction.amount = bountyDifference.toString();
         } else {
             // Excess funds - return from escrow to wallet
             const decryptedEscrowSecret = decrypt(task.installation.escrowSecret!);
@@ -751,18 +796,50 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
         });
 
         try {
+            if (additionalFundsTransaction.txHash) {     
+                await prisma.transaction.create({
+                    data: {
+                        txHash: additionalFundsTransaction.txHash,
+                        category: "BOUNTY",
+                        amount: parseFloat(additionalFundsTransaction.amount),
+                        task: { connect: { id: taskId } },
+                        installation: { connect: { id: task.installationId } }
+                    }
+                });
+
+                additionalFundsTransaction.recorded = true;
+            }
+        } catch (error) {
+            additionalFundsTransaction.error = error;
+        }
+
+        try {
             await GitHubService.updateIssueComment(
                 task.installationId,
                 (task.issue as TaskIssue).bountyCommentId!,
                 GitHubService.customBountyMessage(newBounty as string, taskId),
             );
 
+            if (!additionalFundsTransaction.recorded && additionalFundsTransaction.txHash) {
+                return res.status(202).json({ 
+                    error: additionalFundsTransaction.error, 
+                    task: updatedTask,
+                    message: "Failed to record additional bounty transaction."
+                });
+            }
+
             res.status(200).json(updatedTask);
         } catch (error: any) {
+            let message = "Failed to update bounty amount on GitHub.";
+            
+            if (!additionalFundsTransaction.recorded && additionalFundsTransaction.txHash) {
+                message = "Failed to update bounty amount on GitHub and also record the additional bounty transaction."
+            }
+
             res.status(202).json({ 
                 error, 
                 task: updatedTask,
-                message: "Failed to updated bounty amount on GitHub."
+                message
             });
         }
     } catch (error) {
@@ -1267,27 +1344,16 @@ export const validateCompletion = async (req: Request, res: Response, next: Next
             }
         });
 
-        // Record transaction for installation and contributor
-        await prisma.$transaction([
-            prisma.transaction.create({
-                data: {
-                    txHash: transactionResponse.sponsorTxHash,
-                    category: "BOUNTY",
-                    amount: parseFloat(task.bounty.toString()),
-                    task: { connect: { id: taskId } },
-                    installation: { connect: { id: task.installation.id } }
-                }
-            }),
-            prisma.transaction.create({
-                data: {
-                    txHash: transactionResponse.txHash,
-                    category: "BOUNTY",
-                    amount: parseFloat(task.bounty.toString()),
-                    task: { connect: { id: taskId } },
-                    user: { connect: { userId: task.contributor.userId } }
-                }
-            }),
-        ]);
+        // Record transaction for contributor
+        await prisma.transaction.create({
+            data: {
+                txHash: transactionResponse.txHash,
+                category: "BOUNTY",
+                amount: parseFloat(task.bounty.toString()),
+                task: { connect: { id: taskId } },
+                user: { connect: { userId: task.contributor.userId } }
+            }
+        });
 
         try {
             // Update contribution summary
