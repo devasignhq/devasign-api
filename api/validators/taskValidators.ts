@@ -1,25 +1,16 @@
 import { body, query, param } from 'express-validator';
-import { CreateTask } from '../types/general';
 import { TimelineType } from '../generated/client';
 
 export const getTasksValidator = [
-    query('status')
-        .optional()
-        .isIn(['OPEN', 'IN_PROGRESS', 'MARKED_AS_COMPLETED', 'COMPLETED'])
-        .withMessage('Invalid task status'),    
     query('installationId')
         .optional()
         .isString()
         .withMessage('Installation ID must be a string'),
-    query('role')
-        .optional()
-        .isIn(['creator', 'contributor'])
-        .withMessage('Role must be either creator or contributor'),
     query('page')
         .optional()
         .trim()
         .notEmpty()
-        .toInt() 
+        .toInt()
         .isInt({ min: 1 })
         .withMessage('Page must be a positive integer')
         .custom((value) => {
@@ -32,7 +23,7 @@ export const getTasksValidator = [
         .optional()
         .trim()
         .notEmpty()
-        .toInt() 
+        .toInt()
         .isInt({ min: 1, max: 100 })
         .withMessage('Page must be a positive integer')
         .custom((value) => {
@@ -45,15 +36,72 @@ export const getTasksValidator = [
         .optional()
         .isIn(['asc', 'desc'])
         .withMessage('Sort field must be either asc or desc'),
+    query('repoUrl')
+        .optional()
+        .isString()
+        .withMessage('Repository URL must be a string')
+        .isLength({ min: 1, max: 500 })
+        .withMessage('Repository URL must be between 1 and 500 characters'),
+    query('issueTitle')
+        .optional()
+        .isString()
+        .withMessage('Issue title must be a string')
+        .isLength({ min: 1, max: 300 })
+        .withMessage('Issue title must be between 1 and 300 characters'),
+    query('issueLabels')
+        .optional()
+        .custom((value) => {
+            if (typeof value === 'string') {
+                // Single label as string
+                return true;
+            }
+            if (Array.isArray(value)) {
+                // Multiple labels as array
+                if (value.length > 20) {
+                    throw new Error('Maximum 20 labels allowed');
+                }
+                for (const label of value) {
+                    if (typeof label !== 'string' || label.length > 50) {
+                        throw new Error('Each label must be a string with maximum 50 characters');
+                    }
+                }
+                return true;
+            }
+            throw new Error('Issue labels must be a string or array of strings');
+        }),
+    query('issueMilestone')
+        .optional()
+        .isString()
+        .withMessage('Issue milestone must be a string')
+        .isLength({ min: 1, max: 100 })
+        .withMessage('Issue milestone must be between 1 and 100 characters')
+        .custom((value) => {
+            if (value === 'none') {
+                return true; // Special case for "none"
+            }
+            return true;
+        }),
 ];
 
 export const getInstallationTasksValidator = [
     param('installationId')
         .exists()
         .withMessage('Installation ID is required'),
+    query('status')
+        .optional()
+        .isIn(['OPEN', 'IN_PROGRESS', 'MARKED_AS_COMPLETED', 'COMPLETED'])
+        .withMessage('Invalid task status'),
+        
+    ...getTasksValidator.slice(1)
+];
 
-    getTasksValidator[0],
-    ...getTasksValidator.slice(2),
+export const getContributorTasksValidator = [
+    query('status')
+        .optional()
+        .isIn(['OPEN', 'IN_PROGRESS', 'MARKED_AS_COMPLETED', 'COMPLETED'])
+        .withMessage('Invalid task status'),
+
+    ...getTasksValidator,
 ];
 
 export const createTaskValidator = [
@@ -88,7 +136,7 @@ export const createTaskValidator = [
         .optional()
         .trim()
         .notEmpty()
-        .toInt() 
+        .toInt()
         .isInt({ min: 1 })
         .withMessage('Timeline must be a positive integer')
         .custom((value) => {
@@ -115,7 +163,7 @@ export const addBountyCommentIdValidator = [
     body('bountyCommentId')
         .trim()
         .notEmpty()
-        .toInt() 
+        .toInt()
         .custom((value) => {
             if (isNaN(value)) {
                 throw new Error('Comment ID must be a valid number');
@@ -144,7 +192,7 @@ export const updateTaskTimelineValidator = [
     body('timeline')
         .trim()
         .notEmpty()
-        .toInt() 
+        .toInt()
         .isInt({ min: 1 })
         .withMessage('Timeline must be a positive integer')
         .custom((value) => {
@@ -225,7 +273,7 @@ export const requestTimelineExtensionValidator = [
         .exists()
         .trim()
         .notEmpty()
-        .toInt() 
+        .toInt()
         .withMessage('New timeline is required')
         .isInt({ min: 1 })
         .withMessage('Timeline must be a positive integer')
@@ -265,7 +313,7 @@ export const replyTimelineModificationValidator = [
         .exists()
         .trim()
         .notEmpty()
-        .toInt() 
+        .toInt()
         .withMessage('New timeline is required')
         .isInt({ min: 1 })
         .withMessage('Timeline must be a positive integer')
@@ -288,7 +336,7 @@ export const getTaskActivitiesValidator = [
         .optional()
         .trim()
         .notEmpty()
-        .toInt() 
+        .toInt()
         .isInt({ min: 1 })
         .withMessage('Page must be a positive integer')
         .custom((value) => {
@@ -301,7 +349,7 @@ export const getTaskActivitiesValidator = [
         .optional()
         .trim()
         .notEmpty()
-        .toInt() 
+        .toInt()
         .isInt({ min: 1, max: 100 })
         .withMessage('Page must be a positive integer')
         .custom((value) => {

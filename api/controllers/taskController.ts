@@ -3,7 +3,14 @@ import { prisma } from "../config/database";
 import { createMessage } from "../services/firebaseService";
 import { stellarService, usdcAssetId } from "../config/stellar";
 import { decrypt } from "../helper";
-import { MessageType, CreateTask, ErrorClass, NotFoundErrorClass, TaskIssue, FilterTasks } from "../types/general";
+import {
+    MessageType,
+    CreateTask,
+    ErrorClass,
+    NotFoundErrorClass,
+    TaskIssue,
+    FilterTasks
+} from "../types/general";
 import { HorizonApi } from "../types/horizonapi";
 import { Prisma, TaskStatus, TimelineType } from "../generated/client";
 import { GitHubService } from "../services/githubService";
@@ -250,10 +257,8 @@ export const createManyTasks = async (req: Request, res: Response, next: NextFun
 };
 
 export const getTasks = async (req: Request, res: Response, next: NextFunction) => {
-    const { userId } = req.body;
     const { 
         installationId,
-        role, // contributor | creator
         detailed,
         page = 1,
         limit = 10,
@@ -275,14 +280,6 @@ export const getTasks = async (req: Request, res: Response, next: NextFunction) 
 
         if (installationId) {
             where.installationId = installationId as string;
-        }
-        if (role) {
-            if (role === "contributor") {
-                where.contributorId = userId;
-                where.status = { not: "OPEN" };
-            } else if (role === "creator") {
-                where.creatorId = userId;
-            }
         }
 
         const issueFilters: any[] = [];
@@ -336,12 +333,6 @@ export const getTasks = async (req: Request, res: Response, next: NextFunction) 
                         username: true
                     }
                 },
-                contributor: {
-                    select: {
-                        userId: true,
-                        username: true
-                    }
-                },
             }
         }
 
@@ -360,9 +351,6 @@ export const getTasks = async (req: Request, res: Response, next: NextFunction) 
                 timeline: true,
                 timelineType: true,
                 status: true,
-                settled: true,
-                acceptedAt: true,
-                completedAt: true,
                 contributorId: true,
                 creatorId: true,
                 createdAt: true,
@@ -548,12 +536,105 @@ export const getInstallationTasks = async (req: Request, res: Response, next: Ne
     }
 };
 
-export const getTask = async (req: Request, res: Response, next: NextFunction) => {
-    const { id } = req.params;
+export const getContributorTasks = async (req: Request, res: Response, next: NextFunction) => {
+    const { userId } = req.body;
+    const { 
+        installationId,
+        status,
+        detailed,
+        page = 1,
+        limit = 10,
+        sort,
+        repoUrl,
+        issueTitle,
+        issueLabels,
+        issueMilestone,
+    } = req.query;
+    const filters = {
+        repoUrl,
+        issueTitle,
+        issueLabels,
+        issueMilestone,
+    } as FilterTasks;
 
     try {
-        const task = await prisma.task.findUnique({
-            where: { id },
+        const where: Prisma.TaskWhereInput = { contributorId: userId };
+
+        if (status) {
+            where.status = status as TaskStatus;
+        }
+        if (installationId) {
+            where.installationId = installationId as string;
+        }
+
+        const issueFilters: any[] = [];
+        
+        if (filters.repoUrl) {
+            issueFilters.push({
+                path: ["repository", "url"],
+                string_contains: filters.repoUrl,
+            });
+        }
+        if (filters.issueTitle) {
+            issueFilters.push({
+                path: ["title"],
+                string_contains: filters.issueTitle,
+                mode: "insensitive"
+            });
+        }
+        if (filters.issueLabels && filters.issueLabels.length > 0) {
+            issueFilters.push({
+                path: ["labels"],
+                array_contains: filters.issueLabels.map((label) => ({ name: label })),
+            });
+        }
+        if (filters.issueMilestone) {
+            if (filters.issueMilestone === "none") {
+                issueFilters.push({
+                    path: ["milestone"],
+                    equals: Prisma.AnyNull,
+                });
+            } else {
+                issueFilters.push({
+                    path: ["milestone", "title"],
+                    string_contains: filters.issueMilestone,
+                });
+            }
+        }
+        if (issueFilters.length > 0) {
+            where.AND = issueFilters.map(filter => ({ issue: filter }));
+        }
+
+        let selectRelations: any = {};
+
+        if (detailed) {
+            selectRelations = {
+                installation: {
+                    select: { account: true  }
+                },
+                creator: {
+                    select: {
+                        userId: true,
+                        username: true
+                    }
+                },
+                contributor: {
+                    select: {
+                        userId: true,
+                        username: true
+                    }
+                },
+            }
+        }
+
+        // Get total count for pagination
+        const totalTasks = await prisma.task.count({ where });
+        const totalPages = Math.ceil(totalTasks / Number(limit));
+        const skip = (Number(page) - 1) * Number(limit);
+
+        // Get tasks with pagination
+        const tasks = await prisma.task.findMany({
+            where,
             select: {
                 id: true,
                 issue: true,
@@ -564,6 +645,47 @@ export const getTask = async (req: Request, res: Response, next: NextFunction) =
                 settled: true,
                 acceptedAt: true,
                 completedAt: true,
+                contributorId: true,
+                creatorId: true,
+                createdAt: true,
+                updatedAt: true,
+                ...selectRelations
+            },
+            orderBy: {
+                createdAt: (sort as "asc" | "desc") || 'desc'
+            },
+            skip,
+            take: Number(limit)
+        });
+
+        res.status(200).json({
+            data: tasks,
+            pagination: {
+                currentPage: Number(page),
+                totalPages,
+                totalItems: totalTasks,
+                itemsPerPage: Number(limit),
+                hasMore: Number(page) < totalPages
+            }
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const getTask = async (req: Request, res: Response, next: NextFunction) => {
+    const { id } = req.params;
+
+    try {
+        const task = await prisma.task.findUnique({
+            where: { id, status: "OPEN" },
+            select: {
+                id: true,
+                issue: true,
+                bounty: true,
+                timeline: true,
+                timelineType: true,
+                status: true,
                 installation: {
                     select: {
                         id: true,
@@ -571,12 +693,6 @@ export const getTask = async (req: Request, res: Response, next: NextFunction) =
                     }
                 },
                 creator: {
-                    select: {
-                        userId: true,
-                        username: true
-                    }
-                },
-                contributor: {
                     select: {
                         userId: true,
                         username: true
@@ -598,13 +714,13 @@ export const getTask = async (req: Request, res: Response, next: NextFunction) =
 };
 
 export const getInstallationTask = async (req: Request, res: Response, next: NextFunction) => {
-    const { id, installationId } = req.params;
+    const { taskId, installationId } = req.params;
     const { userId } = req.body;
 
     try {
         const task = await prisma.task.findUnique({
             where: { 
-                id,
+                id: taskId,
                 installation: {
                     id: installationId,
                     users: {
@@ -651,6 +767,56 @@ export const getInstallationTask = async (req: Request, res: Response, next: Nex
                         id: true,
                         pullRequest: true,
                         attachmentUrl: true
+                    }
+                },
+                createdAt: true,
+                updatedAt: true
+            }
+        });
+
+        if (!task) {
+            throw new NotFoundErrorClass("Task not found");
+        }
+
+        res.status(200).json(task);
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const getContributorTask = async (req: Request, res: Response, next: NextFunction) => {
+    const { id } = req.params;
+    const { userId } = req.body;
+
+    try {
+        const task = await prisma.task.findUnique({
+            where: { id, contributorId: userId },
+            select: {
+                id: true,
+                issue: true,
+                bounty: true,
+                timeline: true,
+                timelineType: true,
+                status: true,
+                settled: true,
+                acceptedAt: true,
+                completedAt: true,
+                installation: {
+                    select: {
+                        id: true,
+                        account: true
+                    }
+                },
+                creator: {
+                    select: {
+                        userId: true,
+                        username: true
+                    }
+                },
+                contributor: {
+                    select: {
+                        userId: true,
+                        username: true
                     }
                 },
                 createdAt: true,

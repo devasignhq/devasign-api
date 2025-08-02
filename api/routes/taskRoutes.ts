@@ -15,7 +15,9 @@ import {
     updateTaskTimeline,
     addBountyCommentId,
     getInstallationTask,
-    getInstallationTasks
+    getInstallationTasks,
+    getContributorTasks,
+    getContributorTask
 } from "../controllers/taskController";
 import {
     getTasksValidator,
@@ -31,7 +33,8 @@ import {
     getTaskActivitiesValidator,
     updateTaskTimelineValidator,
     addBountyCommentIdValidator,
-    getInstallationTasksValidator
+    getInstallationTasksValidator,
+    getContributorTasksValidator
 } from "../validators/taskValidators";
 
 export const taskRoutes = Router();
@@ -39,8 +42,12 @@ export const taskRoutes = Router();
 // Task queries
 taskRoutes.get('/', getTasksValidator, getTasks as RequestHandler);
 taskRoutes.get('/installation/:installationId', getInstallationTasksValidator, getInstallationTasks as RequestHandler);
+taskRoutes.get('/contributor', getContributorTasksValidator, getContributorTasks as RequestHandler);
+
 taskRoutes.get('/:id', getTask as RequestHandler);
-taskRoutes.get('/installation/:installationId/:id', getInstallationTask as RequestHandler);
+taskRoutes.get('/installation/:installationId/:taskId', getInstallationTask as RequestHandler);
+taskRoutes.get('/contributor/:id', getContributorTask as RequestHandler);
+
 taskRoutes.get('/activities/:id', getTaskActivitiesValidator, getTaskActivities as RequestHandler);
 
 // Task management
