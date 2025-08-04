@@ -1,61 +1,109 @@
 import { db } from "../config/firebase";
 import { Timestamp } from "firebase-admin/firestore";
 import { Message, MessageType } from "../types/general";
+import { TaskStatus } from "../generated/client";
 
 export const messagesCollection = db.collection('messages');
+export const tasksCollection = db.collection('tasks');
 
-export const createMessage = async ({
-    userId,
-    taskId,
-    type = MessageType.GENERAL,
-    body,
-    metadata = {} as any,
-    attachments = []
-}: Message) => {
-    const messageRef = messagesCollection.doc();
-    const timestamp = Timestamp.now();
-
-    const messageData = {
-        id: messageRef.id,
+export class FirebaseService {
+    static async createMessage({
         userId,
         taskId,
-        type,
+        type = MessageType.GENERAL,
         body,
-        metadata,
-        attachments,
-        createdAt: timestamp,
-        updatedAt: timestamp
-    };
+        metadata = {} as any,
+        attachments = []
+    }: Message) {
+        const messageRef = messagesCollection.doc();
+        const timestamp = Timestamp.now();
 
-    await messageRef.set(messageData);
-    return messageData;
-};
+        const messageData = {
+            id: messageRef.id,
+            userId,
+            taskId,
+            type,
+            body,
+            metadata,
+            attachments,
+            createdAt: timestamp,
+            updatedAt: timestamp
+        };
 
-export const updateMessage = async (messageId: string, data: Partial<Message>) => {
-    const message = await messagesCollection.doc(messageId).get();
-    
-    if (!message.exists) {
-        throw new Error('Message not found');
+        await messageRef.set(messageData);
+        return messageData;
     }
 
-    const updateData = {
-        ...data,
-        updatedAt: Timestamp.now()
-    };
+    static async updateMessage(messageId: string, data: Partial<Message>) {
+        const message = await messagesCollection.doc(messageId).get();
 
-    await messagesCollection.doc(messageId).update(updateData);
-    
-    const updatedMessage = await messagesCollection.doc(messageId).get();
-    return {
-        id: updatedMessage.id,
-        ...updatedMessage.data()
-    };
-};
+        if (!message.exists) {
+            throw new Error('Message not found');
+        }
 
-export const getTaskMessages = async (taskId: string) => {
-    const snapshot = await messagesCollection
-        .where('taskId', '==', taskId)
-        .orderBy('createdAt', 'desc')
-        .get();
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-};
+        const updateData = {
+            ...data,
+            updatedAt: Timestamp.now()
+        };
+
+        await messagesCollection.doc(messageId).update(updateData);
+
+        const updatedMessage = await messagesCollection.doc(messageId).get();
+        return {
+            id: updatedMessage.id,
+            ...updatedMessage.data()
+        };
+    }
+
+    static async getTaskMessages(taskId: string) {
+        const snapshot = await messagesCollection
+            .where('taskId', '==', taskId)
+            .orderBy('createdAt', 'desc')
+            .get();
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    }
+
+    static async createTask(
+        taskId: string,
+        creatorId: string,
+        contributorId: string
+    ) {
+        const taskRef = tasksCollection.doc(taskId);
+
+        // Check if task already exists
+        const existingTask = await taskRef.get();
+        if (existingTask.exists) return;
+
+        const timestamp = Timestamp.now();
+
+        const taskData = {
+            id: taskId,
+            creatorId,
+            contributorId,
+            conversationStatus: "OPEN",
+            createdAt: timestamp,
+            updatedAt: timestamp
+        };
+
+        await taskRef.set(taskData);
+        return taskData;
+    }
+
+    static async updateTaskStatus(taskId: string) {
+        const taskRef = tasksCollection.doc(taskId);
+
+        // Check if task exists
+        const task = await taskRef.get();
+        if (!task.exists) {
+            throw new Error('Task not found in Firebase');
+        }
+
+        const updateData = {
+            conversationStatus: "CLOSED",
+            updatedAt: Timestamp.now()
+        };
+
+        await taskRef.update(updateData);
+        return updateData;
+    }
+}

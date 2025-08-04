@@ -1,6 +1,6 @@
 import { NextFunction, Request, Response } from "express";
 import { prisma } from "../config/database";
-import { createMessage } from "../services/firebaseService";
+import { FirebaseService } from "../services/firebaseService";
 import { stellarService, usdcAssetId } from "../config/stellar";
 import { decrypt } from "../helper";
 import {
@@ -1131,7 +1131,18 @@ export const acceptTaskApplication = async (req: Request, res: Response, next: N
             }
         });
 
-        res.status(200).json(updatedTask);
+        try {
+            // TODO: Add logic on frontend for retrying.
+            await FirebaseService.createTask(taskId, userId, contributorId);
+
+            res.status(200).json(updatedTask);
+        } catch (error) {
+            return res.status(202).json({ 
+                error: error,
+                task: updatedTask,
+                message: "Failed to enable chat functionality for this task."
+            });
+        }
     } catch (error) {
         next(error);
     }
@@ -1174,7 +1185,7 @@ export const requestTimelineExtension = async (req: Request, res: Response, next
         const body = `${githubUsername} is requesting for a ${requestedTimeline} ${(timelineType as string).toLowerCase()}(s) 
             time extension for this task. Kindly approve or reject it below.`;
 
-        const message = await createMessage({
+        const message = await FirebaseService.createMessage({
             userId,
             taskId: id,
             type: MessageType.TIMELINE_MODIFICATION,
@@ -1289,7 +1300,7 @@ export const replyTimelineExtensionRequest = async (req: Request, res: Response,
             });
             
             // ? Add newTimeline and newTimelineType for clarity
-            const message = await createMessage({
+            const message = await FirebaseService.createMessage({
                 userId,
                 taskId: id,
                 type: MessageType.TIMELINE_MODIFICATION,
@@ -1305,7 +1316,7 @@ export const replyTimelineExtensionRequest = async (req: Request, res: Response,
             return res.status(200).json({ message, task: updatedTask });
         }
 
-        const message = await createMessage({
+        const message = await FirebaseService.createMessage({
             userId,
             taskId: id,
             type: MessageType.TIMELINE_MODIFICATION,
@@ -1503,6 +1514,10 @@ export const validateCompletion = async (req: Request, res: Response, next: Next
                     totalEarnings: { increment: task.bounty }
                 }
             });
+            
+            try {
+                await FirebaseService.updateTaskStatus(taskId);
+            } catch {}
             
             res.status(201).json(updatedTask);
         } catch (error: any) {
