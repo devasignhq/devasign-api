@@ -29,7 +29,6 @@ export type FilterTasks = {
     repoUrl?: string;
     issueTitle?: string;
     issueLabels?: string[];
-    issueMilestone?: string;
 }
 
 export class IssueFilters {

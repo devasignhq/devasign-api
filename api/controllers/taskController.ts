@@ -266,13 +266,11 @@ export const getTasks = async (req: Request, res: Response, next: NextFunction) 
         repoUrl,
         issueTitle,
         issueLabels,
-        issueMilestone,
     } = req.query;
     const filters = {
         repoUrl,
         issueTitle,
         issueLabels,
-        issueMilestone,
     } as FilterTasks;
 
     try {
@@ -302,19 +300,6 @@ export const getTasks = async (req: Request, res: Response, next: NextFunction) 
                 path: ["labels"],
                 array_contains: filters.issueLabels.map((label) => ({ name: label })),
             });
-        }
-        if (filters.issueMilestone) {
-            if (filters.issueMilestone === "none") {
-                issueFilters.push({
-                    path: ["milestone"],
-                    equals: Prisma.AnyNull,
-                });
-            } else {
-                issueFilters.push({
-                    path: ["milestone", "title"],
-                    string_contains: filters.issueMilestone,
-                });
-            }
         }
         if (issueFilters.length > 0) {
             where.AND = issueFilters.map(filter => ({ issue: filter }));
@@ -389,7 +374,6 @@ export const getInstallationTasks = async (req: Request, res: Response, next: Ne
         repoUrl,
         issueTitle,
         issueLabels,
-        issueMilestone,
     } = req.query;
     const { installationId } = req.params;
     const { userId } = req.body;
@@ -397,7 +381,6 @@ export const getInstallationTasks = async (req: Request, res: Response, next: Ne
         repoUrl,
         issueTitle,
         issueLabels,
-        issueMilestone,
     } as FilterTasks;
 
     try {
@@ -434,19 +417,6 @@ export const getInstallationTasks = async (req: Request, res: Response, next: Ne
                 path: ["labels"],
                 array_contains: filters.issueLabels.map((label) => ({ name: label })),
             });
-        }
-        if (filters.issueMilestone) {
-            if (filters.issueMilestone === "none") {
-                issueFilters.push({
-                    path: ["milestone"],
-                    equals: Prisma.AnyNull,
-                });
-            } else {
-                issueFilters.push({
-                    path: ["milestone", "title"],
-                    string_contains: filters.issueMilestone,
-                });
-            }
         }
         if (issueFilters.length > 0) {
             where.AND = issueFilters.map(filter => ({ issue: filter }));
@@ -548,13 +518,11 @@ export const getContributorTasks = async (req: Request, res: Response, next: Nex
         repoUrl,
         issueTitle,
         issueLabels,
-        issueMilestone,
     } = req.query;
     const filters = {
         repoUrl,
         issueTitle,
         issueLabels,
-        issueMilestone,
     } as FilterTasks;
 
     try {
@@ -587,19 +555,6 @@ export const getContributorTasks = async (req: Request, res: Response, next: Nex
                 path: ["labels"],
                 array_contains: filters.issueLabels.map((label) => ({ name: label })),
             });
-        }
-        if (filters.issueMilestone) {
-            if (filters.issueMilestone === "none") {
-                issueFilters.push({
-                    path: ["milestone"],
-                    equals: Prisma.AnyNull,
-                });
-            } else {
-                issueFilters.push({
-                    path: ["milestone", "title"],
-                    string_contains: filters.issueMilestone,
-                });
-            }
         }
         if (issueFilters.length > 0) {
             where.AND = issueFilters.map(filter => ({ issue: filter }));

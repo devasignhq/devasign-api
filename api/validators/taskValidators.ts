@@ -69,18 +69,6 @@ export const getTasksValidator = [
             }
             throw new Error('Issue labels must be a string or array of strings');
         }),
-    query('issueMilestone')
-        .optional()
-        .isString()
-        .withMessage('Issue milestone must be a string')
-        .isLength({ min: 1, max: 100 })
-        .withMessage('Issue milestone must be between 1 and 100 characters')
-        .custom((value) => {
-            if (value === 'none') {
-                return true; // Special case for "none"
-            }
-            return true;
-        }),
 ];
 
 export const getInstallationTasksValidator = [
