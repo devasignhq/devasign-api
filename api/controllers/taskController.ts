@@ -1253,8 +1253,18 @@ export const replyTimelineExtensionRequest = async (req: Request, res: Response,
                     const days = requestedTimeline % 7;
                     newTimeline = task.timeline! + weeks + (days / 10);
                 } else {
-                    newTimeline = task.timeline! + (requestedTimeline / 10);
+                    const weekDayPair = task.timeline!.toString().split(".");
+                    const totalDays = (Number(weekDayPair[1]) || 0) + requestedTimeline;
+
+                    if (totalDays > 6) {
+                        const weeks = Math.floor(totalDays / 7);
+                        const days = totalDays % 7;
+                        newTimeline = Number(weekDayPair[0]) + weeks + (days / 10);
+                    } else {
+                        newTimeline = Number(weekDayPair[0]) + (totalDays / 10);
+                    }
                 }
+
                 newTimelineType = "WEEK";
             }
 
