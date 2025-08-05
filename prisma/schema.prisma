@@ -57,7 +57,7 @@ model ContributionSummary {
   tasksCompleted Int    @default(0)
   activeTasks    Int    @default(0)
   totalEarnings  Float  @default(0.0)
-  user           User   @relation(fields: [userId], references: [userId])
+  user           User   @relation(fields: [userId], references: [userId], onDelete: Cascade)
   userId         String @unique
   // averageRating  Float  @default(0.0)
   // installationIds     String[]  @default([])
@@ -88,7 +88,7 @@ model Installation {
   walletSecret                String
   escrowAddress               String
   escrowSecret                String
-  subscriptionPackage         SubscriptionPackage?         @relation(fields: [subscriptionPackageId], references: [id])
+  subscriptionPackage         SubscriptionPackage?         @relation(fields: [subscriptionPackageId], references: [id], onDelete: SetNull)
   subscriptionPackageId       String?
   createdAt                   DateTime                     @default(now())
   updatedAt                   DateTime                     @updatedAt
@@ -110,11 +110,11 @@ model Task {
   applications    User[]           @relation("UserApplications")
   acceptedAt      DateTime?
   completedAt     DateTime?
-  creator         User             @relation("TaskCreator", fields: [creatorId], references: [userId])
+  creator         User             @relation("TaskCreator", fields: [creatorId], references: [userId], onDelete: Restrict)
   creatorId       String
-  contributor     User?            @relation("TaskContributor", fields: [contributorId], references: [userId])
+  contributor     User?            @relation("TaskContributor", fields: [contributorId], references: [userId], onDelete: SetNull)
   contributorId   String?
-  installation    Installation     @relation("InstallationTasks", fields: [installationId], references: [id])
+  installation    Installation     @relation("InstallationTasks", fields: [installationId], references: [id], onDelete: Cascade)
   installationId  String
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
@@ -125,11 +125,11 @@ model Task {
 
 model TaskSubmission {
   id             String         @id @default(cuid())
-  user           User           @relation(fields: [userId], references: [userId])
+  user           User           @relation(fields: [userId], references: [userId], onDelete: Cascade)
   userId         String
-  task           Task           @relation(fields: [taskId], references: [id])
+  task           Task           @relation(fields: [taskId], references: [id], onDelete: Cascade)
   taskId         String
-  installation   Installation   @relation(fields: [installationId], references: [id])
+  installation   Installation   @relation(fields: [installationId], references: [id], onDelete: Cascade)
   installationId String
   pullRequest    String
   attachmentUrl  String?
@@ -142,12 +142,12 @@ model TaskSubmission {
 
 model TaskActivity {
   id               String          @id @default(cuid())
-  task             Task            @relation(fields: [taskId], references: [id])
+  task             Task            @relation(fields: [taskId], references: [id], onDelete: Cascade)
   taskId           String
   viewed           Boolean         @default(false)
-  user             User?           @relation(fields: [userId], references: [userId])
+  user             User?           @relation(fields: [userId], references: [userId], onDelete: SetNull)
   userId           String?
-  taskSubmission   TaskSubmission? @relation(fields: [taskSubmissionId], references: [id])
+  taskSubmission   TaskSubmission? @relation(fields: [taskSubmissionId], references: [id], onDelete: SetNull)
   taskSubmissionId String?
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
@@ -164,9 +164,9 @@ model Permission {
 
 model UserInstallationPermission {
   id              String       @id @default(cuid())
-  user            User         @relation(fields: [userId], references: [userId])
+  user            User         @relation(fields: [userId], references: [userId], onDelete: Cascade)
   userId          String
-  installation    Installation @relation(fields: [installationId], references: [id])
+  installation    Installation @relation(fields: [installationId], references: [id], onDelete: Cascade)
   installationId  String
   permissionCodes String[]
   assignedBy      String?
@@ -184,7 +184,7 @@ model Transaction {
   doneAt   DateTime            @default(now())
 
   // For BOUNTY transactions
-  task   Task?   @relation(fields: [taskId], references: [id])
+  task   Task?   @relation(fields: [taskId], references: [id], onDelete: SetNull)
   taskId String?
 
   // For TOP_UP transactions
@@ -202,8 +202,8 @@ model Transaction {
   fromAmount Float?
   toAmount   Float?
 
-  installation   Installation? @relation(fields: [installationId], references: [id])
+  installation   Installation? @relation(fields: [installationId], references: [id], onDelete: SetNull)
   installationId String?
-  user           User?         @relation(fields: [userId], references: [userId])
+  user           User?         @relation(fields: [userId], references: [userId], onDelete: SetNull)
   userId         String?
 }
