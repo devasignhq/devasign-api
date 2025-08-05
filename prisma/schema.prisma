@@ -144,6 +144,7 @@ model TaskActivity {
   id               String          @id @default(cuid())
   task             Task            @relation(fields: [taskId], references: [id])
   taskId           String
+  viewed           Boolean         @default(false)
   user             User?           @relation(fields: [userId], references: [userId])
   userId           String?
   taskSubmission   TaskSubmission? @relation(fields: [taskSubmissionId], references: [id])

@@ -17,7 +17,8 @@ import {
     getInstallationTask,
     getInstallationTasks,
     getContributorTasks,
-    getContributorTask
+    getContributorTask,
+    markActivityAsViewed
 } from "../controllers/taskController";
 import {
     getTasksValidator,
@@ -49,6 +50,7 @@ taskRoutes.get('/installation/:installationId/:taskId', getInstallationTask as R
 taskRoutes.get('/contributor/:id', getContributorTask as RequestHandler);
 
 taskRoutes.get('/activities/:id', getTaskActivitiesValidator, getTaskActivities as RequestHandler);
+taskRoutes.patch('/activities/:taskActivityId/viewed', markActivityAsViewed as RequestHandler);
 
 // Task management
 taskRoutes.post("/", createTaskValidator, createTask as RequestHandler);

@@ -24,11 +24,11 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
     try {
         const installation = await prisma.installation.findUnique({
             where: { id: payload.installationId },
-            select: { 
+            select: {
                 walletSecret: true,
                 walletAddress: true,
-                escrowSecret: true, 
-                escrowAddress: true 
+                escrowSecret: true,
+                escrowAddress: true
             }
         });
 
@@ -93,8 +93,8 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
             }
         });
 
-        
-        const bountyTransactionStatus: any = { 
+
+        const bountyTransactionStatus: any = {
             recorded: false,
             error: undefined
         };
@@ -125,17 +125,17 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
 
             const updatedTask = await prisma.task.update({
                 where: { id: task.id },
-                data: { 
-                    issue: { 
-                        ...(typeof task.issue === "object" && task.issue !== null ? task.issue : {}), 
-                        bountyCommentId: bountyComment.id 
+                data: {
+                    issue: {
+                        ...(typeof task.issue === "object" && task.issue !== null ? task.issue : {}),
+                        bountyCommentId: bountyComment.id
                     }
                 },
                 select: { issue: true }
             });
 
             if (!bountyTransactionStatus.recorded) {
-                return res.status(202).json({ 
+                return res.status(202).json({
                     error: bountyTransactionStatus.error,
                     transactionRecord: false,
                     task: updatedTask,
@@ -146,13 +146,13 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
             res.status(201).json({ ...task, ...updatedTask });
         } catch (error: any) {
             let message = "Failed to either create bounty comment or add bounty label.";
-            
+
             if (!bountyTransactionStatus.recorded) {
                 message = "Failed to record bounty transaction and to either create bounty comment or add bounty label."
             }
 
-            res.status(202).json({ 
-                error, 
+            res.status(202).json({
+                error,
                 transactionRecord: bountyTransactionStatus.recorded,
                 task,
                 message
@@ -181,7 +181,7 @@ export const createManyTasks = async (req: Request, res: Response, next: NextFun
         }
 
         // Calculate total bounty needed for all tasks
-        const totalBounty = tasks.reduce((sum: number, task: CreateTask) => 
+        const totalBounty = tasks.reduce((sum: number, task: CreateTask) =>
             sum + parseFloat(task.bounty), 0
         );
 
@@ -257,7 +257,7 @@ export const createManyTasks = async (req: Request, res: Response, next: NextFun
 };
 
 export const getTasks = async (req: Request, res: Response, next: NextFunction) => {
-    const { 
+    const {
         installationId,
         detailed,
         page = 1,
@@ -281,7 +281,7 @@ export const getTasks = async (req: Request, res: Response, next: NextFunction) 
         }
 
         const issueFilters: any[] = [];
-        
+
         if (filters.repoUrl) {
             issueFilters.push({
                 path: ["repository", "url"],
@@ -310,7 +310,7 @@ export const getTasks = async (req: Request, res: Response, next: NextFunction) 
         if (detailed) {
             selectRelations = {
                 installation: {
-                    select: { account: true  }
+                    select: { account: true }
                 },
                 creator: {
                     select: {
@@ -365,7 +365,7 @@ export const getTasks = async (req: Request, res: Response, next: NextFunction) 
 };
 
 export const getInstallationTasks = async (req: Request, res: Response, next: NextFunction) => {
-    const { 
+    const {
         status,
         detailed,
         page = 1,
@@ -392,13 +392,13 @@ export const getInstallationTasks = async (req: Request, res: Response, next: Ne
                 }
             }
         };
-        
+
         if (status) {
             where.status = status as TaskStatus;
         }
 
         const issueFilters: any[] = [];
-        
+
         if (filters.repoUrl) {
             issueFilters.push({
                 path: ["repository", "url"],
@@ -482,7 +482,14 @@ export const getInstallationTasks = async (req: Request, res: Response, next: Ne
                 creatorId: true,
                 createdAt: true,
                 updatedAt: true,
-                ...selectRelations
+                ...selectRelations,
+                _count: {
+                    select: {
+                        taskActivities: {
+                            where: { viewed: false }
+                        }
+                    }
+                }
             },
             orderBy: {
                 createdAt: (sort as "asc" | "desc") || "desc"
@@ -508,7 +515,7 @@ export const getInstallationTasks = async (req: Request, res: Response, next: Ne
 
 export const getContributorTasks = async (req: Request, res: Response, next: NextFunction) => {
     const { userId } = req.body;
-    const { 
+    const {
         installationId,
         status,
         detailed,
@@ -536,7 +543,7 @@ export const getContributorTasks = async (req: Request, res: Response, next: Nex
         }
 
         const issueFilters: any[] = [];
-        
+
         if (filters.repoUrl) {
             issueFilters.push({
                 path: ["repository", "url"],
@@ -565,7 +572,7 @@ export const getContributorTasks = async (req: Request, res: Response, next: Nex
         if (detailed) {
             selectRelations = {
                 installation: {
-                    select: { account: true  }
+                    select: { account: true }
                 },
                 creator: {
                     select: {
@@ -674,7 +681,7 @@ export const getInstallationTask = async (req: Request, res: Response, next: Nex
 
     try {
         const task = await prisma.task.findUnique({
-            where: { 
+            where: {
                 id: taskId,
                 installation: {
                     id: installationId,
@@ -794,14 +801,14 @@ export const addBountyCommentId = async (req: Request, res: Response, next: Next
     const { userId, bountyCommentId } = req.body;
 
     try {
-        const task = await prisma.task.findUnique({ 
+        const task = await prisma.task.findUnique({
             where: { id },
-            select: { 
-                id: true, 
-                status: true, 
-                creatorId: true, 
-                issue: true 
-            } 
+            select: {
+                id: true,
+                status: true,
+                creatorId: true,
+                issue: true
+            }
         });
 
         if (!task) {
@@ -816,7 +823,7 @@ export const addBountyCommentId = async (req: Request, res: Response, next: Next
 
         const updatedTask = await prisma.task.update({
             where: { id },
-            data: { 
+            data: {
                 issue: { ...(typeof task.issue === "object" && task.issue !== null ? task.issue : {}), bountyCommentId }
             },
             select: { id: true }
@@ -833,10 +840,10 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
     const { userId, newBounty } = req.body;
 
     try {
-        const task = await prisma.task.findUnique({ 
+        const task = await prisma.task.findUnique({
             where: { id: taskId },
-            select: { 
-                status: true, 
+            select: {
+                status: true,
                 bounty: true,
                 installationId: true,
                 issue: true,
@@ -849,7 +856,7 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
                         walletSecret: true
                     }
                 }
-            } 
+            }
         });
 
         if (!task) {
@@ -867,8 +874,8 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
 
         const bountyDifference = Number(newBounty) - task.bounty;
         const decryptedWalletSecret = decrypt(task.installation.walletSecret!);
-        const additionalFundsTransaction: any = { 
-            txHash: "", 
+        const additionalFundsTransaction: any = {
+            txHash: "",
             amount: "",
             recorded: false,
             error: undefined
@@ -885,7 +892,7 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
                 throw new ErrorClass("TaskError", null, "Insufficient USDC balance for compensation increase");
             }
 
-            const { txHash } =await stellarService.transferAsset(
+            const { txHash } = await stellarService.transferAsset(
                 decryptedWalletSecret,
                 task.installation.escrowAddress!,
                 usdcAssetId,
@@ -919,7 +926,7 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
         });
 
         try {
-            if (additionalFundsTransaction.txHash) {     
+            if (additionalFundsTransaction.txHash) {
                 await prisma.transaction.create({
                     data: {
                         txHash: additionalFundsTransaction.txHash,
@@ -944,8 +951,8 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
             );
 
             if (!additionalFundsTransaction.recorded && additionalFundsTransaction.txHash) {
-                return res.status(202).json({ 
-                    error: additionalFundsTransaction.error, 
+                return res.status(202).json({
+                    error: additionalFundsTransaction.error,
                     transactionRecord: false,
                     task: updatedTask,
                     message: "Failed to record additional bounty transaction."
@@ -955,17 +962,17 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
             res.status(200).json(updatedTask);
         } catch (error: any) {
             let message = "Failed to update bounty amount on GitHub.";
-            
+
             if (!additionalFundsTransaction.recorded && additionalFundsTransaction.txHash) {
                 message = "Failed to update bounty amount on GitHub and also record the additional bounty transaction."
             }
 
-            const transactionRecord = additionalFundsTransaction.txHash 
-                ? additionalFundsTransaction.recorded 
+            const transactionRecord = additionalFundsTransaction.txHash
+                ? additionalFundsTransaction.recorded
                 : null;
 
-            res.status(202).json({ 
-                error, 
+            res.status(202).json({
+                error,
                 transactionRecord,
                 task: updatedTask,
                 message
@@ -1036,7 +1043,7 @@ export const submitTaskApplication = async (req: Request, res: Response, next: N
     const { userId } = req.body;
 
     try {
-        const task = await prisma.task.findUnique({ 
+        const task = await prisma.task.findUnique({
             where: { id: taskId },
             select: { status: true, applications: { select: { userId: true } } }
         });
@@ -1052,15 +1059,6 @@ export const submitTaskApplication = async (req: Request, res: Response, next: N
         if (alreadyApplied) {
             throw new ErrorClass("TaskError", null, "You have already applied for this task!");
         }
-
-        await prisma.task.update({
-            where: { id: taskId },
-            data: {
-                applications: {
-                    connect: { userId }
-                }
-            }
-        });
 
         await prisma.taskActivity.create({
             data: {
@@ -1137,7 +1135,7 @@ export const acceptTaskApplication = async (req: Request, res: Response, next: N
 
             res.status(200).json(updatedTask);
         } catch (error) {
-            return res.status(202).json({ 
+            return res.status(202).json({
                 error: error,
                 task: updatedTask,
                 message: "Failed to enable chat functionality for this task."
@@ -1150,24 +1148,24 @@ export const acceptTaskApplication = async (req: Request, res: Response, next: N
 
 export const requestTimelineExtension = async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;
-    const { 
-        userId, 
+    const {
+        userId,
         githubUsername,
-        requestedTimeline, 
-        timelineType, 
-        reason, 
-        attachments 
+        requestedTimeline,
+        timelineType,
+        reason,
+        attachments
     } = req.body;
 
     try {
-        const task = await prisma.task.findUnique({ 
+        const task = await prisma.task.findUnique({
             where: { id },
             select: {
                 status: true,
                 contributorId: true,
                 timeline: true,
                 timelineType: true,
-            } 
+            }
         });
 
         if (!task) {
@@ -1176,8 +1174,8 @@ export const requestTimelineExtension = async (req: Request, res: Response, next
 
         if (task.status !== "IN_PROGRESS" || task.contributorId !== userId) {
             throw new ErrorClass(
-                "TaskError", 
-                null, 
+                "TaskError",
+                null,
                 "Requesting timeline extension can only be requested by the active contributor"
             );
         }
@@ -1191,7 +1189,7 @@ export const requestTimelineExtension = async (req: Request, res: Response, next
             type: MessageType.TIMELINE_MODIFICATION,
             body,
             attachments: attachments || [],
-            metadata: { 
+            metadata: {
                 requestedTimeline,
                 timelineType,
                 reason
@@ -1206,38 +1204,38 @@ export const requestTimelineExtension = async (req: Request, res: Response, next
 
 export const replyTimelineExtensionRequest = async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;
-    const { 
-        userId, 
-        accept, 
-        requestedTimeline, 
+    const {
+        userId,
+        accept,
+        requestedTimeline,
         timelineType,
     } = req.body;
 
     try {
-        const task = await prisma.task.findUnique({ 
+        const task = await prisma.task.findUnique({
             where: { id },
-            select: { 
+            select: {
                 creatorId: true,
                 timeline: true,
-                timelineType: true 
-            } 
+                timelineType: true
+            }
         });
 
         if (!task) {
             throw new NotFoundErrorClass("Task not found");
         }
 
-        if (task.creatorId !== userId) { 
+        if (task.creatorId !== userId) {
             throw new ErrorClass(
-                "TaskError", 
-                null, 
+                "TaskError",
+                null,
                 "Only task creator can respond to timeline extension requests"
             );
         }
 
         if (accept) {
             let newTimeline: number = task.timeline! + requestedTimeline,
-            newTimelineType: TimelineType = timelineType;
+                newTimelineType: TimelineType = timelineType;
 
             if (timelineType === "WEEK" && task.timelineType! == "WEEK") {
                 newTimeline = task.timeline! + requestedTimeline;
@@ -1246,7 +1244,7 @@ export const replyTimelineExtensionRequest = async (req: Request, res: Response,
             if (timelineType === "DAY" && task.timelineType! == "DAY") {
                 newTimeline = task.timeline! + requestedTimeline;
                 newTimelineType = "DAY";
-                
+
                 if (newTimeline > 6) {
                     const weeks = Math.floor(newTimeline / 7);
                     const days = newTimeline % 7;
@@ -1286,7 +1284,7 @@ export const replyTimelineExtensionRequest = async (req: Request, res: Response,
 
             const updatedTask = await prisma.task.update({
                 where: { id },
-                data: { 
+                data: {
                     timeline: newTimeline!,
                     timelineType: newTimelineType!,
                     status: "IN_PROGRESS"
@@ -1298,7 +1296,7 @@ export const replyTimelineExtensionRequest = async (req: Request, res: Response,
                     updatedAt: true
                 }
             });
-            
+
             // ? Add newTimeline and newTimelineType for clarity
             const message = await FirebaseService.createMessage({
                 userId,
@@ -1306,7 +1304,7 @@ export const replyTimelineExtensionRequest = async (req: Request, res: Response,
                 type: MessageType.TIMELINE_MODIFICATION,
                 body: `You’ve extended the timeline of this task by ${requestedTimeline} ${(timelineType as string).toLowerCase()}(s).`,
                 attachments: [],
-                metadata: { 
+                metadata: {
                     requestedTimeline: newTimeline,
                     timelineType: newTimelineType as any,
                     reason: "ACCEPTED"
@@ -1322,7 +1320,7 @@ export const replyTimelineExtensionRequest = async (req: Request, res: Response,
             type: MessageType.TIMELINE_MODIFICATION,
             body: "Timeline extension rejected.",
             attachments: [],
-            metadata: { 
+            metadata: {
                 requestedTimeline,
                 timelineType,
                 reason: "REJECTED"
@@ -1340,13 +1338,13 @@ export const markAsComplete = async (req: Request, res: Response, next: NextFunc
     const { userId, pullRequest, attachmentUrl } = req.body;
 
     try {
-        const task = await prisma.task.findUnique({ 
+        const task = await prisma.task.findUnique({
             where: { id: taskId },
             select: {
                 status: true,
                 contributorId: true,
                 installationId: true,
-            } 
+            }
         });
 
         if (!task) {
@@ -1354,15 +1352,15 @@ export const markAsComplete = async (req: Request, res: Response, next: NextFunc
         }
         if (task.contributorId !== userId) {
             throw new ErrorClass(
-                "TaskError", 
-                null, 
+                "TaskError",
+                null,
                 "Only the active contributor can make this action"
             );
         }
         if (task.status !== "IN_PROGRESS" && task.status !== "MARKED_AS_COMPLETED") {
             throw new ErrorClass(
-                "TaskError", 
-                null, 
+                "TaskError",
+                null,
                 "Task is not active"
             );
         }
@@ -1456,17 +1454,17 @@ export const validateCompletion = async (req: Request, res: Response, next: Next
         }
 
         // TODO: Update to allow team members with permission
-        if (task.creator.userId !== userId) { 
+        if (task.creator.userId !== userId) {
             throw new ErrorClass(
-                "TaskError", 
-                null, 
+                "TaskError",
+                null,
                 "Only task creator can validate if task is completed"
             );
         }
-        if (!task.contributor) { 
+        if (!task.contributor) {
             throw new ErrorClass("TaskError", null, "Contributor not found");
         }
-        
+
         const decryptedWalletSecret = decrypt(task.installation.walletSecret);
         const decryptedEscrowSecret = decrypt(task.installation.escrowSecret!);
 
@@ -1514,16 +1512,16 @@ export const validateCompletion = async (req: Request, res: Response, next: Next
                     totalEarnings: { increment: task.bounty }
                 }
             });
-            
+
             try {
                 await FirebaseService.updateTaskStatus(taskId);
-            } catch {}
-            
+            } catch { }
+
             res.status(201).json(updatedTask);
         } catch (error: any) {
-            res.status(202).json({ 
-                error, 
-                validated: true, 
+            res.status(202).json({
+                error,
+                validated: true,
                 task,
                 message: "Failed to update the developer contribution summary."
             });
@@ -1534,7 +1532,7 @@ export const validateCompletion = async (req: Request, res: Response, next: Next
 };
 
 export const getTaskActivities = async (req: Request, res: Response, next: NextFunction) => {
-    const { 
+    const {
         page = 1,
         limit = 10,
         sort,
@@ -1550,26 +1548,33 @@ export const getTaskActivities = async (req: Request, res: Response, next: NextF
 
         // Get task activities with pagination
         const activities = await prisma.taskActivity.findMany({
-            where: { taskId },
+            where: {
+                taskId,
+                task: {
+                    installation: {
+                        users: { some: { userId } }
+                    }
+                }
+            },
             select: {
                 id: true,
                 taskId: true,
                 userId: true,
                 taskSubmissionId: true,
                 user: {
-                    select: { 
-                        userId: true, 
-                        username: true, 
-                        contributionSummary: true 
+                    select: {
+                        userId: true,
+                        username: true,
+                        contributionSummary: true
                     }
                 },
                 taskSubmission: {
                     select: {
                         user: {
-                            select: { 
-                                userId: true, 
-                                username: true, 
-                                contributionSummary: true 
+                            select: {
+                                userId: true,
+                                username: true,
+                                contributionSummary: true
                             }
                         },
                         pullRequest: true,
@@ -1595,6 +1600,48 @@ export const getTaskActivities = async (req: Request, res: Response, next: NextF
                 itemsPerPage: Number(limit),
                 hasMore: Number(page) < totalPages
             }
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const markActivityAsViewed = async (req: Request, res: Response, next: NextFunction) => {
+    const { taskActivityId } = req.params;
+    const { userId } = req.body;
+
+    try {
+        // Check if the activity exists and user has access to it
+        const activity = await prisma.taskActivity.findUnique({
+            where: { 
+                id: taskActivityId,
+                task: {
+                    installation: {
+                        users: { some: { userId } }
+                    }
+                }
+            },
+            select: { id: true, viewed: true }
+        });
+
+        if (!activity) {
+            throw new NotFoundErrorClass("Task activity not found");
+        }
+
+        // Update the activity as viewed
+        const updatedActivity = await prisma.taskActivity.update({
+            where: { id: taskActivityId },
+            data: { viewed: true },
+            select: {
+                id: true,
+                viewed: true,
+                updatedAt: true
+            }
+        });
+
+        res.status(200).json({
+            message: "Activity marked as viewed",
+            activity: updatedActivity
         });
     } catch (error) {
         next(error);
@@ -1666,14 +1713,14 @@ export const deleteTask = async (req: Request, res: Response, next: NextFunction
                 (task.issue as TaskIssue).id,
                 (task.issue as TaskIssue).bountyCommentId!,
             );
-            
+
             res.status(200).json({
                 message: "Task deleted successfully",
                 refunded: `${task.bounty} USDC`
             });
         } catch (error: any) {
-            res.status(202).json({ 
-                error, 
+            res.status(202).json({
+                error,
                 data: {
                     message: "Task deleted successfully",
                     refunded: `${task.bounty} USDC`
