@@ -718,21 +718,13 @@ export const getInstallationTask = async (req: Request, res: Response, next: Nex
                         username: true
                     }
                 },
-                applications: {
-                    select: {
-                        userId: true,
-                        username: true
-                    }
-                },
-                taskSubmissions: {
-                    select: {
-                        id: true,
-                        pullRequest: true,
-                        attachmentUrl: true
-                    }
-                },
                 createdAt: true,
-                updatedAt: true
+                updatedAt: true,
+                _count: {
+                    select: {
+                        taskActivities: true
+                    }
+                }
             }
         });
 
@@ -855,6 +847,11 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
                         walletAddress: true,
                         walletSecret: true
                     }
+                },
+                _count: {
+                    select: {
+                        taskActivities: true
+                    }
                 }
             }
         });
@@ -865,11 +862,14 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
         if (task.status !== "OPEN") {
             throw new ErrorClass("TaskError", null, "Only open tasks can be updated");
         }
-        if (task.bounty === newBounty) {
-            throw new ErrorClass("TaskError", null, "New bounty is the same as current bounty");
-        }
         if (task.creatorId !== userId) {
             throw new ErrorClass("TaskError", null, "Only task creator can update bounty");
+        }
+        if (task._count.taskActivities > 0) {
+            throw new ErrorClass("TaskError", null, "Cannot update the bounty amount for tasks with existing applications");
+        }
+        if (task.bounty === newBounty) {
+            throw new ErrorClass("TaskError", null, "New bounty is the same as current bounty");
         }
 
         const bountyDifference = Number(newBounty) - task.bounty;
@@ -995,7 +995,12 @@ export const updateTaskTimeline = async (req: Request, res: Response, next: Next
                 status: true,
                 creatorId: true,
                 timeline: true,
-                timelineType: true
+                timelineType: true,
+                _count: {
+                    select: {
+                        taskActivities: true
+                    }
+                }
             }
         });
 
@@ -1007,6 +1012,9 @@ export const updateTaskTimeline = async (req: Request, res: Response, next: Next
         }
         if (task.creatorId !== userId) {
             throw new ErrorClass("TaskError", null, "Only task creator can update timeline");
+        }
+        if (task._count.taskActivities > 0) {
+            throw new ErrorClass("TaskError", null, "Cannot update the timeline for tasks with existing applications");
         }
 
         // Optionally, convert days > 6 to weeks+days as in createTask
