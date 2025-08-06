@@ -1045,7 +1045,7 @@ export const submitTaskApplication = async (req: Request, res: Response, next: N
     try {
         const task = await prisma.task.findUnique({
             where: { id: taskId },
-            select: { status: true, applications: { select: { userId: true } } }
+            select: { status: true }
         });
 
         if (!task) {
@@ -1054,9 +1054,17 @@ export const submitTaskApplication = async (req: Request, res: Response, next: N
         if (task.status !== "OPEN") {
             throw new ErrorClass("TaskError", null, "Task is not open");
         }
+        
+        const existingApplication = await prisma.taskActivity.findFirst({
+            where: { 
+                taskId,
+                userId,
+                taskSubmissionId: null
+            },
+            select: { id: true }
+        });
 
-        const alreadyApplied = task.applications.some(user => user.userId === userId);
-        if (alreadyApplied) {
+        if (existingApplication) {
             throw new ErrorClass("TaskError", null, "You have already applied for this task!");
         }
 
