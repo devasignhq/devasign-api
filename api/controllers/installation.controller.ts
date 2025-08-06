@@ -1,9 +1,9 @@
 import { NextFunction, Request, Response } from "express";
-import { prisma } from "../config/database";
-import { ErrorClass, NotFoundErrorClass } from "../types/general";
-import { stellarService, usdcAssetId } from "../config/stellar";
+import { prisma } from "../config/database.config";
+import { ErrorClass, NotFoundErrorClass } from "../models/general.model";
+import { stellarService, usdcAssetId } from "../config/stellar.config";
 import { decrypt, encrypt } from "../helper";
-import { GitHubService } from "../services/githubService";
+import { OctokitService } from "../services/octokit.service";
 
 export const getInstallations = async (req: Request, res: Response, next: NextFunction) => {
     const { page = 1, limit = 10} = req.query;
@@ -181,7 +181,7 @@ export const createInstallation = async (req: Request, res: Response, next: Next
             throw new ErrorClass("ValidationError", null, "Installation already exists");
         }
 
-        const githubInstallation = await GitHubService.getInstallationDetails(
+        const githubInstallation = await OctokitService.getInstallationDetails(
             installationId,
             user.username
         );

@@ -1,10 +1,10 @@
-import { db } from "../config/firebase";
+import { firestoreDB } from "../config/firebase.config";
 import { Timestamp } from "firebase-admin/firestore";
-import { Message, MessageType } from "../types/general";
+import { Message, MessageType } from "../models/general.model";
 import { TaskStatus } from "../generated/client";
 
-export const messagesCollection = db.collection('messages');
-export const tasksCollection = db.collection('tasks');
+export const messagesCollection = firestoreDB.collection('messages');
+export const tasksCollection = firestoreDB.collection('tasks');
 
 export class FirebaseService {
     static async createMessage({

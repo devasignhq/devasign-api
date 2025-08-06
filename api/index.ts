@@ -10,17 +10,17 @@ import express, {
 import helmet from "helmet";
 import cors from "cors";
 import morgan from "morgan";
-import { prisma } from "./config/database";
-import { userRoutes } from "./routes/userRoutes";
-import { validateUser } from "./config/firebase";
-import { installationRoutes } from "./routes/installationRoutes";
-import { taskRoutes } from "./routes/taskRoutes";
-import { stellarRoutes } from "./routes/stellarRoutes";
-import { testRoutes } from "./routes/testRoutes";
-import { ErrorClass } from "./types/general";
-import { walletRoutes } from "./routes/walletRoutes";
-import { githubRoutes } from "./routes/githubRoutes";
-import { dynamicRoute, localhostOnly } from "./helper";
+import { prisma } from "./config/database.config";
+import { validateUser } from "./middlewares/auth.middleware";
+import { dynamicRoute, localhostOnly } from "./middlewares/general.middleware";
+import { userRoutes } from "./routes/user.route";
+import { installationRoutes } from "./routes/installation.route";
+import { taskRoutes } from "./routes/task.route";
+import { stellarRoutes } from "./routes/stellar.route";
+import { testRoutes } from "./routes/test.route";
+import { walletRoutes } from "./routes/wallet.route";
+import { githubRoutes } from "./routes/github.route";
+import { errorHandler } from "./middlewares/error.middleware";
 
 const app = express();
 const PORT = process.env.NODE_ENV === "development"
@@ -51,6 +51,19 @@ app.use(
 );
 app.use(morgan("dev"));
 app.use(express.json());
+
+app.get("/", (req: Request, res: Response) => {
+    res.send("Hello, DevAsign Server!");
+});
+
+// Health check endpoint for Google Cloud Run
+app.get("/health", (req: Request, res: Response) => {
+    res.status(200).json({
+        status: "healthy",
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime(),
+    });
+});
 
 app.post(
     "/clear-db",
@@ -99,19 +112,6 @@ app.get("/get-packages", validateUser as RequestHandler, async (req, res) => {
     }
 });
 
-app.get("/", (req: Request, res: Response) => {
-    res.send("Hello, DevAsign Server!");
-});
-
-// Health check endpoint for Google Cloud Run
-app.get("/health", (req: Request, res: Response) => {
-    res.status(200).json({
-        status: "healthy",
-        timestamp: new Date().toISOString(),
-        uptime: process.uptime(),
-    });
-});
-
 app.use(
     "/users",
     dynamicRoute,
@@ -145,32 +145,7 @@ app.use(
 app.use("/stellar", dynamicRoute, localhostOnly, stellarRoutes);
 app.use("/test", dynamicRoute, localhostOnly, testRoutes);
 
-app.use(((error: any, req: Request, res: Response, next: NextFunction) => {
-    console.error("Error:", error);
-
-    if (error instanceof ErrorClass) {
-        return res.status(420).json({
-            error: { ...error },
-        });
-    }
-
-    if (error.name === "ValidationError") {
-        return res.status(404).json({
-            error: {
-                name: "ValidationError",
-                message: error.message,
-                details: error.errors,
-            },
-        });
-    }
-
-    res.status(error.status || 500).json({
-        error: {
-            message: "Internal Server Error",
-            details: error || null,
-        },
-    });
-}) as express.ErrorRequestHandler);
+app.use(errorHandler);
 
 prisma.$connect();
 

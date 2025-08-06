@@ -1,25 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
-import { GitHubService } from '../services/githubService';
-import { ErrorClass, IssueFilters } from '../types/general';
-import { prisma } from '../config/database';
-
-const validateUserInstallation = async (installationId: string, userId: string) => {
-    const installation = await prisma.installation.findUnique({
-        where: {
-            id: installationId,
-            users: { some: { userId } }
-        },
-        select: { id: true }
-    });
-
-    if (!installation) {
-        throw new ErrorClass(
-            "AuthenticationError", 
-            null, 
-            "Only members of this installation are allowed access"
-        );
-    }
-}
+import { OctokitService } from '../services/octokit.service';
+import { IssueFilters } from '../models/general.model';
+import { validateUserInstallation } from '../middlewares/auth.middleware';
 
 export const getInstallationRepositories = async (req: Request, res: Response, next: NextFunction) => {
     const { installationId } = req.params;
@@ -28,7 +10,7 @@ export const getInstallationRepositories = async (req: Request, res: Response, n
     try {
         await validateUserInstallation(installationId, userId);
 
-        const repositories = await GitHubService.getInstallationRepositories(installationId);
+        const repositories = await OctokitService.getInstallationRepositories(installationId);
 
         res.status(200).json(repositories);
     } catch (error) {
@@ -61,7 +43,7 @@ export const getRepositoryIssues = async (req: Request, res: Response, next: Nex
             direction: direction as ("asc" | "desc"),
         };
 
-        const result = await GitHubService.getRepoIssuesWithSearch(
+        const result = await OctokitService.getRepoIssuesWithSearch(
             repoUrl as string,
             installationId,
             filters,
@@ -90,7 +72,7 @@ export const getRepositoryResources = async (req: Request, res: Response, next: 
     try {
         await validateUserInstallation(installationId, userId);
 
-        const resources = await GitHubService.getRepoLabelsAndMilestones(
+        const resources = await OctokitService.getRepoLabelsAndMilestones(
             repoUrl as string,
             installationId
         );
@@ -112,7 +94,7 @@ export const getOrCreateBountyLabel = async (req: Request, res: Response, next: 
         let bountyLabel;
 
         try {
-            bountyLabel = await GitHubService.getBountyLabel(
+            bountyLabel = await OctokitService.getBountyLabel(
                 repositoryId as string,
                 installationId
             );
@@ -122,7 +104,7 @@ export const getOrCreateBountyLabel = async (req: Request, res: Response, next: 
             return res.status(200).json({ valid: true, bountyLabel });
         }
         
-        bountyLabel = await GitHubService.createBountyLabel(
+        bountyLabel = await OctokitService.createBountyLabel(
             repositoryId as string,
             installationId
         );

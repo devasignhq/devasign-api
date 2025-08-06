@@ -8,7 +8,7 @@ import {
     getInstallations,
     removeTeamMember,
     updateTeamMemberPermissions
-} from "../controllers/installationController";
+} from "../controllers/installation.controller";
 import {
     getInstallationsValidator,
     createInstallationValidator,
@@ -17,7 +17,7 @@ import {
     removeTeamMemberValidator,
     updateTeamMemberPermissionsValidator,
     deleteInstallationValidator
-} from "../validators/installationValidators";
+} from "../validators/installation.validator";
 
 export const installationRoutes = Router();
 

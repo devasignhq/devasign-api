@@ -1,5 +1,5 @@
 import { TimelineType } from "../generated/client";
-import { IssueDto, IssueLabel } from "./github";
+import { IssueDto, IssueLabel } from "./github.model";
 
 export enum MessageType {
     GENERAL = 'GENERAL',

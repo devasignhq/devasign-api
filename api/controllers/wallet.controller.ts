@@ -1,9 +1,9 @@
 import { NextFunction, Request, Response } from "express";
-import { prisma } from "../config/database";
-import { stellarService, usdcAssetId, xlmAssetId } from "../config/stellar";
+import { prisma } from "../config/database.config";
+import { stellarService, usdcAssetId, xlmAssetId } from "../config/stellar.config";
 import { decrypt } from "../helper";
-import { ErrorClass, NotFoundErrorClass } from "../types/general";
-import { HorizonApi } from "../types/horizonapi";
+import { ErrorClass, NotFoundErrorClass } from "../models/general.model";
+import { HorizonApi } from "../models/horizonapi.model";
 import { TransactionCategory } from "../generated/client";
 
 type USDCBalance = HorizonApi.BalanceLineAsset<"credit_alphanum12">;

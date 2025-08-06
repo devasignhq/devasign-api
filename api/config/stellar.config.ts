@@ -10,8 +10,8 @@ import {
     StellarAssetId,
 } from '@stellar/typescript-wallet-sdk';
 import axios, { AxiosInstance } from 'axios';
-import { ErrorClass } from '../types/general';
-import { HorizonApi } from '../types/horizonapi';
+import { ErrorClass } from '../models/general.model';
+import { HorizonApi } from '../models/horizonapi.model';
 
 const customClient: AxiosInstance = axios.create({
     timeout: 20000,

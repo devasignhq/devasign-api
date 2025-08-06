@@ -1,17 +1,17 @@
 import { App } from "octokit";
-import { ErrorClass, IssueFilters } from "../types/general";
+import { ErrorClass, IssueFilters } from "../models/general.model";
 import {
     InstallationOctokit,
     IssueDto,
     IssueLabel,
     IssueMilestone, 
     RepositoryDto
-} from "../types/github";
+} from "../models/github.model";
 import { moneyFormat } from "../helper";
 
 const commentCTA = process.env.CONTRIBUTOR_APP_URL! + "/application";
 
-export class GitHubService {
+export class OctokitService {
     private static githubApp = new App({
         appId: process.env.GITHUB_APP_ID!,
         privateKey: process.env.GITHUB_APP_PRIVATE_KEY!

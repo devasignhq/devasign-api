@@ -19,7 +19,7 @@ import {
     getContributorTasks,
     getContributorTask,
     markActivityAsViewed
-} from "../controllers/taskController";
+} from "../controllers/task.controller";
 import {
     getTasksValidator,
     createTaskValidator,
@@ -36,7 +36,7 @@ import {
     addBountyCommentIdValidator,
     getInstallationTasksValidator,
     getContributorTasksValidator
-} from "../validators/taskValidators";
+} from "../validators/task.validator";
 
 export const taskRoutes = Router();
 

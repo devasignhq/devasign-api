@@ -1,7 +1,7 @@
 import { NextFunction, Request, Response } from "express";
-import { prisma } from "../config/database";
-import { FirebaseService } from "../services/firebaseService";
-import { stellarService, usdcAssetId } from "../config/stellar";
+import { prisma } from "../config/database.config";
+import { FirebaseService } from "../services/firebase.service";
+import { stellarService, usdcAssetId } from "../config/stellar.config";
 import { decrypt } from "../helper";
 import {
     MessageType,
@@ -10,10 +10,10 @@ import {
     NotFoundErrorClass,
     TaskIssue,
     FilterTasks
-} from "../types/general";
-import { HorizonApi } from "../types/horizonapi";
+} from "../models/general.model";
+import { HorizonApi } from "../models/horizonapi.model";
 import { Prisma, TaskStatus, TimelineType } from "../generated/client";
-import { GitHubService } from "../services/githubService";
+import { OctokitService } from "../services/octokit.service";
 
 type USDCBalance = HorizonApi.BalanceLineAsset<"credit_alphanum12">;
 
@@ -116,11 +116,11 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
         }
 
         try {
-            const bountyComment = await GitHubService.addBountyLabelAndCreateBountyComment(
+            const bountyComment = await OctokitService.addBountyLabelAndCreateBountyComment(
                 installationId,
                 others.issue.id,
                 bountyLabelId,
-                GitHubService.customBountyMessage(others.bounty, task.id),
+                OctokitService.customBountyMessage(others.bounty, task.id),
             );
 
             const updatedTask = await prisma.task.update({
@@ -944,10 +944,10 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
         }
 
         try {
-            await GitHubService.updateIssueComment(
+            await OctokitService.updateIssueComment(
                 task.installationId,
                 (task.issue as TaskIssue).bountyCommentId!,
-                GitHubService.customBountyMessage(newBounty as string, taskId),
+                OctokitService.customBountyMessage(newBounty as string, taskId),
             );
 
             if (!additionalFundsTransaction.recorded && additionalFundsTransaction.txHash) {
@@ -1561,6 +1561,7 @@ export const getTaskActivities = async (req: Request, res: Response, next: NextF
                 taskId: true,
                 userId: true,
                 taskSubmissionId: true,
+                viewed: true,
                 user: {
                     select: {
                         userId: true,
@@ -1708,7 +1709,7 @@ export const deleteTask = async (req: Request, res: Response, next: NextFunction
         });
 
         try {
-            await GitHubService.removeBountyLabelAndDeleteBountyComment(
+            await OctokitService.removeBountyLabelAndDeleteBountyComment(
                 task.installation.id,
                 (task.issue as TaskIssue).id,
                 (task.issue as TaskIssue).bountyCommentId!,

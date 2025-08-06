@@ -1,6 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { body } from 'express-validator';
-import { stellarService, usdcAssetId, xlmAssetId } from '../config/stellar';
+import { stellarService, usdcAssetId, xlmAssetId } from '../config/stellar.config';
 
 const router = Router();
 

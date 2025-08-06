@@ -5,12 +5,12 @@ import {
     getWalletInfo, 
     getTransactions,
     recordWalletTopups
-} from "../controllers/walletController";
+} from "../controllers/wallet.controller";
 import {
     withdrawAssetValidator,
     swapAssetValidator,
     walletInstallationIdValidator,
-} from "../validators/walletValidators";
+} from "../validators/wallet.validator";
 
 export const walletRoutes = Router();
 

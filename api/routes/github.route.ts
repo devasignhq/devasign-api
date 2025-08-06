@@ -4,13 +4,13 @@ import {
     getRepositoryIssues,
     getRepositoryResources,
     getOrCreateBountyLabel
-} from "../controllers/githubController";
+} from "../controllers/github.controller";
 import {
     getInstallationRepositoriesValidator,
     getRepositoryIssuesValidator,
     getRepositoryResourcesValidator,
     getOrCreateBountyLabelValidator
-} from "../validators/githubValidators";
+} from "../validators/github.validator";
 
 export const githubRoutes = Router();
 

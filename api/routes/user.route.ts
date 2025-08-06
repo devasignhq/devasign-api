@@ -4,13 +4,13 @@ import {
     updateUsername, 
     updateAddressBook, 
     getUser 
-} from "../controllers/userController";
+} from "../controllers/user.controller";
 import { 
     createUserValidator,
     getUserValidator,
     updateAddressBookValidator, 
     updateUsernameValidator
-} from "../validators/userValidators";
+} from "../validators/user.validator";
 
 export const userRoutes = Router();
 
