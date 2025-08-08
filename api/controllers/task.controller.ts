@@ -1104,8 +1104,8 @@ export const acceptTaskApplication = async (req: Request, res: Response, next: N
             select: {
                 status: true,
                 creatorId: true,
-                applications: { select: { userId: true } },
-                contributorId: true
+                contributorId: true,
+                taskActivities: { select: { userId: true } }
             }
         });
 
@@ -1120,11 +1120,11 @@ export const acceptTaskApplication = async (req: Request, res: Response, next: N
             throw new ErrorClass("TaskError", null, "Only the task creator can accept applications");
         }
         if (task.contributorId) {
-            throw new ErrorClass("TaskError", null, "Task already has a contributor assigned");
+            throw new ErrorClass("TaskError", null, "Task has already has already been delegated to a contributor");
         }
 
         // Check if the contributor actually applied
-        const hasApplied = task.applications.some(app => app.userId === contributorId);
+        const hasApplied = task.taskActivities.find(activity => activity.userId === contributorId);
         if (!hasApplied) {
             throw new ErrorClass("TaskError", null, "User did not apply for this task");
         }
