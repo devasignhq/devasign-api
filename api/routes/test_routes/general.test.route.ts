@@ -1,7 +1,7 @@
 import { Router, Request, Response, NextFunction, RequestHandler } from 'express';
 import { body, query, validationResult } from 'express-validator';
 import createError from 'http-errors';
-import { encrypt, decrypt } from '../helper';
+import { encrypt, decrypt } from '../../helper';
 
 const router = Router();
 
