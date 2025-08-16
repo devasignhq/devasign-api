@@ -66,3 +66,17 @@ export type GitHubUser = {
     avatarUrl: string;
     url: string;
 }
+
+export type GitHubFile = {
+    filename: string;
+    status: 'added' | 'modified' | 'removed' | 'renamed' | 'copied' | 'changed' | 'unchanged';
+    additions: number;
+    deletions: number;
+    changes: number;
+    patch?: string;
+    blob_url: string;
+    sha: string;
+    raw_url: string;
+    contents_url: string;
+    previous_filename?: string;
+}
