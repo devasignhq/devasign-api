@@ -6,3 +6,5 @@ prisma/migrations
 requirements.txt
 /api/generated/client
 /no-git/*
+/.kiro/*
+/dist/*
