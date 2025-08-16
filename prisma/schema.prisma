@@ -30,6 +30,29 @@ enum TransactionCategory {
   TOP_UP
 }
 
+enum RuleType {
+  CODE_QUALITY
+  SECURITY
+  PERFORMANCE
+  DOCUMENTATION
+  TESTING
+  CUSTOM
+}
+
+enum RuleSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum ReviewStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+}
+
 // Model Definitions
 
 model User {
@@ -97,6 +120,8 @@ model Installation {
   userInstallationPermissions UserInstallationPermission[]
   transactions                Transaction[]
   taskSubmissions             TaskSubmission[]
+  aiReviewRule                AIReviewRule[]
+  aiReviewResult              AIReviewResult[]
 }
 
 model Task {
@@ -206,4 +231,41 @@ model Transaction {
   installationId String?
   user           User?         @relation(fields: [userId], references: [userId], onDelete: SetNull)
   userId         String?
+}
+
+model AIReviewRule {
+  id             String       @id @default(cuid())
+  installation   Installation @relation(fields: [installationId], references: [id], onDelete: Cascade)
+  installationId String
+  name           String
+  description    String
+  ruleType       RuleType
+  severity       RuleSeverity
+  pattern        String? // For regex-based rules
+  config         Json // Flexible configuration
+  active         Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([installationId, active])
+}
+
+model AIReviewResult {
+  id             String       @id @default(cuid())
+  installation   Installation @relation(fields: [installationId], references: [id], onDelete: Cascade)
+  installationId String
+  prNumber       Int
+  prUrl          String
+  repositoryName String
+  mergeScore     Int // 0-100
+  rulesViolated  Json // Array of violated rules
+  rulesPassed    Json // Array of passed rules
+  suggestions    Json // Array of code suggestions
+  reviewStatus   ReviewStatus
+  commentId      String? // GitHub comment ID
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([installationId, prNumber, repositoryName])
+  @@index([installationId, reviewStatus])
 }
