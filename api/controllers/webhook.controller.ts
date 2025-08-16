@@ -1,0 +1,406 @@
+import { Request, Response, NextFunction } from 'express';
+import {
+  GitHubWebhookPayload,
+  PullRequestData,
+  APIResponse
+} from '../models/ai-review.model';
+import {
+  GitHubWebhookError,
+  PRNotEligibleError,
+  PRAnalysisError
+} from '../models/ai-review.errors';
+import { PRAnalysisService } from '../services/pr-analysis.service';
+import { JobQueueService } from '../services/job-queue.service';
+import { WorkflowIntegrationService } from '../services/workflow-integration.service';
+import { LoggingService } from '../services/logging.service';
+import { MonitoringService } from '../services/monitoring.service';
+
+/**
+ * Controller for handling GitHub webhook events for PR analysis
+ * Requirements: 1.1, 1.2, 1.3, 1.4
+ */
+
+/**
+ * Handles GitHub PR webhook events
+ * Requirement 1.1: System SHALL trigger AI review process for qualifying PRs
+ * Requirement 1.2: System SHALL have access to monitor pull requests
+ * Requirement 1.3: System SHALL skip review for PRs that don't link to issues
+ * 
+ * Complete end-to-end workflow implementation:
+ * 1. Validates webhook payload and extracts PR data
+ * 2. Checks if PR is eligible for analysis
+ * 3. Queues PR for background AI analysis
+ * 4. Returns immediate response while analysis runs asynchronously
+ */
+export const handlePRWebhook = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const payload: GitHubWebhookPayload = req.body;
+
+    // Use the integrated workflow service for complete end-to-end processing
+    const workflowService = WorkflowIntegrationService.getInstance();
+    const result = await workflowService.processWebhookWorkflow(payload);
+
+    if (!result.success) {
+      return res.status(500).json({
+        success: false,
+        error: result.error,
+        timestamp: new Date().toISOString()
+      } as APIResponse);
+    }
+
+    // Handle case where PR is not eligible for analysis
+    if (result.reason && !result.jobId) {
+      return res.status(200).json({
+        success: true,
+        message: `PR not eligible for analysis: ${result.reason}`,
+        data: {
+          prNumber: payload.pull_request.number,
+          repositoryName: payload.repository.full_name,
+          reason: result.reason
+        },
+        timestamp: new Date().toISOString()
+      } as APIResponse);
+    }
+
+    // Return success response with job information
+    res.status(202).json({
+      success: true,
+      message: 'PR webhook processed successfully - analysis queued',
+      data: {
+        jobId: result.jobId,
+        installationId: result.prData?.installationId,
+        repositoryName: result.prData?.repositoryName,
+        prNumber: result.prData?.prNumber,
+        prUrl: result.prData?.prUrl,
+        linkedIssuesCount: result.prData?.linkedIssues.length || 0,
+        changedFilesCount: result.prData?.changedFiles.length || 0,
+        eligibleForAnalysis: true,
+        status: 'queued'
+      },
+      timestamp: new Date().toISOString()
+    } as APIResponse);
+
+  } catch (error) {
+    LoggingService.logError('PR webhook processing failed', {
+      error: error instanceof Error ? error.message : String(error)
+    });
+
+    if (error instanceof PRAnalysisError) {
+      return res.status(400).json({
+        success: false,
+        error: error.message,
+        code: error.code,
+        data: {
+          prNumber: error.prNumber,
+          repositoryName: error.repositoryName
+        },
+        timestamp: new Date().toISOString()
+      } as APIResponse);
+    }
+
+    if (error instanceof GitHubWebhookError) {
+      return res.status(400).json({
+        success: false,
+        error: error.message,
+        code: error.code,
+        timestamp: new Date().toISOString()
+      } as APIResponse);
+    }
+
+    // Pass unexpected errors to error middleware
+    next(error);
+  }
+};
+
+/**
+ * Health check endpoint for webhook service
+ */
+export const webhookHealthCheck = async (req: Request, res: Response) => {
+  try {
+    const workflowService = WorkflowIntegrationService.getInstance();
+    const healthCheck = await workflowService.healthCheck();
+    const workflowStatus = workflowService.getWorkflowStatus();
+
+    const statusCode = healthCheck.healthy ? 200 : 503;
+
+    res.status(statusCode).json({
+      success: healthCheck.healthy,
+      message: healthCheck.healthy ? 'Webhook service is healthy' : 'Webhook service has issues',
+      data: {
+        health: healthCheck,
+        workflow: workflowStatus
+      },
+      timestamp: new Date().toISOString(),
+      service: 'ai-pr-review-webhook'
+    } as APIResponse);
+
+  } catch (error) {
+    res.status(503).json({
+      success: false,
+      message: 'Health check failed',
+      error: error instanceof Error ? error.message : String(error),
+      timestamp: new Date().toISOString(),
+      service: 'ai-pr-review-webhook'
+    } as APIResponse);
+  }
+};
+
+/**
+ * Gets job status for a specific job ID
+ * Requirement 6.1: System SHALL provide status updates for analysis jobs
+ */
+export const getJobStatus = (req: Request, res: Response) => {
+  try {
+    const { jobId } = req.params;
+
+    if (!jobId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Job ID is required'
+      });
+    }
+
+    const jobQueue = JobQueueService.getInstance();
+    const job = jobQueue.getJobStatus(jobId);
+
+    if (!job) {
+      return res.status(404).json({
+        success: false,
+        error: 'Job not found'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        jobId: job.id,
+        status: job.status,
+        prNumber: job.data.prNumber,
+        repositoryName: job.data.repositoryName,
+        createdAt: job.createdAt,
+        startedAt: job.startedAt,
+        completedAt: job.completedAt,
+        retryCount: job.retryCount,
+        maxRetries: job.maxRetries,
+        error: job.error,
+        result: job.result ? {
+          mergeScore: job.result.mergeScore,
+          reviewStatus: job.result.reviewStatus,
+          suggestionsCount: job.result.suggestions.length,
+          rulesViolatedCount: job.result.rulesViolated.length,
+          summary: job.result.summary
+        } : null
+      },
+      timestamp: new Date().toISOString()
+    } as APIResponse);
+
+  } catch (error) {
+    LoggingService.logError('Error getting job status', { error });
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error'
+    });
+  }
+};
+
+/**
+ * Gets queue statistics
+ * Requirement 6.1: System SHALL provide queue monitoring capabilities
+ */
+export const getQueueStats = (req: Request, res: Response) => {
+  try {
+    const jobQueue = JobQueueService.getInstance();
+    const stats = jobQueue.getQueueStats();
+
+    res.status(200).json({
+      success: true,
+      data: {
+        queue: stats,
+        activeJobs: jobQueue.getActiveJobsCount(),
+        timestamp: new Date().toISOString()
+      }
+    } as APIResponse);
+
+  } catch (error) {
+    LoggingService.logError('Error getting queue stats', { error });
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error'
+    });
+  }
+};
+
+/**
+ * Gets comprehensive workflow status
+ * Requirement 6.1: System SHALL provide comprehensive workflow monitoring
+ */
+export const getWorkflowStatus = (req: Request, res: Response) => {
+  try {
+    const workflowService = WorkflowIntegrationService.getInstance();
+    const status = workflowService.getWorkflowStatus();
+
+    res.status(200).json({
+      success: true,
+      data: status,
+      timestamp: new Date().toISOString()
+    } as APIResponse);
+
+  } catch (error) {
+    LoggingService.logError('Error getting workflow status', { error });
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+      timestamp: new Date().toISOString()
+    });
+  }
+};
+
+/**
+ * Manually triggers PR analysis
+ * Requirement 1.4: System SHALL provide manual trigger capability
+ */
+export const triggerManualAnalysis = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { installationId, repositoryName, prNumber, reason, userId } = req.body;
+
+    if (!installationId || !repositoryName || !prNumber) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required fields: installationId, repositoryName, prNumber'
+      });
+    }
+
+    // Use the integrated workflow service for manual analysis
+    const workflowService = WorkflowIntegrationService.getInstance();
+    const result = await workflowService.processManualAnalysisWorkflow({
+      installationId,
+      repositoryName,
+      prNumber,
+      reason: reason || 'Manual trigger',
+      userId: userId || 'unknown'
+    });
+
+    if (!result.success) {
+      return res.status(500).json({
+        success: false,
+        error: result.error,
+        timestamp: new Date().toISOString()
+      } as APIResponse);
+    }
+
+    res.status(202).json({
+      success: true,
+      message: 'Manual analysis queued successfully',
+      data: {
+        jobId: result.jobId,
+        installationId,
+        repositoryName,
+        prNumber,
+        status: 'queued',
+        reason: reason || 'Manual trigger'
+      },
+      timestamp: new Date().toISOString()
+    } as APIResponse);
+
+  } catch (error) {
+    LoggingService.logError('Error in manual analysis trigger', { error });
+    next(error);
+  }
+};
+
+/**
+ * Test endpoint for webhook functionality (development only)
+ */
+export const testWebhookHandler = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    // Only allow in development environment
+    if (process.env.NODE_ENV === 'production') {
+      return res.status(404).json({
+        success: false,
+        error: 'Endpoint not available in production'
+      });
+    }
+
+    const { prNumber, repositoryName, installationId } = req.body;
+
+    if (!prNumber || !repositoryName || !installationId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required fields: prNumber, repositoryName, installationId'
+      });
+    }
+
+    // Create mock PR data for testing
+    const mockPRData: PullRequestData = {
+      installationId,
+      repositoryName,
+      prNumber,
+      prUrl: `https://github.com/${repositoryName}/pull/${prNumber}`,
+      title: 'Test PR for webhook handler',
+      body: 'This PR closes #123 and resolves #456',
+      changedFiles: [
+        {
+          filename: 'test.ts',
+          status: 'modified',
+          additions: 10,
+          deletions: 5,
+          patch: '@@ -1,3 +1,3 @@\n-old code\n+new code'
+        }
+      ],
+      linkedIssues: [
+        {
+          number: 123,
+          title: 'Test issue 1',
+          body: 'Test issue body',
+          url: `https://github.com/${repositoryName}/issues/123`,
+          linkType: 'closes'
+        },
+        {
+          number: 456,
+          title: 'Test issue 2',
+          body: 'Another test issue',
+          url: `https://github.com/${repositoryName}/issues/456`,
+          linkType: 'resolves'
+        }
+      ],
+      author: 'test-user',
+      isDraft: false
+    };
+
+    const shouldAnalyze = PRAnalysisService.shouldAnalyzePR(mockPRData);
+    PRAnalysisService.logAnalysisDecision(mockPRData, shouldAnalyze);
+
+    if (shouldAnalyze) {
+      // Queue the test PR for analysis
+      const jobQueue = JobQueueService.getInstance();
+      const jobId = await jobQueue.addPRAnalysisJob(mockPRData);
+
+      res.status(202).json({
+        success: true,
+        message: 'Test webhook processed successfully - analysis queued',
+        data: {
+          jobId,
+          mockPRData,
+          shouldAnalyze,
+          linkedIssuesFound: mockPRData.linkedIssues.length,
+          changedFilesCount: mockPRData.changedFiles.length,
+          status: 'queued'
+        }
+      } as APIResponse);
+    } else {
+      res.status(200).json({
+        success: true,
+        message: 'Test webhook processed - PR not eligible for analysis',
+        data: {
+          mockPRData,
+          shouldAnalyze,
+          linkedIssuesFound: mockPRData.linkedIssues.length,
+          changedFilesCount: mockPRData.changedFiles.length
+        }
+      } as APIResponse);
+    }
+
+  } catch (error) {
+    next(error);
+  }
+};
