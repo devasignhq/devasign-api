@@ -16,11 +16,16 @@ import { dynamicRoute, localhostOnly } from "./middlewares/general.middleware";
 import { userRoutes } from "./routes/user.route";
 import { installationRoutes } from "./routes/installation.route";
 import { taskRoutes } from "./routes/task.route";
-import { stellarRoutes } from "./routes/stellar.route";
-import { testRoutes } from "./routes/test.route";
+import { stellarRoutes } from "./routes/test_routes/stellar.test.route";
+import { testRoutes } from "./routes/test_routes/general.test.route";
 import { walletRoutes } from "./routes/wallet.route";
 import { githubRoutes } from "./routes/github.route";
+import { webhookRoutes } from "./routes/webhook.route";
+import { customRulesRoutes } from "./routes/custom-rules.route";
+import { aiReviewTestRoutes } from "./routes/test_routes/ai-review.test.route";
+import { aiServicesRoutes } from "./routes/test_routes/ai-services.test.route";
 import { errorHandler } from "./middlewares/error.middleware";
+import { ErrorHandlingInitService } from "./services/error-handling-init.service";
 
 const app = express();
 const PORT = process.env.NODE_ENV === "development"
@@ -64,6 +69,137 @@ app.get("/health", (req: Request, res: Response) => {
         uptime: process.uptime(),
     });
 });
+
+// Comprehensive health check endpoint for AI Review system
+app.get("/health/detailed", async (req: Request, res: Response) => {
+    try {
+        const { HealthCheckService } = await import("./services/health-check.service");
+        const healthResult = await HealthCheckService.performHealthCheck(true);
+
+        const statusCode = healthResult.status === 'healthy' ? 200 :
+            healthResult.status === 'degraded' ? 206 : 503;
+
+        res.status(statusCode).json(healthResult);
+    } catch (error) {
+        res.status(503).json({
+            status: "unhealthy",
+            timestamp: new Date().toISOString(),
+            error: "Health check failed",
+            details: error
+        });
+    }
+});
+
+// Quick health status endpoint
+app.get("/health/status", (async (req: Request, res: Response) => {
+    try {
+        const { HealthCheckService } = await import("./services/health-check.service");
+        const cached = HealthCheckService.getCachedHealthStatus();
+
+        if (!cached) {
+            // Perform quick health check if no cached result
+            const healthResult = await HealthCheckService.performHealthCheck(false);
+            const statusCode = healthResult.status === 'healthy' ? 200 :
+                healthResult.status === 'degraded' ? 206 : 503;
+            return res.status(statusCode).json({
+                status: healthResult.status,
+                degradedMode: healthResult.degradedMode,
+                timestamp: healthResult.timestamp
+            });
+        }
+
+        const statusCode = cached.status === 'healthy' ? 200 :
+            cached.status === 'degraded' ? 206 : 503;
+
+        res.status(statusCode).json({
+            status: cached.status,
+            degradedMode: cached.degradedMode,
+            timestamp: cached.timestamp,
+            cached: true
+        });
+    } catch (error) {
+        res.status(503).json({
+            status: "unhealthy",
+            timestamp: new Date().toISOString(),
+            error: "Health status check failed"
+        });
+    }
+}) as RequestHandler);
+
+// Error handling status endpoint
+app.get("/health/error-handling", async (req: Request, res: Response) => {
+    try {
+        const { ErrorHandlingIntegrationService } = await import("./services/error-handling-integration.service");
+        const { ErrorRecoveryService } = await import("./services/error-recovery.service");
+        const { MonitoringService } = await import("./services/monitoring.service");
+
+        const status = ErrorHandlingIntegrationService.getErrorHandlingStatus();
+        const recoveryStatus = ErrorRecoveryService.getRecoveryStatus();
+        const metrics = MonitoringService.getMetrics();
+        const recentAlerts = MonitoringService.getRecentAlerts(60); // Last 60 minutes
+
+        res.status(200).json({
+            timestamp: new Date().toISOString(),
+            errorHandling: status,
+            recovery: recoveryStatus,
+            metrics: {
+                aiReviews: metrics.aiReviews,
+                services: Object.entries(metrics.services).reduce((acc, [name, service]) => {
+                    acc[name] = {
+                        calls: service.calls,
+                        failures: service.failures,
+                        successRate: service.calls > 0 ?
+                            `${(((service.calls - service.failures) / service.calls) * 100).toFixed(1)}%` : '0%',
+                        avgResponseTime: Math.round(service.avgResponseTime)
+                    };
+                    return acc;
+                }, {} as Record<string, any>)
+            },
+            alerts: {
+                recent: recentAlerts.length,
+                critical: recentAlerts.filter(a => a.severity === 'critical').length,
+                high: recentAlerts.filter(a => a.severity === 'high').length
+            }
+        });
+    } catch (error) {
+        res.status(500).json({
+            error: "Failed to get error handling status",
+            details: String(error),
+            timestamp: new Date().toISOString()
+        });
+    }
+});
+
+// Manual recovery endpoint (admin only)
+app.post("/health/recover", validateUser as RequestHandler, (async (req: Request, res: Response) => {
+    try {
+        // Check if user has admin privileges
+        const { currentUser } = req.body;
+
+        if (!currentUser?.admin && !currentUser?.custom_claims?.admin) {
+            return res.status(403).json({
+                error: "Access denied. Admin privileges required.",
+            });
+        }
+
+        const { ErrorRecoveryService } = await import("./services/error-recovery.service");
+        const { type = 'complete', context } = req.body;
+
+        const recoveryResult = await ErrorRecoveryService.attemptSystemRecovery(type, context);
+
+        const statusCode = recoveryResult.success ? 200 : 500;
+        res.status(statusCode).json({
+            recovery: recoveryResult,
+            timestamp: new Date().toISOString()
+        });
+    } catch (error) {
+        res.status(500).json({
+            error: "Recovery attempt failed",
+            details: String(error),
+            timestamp: new Date().toISOString()
+        });
+    }
+}) as RequestHandler);
 
 app.post(
     "/clear-db",
@@ -142,13 +278,102 @@ app.use(
     validateUser as RequestHandler,
     githubRoutes
 );
+app.use(
+    "/ai-rules",
+    dynamicRoute,
+    validateUser as RequestHandler,
+    customRulesRoutes
+);
+
+// Webhook routes (no auth required for GitHub webhooks)
+app.use("/webhook", webhookRoutes);
+
+// Local host routes for testing purposes
 app.use("/stellar", dynamicRoute, localhostOnly, stellarRoutes);
 app.use("/test", dynamicRoute, localhostOnly, testRoutes);
+app.use("/ai-review-test", dynamicRoute, localhostOnly, aiReviewTestRoutes);
+app.use("/ai-services", dynamicRoute, localhostOnly, aiServicesRoutes);
 
 app.use(errorHandler);
 
 prisma.$connect();
 
-app.listen(PORT, "0.0.0.0", () => {
+// Initialize error handling system (disabled until environment variables are configured)
+if (process.env.GROQ_API_KEY && process.env.GITHUB_APP_ID && process.env.GITHUB_APP_PRIVATE_KEY) {
+    ErrorHandlingInitService.initialize().catch(error => {
+        console.error('Failed to initialize error handling system:', error);
+        // Continue startup even if error handling initialization fails
+    });
+
+    // Initialize workflow integration service
+    (async () => {
+        try {
+            const { WorkflowIntegrationService } = await import('./services/workflow-integration.service');
+            const workflowService = WorkflowIntegrationService.getInstance();
+            await workflowService.initialize();
+            console.log('Workflow Integration Service initialized successfully');
+        } catch (error) {
+            console.error('Failed to initialize Workflow Integration Service:', error);
+            // Continue startup even if workflow initialization fails
+        }
+    })();
+} else {
+    console.log('AI Review system disabled - missing required environment variables (GROQ_API_KEY, GITHUB_APP_ID, GITHUB_APP_PRIVATE_KEY)');
+}
+
+const server = app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server is running on port ${PORT}`);
+});
+
+// Graceful shutdown handling
+process.on('SIGTERM', async () => {
+    console.log('SIGTERM received, starting graceful shutdown...');
+
+    try {
+        // Stop accepting new connections
+        server.close(() => {
+            console.log('HTTP server closed');
+        });
+
+        // Shutdown workflow integration service
+        const { WorkflowIntegrationService } = await import('./services/workflow-integration.service');
+        const workflowService = WorkflowIntegrationService.getInstance();
+        await workflowService.shutdown();
+
+        // Close database connection
+        await prisma.$disconnect();
+        console.log('Database connection closed');
+
+        console.log('Graceful shutdown completed');
+        process.exit(0);
+    } catch (error) {
+        console.error('Error during graceful shutdown:', error);
+        process.exit(1);
+    }
+});
+
+process.on('SIGINT', async () => {
+    console.log('SIGINT received, starting graceful shutdown...');
+
+    try {
+        // Stop accepting new connections
+        server.close(() => {
+            console.log('HTTP server closed');
+        });
+
+        // Shutdown workflow integration service
+        const { WorkflowIntegrationService } = await import('./services/workflow-integration.service');
+        const workflowService = WorkflowIntegrationService.getInstance();
+        await workflowService.shutdown();
+
+        // Close database connection
+        await prisma.$disconnect();
+        console.log('Database connection closed');
+
+        console.log('Graceful shutdown completed');
+        process.exit(0);
+    } catch (error) {
+        console.error('Error during graceful shutdown:', error);
+        process.exit(1);
+    }
 });
