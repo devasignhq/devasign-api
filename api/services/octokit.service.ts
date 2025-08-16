@@ -4,7 +4,7 @@ import {
     InstallationOctokit,
     IssueDto,
     IssueLabel,
-    IssueMilestone, 
+    IssueMilestone,
     RepositoryDto
 } from "../models/github.model";
 import { moneyFormat } from "../helper";
@@ -18,7 +18,7 @@ export class OctokitService {
     });
 
     public static customBountyMessage = (bounty: string, taskId: string) => {
-        return `\n\n\n## 💵 ${moneyFormat(bounty)} USDC Bounty\n\n### Steps to solve:\n1. **Accept task**: Follow the CTA and apply to solve this issue.\n2. **Submit work**: If your application was accepted, you'll be required to submit the link to your pull request and an optional link to a reference that will give more credibility to the work done.\n3. **Receive payment**: When your pull request is approved, 100% of the bounty is instantly transferred to your wallet.\n\n**To work on this task, [Apply here](${commentCTA}?taskId=${taskId})**` 
+        return `\n\n\n## 💵 ${moneyFormat(bounty)} USDC Bounty\n\n### Steps to solve:\n1. **Accept task**: Follow the CTA and apply to solve this issue.\n2. **Submit work**: If your application was accepted, you'll be required to submit the link to your pull request and an optional link to a reference that will give more credibility to the work done.\n3. **Receive payment**: When your pull request is approved, 100% of the bounty is instantly transferred to your wallet.\n\n**To work on this task, [Apply here](${commentCTA}?taskId=${taskId})**`
     }
 
     /**
@@ -29,11 +29,32 @@ export class OctokitService {
     }
 
     /**
-     * Extract owner and repo from GitHub URL
+     * Extract owner and repo from GitHub URL or owner/repo format
+     * Supports:
+     * - URL format: "https://github.com/owner/repo"
+     * - Direct format: "owner/repo"
+     * - PR URL: "https://github.com/owner/repo/pull/123"
+     * - Issue URL: "https://github.com/owner/repo/issues/456"
      */
     private static getOwnerAndRepo(repoUrl: string): [string, string] {
-        const [owner, repo] = repoUrl.split("/").slice(-2);
-        return [owner, repo];
+        // Handle both URL format (https://github.com/owner/repo) and owner/repo format
+        const parts = repoUrl.split("/");
+
+        if (parts.length === 2) {
+            // Direct owner/repo format
+            return [parts[0], parts[1]];
+        } else {
+            // URL format - find owner and repo in the path
+            // For URLs like: https://github.com/owner/repo or https://github.com/owner/repo/pull/123
+            const githubIndex = parts.findIndex(part => part === 'github.com');
+            if (githubIndex !== -1 && githubIndex + 2 < parts.length) {
+                return [parts[githubIndex + 1], parts[githubIndex + 2]];
+            } else {
+                // Fallback: take the last two non-empty parts
+                const nonEmptyParts = parts.filter(part => part.length > 0);
+                return [nonEmptyParts[nonEmptyParts.length - 2], nonEmptyParts[nonEmptyParts.length - 1]];
+            }
+        }
     }
 
     /**
@@ -88,15 +109,15 @@ export class OctokitService {
         );
 
         const installation = response.data;
-        
+
         // Check if user is authorized to access this installation
         if (installation.target_type === "User") {
             // For user installations, check if the requesting user is the account owner
-            if (installation.account && "login" in installation.account && 
+            if (installation.account && "login" in installation.account &&
                 installation.account.login !== githubUsername
             ) {
                 throw new ErrorClass(
-                    "OctokitError", 
+                    "OctokitError",
                     null,
                     "Unauthorized: You can only access installations on your own account"
                 );
@@ -114,7 +135,7 @@ export class OctokitService {
                 // Ensure user is an active member
                 if (membership.data.state === "pending") {
                     throw new ErrorClass(
-                        "OctokitError", 
+                        "OctokitError",
                         null,
                         "Unauthorized: You must be an active member of this organization to access its installation"
                     );
@@ -122,13 +143,13 @@ export class OctokitService {
             } catch (error: any) {
                 if (error.status === 404 || error.status === 403) {
                     throw new ErrorClass(
-                        "OctokitError", 
+                        "OctokitError",
                         error,
                         "Unauthorized: You must be a member of this organization to access its installation"
                     );
                 }
                 throw new ErrorClass(
-                    "OctokitError", 
+                    "OctokitError",
                     error,
                     "An error occured while verifying the installation"
                 );
@@ -346,7 +367,7 @@ export class OctokitService {
             name: repo,
             number: issueNumber,
         });
-        
+
         return (response as any).repository.issue as IssueDto;
     }
 
@@ -454,12 +475,12 @@ export class OctokitService {
 
         const mutation = `
             mutation UpdateIssue(${Object.keys(variables).map(key => {
-                if (key === 'issueId') return '$issueId: ID!';
-                if (key === 'body') return '$body: String!';
-                if (key === 'labelIds') return '$labelIds: [ID!]!';
-                if (key === 'assigneeIds') return '$assigneeIds: [String!]!';
-                return '';
-            }).filter(Boolean).join(', ')}) {
+            if (key === 'issueId') return '$issueId: ID!';
+            if (key === 'body') return '$body: String!';
+            if (key === 'labelIds') return '$labelIds: [ID!]!';
+            if (key === 'assigneeIds') return '$assigneeIds: [String!]!';
+            return '';
+        }).filter(Boolean).join(', ')}) {
                 ${mutations.join('\n')}
             }
         `;
@@ -512,7 +533,7 @@ export class OctokitService {
 
         const allLabels = (response as any).repository.labels.nodes as IssueLabel[];
         const filteredLabels = allLabels.filter(label => label.name !== "💵 Bounty");
-    
+
         return {
             labels: filteredLabels,
             milestones: (response as any).repository.milestones.nodes as IssueMilestone[],
@@ -596,7 +617,7 @@ export class OctokitService {
         body: string
     ) {
         const octokit = await this.getOctokit(installationId);
-    
+
         const mutation = `
             mutation AddLabelAndCreateComment($issueId: ID!, $labelIds: [ID!]!, $body: String!) {
                 addLabelsToLabelable(input: {labelableId: $issueId, labelIds: $labelIds}) {
@@ -616,13 +637,13 @@ export class OctokitService {
                 }
             }
         `;
-    
+
         const response = await octokit.graphql(mutation, {
             issueId,
             labelIds: [bountyLabelId],
             body,
         });
-    
+
         return (response as any).addComment.commentEdge.node;
     }
 
@@ -668,7 +689,7 @@ export class OctokitService {
         commentId: string
     ) {
         const octokit = await this.getOctokit(installationId);
-    
+
         // First, get the issue and find the bounty label ID
         const issueQuery = `
             query GetIssueLabels($issueId: ID!) {
@@ -684,11 +705,11 @@ export class OctokitService {
                 }
             }
         `;
-    
+
         const issueResponse = await octokit.graphql(issueQuery, { issueId });
         const labels = (issueResponse as any).node.labels.nodes;
         const bountyLabel = labels.find((label: any) => label.name === "💵 Bounty");
-    
+
         if (!bountyLabel) {
             if (commentId && issueId) {
                 const mutation = `
@@ -698,17 +719,17 @@ export class OctokitService {
                         }
                     }
                 `;
-            
+
                 await octokit.graphql(mutation, {
                     issueId,
                     commentId,
                 });
-            
+
                 return "SUCCESS";
             }
             throw new Error("Bounty label not found on this issue");
         }
-    
+
         // Then remove the label and delete the comment
         const mutation = `
             mutation RemoveLabelAndDeleteComment($issueId: ID!, $labelIds: [ID!]!, $commentId: ID!) {
@@ -720,13 +741,96 @@ export class OctokitService {
                 }
             }
         `;
-    
+
         await octokit.graphql(mutation, {
             issueId,
             labelIds: [bountyLabel.id],
             commentId,
         });
-    
+
         return "SUCCESS";
+    }
+
+    /**
+     * Get pull request files for AI review analysis
+     */
+    static async getPRFiles(
+        installationId: string,
+        repoUrl: string,
+        prNumber: number
+    ) {
+        const octokit = await this.getOctokit(installationId);
+        const [owner, repo] = this.getOwnerAndRepo(repoUrl);
+
+        const { data: files } = await octokit.rest.pulls.listFiles({
+            owner,
+            repo,
+            pull_number: prNumber,
+            per_page: 100 // GitHub's max per page
+        });
+
+        return files;
+    }
+
+    /**
+     * Get pull request details for AI review analysis
+     */
+    static async getPRDetails(
+        installationId: string,
+        repoUrl: string,
+        prNumber: number
+    ) {
+        const octokit = await this.getOctokit(installationId);
+        const [owner, repo] = this.getOwnerAndRepo(repoUrl);
+
+        try {
+            const { data: pr } = await octokit.rest.pulls.get({
+                owner,
+                repo,
+                pull_number: prNumber
+            });
+
+            return pr;
+        } catch (error: any) {
+            if (error.status === 404) {
+                return null; // PR not found
+            }
+            throw error;
+        }
+    }
+
+    /**
+     * Get file content from repository
+     */
+    static async getFileContent(
+        installationId: string,
+        repoUrl: string,
+        filePath: string,
+        ref?: string
+    ): Promise<string> {
+        const octokit = await this.getOctokit(installationId);
+        const [owner, repo] = this.getOwnerAndRepo(repoUrl);
+
+        try {
+            const { data } = await octokit.rest.repos.getContent({
+                owner,
+                repo,
+                path: filePath,
+                ref: ref || 'HEAD'
+            });
+
+            // Handle file content (not directory)
+            if ('content' in data && typeof data.content === 'string') {
+                // Decode base64 content
+                return Buffer.from(data.content, 'base64').toString('utf-8');
+            } else {
+                throw new Error(`Path ${filePath} is not a file or content not available`);
+            }
+        } catch (error: any) {
+            if (error.status === 404) {
+                throw new Error(`File ${filePath} not found in repository`);
+            }
+            throw new Error(`Failed to fetch file content: ${error.message}`);
+        }
     }
 }
