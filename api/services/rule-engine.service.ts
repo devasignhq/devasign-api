@@ -189,38 +189,38 @@ export class RuleEngineService {
                         return { isValid: false, error: "Code quality rules must specify metrics array" };
                     }
                     break;
-                
+
                 case RuleType.SECURITY:
                     if (!config.checks || !Array.isArray(config.checks)) {
                         return { isValid: false, error: "Security rules must specify checks array" };
                     }
                     break;
-                
+
                 case RuleType.PERFORMANCE:
                     if (!config.thresholds || typeof config.thresholds !== 'object') {
                         return { isValid: false, error: "Performance rules must specify thresholds object" };
                     }
                     break;
-                
+
                 case RuleType.DOCUMENTATION:
                     if (!config.requirements || !Array.isArray(config.requirements)) {
                         return { isValid: false, error: "Documentation rules must specify requirements array" };
                     }
                     break;
-                
+
                 case RuleType.TESTING:
                     if (!config.coverage || typeof config.coverage !== 'object') {
                         return { isValid: false, error: "Testing rules must specify coverage object" };
                     }
                     break;
-                
+
                 case RuleType.CUSTOM:
                     // Custom rules are more flexible, just ensure basic structure
                     if (!config.description) {
                         return { isValid: false, error: "Custom rules must include a description in config" };
                     }
                     break;
-                
+
                 default:
                     return { isValid: false, error: "Invalid rule type" };
             }
@@ -453,7 +453,7 @@ export class RuleEngineService {
             }
 
             const passed = affectedFiles.length === 0;
-            const details = passed 
+            const details = passed
                 ? "No pattern violations found"
                 : violations.join("; ");
 
@@ -525,7 +525,7 @@ export class RuleEngineService {
             // Simple check for exported functions without documentation
             const exportPattern = /^export\s+(function|class|const|let|var)\s+(\w+)/gm;
             const docPattern = /\/\*\*[\s\S]*?\*\//g;
-            
+
             const exports = file.patch.match(exportPattern) || [];
             const docs = file.patch.match(docPattern) || [];
 
@@ -548,13 +548,13 @@ export class RuleEngineService {
      */
     private static async evaluateTestingRule(rule: DefaultRule, prData: PullRequestData): Promise<RuleEvaluationResult> {
         // Check if test files are included for new features
-        const codeFiles = prData.changedFiles.filter(f => 
-            !f.filename.includes('.test.') && 
+        const codeFiles = prData.changedFiles.filter(f =>
+            !f.filename.includes('.test.') &&
             !f.filename.includes('.spec.') &&
             (f.filename.endsWith('.js') || f.filename.endsWith('.ts') || f.filename.endsWith('.jsx') || f.filename.endsWith('.tsx'))
         );
 
-        const testFiles = prData.changedFiles.filter(f => 
+        const testFiles = prData.changedFiles.filter(f =>
             f.filename.includes('.test.') || f.filename.includes('.spec.')
         );
 
@@ -563,11 +563,11 @@ export class RuleEngineService {
         const hasTests = testFiles.length > 0;
 
         const passed = !hasNewCode || hasTests;
-        
+
         return {
             passed,
-            details: passed 
-                ? "Adequate test coverage detected" 
+            details: passed
+                ? "Adequate test coverage detected"
                 : `Found ${codeFiles.length} code file(s) but no test files`,
             affectedFiles: passed ? undefined : codeFiles.map(f => f.filename)
         };
@@ -614,14 +614,14 @@ export class RuleEngineService {
         if (!config || !config.excludeFiles) return false;
 
         const excludePatterns = Array.isArray(config.excludeFiles) ? config.excludeFiles : [config.excludeFiles];
-        
+
         return excludePatterns.some((pattern: string) => {
             // Convert glob pattern to regex
             const regexPattern = pattern
                 .replace(/\./g, '\\.')
                 .replace(/\*/g, '.*')
                 .replace(/\?/g, '.');
-            
+
             return new RegExp(regexPattern).test(filename);
         });
     }

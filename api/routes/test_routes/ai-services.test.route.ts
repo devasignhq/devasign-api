@@ -342,7 +342,7 @@ router.post('/groq/test-json',
             }
 
             const { testPrompt = 'Analyze this simple code: function add(a, b) { return a + b; }' } = req.body;
-            
+
             // Create a simple test prompt that should return JSON
             const prompt = `You are a code reviewer. Analyze this code and respond with ONLY valid JSON in this exact format:
 
@@ -373,14 +373,14 @@ router.post('/groq/test-json',
 Code to analyze: ${testPrompt}
 
 Respond with ONLY the JSON object above, modified for the actual code analysis.`;
-            
+
             // Call Groq API directly
             const response = await (groqService as any).callGroqAPI(prompt);
-            
+
             // Try to parse the response
             let parsedResponse;
             let parseError = null;
-            
+
             try {
                 parsedResponse = (groqService as any).parseAIResponse(response);
             } catch (error: any) {

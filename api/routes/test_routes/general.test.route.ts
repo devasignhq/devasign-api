@@ -31,7 +31,7 @@ router.post(
     }) as RequestHandler
 );
 
-router.post('/encryption', 
+router.post('/encryption',
     [
         body('text').notEmpty().withMessage('Text to encrypt is required'),
     ],
@@ -43,10 +43,10 @@ router.post('/encryption',
             }
 
             const { text } = req.body;
-            
+
             // Encrypt the text
             const encrypted = encrypt(text);
-            
+
             // Decrypt to verify
             const decrypted = decrypt(encrypted);
 
@@ -65,7 +65,7 @@ router.post('/encryption',
     }) as RequestHandler
 );
 
-router.get('/select', 
+router.get('/select',
     [
         body('select').isObject().withMessage('Text to encrypt is required'),
     ],

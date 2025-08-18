@@ -267,7 +267,8 @@ router.patch('/wallets/users/update-all',
 
             // Update each user's wallet
             for (const user of allUsers) {
-                if (!user.walletAddress) return;
+                // Skip users who don't have a wallet address
+                if (!user.walletAddress) continue;
                 
                 try {
                     // Create new wallet
