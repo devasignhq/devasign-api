@@ -1,16 +1,20 @@
-import { Router, Request, Response, NextFunction } from 'express';
+import { Router, Request, Response, NextFunction, RequestHandler } from 'express';
 import { body } from 'express-validator';
 import { stellarService, usdcAssetId, xlmAssetId } from '../../config/stellar.config';
+import { encrypt } from '../../helper';
+import { prisma } from '../../config/database.config';
 
 const router = Router();
 
 // Create a new wallet
-router.post('/wallet', async (req: Request, res: Response, next: NextFunction) => {
+router.post('/wallet', async (_req: Request, res: Response, next: NextFunction) => {
     try {
         const wallet = await stellarService.createWallet();
+        const encryptedSecret = encrypt(wallet.secretKey);
+
         res.status(201).json({
             message: 'Wallet created successfully',
-            data: wallet
+            data: { wallet, encryptedSecret }
         });
     } catch (error) {
         next(error);
@@ -74,7 +78,7 @@ router.post('/trustline/sponsor',
 );
 
 // Fund a wallet
-router.post('/fund', 
+router.post('/fund',
     body('publicKey').notEmpty().withMessage('Public key is required'),
     async (req: Request, res: Response, next: NextFunction) => {
         try {
@@ -236,5 +240,168 @@ router.get('/topup/:publicKey', async (req: Request, res: Response, next: NextFu
         next(error);
     }
 });
+
+// Update all user wallets (for testnet resets)
+router.patch('/wallets/users/update-all',
+    (async (req: Request, res: Response, next: NextFunction) => {
+        try {
+            // Get all users
+            const allUsers = await prisma.user.findMany({
+                select: { 
+                    userId: true, 
+                    username: true,
+                    walletAddress: true,
+                }
+            });
+
+            if (allUsers.length === 0) {
+                return res.status(200).json({
+                    message: 'No users found to update',
+                    data: { updated: 0, failed: 0 }
+                });
+            }
+
+            const results = [];
+            let successCount = 0;
+            let failCount = 0;
+
+            // Update each user's wallet
+            for (const user of allUsers) {
+                if (!user.walletAddress) return;
+                
+                try {
+                    // Create new wallet
+                    const newWallet = await stellarService.createWallet();
+                    const encryptedSecret = encrypt(newWallet.secretKey);
+
+                    // Update user's wallet credentials
+                    await prisma.user.update({
+                        where: { userId: user.userId },
+                        data: {
+                            walletAddress: newWallet.publicKey,
+                            walletSecret: encryptedSecret
+                        }
+                    });
+
+                    console.log("user: ", user.userId, "Success", newWallet.publicKey);
+
+                    results.push({
+                        userId: user.userId,
+                        username: user.username,
+                        status: 'success',
+                        walletAddress: newWallet.publicKey,
+                        txHash: newWallet.txHash
+                    });
+                    successCount++;
+                } catch (error) {
+                    results.push({
+                        userId: user.userId,
+                        username: user.username,
+                        status: 'failed',
+                        error: error instanceof Error ? error.message : 'Unknown error'
+                    });
+                    failCount++;
+                }
+            }
+
+            res.status(200).json({
+                message: `Wallet update completed. ${successCount} successful, ${failCount} failed.`,
+                data: {
+                    total: allUsers.length,
+                    successful: successCount,
+                    failed: failCount,
+                    results
+                }
+            });
+        } catch (error) {
+            next(error);
+        }
+    }) as RequestHandler
+);
+
+// Update all installation wallets (for testnet resets)
+router.patch('/wallets/installations/update-all',
+    (async (req: Request, res: Response, next: NextFunction) => {
+        try {
+            // Get all installations
+            const allInstallations = await prisma.installation.findMany({
+                select: { 
+                    id: true, 
+                    account: true,
+                    walletAddress: true,
+                    escrowAddress: true
+                }
+            });
+        
+            if (allInstallations.length === 0) {
+                return res.status(200).json({
+                    message: 'No installations found to update',
+                    data: { updated: 0, failed: 0 }
+                });
+            }
+
+            const results = [];
+            let successCount = 0;
+            let failCount = 0;
+
+            // Update each installation's wallets
+            for (const installation of allInstallations) {
+                try {
+                    // Create new installation wallet
+                    const newInstallationWallet = await stellarService.createWallet();
+                    const encryptedInstallationSecret = encrypt(newInstallationWallet.secretKey);
+
+                    // Create new escrow wallet
+                    const newEscrowWallet = await stellarService.createWallet();
+                    const encryptedEscrowSecret = encrypt(newEscrowWallet.secretKey);
+
+                    // Update installation's wallet credentials
+                    await prisma.installation.update({
+                        where: { id: installation.id },
+                        data: {
+                            walletAddress: newInstallationWallet.publicKey,
+                            walletSecret: encryptedInstallationSecret,
+                            escrowAddress: newEscrowWallet.publicKey,
+                            escrowSecret: encryptedEscrowSecret
+                        }
+                    });
+
+                    console.log("installation: ", installation.id, "Success", newInstallationWallet.publicKey, newEscrowWallet.publicKey);
+
+                    results.push({
+                        installationId: installation.id,
+                        account: installation.account,
+                        status: 'success',
+                        walletAddress: newInstallationWallet.publicKey,
+                        escrowAddress: newEscrowWallet.publicKey,
+                        installationTxHash: newInstallationWallet.txHash,
+                        escrowTxHash: newEscrowWallet.txHash
+                    });
+                    successCount++;
+                } catch (error) {
+                    results.push({
+                        installationId: installation.id,
+                        account: installation.account,
+                        status: 'failed',
+                        error: error instanceof Error ? error.message : 'Unknown error'
+                    });
+                    failCount++;
+                }
+            }
+
+            res.status(200).json({
+                message: `Installation wallet update completed. ${successCount} successful, ${failCount} failed.`,
+                data: {
+                    total: allInstallations.length,
+                    successful: successCount,
+                    failed: failCount,
+                    results
+                }
+            });
+        } catch (error) {
+            next(error);
+        }
+    }) as RequestHandler
+);
 
 export const stellarRoutes = router;
