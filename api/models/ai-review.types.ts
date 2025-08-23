@@ -6,6 +6,9 @@
 // Core Data Models and DTOs
 export * from './ai-review.model';
 
+// Intelligent Context Fetching Models
+export * from './intelligent-context.model';
+
 // Error Classes
 export * from './ai-review.errors';
 
