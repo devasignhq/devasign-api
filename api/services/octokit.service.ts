@@ -24,7 +24,7 @@ export class OctokitService {
     /**
      * Get Octokit instance for a specific installation
      */
-    private static async getOctokit(installationId: string): Promise<InstallationOctokit> {
+    public static async getOctokit(installationId: string): Promise<InstallationOctokit> {
         return await this.githubApp.getInstallationOctokit(Number(installationId));
     }
 
@@ -36,7 +36,7 @@ export class OctokitService {
      * - PR URL: "https://github.com/owner/repo/pull/123"
      * - Issue URL: "https://github.com/owner/repo/issues/456"
      */
-    private static getOwnerAndRepo(repoUrl: string): [string, string] {
+    public static getOwnerAndRepo(repoUrl: string): [string, string] {
         // Handle both URL format (https://github.com/owner/repo) and owner/repo format
         const parts = repoUrl.split("/");
 
@@ -117,7 +117,7 @@ export class OctokitService {
                 installation.account.login !== githubUsername
             ) {
                 throw new ErrorClass(
-                    "OctokitError",
+                    "OctokitServiceError",
                     null,
                     "Unauthorized: You can only access installations on your own account"
                 );
@@ -135,7 +135,7 @@ export class OctokitService {
                 // Ensure user is an active member
                 if (membership.data.state === "pending") {
                     throw new ErrorClass(
-                        "OctokitError",
+                        "OctokitServiceError",
                         null,
                         "Unauthorized: You must be an active member of this organization to access its installation"
                     );
@@ -143,13 +143,13 @@ export class OctokitService {
             } catch (error: any) {
                 if (error.status === 404 || error.status === 403) {
                     throw new ErrorClass(
-                        "OctokitError",
+                        "OctokitServiceError",
                         error,
                         "Unauthorized: You must be a member of this organization to access its installation"
                     );
                 }
                 throw new ErrorClass(
-                    "OctokitError",
+                    "OctokitServiceError",
                     error,
                     "An error occured while verifying the installation"
                 );
@@ -795,7 +795,11 @@ export class OctokitService {
             if (error.status === 404) {
                 return null; // PR not found
             }
-            throw error;
+            throw new ErrorClass(
+                "OctokitServiceError",
+                error,
+                "Failed to fetch pull request details"
+            );
         }
     }
 
@@ -828,9 +832,202 @@ export class OctokitService {
             }
         } catch (error: any) {
             if (error.status === 404) {
-                throw new Error(`File ${filePath} not found in repository`);
+                throw new ErrorClass(
+                    "OctokitServiceError",
+                    error,
+                    `File ${filePath} not found in repository`
+                );
             }
-            throw new Error(`Failed to fetch file content: ${error.message}`);
+            throw new ErrorClass(
+                "OctokitServiceError",
+                error,
+                `Failed to fetch file content: ${error.message}`
+            );
         }
+    }
+
+    /**
+     * Get all file paths from repository tree
+     * Enhanced version of your getAllFilePathsFromTree function
+     */
+    static async getAllFilePathsFromTree(
+        installationId: string,
+        repoUrl: string,
+        branch?: string
+    ): Promise<string[]> {
+        const octokit = await this.getOctokit(installationId);
+        const [owner, repo] = this.getOwnerAndRepo(repoUrl);
+
+        try {
+            // First get the default branch if not specified
+            if (!branch) {
+                branch = await this.getDefaultBranch(installationId, repoUrl);
+            }
+
+            // Get the commit SHA for the branch
+            const branchRef = await octokit.rest.git.getRef({
+                owner,
+                repo,
+                ref: `heads/${branch}`,
+            });
+            const commitSha = branchRef.data.object.sha;
+
+            // Get the tree recursively (this gets ALL files at once)
+            const tree = await octokit.rest.git.getTree({
+                owner,
+                repo,
+                tree_sha: commitSha,
+                recursive: "true", // This is key - gets the entire tree structure
+            });
+
+            // Filter to only get file paths (not directories)
+            const filePaths = tree.data.tree
+                .filter(item => item.type === "blob") // "blob" = file, "tree" = directory
+                .map(item => item.path!)
+                .filter(path => path); // Remove any undefined paths
+
+            return filePaths;
+        } catch (error: any) {
+            if (error.status === 409) {
+                console.log(`Repository ${owner}/${repo} is empty`);
+                return [];
+            }
+            throw new ErrorClass(
+                "OctokitServiceError",
+                error,
+                `Failed to get file paths: ${error.message}`
+            );
+        }
+    }
+
+    /**
+     * Get the default branch of a repository
+     */
+    static async getDefaultBranch(installationId: string, repoUrl: string): Promise<string> {
+        const octokit = await this.getOctokit(installationId);
+        const [owner, repo] = this.getOwnerAndRepo(repoUrl);
+
+        const query = `query($owner: String!, $repo: String!) {
+            repository(owner: $owner, name: $repo) {
+                defaultBranchRef {
+                    name
+                }
+            }
+        }`;
+
+        try {
+            const response = await octokit.graphql(query, { owner, repo });
+            return (response as any).repository.defaultBranchRef?.name || "main";
+        } catch (error) {
+            console.warn(`Could not get default branch for ${owner}/${repo}, using 'main'`);
+            return "main";
+        }
+    }
+
+    /**
+     * Find valid branch from candidates
+     */
+    static async findValidBranch(
+        installationId: string,
+        repoUrl: string,
+        branchCandidates: string[] = ["main", "master"]
+    ): Promise<string> {
+        const octokit = await this.getOctokit(installationId);
+        const [owner, repo] = this.getOwnerAndRepo(repoUrl);
+
+        for (const branch of branchCandidates) {
+            try {
+                const query = `query($owner: String!, $repo: String!, $expression: String!) {
+                    repository(owner: $owner, name: $repo) {
+                        object(expression: $expression) {
+                            oid
+                        }
+                    }
+                }`;
+
+                const response = await octokit.graphql(query, {
+                    owner,
+                    repo,
+                    expression: branch
+                });
+
+                if ((response as any).repository.object) {
+                    return branch;
+                }
+            } catch (error) {
+                continue; // Try next branch
+            }
+        }
+
+        throw new ErrorClass(
+            "OctokitServiceError",
+            null,
+            `No valid branch found among: ${branchCandidates.join(', ')}`
+        );
+    }
+
+    /**
+     * Get multiple files with fragments for efficient fetching
+     * Enhanced version of your getMultipleFilesWithFragments function
+     */
+    static async getMultipleFilesWithFragments(
+        installationId: string,
+        repoUrl: string,
+        filePaths: string[],
+        branch?: string
+    ): Promise<Record<string, { text: string; byteSize: number; isBinary: boolean; oid: string } | null>> {
+        const octokit = await this.getOctokit(installationId);
+        const [owner, repo] = this.getOwnerAndRepo(repoUrl);
+
+        // Auto-detect branch if not provided
+        if (!branch) {
+            try {
+                branch = await this.getDefaultBranch(installationId, repoUrl);
+            } catch (error) {
+                branch = await this.findValidBranch(installationId, repoUrl);
+            }
+        }
+
+        // Limit the number of files per request to avoid GraphQL limits
+        const maxFilesPerRequest = 50;
+        const results: Record<string, any> = {};
+
+        for (let i = 0; i < filePaths.length; i += maxFilesPerRequest) {
+            const batchPaths = filePaths.slice(i, i + maxFilesPerRequest);
+            
+            const fileQueries = batchPaths.map((path, index) => {
+                return `file${index}: object(expression: "${branch}:${path}") { ...FileContent }`;
+            }).join('\n');
+
+            const query = `
+                fragment FileContent on Blob {
+                    text
+                    byteSize
+                    isBinary
+                    oid
+                }
+                query($owner: String!, $repo: String!) {
+                    repository(owner: $owner, name: $repo) {
+                        ${fileQueries}
+                    }
+                }
+            `;
+
+            try {
+                const response = await octokit.graphql(query, { owner, repo });
+                
+                batchPaths.forEach((path, index) => {
+                    results[path] = (response as any).repository[`file${index}`];
+                });
+            } catch (error) {
+                console.error(`Error fetching file batch starting at index ${i}:`, error);
+                // Mark failed files as null
+                batchPaths.forEach(path => {
+                    results[path] = null;
+                });
+            }
+        }
+
+        return results;
     }
 }
