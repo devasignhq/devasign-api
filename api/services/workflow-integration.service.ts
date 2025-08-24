@@ -8,7 +8,6 @@ import { JobQueueService } from './job-queue.service';
 import { AIReviewOrchestrationService } from './ai-review-orchestration.service';
 import { PRAnalysisService } from './pr-analysis.service';
 import { LoggingService } from './logging.service';
-import { MonitoringService } from './monitoring.service';
 import { ErrorHandlingIntegrationService } from './error-handling-integration.service';
 
 /**
@@ -142,8 +141,6 @@ export class WorkflowIntegrationService {
                 processingTime
             });
 
-            MonitoringService.recordError('webhook_workflow_failed', errorMessage);
-
             return {
                 success: false,
                 error: errorMessage
@@ -214,8 +211,6 @@ export class WorkflowIntegrationService {
                 processingTime
             });
 
-            MonitoringService.recordError('manual_analysis_workflow_failed', errorMessage);
-
             return {
                 success: false,
                 error: errorMessage
@@ -241,8 +236,8 @@ export class WorkflowIntegrationService {
                 repositoryName: prData.repositoryName
             });
 
-            // Execute analysis directly
-            const result = await this.orchestrationService.analyzePR(prData);
+            // Execute analysis directly using intelligent context
+            const result = await this.orchestrationService.analyzeWithIntelligentContext(prData);
 
             // Direct analysis completed successfully
             LoggingService.logInfo("processDirectAnalysisWorkflow", 'Direct analysis workflow completed', {
@@ -263,8 +258,6 @@ export class WorkflowIntegrationService {
                 processingTime
             });
 
-            MonitoringService.recordError('direct_analysis_workflow_failed', error instanceof Error ? error.message : String(error));
-
             throw error;
         }
     }
@@ -284,12 +277,10 @@ export class WorkflowIntegrationService {
             jobQueue: boolean;
             errorHandling: boolean;
         };
-        metrics: any;
     } {
         try {
             const queueStats = this.jobQueue.getQueueStats();
             const activeJobs = this.jobQueue.getActiveJobsCount();
-            const metrics = MonitoringService.getMetrics();
 
             return {
                 initialized: this.initialized,
@@ -301,11 +292,6 @@ export class WorkflowIntegrationService {
                     orchestration: !!this.orchestrationService,
                     jobQueue: !!this.jobQueue,
                     errorHandling: true // Error handling is always available
-                },
-                metrics: {
-                    aiReviews: metrics.aiReviews || {},
-                    services: metrics.services || {},
-                    errors: metrics.errors ? Array.from(metrics.errors.entries()) : []
                 }
             };
 
@@ -321,8 +307,7 @@ export class WorkflowIntegrationService {
                     orchestration: false,
                     jobQueue: false,
                     errorHandling: false
-                },
-                metrics: {}
+                }
             };
         }
     }

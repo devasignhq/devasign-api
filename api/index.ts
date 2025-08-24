@@ -131,35 +131,14 @@ app.get("/health/error-handling", async (req: Request, res: Response) => {
     try {
         const { ErrorHandlingIntegrationService } = await import("./services/error-handling-integration.service");
         const { ErrorRecoveryService } = await import("./services/error-recovery.service");
-        const { MonitoringService } = await import("./services/monitoring.service");
 
         const status = ErrorHandlingIntegrationService.getErrorHandlingStatus();
         const recoveryStatus = ErrorRecoveryService.getRecoveryStatus();
-        const metrics = MonitoringService.getMetrics();
-        const recentAlerts = MonitoringService.getRecentAlerts(60); // Last 60 minutes
 
         res.status(200).json({
             timestamp: new Date().toISOString(),
             errorHandling: status,
             recovery: recoveryStatus,
-            metrics: {
-                aiReviews: metrics.aiReviews,
-                services: Object.entries(metrics.services).reduce((acc, [name, service]) => {
-                    acc[name] = {
-                        calls: service.calls,
-                        failures: service.failures,
-                        successRate: service.calls > 0 ?
-                            `${(((service.calls - service.failures) / service.calls) * 100).toFixed(1)}%` : '0%',
-                        avgResponseTime: Math.round(service.avgResponseTime)
-                    };
-                    return acc;
-                }, {} as Record<string, any>)
-            },
-            alerts: {
-                recent: recentAlerts.length,
-                critical: recentAlerts.filter(a => a.severity === 'critical').length,
-                high: recentAlerts.filter(a => a.severity === 'high').length
-            }
         });
     } catch (error) {
         res.status(500).json({
@@ -298,20 +277,38 @@ app.use(errorHandler);
 
 prisma.$connect();
 
-// Initialize error handling system (disabled until environment variables are configured)
+// Initialize AI Review system (disabled until environment variables are configured)
 if (process.env.GROQ_API_KEY && process.env.GITHUB_APP_ID && process.env.GITHUB_APP_PRIVATE_KEY) {
+    // Initialize error handling system
     ErrorHandlingInitService.initialize().catch(error => {
         console.error('Failed to initialize error handling system:', error);
         // Continue startup even if error handling initialization fails
     });
 
-    // Initialize workflow integration service
+    // Initialize workflow integration service with intelligent context
     (async () => {
         try {
             const { WorkflowIntegrationService } = await import('./services/workflow-integration.service');
             const workflowService = WorkflowIntegrationService.getInstance();
             await workflowService.initialize();
             console.log('Workflow Integration Service initialized successfully');
+
+            // Log intelligent context configuration
+            const { PRAnalysisService } = await import('./services/pr-analysis.service');
+            const intelligentContextConfig = PRAnalysisService.getIntelligentContextConfig();
+            console.log('Intelligent Context Configuration:', {
+                enabled: intelligentContextConfig.enabled,
+                maxProcessingTime: intelligentContextConfig.maxProcessingTime + 'ms',
+                fallbackOnError: intelligentContextConfig.fallbackOnError,
+                enableMetrics: intelligentContextConfig.enableMetrics
+            });
+
+            if (intelligentContextConfig.enabled) {
+                console.log('✅ Intelligent Context Fetching is ENABLED');
+            } else {
+                console.log('⚠️  Intelligent Context Fetching is DISABLED - using standard analysis only');
+            }
+
         } catch (error) {
             console.error('Failed to initialize Workflow Integration Service:', error);
             // Continue startup even if workflow initialization fails

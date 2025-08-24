@@ -2,7 +2,6 @@ import { EventEmitter } from 'events';
 import { PullRequestData, ReviewResult } from '../models/ai-review.model';
 import { AIReviewOrchestrationService } from './ai-review-orchestration.service';
 import { LoggingService } from './logging.service';
-import { MonitoringService } from './monitoring.service';
 
 /**
  * Simple in-memory job queue for AI review processing
@@ -92,9 +91,6 @@ export class JobQueueService extends EventEmitter {
 
         // Emit event for monitoring
         this.emit('jobAdded', job);
-
-        // Update monitoring metrics
-        MonitoringService.recordAIReviewEvent('started');
 
         return jobId;
     }
@@ -223,9 +219,9 @@ export class JobQueueService extends EventEmitter {
             // Emit event for monitoring
             this.emit('jobStarted', job);
 
-            // Process with timeout
+            // Process with timeout using intelligent context analysis
             const result = await Promise.race([
-                this.orchestrationService.analyzePR(job.data),
+                this.orchestrationService.analyzeWithIntelligentContext(job.data),
                 this.createTimeoutPromise(job.id)
             ]);
 
@@ -246,7 +242,6 @@ export class JobQueueService extends EventEmitter {
 
             // Emit event for monitoring
             this.emit('jobCompleted', job);
-            MonitoringService.recordAIReviewEvent('completed', processingTime);
 
         } catch (error) {
             const processingTime = Date.now() - startTime;
@@ -292,7 +287,6 @@ export class JobQueueService extends EventEmitter {
                 });
 
                 this.emit('jobFailed', job);
-                MonitoringService.recordAIReviewEvent('failed', processingTime);
             }
         }
     }

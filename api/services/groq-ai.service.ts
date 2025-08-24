@@ -387,7 +387,9 @@ Requirements:
 - Provide clear, actionable descriptions
 - Include code examples when helpful
 - Explain the reasoning behind each suggestion
-- Prioritize high-impact improvements`;
+- Prioritize high-impact improvements
+
+IMPORTANT: Adhere to the RESPONSE FORMAT. Do not include any text before or after the array.`;
     }
 
     /**

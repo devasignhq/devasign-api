@@ -28,7 +28,6 @@ import { MergeScoreService } from './merge-score.service';
 /**
  * AI Review Orchestration Service
  * Main service that coordinates the entire PR analysis workflow
- * Requirements: 4.1, 4.2, 4.3, 5.4
  */
 export class AIReviewOrchestrationService {
     private ragContextService: RAGContextServiceImpl;
@@ -49,39 +48,33 @@ export class AIReviewOrchestrationService {
 
     /**
      * Main orchestration method for PR analysis workflow
-     * Requirement 4.1: System shall provide specific, actionable code suggestions
-     * Requirement 4.2: System shall include line numbers and file references
-     * Requirement 4.3: System shall be based on best practices and repository patterns
      */
     async analyzePR(prData: PullRequestData): Promise<ReviewResult> {
         const startTime = Date.now();
         let reviewResult: ReviewResult;
 
         try {
-            // Step 1: Create initial review result record
+            // Create initial review result record
             reviewResult = await this.createInitialReviewResult(prData);
 
-            // Step 2: Update status to in progress
-            await this.updateReviewStatus(reviewResult.installationId, reviewResult.prNumber, reviewResult.repositoryName, ReviewStatus.IN_PROGRESS);
-
-            // Step 3: Execute analysis workflow with timeout
+            // Execute analysis workflow with timeout
             const analysisResult = await this.executeWithTimeout(
                 () => this.executeAnalysisWorkflow(prData),
                 this.config.timeoutMs,
                 'PR analysis workflow'
             );
 
-            // Step 4: Compile final results
+            // Compile final results
             const finalResult = await this.compileResults(prData, analysisResult, startTime);
 
-            // Step 5: Store results and update status
+            // Store results and update status
             await this.storeReviewResult(finalResult);
             await this.updateReviewStatus(finalResult.installationId, finalResult.prNumber, finalResult.repositoryName, ReviewStatus.COMPLETED);
 
-            // Step 6: Post review comment to GitHub
+            // Post review comment to GitHub
             await this.postReviewComment(finalResult);
 
-            // Step 7: Store context for future RAG queries
+            // Store context for future RAG queries
             await this.storeContextForFutureUse(prData, finalResult);
 
             return finalResult;
@@ -104,7 +97,6 @@ export class AIReviewOrchestrationService {
 
     /**
      * Executes the core analysis workflow with proper error handling
-     * Requirement 5.4: System shall limit results to most relevant information
      */
     private async executeAnalysisWorkflow(prData: PullRequestData): Promise<{
         context: RelevantContext;
@@ -137,7 +129,6 @@ export class AIReviewOrchestrationService {
 
     /**
      * Gathers relevant context with retry logic
-     * Requirement 5.4: System shall limit results to most relevant information
      */
     private async gatherContextWithRetry(prData: PullRequestData): Promise<RelevantContext> {
         return this.executeWithRetry(
@@ -215,7 +206,6 @@ export class AIReviewOrchestrationService {
 
     /**
      * Generates AI review with retry logic
-     * Requirement 4.1: System shall provide specific, actionable code suggestions
      */
     private async generateAIReviewWithRetry(prData: PullRequestData, context: RelevantContext): Promise<AIReview> {
         return this.executeWithRetry(
@@ -331,7 +321,7 @@ export class AIReviewOrchestrationService {
                 const updated = await prisma.aIReviewResult.update({
                     where: { id: existingResult.id },
                     data: {
-                        reviewStatus: ReviewStatus.PENDING,
+                        reviewStatus: ReviewStatus.IN_PROGRESS,
                         updatedAt: new Date()
                     }
                 });
@@ -349,7 +339,7 @@ export class AIReviewOrchestrationService {
                         rulesViolated: [],
                         rulesPassed: [],
                         suggestions: [],
-                        reviewStatus: ReviewStatus.PENDING
+                        reviewStatus: ReviewStatus.IN_PROGRESS
                     }
                 });
 
@@ -420,7 +410,6 @@ export class AIReviewOrchestrationService {
 
     /**
      * Posts review comment to GitHub PR
-     * Requirement 6.1: System SHALL post comprehensive comment on PR
      */
     private async postReviewComment(result: ReviewResult): Promise<void> {
         try {
@@ -641,8 +630,7 @@ export class AIReviewOrchestrationService {
     // ============================================================================
 
     /**
-     * Processes GitHub webhook for PR analysis
-     * Requirement 4.1: System shall trigger AI review process for qualifying PRs
+     * Processes GitHub webhook for PR analysis with intelligent context
      */
     async processWebhookPR(payload: GitHubWebhookPayload): Promise<ReviewResult | null> {
         try {
@@ -658,44 +646,12 @@ export class AIReviewOrchestrationService {
             // Fetch additional PR data (changed files, etc.)
             const completePRData = await PRAnalysisService.createCompletePRData(payload);
 
-            // Execute analysis
-            return await this.analyzePR(completePRData);
+            // Use intelligent context analysis as the primary method
+            return await this.analyzeWithIntelligentContext(completePRData);
 
         } catch (error) {
             console.error('Error processing webhook PR:', error);
             throw ErrorUtils.wrapError(error as Error, 'Webhook PR processing');
-        }
-    }
-
-    /**
-     * Manually triggers PR analysis
-     * Requirement 4.1: System shall provide manual trigger capability
-     */
-    async triggerManualAnalysis(request: ManualTriggerRequest): Promise<ReviewResult> {
-        try {
-            // Create PR data from manual request
-            const prData: PullRequestData = {
-                installationId: request.installationId,
-                repositoryName: request.repositoryName,
-                prNumber: request.prNumber,
-                prUrl: `https://github.com/${request.repositoryName}/pull/${request.prNumber}`,
-                title: 'Manual Analysis Request',
-                body: request.reason || 'Manually triggered analysis',
-                changedFiles: [], // Will be fetched
-                linkedIssues: [], // Will be extracted
-                author: request.userId,
-                isDraft: false
-            };
-
-            // Fetch complete PR data from GitHub
-            // Note: This would require additional GitHub API calls to get full PR data
-            // For now, we'll proceed with the basic data
-
-            return await this.analyzePR(prData);
-
-        } catch (error) {
-            console.error('Error in manual analysis trigger:', error);
-            throw ErrorUtils.wrapError(error as Error, 'Manual analysis trigger');
         }
     }
 
@@ -723,10 +679,97 @@ export class AIReviewOrchestrationService {
     }
 
     /**
-     * Updates existing review for a PR
+     * Analyzes PR with intelligent context fetching as the primary method
+     */
+    async analyzeWithIntelligentContext(prData: PullRequestData): Promise<ReviewResult> {
+        const startTime = Date.now();
+
+        try {
+            // Create initial review result record
+            await this.createInitialReviewResult(prData);
+
+            // Execute intelligent context analysis
+            const enhancedResult = await PRAnalysisService.analyzeWithIntelligentContext(prData);
+
+            // Extract the standard result for processing
+            const standardResult = enhancedResult.standardResult;
+
+            // Update the result with processing time
+            standardResult.processingTime = Date.now() - startTime;
+
+            // Store results and update status
+            await this.storeReviewResult(standardResult);
+            await this.updateReviewStatus(standardResult.installationId, standardResult.prNumber, standardResult.repositoryName, ReviewStatus.COMPLETED);
+
+            // Post review comment to GitHub
+            await this.postReviewComment(standardResult);
+
+            // Store context for future RAG queries
+            await this.storeContextForFutureUse(prData, standardResult);
+
+            // Log intelligent context metrics
+            PRAnalysisService.logIntelligentContextMetrics(prData, enhancedResult, true);
+
+            console.log(`Intelligent context analysis completed successfully for PR #${prData.prNumber} in ${standardResult.processingTime}ms`);
+
+            return standardResult;
+
+        } catch (error) {
+            console.error('Intelligent context analysis failed:', error);
+
+            // Log the failure
+            const processingTime = Date.now() - startTime;
+
+            // Handle error and update status
+            const errorResult = await this.handleAnalysisError(prData, error as Error, startTime);
+
+            try {
+                await this.updateReviewStatus(prData.installationId, prData.prNumber, prData.repositoryName, ReviewStatus.FAILED);
+            } catch (statusError) {
+                console.error('Failed to update review status to FAILED:', statusError);
+            }
+
+            // Try to post error comment
+            try {
+                await ReviewCommentIntegrationService.postAnalysisErrorComment(
+                    prData.installationId,
+                    prData.repositoryName,
+                    prData.prNumber,
+                    `Analysis failed: ${(error as Error).message}. Please review manually.`
+                );
+            } catch (commentError) {
+                console.error('Failed to post error comment:', commentError);
+            }
+
+            return errorResult;
+        }
+    }
+
+    /**
+     * Updates existing review for a PR with intelligent context
      */
     async updateExistingReview(prData: PullRequestData): Promise<ReviewResult> {
-        // For updates, we can reuse the same analysis workflow
-        return await this.analyzePR(prData);
+        // Use intelligent context analysis for updates as well
+        try {
+            console.log(`Updating existing review with intelligent context for PR #${prData.prNumber}`);
+            return await this.analyzeWithIntelligentContext(prData);
+        } catch (error) {
+            console.error('Error updating existing review with intelligent context:', error);
+            throw ErrorUtils.wrapError(error as Error, 'Update existing review');
+        }
+    }
+
+    /**
+     * Gets intelligent context configuration
+     */
+    getIntelligentContextConfig() {
+        return PRAnalysisService.getIntelligentContextConfig();
+    }
+
+    /**
+     * Updates intelligent context configuration
+     */
+    updateIntelligentContextConfig(updates: any): void {
+        PRAnalysisService.updateIntelligentContextConfig(updates);
     }
 }
