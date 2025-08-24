@@ -1,5 +1,4 @@
 import { ErrorHandlingIntegrationService } from './error-handling-integration.service';
-import { MonitoringService } from './monitoring.service';
 import { LoggingService } from './logging.service';
 import { HealthCheckService } from './health-check.service';
 import { CircuitBreakerService } from './circuit-breaker.service';
@@ -31,22 +30,19 @@ export class ErrorHandlingInitService {
                 'Starting error handling initialization'
             );
 
-            // 1. Initialize circuit breakers
+            // Initialize circuit breakers
             ErrorHandlingIntegrationService.initializeCircuitBreakers();
 
-            // 2. Perform initial health check
+            // Perform initial health check
             await ErrorHandlingInitService.performInitialHealthCheck();
 
-            // 3. Start monitoring services
-            // MonitoringService.startMonitoring();
-
-            // 4. Set up process event handlers
+            // Set up process event handlers
             ErrorHandlingInitService.setupProcessEventHandlers();
 
-            // 5. Set up periodic health checks
+            // Set up periodic health checks
             ErrorHandlingInitService.setupPeriodicHealthChecks();
 
-            // 6. Validate environment configuration
+            // Validate environment configuration
             ErrorHandlingInitService.validateEnvironmentConfiguration();
 
             ErrorHandlingInitService.initialized = true;
@@ -85,8 +81,6 @@ export class ErrorHandlingInitService {
         );
 
         try {
-            // Stop monitoring
-            MonitoringService.stopMonitoring();
 
             // Execute shutdown handlers
             for (const handler of ErrorHandlingInitService.shutdownHandlers) {
@@ -329,13 +323,11 @@ export class ErrorHandlingInitService {
         initialized: boolean;
         healthStatus: any;
         circuitBreakers: any;
-        metrics: any;
     } {
         return {
             initialized: ErrorHandlingInitService.initialized,
             healthStatus: HealthCheckService.getCachedHealthStatus(),
             circuitBreakers: CircuitBreakerService.getCircuitStatus(),
-            metrics: MonitoringService.getMetrics()
         };
     }
 

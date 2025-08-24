@@ -1,7 +1,6 @@
 import { CircuitBreakerService } from './circuit-breaker.service';
 import { LoggingService } from './logging.service';
 import { HealthCheckService } from './health-check.service';
-import { MonitoringService } from './monitoring.service';
 
 /**
  * Error Recovery Service for AI Review System
@@ -105,12 +104,6 @@ export class ErrorRecoveryService {
                     result,
                     duration: timer.getCurrentDuration()
                 }
-            );
-
-            // Record recovery metrics
-            MonitoringService.recordAIReviewEvent(
-                result.success ? 'completed' : 'failed',
-                timer.getCurrentDuration()
             );
 
             return result;
