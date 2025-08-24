@@ -2,11 +2,12 @@ import { Router, RequestHandler } from 'express';
 import { 
   handlePRWebhook, 
   webhookHealthCheck, 
-  testWebhookHandler,
   getJobStatus,
   getQueueStats,
   getWorkflowStatus,
-  triggerManualAnalysis
+  triggerManualAnalysis,
+  getIntelligentContextConfig,
+  updateIntelligentContextConfig
 } from '../controllers/webhook.controller';
 import { 
   validateGitHubWebhook, 
@@ -78,10 +79,21 @@ webhookRoutes.post(
 );
 
 /**
- * Test endpoint for webhook functionality (development only)
- * Allows testing the webhook logic without actual GitHub events
+ * Intelligent context configuration endpoint
+ * Get current intelligent context configuration
+ * Requirements: 6.1, 6.4
+ */
+webhookRoutes.get(
+  '/intelligent-context/config',
+  getIntelligentContextConfig as RequestHandler
+);
+
+/**
+ * Update intelligent context configuration endpoint
+ * Update intelligent context configuration at runtime
+ * Requirements: 6.1, 6.4
  */
 webhookRoutes.post(
-  '/test/pr-webhook',
-  testWebhookHandler as RequestHandler
+  '/intelligent-context/config',
+  updateIntelligentContextConfig as RequestHandler
 );

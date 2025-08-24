@@ -326,3 +326,111 @@ export const triggerManualAnalysis = async (req: Request, res: Response, next: N
         next(error);
     }
 };
+
+/**
+ * Gets intelligent context configuration
+ * Requirement 6.1: System SHALL provide configuration management for intelligent context features
+ */
+export const getIntelligentContextConfig = (req: Request, res: Response) => {
+    try {
+        const configService = PRAnalysisService.getConfigService();
+        const config = configService.getConfig();
+        const featureFlags = configService.getFeatureFlags();
+        const configSummary = configService.getConfigSummary();
+
+        res.status(200).json({
+            success: true,
+            data: {
+                configuration: config,
+                featureFlags,
+                summary: configSummary,
+                environmentVariables: {
+                    INTELLIGENT_CONTEXT_ENABLED: process.env.INTELLIGENT_CONTEXT_ENABLED,
+                    MAX_INTELLIGENT_CONTEXT_TIME: process.env.MAX_INTELLIGENT_CONTEXT_TIME,
+                    FALLBACK_ON_INTELLIGENT_CONTEXT_ERROR: process.env.FALLBACK_ON_INTELLIGENT_CONTEXT_ERROR,
+                    ENABLE_INTELLIGENT_CONTEXT_METRICS: process.env.ENABLE_INTELLIGENT_CONTEXT_METRICS
+                }
+            },
+            timestamp: new Date().toISOString()
+        } as APIResponse);
+
+    } catch (error) {
+        LoggingService.logError('Error getting intelligent context config', { error });
+        res.status(500).json({
+            success: false,
+            error: 'Internal server error',
+            timestamp: new Date().toISOString()
+        });
+    }
+};
+
+/**
+ * Updates intelligent context configuration
+ * Requirement 6.1: System SHALL provide configuration management for intelligent context features
+ */
+export const updateIntelligentContextConfig = (req: Request, res: Response) => {
+    try {
+        const { configuration, featureFlags } = req.body;
+
+        if (!configuration && !featureFlags) {
+            return res.status(400).json({
+                success: false,
+                error: 'Either configuration or featureFlags must be provided',
+                timestamp: new Date().toISOString()
+            });
+        }
+
+        const configService = PRAnalysisService.getConfigService();
+
+        // Update configuration if provided
+        if (configuration) {
+            // Validate configuration before updating
+            const tempService = configService;
+            tempService.updateConfig(configuration);
+            const validation = tempService.validateConfig();
+
+            if (!validation.valid) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Invalid configuration',
+                    details: validation.errors,
+                    timestamp: new Date().toISOString()
+                });
+            }
+        }
+
+        // Update feature flags if provided
+        if (featureFlags) {
+            configService.updateFeatureFlags(featureFlags);
+        }
+
+        // Get updated configuration
+        const updatedConfig = configService.getConfig();
+        const updatedFeatureFlags = configService.getFeatureFlags();
+        const configSummary = configService.getConfigSummary();
+
+        LoggingService.logInfo('updateIntelligentContextConfig', 'Intelligent context configuration updated', {
+            configuration: updatedConfig,
+            featureFlags: updatedFeatureFlags
+        });
+
+        res.status(200).json({
+            success: true,
+            message: 'Configuration updated successfully',
+            data: {
+                configuration: updatedConfig,
+                featureFlags: updatedFeatureFlags,
+                summary: configSummary
+            },
+            timestamp: new Date().toISOString()
+        } as APIResponse);
+
+    } catch (error) {
+        LoggingService.logError('Error updating intelligent context config', { error });
+        res.status(500).json({
+            success: false,
+            error: 'Internal server error',
+            timestamp: new Date().toISOString()
+        });
+    }
+};
