@@ -3,13 +3,15 @@ import {
     getInstallationRepositories,
     getRepositoryIssues,
     getRepositoryResources,
-    getOrCreateBountyLabel
+    getOrCreateBountyLabel,
+    triggerManualPRAnalysis
 } from "../controllers/github.controller";
 import {
     getInstallationRepositoriesValidator,
     getRepositoryIssuesValidator,
     getRepositoryResourcesValidator,
-    getOrCreateBountyLabelValidator
+    getOrCreateBountyLabelValidator,
+    triggerManualPRAnalysisValidator
 } from "../validators/github.validator";
 
 export const githubRoutes = Router();
@@ -40,4 +42,12 @@ githubRoutes.get(
     "/installations/:installationId/set-bounty-label", 
     getOrCreateBountyLabelValidator, 
     getOrCreateBountyLabel as RequestHandler
+);
+
+// Manual trigger for PR analysis
+// Requirements: 1.4, 6.4
+githubRoutes.post(
+    "/installations/:installationId/analyze-pr",
+    triggerManualPRAnalysisValidator,
+    triggerManualPRAnalysis as RequestHandler
 );

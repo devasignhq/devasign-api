@@ -1,209 +1,320 @@
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
 }
 
 generator client {
-  provider = "prisma-client-js"
-  output   = "../api/generated/client"
+    provider = "prisma-client-js"
+    output   = "../api/generated/client"
 }
 
 // Enum Definitions
 
 enum TaskStatus {
-  OPEN
-  IN_PROGRESS
-  MARKED_AS_COMPLETED
-  COMPLETED
+    OPEN
+    IN_PROGRESS
+    MARKED_AS_COMPLETED
+    COMPLETED
 }
 
 enum TimelineType {
-  WEEK
-  DAY
+    WEEK
+    DAY
 }
 
 enum TransactionCategory {
-  BOUNTY
-  SWAP_USDC
-  SWAP_XLM
-  WITHDRAWAL
-  TOP_UP
+    BOUNTY
+    SWAP_USDC
+    SWAP_XLM
+    WITHDRAWAL
+    TOP_UP
+}
+
+enum RuleType {
+    CODE_QUALITY
+    SECURITY
+    PERFORMANCE
+    DOCUMENTATION
+    TESTING
+    CUSTOM
+}
+
+enum RuleSeverity {
+    LOW
+    MEDIUM
+    HIGH
+    CRITICAL
+}
+
+enum ReviewStatus {
+    PENDING
+    IN_PROGRESS
+    COMPLETED
+    FAILED
 }
 
 // Model Definitions
 
 model User {
-  userId                      String                       @id
-  username                    String                       @unique
-  walletAddress               String
-  walletSecret                String
-  contributionSummary         ContributionSummary?
-  addressBook                 Json[]                       @default([])
-  createdAt                   DateTime                     @default(now())
-  updatedAt                   DateTime                     @updatedAt
-  createdTasks                Task[]                       @relation("TaskCreator")
-  contributedTasks            Task[]                       @relation("TaskContributor")
-  installations               Installation[]               @relation("UserInstallations")
-  userInstallationPermissions UserInstallationPermission[]
-  transactions                Transaction[]
-  tasksAppliedFor             Task[]                       @relation("UserApplications")
-  taskSubmissions             TaskSubmission[]
-  taskActivities              TaskActivity[]
+    userId                      String                       @id
+    username                    String                       @unique
+    walletAddress               String
+    walletSecret                String
+    contributionSummary         ContributionSummary?
+    addressBook                 Json[]                       @default([])
+    createdAt                   DateTime                     @default(now())
+    updatedAt                   DateTime                     @updatedAt
+    createdTasks                Task[]                       @relation("TaskCreator")
+    contributedTasks            Task[]                       @relation("TaskContributor")
+    installations               Installation[]               @relation("UserInstallations")
+    userInstallationPermissions UserInstallationPermission[]
+    transactions                Transaction[]
+    tasksAppliedFor             Task[]                       @relation("UserApplications")
+    taskSubmissions             TaskSubmission[]
+    taskActivities              TaskActivity[]
 }
 
 // TODO: Update contribution summary upon task completion/acceptance
 model ContributionSummary {
-  id             String @id @default(cuid())
-  tasksCompleted Int    @default(0)
-  activeTasks    Int    @default(0)
-  totalEarnings  Float  @default(0.0)
-  user           User   @relation(fields: [userId], references: [userId], onDelete: Cascade)
-  userId         String @unique
-  // averageRating  Float  @default(0.0)
-  // installationIds     String[]  @default([])
-  // installations       Installation[] @relation(fields: [installationIds], references: [id])
+    id             String @id @default(cuid())
+    tasksCompleted Int    @default(0)
+    activeTasks    Int    @default(0)
+    totalEarnings  Float  @default(0.0)
+    user           User   @relation(fields: [userId], references: [userId], onDelete: Cascade)
+    userId         String @unique
+    // averageRating  Float  @default(0.0)
+    // installationIds     String[]  @default([])
+    // installations       Installation[] @relation(fields: [installationIds], references: [id])
 }
 
 model SubscriptionPackage {
-  id            String         @id @default(cuid())
-  name          String
-  description   String
-  maxTasks      Int
-  maxUsers      Int
-  paid          Boolean        @default(true)
-  price         Float
-  active        Boolean        @default(true)
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  installations Installation[]
+    id            String         @id @default(cuid())
+    name          String
+    description   String
+    maxTasks      Int
+    maxUsers      Int
+    paid          Boolean        @default(true)
+    price         Float
+    active        Boolean        @default(true)
+    createdAt     DateTime       @default(now())
+    updatedAt     DateTime       @updatedAt
+    installations Installation[]
 }
 
 model Installation {
-  id                          String                       @id
-  htmlUrl                     String
-  targetId                    Int
-  targetType                  String
-  account                     Json // { login String nodeId String avatarUrl String htmlUrl String }
-  walletAddress               String
-  walletSecret                String
-  escrowAddress               String
-  escrowSecret                String
-  subscriptionPackage         SubscriptionPackage?         @relation(fields: [subscriptionPackageId], references: [id], onDelete: SetNull)
-  subscriptionPackageId       String?
-  createdAt                   DateTime                     @default(now())
-  updatedAt                   DateTime                     @updatedAt
-  tasks                       Task[]                       @relation("InstallationTasks")
-  users                       User[]                       @relation("UserInstallations")
-  userInstallationPermissions UserInstallationPermission[]
-  transactions                Transaction[]
-  taskSubmissions             TaskSubmission[]
+    id                          String                       @id
+    htmlUrl                     String
+    targetId                    Int
+    targetType                  String
+    account                     Json // { login String nodeId String avatarUrl String htmlUrl String }
+    walletAddress               String
+    walletSecret                String
+    escrowAddress               String
+    escrowSecret                String
+    subscriptionPackage         SubscriptionPackage?         @relation(fields: [subscriptionPackageId], references: [id], onDelete: SetNull)
+    subscriptionPackageId       String?
+    createdAt                   DateTime                     @default(now())
+    updatedAt                   DateTime                     @updatedAt
+    tasks                       Task[]                       @relation("InstallationTasks")
+    users                       User[]                       @relation("UserInstallations")
+    userInstallationPermissions UserInstallationPermission[]
+    transactions                Transaction[]
+    taskSubmissions             TaskSubmission[]
+    aiReviewRule                AIReviewRule[]
+    aiReviewResult              AIReviewResult[]
+
+    @@index([createdAt])
 }
 
 model Task {
-  id              String           @id @default(cuid())
-  issue           Json
-  timeline        Float?           @default(0)
-  timelineType    TimelineType?    @default(WEEK)
-  bounty          Float            @default(0.0)
-  status          TaskStatus       @default(OPEN)
-  settled         Boolean          @default(false)
-  applications    User[]           @relation("UserApplications")
-  acceptedAt      DateTime?
-  completedAt     DateTime?
-  creator         User             @relation("TaskCreator", fields: [creatorId], references: [userId], onDelete: Restrict)
-  creatorId       String
-  contributor     User?            @relation("TaskContributor", fields: [contributorId], references: [userId], onDelete: SetNull)
-  contributorId   String?
-  installation    Installation     @relation("InstallationTasks", fields: [installationId], references: [id], onDelete: Cascade)
-  installationId  String
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
-  transactions    Transaction[]
-  taskSubmissions TaskSubmission[]
-  taskActivities  TaskActivity[]
+    id              String           @id @default(cuid())
+    issue           Json
+    timeline        Float?           @default(0)
+    timelineType    TimelineType?    @default(WEEK)
+    bounty          Float            @default(0.0)
+    status          TaskStatus       @default(OPEN)
+    settled         Boolean          @default(false)
+    applications    User[]           @relation("UserApplications")
+    acceptedAt      DateTime?
+    completedAt     DateTime?
+    creator         User             @relation("TaskCreator", fields: [creatorId], references: [userId], onDelete: Restrict)
+    creatorId       String
+    contributor     User?            @relation("TaskContributor", fields: [contributorId], references: [userId], onDelete: SetNull)
+    contributorId   String?
+    installation    Installation     @relation("InstallationTasks", fields: [installationId], references: [id], onDelete: Cascade)
+    installationId  String
+    createdAt       DateTime         @default(now())
+    updatedAt       DateTime         @updatedAt
+    transactions    Transaction[]
+    taskSubmissions TaskSubmission[]
+    taskActivities  TaskActivity[]
+
+    @@index([installationId])
+    @@index([installationId, status])
+    @@index([contributorId])
 }
 
 model TaskSubmission {
-  id             String         @id @default(cuid())
-  user           User           @relation(fields: [userId], references: [userId], onDelete: Cascade)
-  userId         String
-  task           Task           @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  taskId         String
-  installation   Installation   @relation(fields: [installationId], references: [id], onDelete: Cascade)
-  installationId String
-  pullRequest    String
-  attachmentUrl  String?
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
-  taskActivities TaskActivity[]
+    id             String         @id @default(cuid())
+    user           User           @relation(fields: [userId], references: [userId], onDelete: Cascade)
+    userId         String
+    task           Task           @relation(fields: [taskId], references: [id], onDelete: Cascade)
+    taskId         String
+    installation   Installation   @relation(fields: [installationId], references: [id], onDelete: Cascade)
+    installationId String
+    pullRequest    String
+    attachmentUrl  String?
+    createdAt      DateTime       @default(now())
+    updatedAt      DateTime       @updatedAt
+    taskActivities TaskActivity[]
 
-  @@unique([taskId, userId])
+    @@unique([taskId, userId])
+    @@index([taskId, userId])
 }
 
 model TaskActivity {
-  id               String          @id @default(cuid())
-  task             Task            @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  taskId           String
-  viewed           Boolean         @default(false)
-  user             User?           @relation(fields: [userId], references: [userId], onDelete: SetNull)
-  userId           String?
-  taskSubmission   TaskSubmission? @relation(fields: [taskSubmissionId], references: [id], onDelete: SetNull)
-  taskSubmissionId String?
-  createdAt        DateTime        @default(now())
-  updatedAt        DateTime        @updatedAt
+    id               String          @id @default(cuid())
+    task             Task            @relation(fields: [taskId], references: [id], onDelete: Cascade)
+    taskId           String
+    viewed           Boolean         @default(false)
+    user             User?           @relation(fields: [userId], references: [userId], onDelete: SetNull)
+    userId           String?
+    taskSubmission   TaskSubmission? @relation(fields: [taskSubmissionId], references: [id], onDelete: SetNull)
+    taskSubmissionId String?
+    createdAt        DateTime        @default(now())
+    updatedAt        DateTime        @updatedAt
+
+    @@index([taskId, viewed])
+    @@index([taskId, userId])
 }
 
 model Permission {
-  code                        String                       @id
-  name                        String
-  isDefault                   Boolean
-  createdAt                   DateTime                     @default(now())
-  updatedAt                   DateTime                     @updatedAt
-  userInstallationPermissions UserInstallationPermission[] @relation("UserInstallationPermissionPermissions")
+    code                        String                       @id
+    name                        String
+    isDefault                   Boolean
+    createdAt                   DateTime                     @default(now())
+    updatedAt                   DateTime                     @updatedAt
+    userInstallationPermissions UserInstallationPermission[] @relation("UserInstallationPermissionPermissions")
 }
 
 model UserInstallationPermission {
-  id              String       @id @default(cuid())
-  user            User         @relation(fields: [userId], references: [userId], onDelete: Cascade)
-  userId          String
-  installation    Installation @relation(fields: [installationId], references: [id], onDelete: Cascade)
-  installationId  String
-  permissionCodes String[]
-  assignedBy      String?
-  assignedAt      DateTime     @default(now())
-  permissions     Permission[] @relation("UserInstallationPermissionPermissions")
+    id              String       @id @default(cuid())
+    user            User         @relation(fields: [userId], references: [userId], onDelete: Cascade)
+    userId          String
+    installation    Installation @relation(fields: [installationId], references: [id], onDelete: Cascade)
+    installationId  String
+    permissionCodes String[]
+    assignedBy      String?
+    assignedAt      DateTime     @default(now())
+    permissions     Permission[] @relation("UserInstallationPermissionPermissions")
 
-  @@unique([userId, installationId])
+    @@unique([userId, installationId])
 }
 
 model Transaction {
-  id       String              @id @default(cuid())
-  txHash   String
-  category TransactionCategory
-  amount   Float
-  doneAt   DateTime            @default(now())
+    id       String              @id @default(cuid())
+    txHash   String
+    category TransactionCategory
+    amount   Float
+    doneAt   DateTime            @default(now())
 
-  // For BOUNTY transactions
-  task   Task?   @relation(fields: [taskId], references: [id], onDelete: SetNull)
-  taskId String?
+    // For BOUNTY transactions
+    task   Task?   @relation(fields: [taskId], references: [id], onDelete: SetNull)
+    taskId String?
 
-  // For TOP_UP transactions
-  sourceAddress String?
+    // For TOP_UP transactions
+    sourceAddress String?
 
-  // For WITHDRAWAL transactions
-  destinationAddress String?
+    // For WITHDRAWAL transactions
+    destinationAddress String?
 
-  // For TOP_UP and WITHDRAWAL transactions
-  asset String?
+    // For TOP_UP and WITHDRAWAL transactions
+    asset String?
 
-  // For SWAP transactions
-  assetFrom  String?
-  assetTo    String?
-  fromAmount Float?
-  toAmount   Float?
+    // For SWAP transactions
+    assetFrom  String?
+    assetTo    String?
+    fromAmount Float?
+    toAmount   Float?
 
-  installation   Installation? @relation(fields: [installationId], references: [id], onDelete: SetNull)
-  installationId String?
-  user           User?         @relation(fields: [userId], references: [userId], onDelete: SetNull)
-  userId         String?
+    installation   Installation? @relation(fields: [installationId], references: [id], onDelete: SetNull)
+    installationId String?
+    user           User?         @relation(fields: [userId], references: [userId], onDelete: SetNull)
+    userId         String?
+
+    @@index([installationId, category])
+    @@index([userId, category])
+}
+
+model AIReviewRule {
+    id             String       @id @default(cuid())
+    installation   Installation @relation(fields: [installationId], references: [id], onDelete: Cascade)
+    installationId String
+    name           String
+    description    String
+    ruleType       RuleType
+    severity       RuleSeverity
+    pattern        String? // For regex-based rules
+    config         Json // Flexible configuration
+    active         Boolean      @default(true)
+    createdAt      DateTime     @default(now())
+    updatedAt      DateTime     @updatedAt
+
+    @@index([installationId, active])
+}
+
+model AIReviewResult {
+    id             String       @id @default(cuid())
+    installation   Installation @relation(fields: [installationId], references: [id], onDelete: Cascade)
+    installationId String
+    prNumber       Int
+    prUrl          String
+    repositoryName String
+    mergeScore     Int // 0-100
+    rulesViolated  Json // Array of violated rules
+    rulesPassed    Json // Array of passed rules
+    suggestions    Json // Array of code suggestions
+    reviewStatus   ReviewStatus
+    commentId      String? // GitHub comment ID
+
+    // New fields for intelligent context tracking
+    contextAnalysisUsed  Boolean @default(false)
+    totalFilesInRepo     Int?
+    filesRecommendedByAI Int?
+    filesFetched         Int?
+    fetchSuccessRate     Float?
+    contextQualityScore  Int? // 0-100
+    processingTimeMs     Int?
+
+    // JSON fields for detailed context metrics
+    contextMetrics    Json? // ContextMetrics object
+    aiRecommendations Json? // ContextAnalysisResponse object
+    fetchedFilePaths  Json? // Array of successfully fetched file paths
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@unique([installationId, prNumber, repositoryName])
+    @@index([installationId, reviewStatus])
+}
+
+model ContextAnalysisMetrics {
+    id             String @id @default(cuid())
+    installationId String
+    repositoryName String
+    prNumber       Int
+
+    totalFilesInRepo Int
+    filesRecommended Int
+    filesFetched     Int
+    fetchSuccessRate Float
+
+    processingTimes    Json // ProcessingTimes object
+    aiConfidence       Float
+    reviewQualityScore Int // 0-100
+
+    createdAt DateTime @default(now())
+
+    @@index([installationId, repositoryName])
+    @@index([createdAt])
 }
