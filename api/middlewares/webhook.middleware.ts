@@ -1,6 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import crypto from 'crypto';
 import { GitHubWebhookError } from '../models/ai-review.errors';
+import { OctokitService } from '../services/octokit.service';
+import { LoggingService } from '../services/logging.service';
 
 /**
  * Middleware to validate GitHub webhook signatures
@@ -57,13 +59,20 @@ export const validateGitHubWebhook = (req: Request, res: Response, next: NextFun
 };
 
 /**
- * Middleware to validate webhook event types
- * Only processes PR events that we care about
+ * Middleware to validate webhook event types and default branch targeting
+ * Only processes PR events that we care about and target the default branch
+ * 
+ * This middleware validates:
+ * - Event type is 'pull_request'
+ * - Action is one of: 'opened', 'synchronize', 'ready_for_review'
+ * - PR is targeting the repository's default branch (main/master)
+ * 
+ * PRs targeting non-default branches are skipped with appropriate logging.
  */
-export const validatePRWebhookEvent = (req: Request, res: Response, next: NextFunction): void => {
+export const validatePRWebhookEvent = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
         const eventType = req.get('X-GitHub-Event');
-        const { action } = req.body;
+        const { action, pull_request, repository, installation } = req.body;
 
         // Only process pull_request events
         if (eventType !== 'pull_request') {
@@ -84,6 +93,57 @@ export const validatePRWebhookEvent = (req: Request, res: Response, next: NextFu
                 action
             });
             return;
+        }
+
+        // Validate that PR is targeting the default branch
+        if (pull_request && repository && installation) {
+            try {
+                const installationId = installation.id.toString();
+                const repositoryName = repository.full_name;
+                const targetBranch = pull_request.base.ref;
+
+                // Get the repository's default branch
+                const defaultBranch = await OctokitService.getDefaultBranch(installationId, repositoryName);
+
+                // Only process PRs targeting the default branch
+                if (targetBranch !== defaultBranch) {
+                    LoggingService.logInfo(
+                        'pr_webhook_skipped',
+                        'PR skipped - not targeting default branch',
+                        {
+                            prNumber: pull_request.number,
+                            repositoryName,
+                            targetBranch,
+                            defaultBranch,
+                            reason: 'not_default_branch'
+                        }
+                    );
+
+                    res.status(200).json({
+                        success: true,
+                        message: 'PR not targeting default branch - skipping review',
+                        data: {
+                            prNumber: pull_request.number,
+                            repositoryName,
+                            targetBranch,
+                            defaultBranch,
+                            reason: 'not_default_branch'
+                        }
+                    });
+                    return;
+                }
+            } catch (error) {
+                // Log the error but don't fail the webhook - continue processing
+                LoggingService.logWarning(
+                    'default_branch_validation_error',
+                    'Failed to validate default branch, continuing with processing',
+                    {
+                        repositoryName: repository.full_name,
+                        targetBranch: pull_request.base.ref,
+                        error: error instanceof Error ? error.message : String(error)
+                    }
+                );
+            }
         }
 
         // Add event metadata to request for use in controller
