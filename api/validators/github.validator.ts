@@ -1,4 +1,4 @@
-import { param, query } from 'express-validator';
+import { param, query, body } from 'express-validator';
 
 export const validateInstallationBasics = [
     param('installationId')
@@ -64,4 +64,29 @@ export const getOrCreateBountyLabelValidator = [
         .withMessage('Repository ID must be a string')
         .isLength({ min: 1 })
         .withMessage('Repository ID cannot be empty'),
+];
+
+export const triggerManualPRAnalysisValidator = [
+    param('installationId')
+        .trim()
+        .notEmpty()
+        .withMessage('Installation ID is required')
+        .isString()
+        .withMessage('Installation ID must be a string')
+        .isLength({ min: 1 })
+        .withMessage('Installation ID cannot be empty'),
+    body('repositoryName')
+        .trim()
+        .notEmpty()
+        .withMessage('Repository name is required')
+        .isString()
+        .withMessage('Repository name must be a string')
+        .matches(/^[\w\-\.]+\/[\w\-\.]+$/)
+        .withMessage('Repository name must be in format "owner/repo"'),
+    body('prNumber')
+        .notEmpty()
+        .withMessage('PR number is required')
+        .isInt({ min: 1 })
+        .withMessage('PR number must be a positive integer')
+        .toInt()
 ];

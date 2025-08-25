@@ -1,4 +1,4 @@
-import { Request, Response,  NextFunction } from "express";
+import { Request, Response, NextFunction } from "express";
 
 export const dynamicRoute = (req: Request, res: Response, next: NextFunction) => {
     res.set({
