@@ -11,7 +11,7 @@ import {
 } from '../controllers/webhook.controller';
 import { 
   validateGitHubWebhook, 
-  validatePRWebhookEvent 
+  validatePRWebhookEvent,
 } from '../middlewares/webhook.middleware';
 
 export const webhookRoutes = Router();
@@ -23,6 +23,7 @@ export const webhookRoutes = Router();
  * This endpoint:
  * - Validates GitHub webhook signatures for security
  * - Filters for PR events (opened, synchronize, ready_for_review)
+ * - Validates that PR is targeting the default branch
  * - Identifies PRs that link to issues
  * - Triggers AI review process for eligible PRs
  */

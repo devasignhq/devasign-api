@@ -2,7 +2,7 @@
 
 ## Overview
 
-The AI Review System is built with a modular service architecture that provides separation of concerns, error resilience, and scalability. Each service has specific responsibilities and well-defined interfaces for interaction with other components.
+The AI Review System is built with a modular service architecture that provides separation of concerns, error resilience, and scalability. The system consists of 29 specialized services, each with specific responsibilities and well-defined interfaces for interaction with other components.
 
 ## Service Categories
 
@@ -22,7 +22,25 @@ The AI Review System is built with a modular service architecture that provides 
 - **Circuit Breaker Service**: Prevents cascading failures
 - **Health Check Service**: System health monitoring
 - **Logging Service**: Structured logging and monitoring
-- **Monitoring Service**: Metrics collection and alerting
+- **Retry Service**: Retry logic with exponential backoff
+
+### Intelligent Context Services
+- **Raw Code Changes Extractor Service**: Extracts comprehensive code changes from PRs
+- **Repository File Path Service**: Analyzes repository structure and file organization
+- **Intelligent Context Analyzer Service**: AI-powered context analysis for file recommendations
+- **Intelligent Context Config Service**: Configuration management for intelligent context features
+- **Enhanced Context Builder Service**: Combines multiple context sources for optimal review quality
+- **Selective File Fetcher Service**: Efficiently fetches AI-recommended files
+
+### Comment and Review Services
+- **AI Review Comment Service**: Manages GitHub PR comment creation and updates
+- **Review Comment Integration Service**: Orchestrates complete review comment workflow
+- **Review Formatter Service**: Formats review results into structured GitHub comments
+
+### Data and Analysis Services
+- **Merge Score Service**: Calculates comprehensive merge scores based on multiple factors
+- **Context Analysis DB Service**: Database operations for context analysis metrics
+- **Context Analysis Integration Service**: Integrates context analysis with database storage
 
 ### Support Services
 - **Error Recovery Service**: Automated system recovery mechanisms
@@ -252,7 +270,6 @@ GitHub Webhook → Webhook Controller → Workflow Integration Service
 
 **Dependencies**:
 - Logging Service
-- Monitoring Service
 
 ### 10. Circuit Breaker Service (`circuit-breaker.service.ts`)
 
@@ -291,7 +308,6 @@ GitHub Webhook → Webhook Controller → Workflow Integration Service
 **Used By**:
 - Health endpoints in main application
 - Error Recovery Service
-- Monitoring Service
 
 **Dependencies**:
 - Database
@@ -322,31 +338,7 @@ GitHub Webhook → Webhook Controller → Workflow Integration Service
 - External monitoring webhooks (optional)
 - Database (for error storage)
 
-### 13. Monitoring Service (`monitoring.service.ts`)
 
-**Purpose**: Collects metrics, monitors system performance, and manages alerting.
-
-**Key Methods**:
-- `startMonitoring()`: Starts monitoring services
-- `stopMonitoring()`: Stops monitoring services
-- `recordAIReviewEvent(eventType, duration, error)`: Records AI review metrics
-- `recordServiceCall(serviceName, success, responseTime, error)`: Records service metrics
-- `recordError(errorCode, errorMessage)`: Records error metrics
-- `getMetrics()`: Gets current system metrics
-- `getRecentAlerts(minutes)`: Gets recent alerts
-- `resetMetrics()`: Resets metrics counters
-- `triggerAlert(alertType, message, details)`: Triggers system alerts
-
-**Used By**:
-- Error Handling Init Service
-- All services (for metrics recording)
-- Health endpoints
-
-**Dependencies**:
-- Health Check Service
-- Circuit Breaker Service
-- Logging Service
-- External alerting systems
 
 ### 14. Error Recovery Service (`error-recovery.service.ts`)
 
@@ -364,7 +356,6 @@ GitHub Webhook → Webhook Controller → Workflow Integration Service
 **Used By**:
 - Health endpoints (manual recovery)
 - Error Handling Integration Service
-- Monitoring Service (automated recovery)
 
 **Dependencies**:
 - Health Check Service
@@ -420,8 +411,305 @@ GitHub Webhook → Webhook Controller → Workflow Integration Service
 **Dependencies**:
 - All error handling services
 - Health Check Service
-- Monitoring Service
 - Circuit Breaker Service
+
+### 17. Retry Service (`retry.service.ts`)
+
+**Purpose**: Provides retry logic with exponential backoff for various operations.
+
+**Key Methods**:
+- `executeWithRetry(operationName, operation, options)`: Executes operation with retry logic
+- `executeWithTimeoutAndRetry(operationName, operation, maxRetries, baseDelay, maxDelay, timeout, retryCondition)`: Executes with timeout and retry
+- `calculateDelay(error, attempt, baseDelay, maxDelay)`: Calculates retry delay with exponential backoff
+- `githubRetryConfig()`: Creates retry configuration for GitHub API operations
+- `groqRetryConfig()`: Creates retry configuration for Groq AI operations
+- `pineconeRetryConfig()`: Creates retry configuration for Pinecone operations
+- `databaseRetryConfig()`: Creates retry configuration for database operations
+- `withTimeout(operation, operationName, timeoutMs)`: Wraps operation with timeout
+
+**Used By**:
+- All services requiring retry logic
+- Error Handler Service
+- External API integrations
+
+**Dependencies**:
+- Circuit Breaker Service
+- Logging Service
+
+### 18. AI Review Comment Service (`ai-review-comment.service.ts`)
+
+**Purpose**: Manages GitHub PR comment creation, updates, and deletion for AI reviews.
+
+**Key Methods**:
+- `postOrUpdateReview(result)`: Posts or updates AI review comment on PR
+- `createComment(installationId, repositoryName, prNumber, body)`: Creates new comment on PR
+- `updateComment(installationId, repositoryName, commentId, body)`: Updates existing comment
+- `findExistingReviewComment(installationId, repositoryName, prNumber)`: Finds existing AI review comment
+- `deleteReviewComment(installationId, repositoryName, commentId)`: Deletes AI review comment
+- `postStatusComment(installationId, repositoryName, prNumber, status, details)`: Posts status comment
+- `validateCommentPermissions(installationId, repositoryName)`: Validates comment permissions
+- `withRateLimit(operation, octokit, maxRetries)`: Handles GitHub API rate limiting
+
+**Used By**:
+- Review Comment Integration Service
+- AI Review Orchestration Service
+- Workflow Integration Service
+
+**Dependencies**:
+- Octokit Service
+- Logging Service
+- Database (for comment ID storage)
+
+### 19. Review Comment Integration Service (`review-comment-integration.service.ts`)
+
+**Purpose**: Orchestrates the complete review comment workflow with error handling and retry logic.
+
+**Key Methods**:
+- `postReviewComment(result)`: Posts or updates complete AI review comment
+- `postReviewWithRetry(result, maxRetries)`: Posts review with retry logic and graceful degradation
+- `postStatusUpdate(installationId, repositoryName, prNumber, status, details)`: Posts status update comment
+- `postAnalysisErrorComment(installationId, repositoryName, prNumber, error)`: Posts error message when analysis fails
+- `previewReviewComment(result)`: Gets preview of review comment formatting
+- `getReviewComments(installationId, repositoryName, prNumber)`: Gets all AI review comments for PR
+- `deleteReviewComment(installationId, repositoryName, commentId)`: Deletes review comment
+- `validateReviewResult(result)`: Validates review result before posting
+
+**Used By**:
+- AI Review Orchestration Service
+- Workflow Integration Service
+- Manual review endpoints
+
+**Dependencies**:
+- AI Review Comment Service
+- Review Formatter Service
+- Error Handler Service
+
+### 20. Review Formatter Service (`review-formatter.service.ts`)
+
+**Purpose**: Formats review results into structured GitHub comments with proper markdown formatting.
+
+**Key Methods**:
+- `formatReview(result)`: Formats complete review result into structured GitHub comment
+- `formatCompactSummary(result)`: Creates compact summary format for notifications
+- `getMergeRecommendation(score)`: Gets merge recommendation based on score
+- `getMergeScoreEmoji(score)`: Gets emoji based on merge score
+- `getMergeScoreStatus(score)`: Gets status text based on merge score
+- `groupSuggestionsBySeverity(suggestions)`: Groups suggestions by severity
+- `getSeverityBadge(severity)`: Gets badge for rule severity
+- `getSeverityEmoji(severity)`: Gets emoji for rule severity
+- `getSuggestionSeverityEmoji(severity)`: Gets emoji for suggestion severity
+- `isAIReviewComment(commentBody)`: Checks if comment is AI review comment
+
+**Used By**:
+- Review Comment Integration Service
+- AI Review Comment Service
+- Preview and testing endpoints
+
+**Dependencies**:
+- None (pure formatting service)
+
+### 21. Merge Score Service (`merge-score.service.ts`)
+
+**Purpose**: Calculates comprehensive merge scores based on multiple quality factors.
+
+**Key Methods**:
+- `calculateMergeScore(analysis, ruleEvaluation)`: Calculates comprehensive merge score (0-100)
+- `calculateComprehensiveMergeScore(analysis, ruleEvaluation)`: Full merge score calculation with result object
+- `calculateCodeQualityScore(metrics)`: Calculates code quality score from AI analysis
+- `calculateComplexityScore(complexity)`: Calculates complexity score (lower complexity = higher score)
+- `calculateTestCoverageScore(testCoverage)`: Calculates test coverage score
+- `calculateDocumentationScore(documentationMetric)`: Calculates documentation score
+- `calculateRuleComplianceScore(ruleEvaluation)`: Calculates rule compliance score
+- `getMergeRecommendation(mergeScore)`: Provides merge recommendation based on score
+- `getScoreBreakdown(analysis, ruleEvaluation)`: Provides detailed score breakdown
+- `createScoringSummary(analysis, ruleEvaluation, prContext)`: Creates summary for logging
+
+**Used By**:
+- AI Review Orchestration Service
+- Groq AI Service
+- Review result compilation
+
+**Dependencies**:
+- Logging Service (for score tracking)
+
+### 22. Raw Code Changes Extractor Service (`raw-code-changes-extractor.service.ts`)
+
+**Purpose**: Extracts comprehensive code changes from pull requests for intelligent context analysis.
+
+**Key Methods**:
+- `extractCodeChanges(installationId, repositoryName, prNumber)`: Extracts complete code changes from PR
+- `getChangesSummary(changes)`: Generates human-readable summary of code changes
+- `validateCodeChanges(changes)`: Validates extracted code changes for completeness
+- `normalizeFileStatus(status)`: Normalizes GitHub file status to standard format
+- `detectLanguage(filename)`: Detects programming language from file extension
+
+**Used By**:
+- PR Analysis Service (intelligent context workflow)
+- Intelligent Context Analyzer Service
+- Enhanced Context Builder Service
+
+**Dependencies**:
+- Octokit Service
+- Logging Service
+
+### 23. Repository File Path Service (`repository-file-path.service.ts`)
+
+**Purpose**: Analyzes repository structure and provides comprehensive file organization data.
+
+**Key Methods**:
+- `getRepositoryStructure(installationId, repositoryName, branch)`: Gets comprehensive repository structure
+- `analyzeFileStructure(filePaths)`: Analyzes file structure and builds directory tree
+- `categorizeFilesByLanguage(filePaths)`: Categorizes files by programming language
+- `createEmptyRepositoryStructure()`: Creates empty structure for empty repositories
+- `detectLanguage(filename)`: Detects programming language from file extension
+- `sortDirectoryChildren(nodes)`: Recursively sorts directory children
+
+**Used By**:
+- PR Analysis Service (intelligent context workflow)
+- Intelligent Context Analyzer Service
+- Enhanced Context Builder Service
+
+**Dependencies**:
+- Octokit Service
+- Logging Service
+
+### 24. Intelligent Context Analyzer Service (`intelligent-context-analyzer.service.ts`)
+
+**Purpose**: Uses AI to analyze code changes and determine which files are most relevant for optimal review quality.
+
+**Key Methods**:
+- `analyzeContextNeeds(request)`: Analyzes code changes to determine relevant files using AI
+- `buildContextPrompt(request)`: Builds specialized prompt for AI context analysis
+- `parseContextResponse(response)`: Parses AI response into structured context analysis
+- `validateContextAnalysis(analysis)`: Validates and normalizes AI recommendations
+- `generateHeuristicFallback(request, errors)`: Generates fallback when AI analysis fails
+- `analyzeWithReducedContext(request)`: Analyzes with reduced context when hitting token limits
+- `formatCodeChangesPreview(codeChanges)`: Formats code changes preview for AI prompt
+- `validateAndNormalizeRecommendations(recommendations)`: Validates file recommendations
+
+**Used By**:
+- PR Analysis Service (intelligent context workflow)
+- Enhanced Context Builder Service
+
+**Dependencies**:
+- Groq AI Service
+- Logging Service
+- Intelligent Context Config Service
+
+### 25. Intelligent Context Config Service (`intelligent-context-config.service.ts`)
+
+**Purpose**: Manages configuration and feature flags for intelligent context analysis features.
+
+**Key Methods**:
+- `getConfig()`: Gets current intelligent context configuration
+- `updateConfig(updates)`: Updates configuration at runtime
+- `getFeatureFlags()`: Gets current feature flags
+- `updateFeatureFlags(updates)`: Updates feature flags at runtime
+- `isEnabled()`: Checks if intelligent context is enabled
+- `isFeatureEnabled(feature)`: Checks if specific feature is enabled
+- `loadConfigFromEnvironment()`: Loads configuration from environment variables
+- `reloadFromEnvironment()`: Reloads configuration from environment
+- `validateConfig()`: Validates configuration settings
+- `getConfigSummary()`: Gets configuration summary for logging
+
+**Used By**:
+- PR Analysis Service
+- Intelligent Context Analyzer Service
+- All intelligent context services
+
+**Dependencies**:
+- Environment variables
+- Logging Service
+
+### 26. Enhanced Context Builder Service (`enhanced-context-builder.service.ts`)
+
+**Purpose**: Combines multiple context sources to build optimal review context with quality scoring.
+
+**Key Methods**:
+- `buildEnhancedContext(codeChanges, repositoryStructure, contextAnalysis, fetchedFiles, existingContext)`: Builds enhanced review context
+- `calculateContextMetrics(repositoryStructure, contextAnalysis, fetchedFiles, processingTimes)`: Calculates comprehensive context metrics
+- `calculateContextQualityScore(context)`: Calculates context quality score
+- `optimizeContext(context)`: Optimizes context for better review quality and performance
+- `optimizeRelevantFiles(context)`: Optimizes relevant files by combining sources intelligently
+- `enhanceExistingContext(context)`: Enhances existing context with intelligent insights
+- `validateEnhancedContext(context)`: Validates enhanced context completeness
+- `getContextSummary(context)`: Gets context summary for logging and debugging
+
+**Used By**:
+- PR Analysis Service (intelligent context workflow)
+- AI Review Orchestration Service
+
+**Dependencies**:
+- Logging Service
+- Intelligent Context Config Service
+
+### 27. Selective File Fetcher Service (`selective-file-fetcher.service.ts`)
+
+**Purpose**: Efficiently fetches only AI-recommended files instead of all potentially relevant files.
+
+**Key Methods**:
+- `fetchRecommendedFiles(installationId, repositoryName, recommendations, branch)`: Fetches AI-recommended files efficiently
+- `fetchFileWithRetry(installationId, repositoryName, filePath, branch, maxRetries)`: Fetches single file with retry logic
+- `validateFileRecommendations(recommendations)`: Validates file recommendations before fetching
+- `calculateFetchMetrics(recommendations, results)`: Calculates fetch success metrics
+- `optimizeFetchOrder(recommendations)`: Optimizes fetch order based on priority and size
+- `handleFetchErrors(errors)`: Handles and categorizes fetch errors
+- `getFileSizeEstimate(filePath)`: Estimates file size for optimization
+- `shouldSkipFile(filePath, fileSize)`: Determines if file should be skipped
+
+**Used By**:
+- PR Analysis Service (intelligent context workflow)
+- Enhanced Context Builder Service
+
+**Dependencies**:
+- Octokit Service
+- Retry Service
+- Logging Service
+
+### 28. Context Analysis DB Service (`context-analysis-db.service.ts`)
+
+**Purpose**: Manages database operations for context analysis metrics and performance tracking.
+
+**Key Methods**:
+- `createContextAnalysisMetrics(metricsData)`: Creates new context analysis metrics record
+- `getContextAnalysisMetrics(installationId, repositoryName, prNumber)`: Gets context analysis metrics for specific PR
+- `getRepositoryContextMetrics(installationId, repositoryName, startDate, endDate)`: Gets context metrics for repository
+- `getRepositoryContextStats(installationId, repositoryName, startDate, endDate)`: Gets aggregated context statistics
+- `updateAIReviewResultWithContext(reviewResultId, contextData)`: Updates review result with context data
+- `getAIReviewResultsWithContext(installationId, repositoryName, limit)`: Gets review results that used context analysis
+- `getContextAnalysisPerformanceTrends(installationId, repositoryName, days)`: Gets performance trends
+- `deleteOldContextMetrics(olderThanDays)`: Deletes old metrics for cleanup
+
+**Used By**:
+- Context Analysis Integration Service
+- PR Analysis Service
+- Monitoring and analytics endpoints
+
+**Dependencies**:
+- Database (Prisma)
+- Logging Service
+
+### 29. Context Analysis Integration Service (`context-analysis-integration.service.ts`)
+
+**Purpose**: Integrates context analysis results with database storage and provides analytics capabilities.
+
+**Key Methods**:
+- `storeContextAnalysisResults(reviewResultId, installationId, repositoryName, prNumber, enhancedContext, contextAnalysis)`: Stores complete context analysis results
+- `markAsFallback(reviewResultId)`: Marks review result as using fallback (no intelligent context)
+- `getContextAnalysisStats(installationId, repositoryName, days)`: Gets context analysis statistics for monitoring
+- `getRecentContextAnalyses(installationId, repositoryName, limit)`: Gets recent context analyses for debugging
+- `calculateContextQualityScore(contextMetrics, contextAnalysis)`: Calculates context quality score
+- `validateContextMetrics(metrics)`: Validates context metrics before storing
+- `cleanupOldData(olderThanDays)`: Cleans up old context analysis data
+
+**Used By**:
+- PR Analysis Service (intelligent context workflow)
+- AI Review Orchestration Service
+- Analytics and monitoring endpoints
+
+**Dependencies**:
+- Context Analysis DB Service
+- Logging Service
 
 ## Service Interaction Patterns
 
@@ -441,12 +729,12 @@ GitHub Webhook → Webhook Controller → Workflow Integration Service
 3. **Retry Logic**: Error Handler Service manages retries
 4. **Fallback Execution**: Service-specific fallback mechanisms
 5. **Recovery Attempt**: Error Recovery Service attempts recovery
-6. **Monitoring**: Logging and Monitoring Services track events
+6. **Monitoring**: Logging Service tracks events
 
 ### Health Monitoring Pattern
 1. **Periodic Checks**: Health Check Service monitors all services
 2. **Status Caching**: Results cached for quick access
-3. **Alert Generation**: Monitoring Service generates alerts
+3. **Alert Generation**: Logging Service generates alerts
 4. **Recovery Triggers**: Automated recovery based on health status
 
 ## Configuration and Environment
