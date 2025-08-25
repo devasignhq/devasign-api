@@ -40,7 +40,7 @@ export class ErrorHandlingInitService {
             ErrorHandlingInitService.setupProcessEventHandlers();
 
             // Set up periodic health checks
-            ErrorHandlingInitService.setupPeriodicHealthChecks();
+            // ErrorHandlingInitService.setupPeriodicHealthChecks();
 
             // Validate environment configuration
             ErrorHandlingInitService.validateEnvironmentConfiguration();
@@ -262,15 +262,6 @@ export class ErrorHandlingInitService {
         const warnings: string[] = [];
         const errors: string[] = [];
 
-        // Check for monitoring webhook configuration
-        if (!process.env.MONITORING_WEBHOOK_URL) {
-            warnings.push('MONITORING_WEBHOOK_URL not configured - external monitoring disabled');
-        }
-
-        if (!process.env.ALERT_WEBHOOK_URL) {
-            warnings.push('ALERT_WEBHOOK_URL not configured - external alerting disabled');
-        }
-
         // Check for required service configurations
         if (!process.env.GROQ_API_KEY) {
             warnings.push('GROQ_API_KEY not configured - Groq service will be unavailable');
@@ -286,6 +277,10 @@ export class ErrorHandlingInitService {
 
         if (!process.env.DATABASE_URL) {
             errors.push('DATABASE_URL not configured - database operations will fail');
+        }
+
+        if (!process.env.GITHUB_WEBHOOK_SECRET) {
+            warnings.push('GITHUB_WEBHOOK_SECRET not configured - pull request review disabled');
         }
 
         // Log warnings
