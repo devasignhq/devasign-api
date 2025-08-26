@@ -55,6 +55,11 @@ app.use(
     })
 );
 app.use(morgan("dev"));
+
+// Raw body parser for webhook signature validation
+app.use('/webhook', express.raw({ type: 'application/json' }));
+
+// JSON parser for all other routes
 app.use(express.json());
 
 app.get("/", (req: Request, res: Response) => {

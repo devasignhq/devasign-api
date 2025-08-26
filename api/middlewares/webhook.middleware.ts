@@ -11,7 +11,6 @@ import { LoggingService } from '../services/logging.service';
 export const validateGitHubWebhook = (req: Request, res: Response, next: NextFunction): void => {
     try {
         const signature = req.get('X-Hub-Signature-256');
-        const payload = JSON.stringify(req.body);
         const secret = process.env.GITHUB_WEBHOOK_SECRET;
 
         if (!secret) {
@@ -22,10 +21,16 @@ export const validateGitHubWebhook = (req: Request, res: Response, next: NextFun
             throw new GitHubWebhookError('Missing webhook signature');
         }
 
-        // Create expected signature
+        // Get raw body (should be Buffer from express.raw middleware)
+        const rawBody = req.body;
+        if (!Buffer.isBuffer(rawBody)) {
+            throw new GitHubWebhookError('Invalid request body format');
+        }
+
+        // Create expected signature using raw body
         const expectedSignature = `sha256=${crypto
             .createHmac('sha256', secret)
-            .update(payload, 'utf8')
+            .update(rawBody)
             .digest('hex')}`;
 
         // Compare signatures using timing-safe comparison
@@ -36,6 +41,13 @@ export const validateGitHubWebhook = (req: Request, res: Response, next: NextFun
 
         if (!isValid) {
             throw new GitHubWebhookError('Invalid webhook signature');
+        }
+
+        // Parse the JSON body for subsequent middleware
+        try {
+            req.body = JSON.parse(rawBody.toString());
+        } catch (parseError) {
+            throw new GitHubWebhookError('Invalid JSON payload');
         }
 
         next();
