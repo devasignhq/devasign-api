@@ -1,0 +1,22 @@
+{
+    "extends": "../tsconfig.json",
+    "compilerOptions": {
+        "rootDir": "../",
+        "types": [
+            "jest",
+            "node",
+            "supertest"
+        ],
+        "allowJs": true,
+        "noEmit": true
+    },
+    "include": [
+        "../api/**/*",
+        "./**/*"
+    ],
+    "exclude": [
+        "../node_modules",
+        "../dist",
+        "../coverage"
+    ]
+}

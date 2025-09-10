@@ -1,6 +1,7 @@
 node_modules
 # Keep environment variables out of version control
 .env
+.env.test
 
 prisma/migrations
 requirements.txt
@@ -8,3 +9,4 @@ requirements.txt
 /no-git/*
 /.kiro/*
 /dist/*
+coverage
