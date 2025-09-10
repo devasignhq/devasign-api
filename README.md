@@ -11,10 +11,6 @@
 
 <br/>
 
-<p align="center">
-  <strong style="font-size: 16px; margin-right: 10px;">Backed by</strong> <a href="https://communityfund.stellar.org/"><img src="https://devasign.com/assets/scf%20logo-39ec023b.svg" height="40" alt="Stellar Community Fund" align="center" /></a>
-</p>
-
 </div>
 
 <br/>
@@ -56,4 +52,4 @@ We welcome community contributions. For guidelines, refer to our [CONTRIBUTING.m
 
 ## License
 
-Attribution-NonCommercial 4.0 International, see [LICENSE](https://github.com/devasignhq/devasign-api/blob/main/LICENSE).
+Apache 2.0, see [LICENSE](https://github.com/devasignhq/devasign-api/blob/main/LICENSE).
