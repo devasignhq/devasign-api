@@ -1,7 +1,8 @@
 import { NextFunction, Request, Response } from "express";
 import { prisma } from "../config/database.config";
 import { FirebaseService } from "../services/firebase.service";
-import { stellarService, usdcAssetId } from "../config/stellar.config";
+import { usdcAssetId } from "../config/stellar.config";
+import { stellarService } from "../services/stellar.service";
 import { decrypt } from "../helper";
 import {
     MessageType,
