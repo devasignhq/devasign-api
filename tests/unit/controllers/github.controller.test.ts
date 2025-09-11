@@ -22,6 +22,13 @@ import { IssueDto, IssueLabel, IssueMilestone, RepositoryDto } from '@/models/gi
 jest.mock('../../../api/services/octokit.service');
 jest.mock('../../../api/services/pr-analysis.service');
 jest.mock('../../../api/middlewares/auth.middleware');
+jest.mock('../../../api/config/firebase.config', () => ({
+    firebaseAdmin: {
+        auth: jest.fn(() => ({
+            verifyIdToken: jest.fn()
+        }))
+    }
+}));
 
 describe('GitHubController', () => {
     let mockRequest: Partial<Request>;
@@ -221,16 +228,20 @@ describe('GitHubController', () => {
                 title: mockPRDetails.title,
                 body: mockPRDetails.body,
                 changedFiles: mockChangedFiles,
-                linkedIssues: [{ number: 456, url: 'https://github.com/owner/repo/issues/456', linkType: 'fixes' }],
+                linkedIssues: [{
+                    title: "fix bug",
+                    body: "bug fixes",
+                    number: 456,
+                    url: 'https://github.com/owner/repo/issues/456',
+                    linkType: 'fixes' as any
+                }],
                 author: mockPRDetails.user.login,
                 isDraft: false
             };
 
             mockValidateUserInstallation.mockResolvedValue(undefined);
             mockOctokitService.getPRDetails.mockResolvedValue(mockPRDetails as any);
-            mockPRAnalysisService.extractLinkedIssues.mockReturnValue([
-                { title: "fix bug", body: "bug fixes", number: 456, url: '#456', linkType: 'fixes' }
-            ]);
+            mockPRAnalysisService.extractLinkedIssues.mockReturnValue(mockPRData.linkedIssues);
             mockPRAnalysisService.fetchChangedFiles.mockResolvedValue(mockChangedFiles as any[]);
             mockPRAnalysisService.validatePRData.mockReturnValue(undefined);
             mockPRAnalysisService.shouldAnalyzePR.mockReturnValue(true);
@@ -253,14 +264,7 @@ describe('GitHubController', () => {
             expect(mockResponse.json).toHaveBeenCalledWith(expect.objectContaining({
                 success: true,
                 message: 'PR analysis triggered successfully',
-                data: expect.objectContaining({
-                    installationId,
-                    repositoryName,
-                    prNumber,
-                    eligibleForAnalysis: true,
-                    triggerType: 'manual',
-                    triggeredBy: userId
-                })
+                data: expect.objectContaining(mockPRData)
             }));
         });
 
@@ -327,9 +331,11 @@ describe('GitHubController', () => {
 
             expect(mockResponse.status).toHaveBeenCalledWith(500);
             expect(mockResponse.json).toHaveBeenCalledWith(expect.objectContaining({
+                code: error.code,
+                data: { installationId, prNumber, repositoryName },
                 success: false,
-                error: error.message,
-                code: error.code
+                error: `Failed to fetch PR data for PR #${prNumber}`,
+                timestamp: new Date().toISOString()
             }));
         });
     });
