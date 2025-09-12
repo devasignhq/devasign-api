@@ -1,4 +1,4 @@
-import { PrismaClient, Prisma } from '../../api/generated/client';
+import { PrismaClient, Prisma } from '@/generated/client';
 import { TestDataFactory } from './test-data-factory';
 
 /**
@@ -146,7 +146,7 @@ export class DatabaseTestUtilities {
 
         const users = [];
         for (const data of userData) {
-            const user = await this.client.user.create({ 
+            const user = await this.client.user.create({
                 data: {
                     ...data,
                     addressBook: data.addressBook as Prisma.InputJsonValue[]
@@ -191,7 +191,7 @@ export class DatabaseTestUtilities {
 
         const installations = [];
         for (const data of installationData) {
-            const installation = await this.client.installation.create({ 
+            const installation = await this.client.installation.create({
                 data: {
                     ...data,
                     account: data.account as Prisma.InputJsonValue
@@ -377,18 +377,17 @@ export class DatabaseTestUtilities {
 
         // Create some top-up transactions
         for (const installation of installations) {
-            const topUpTransaction = await this.client.transaction.create({
-                data: {
-                    ...TestDataFactory.transaction({
-                        category: 'TOP_UP',
-                        installationId: installation.id,
-                        amount: 1000.0,
-                        asset: 'USDC',
-                        sourceAddress: 'GSOURCE000000000000000000000000000000000000000000000',
-                        txHash: `topup-tx-${installation.id}`
-                    })
-                }
+            const data = TestDataFactory.transaction({
+                category: 'TOP_UP',
+                installationId: installation.id,
+                amount: 1000.0,
+                asset: 'USDC',
+                sourceAddress: 'GSOURCE000000000000000000000000000000000000000000000',
+                txHash: `topup-tx-${installation.id}`,
             });
+            delete (data as any).userId;
+
+            const topUpTransaction = await this.client.transaction.create({ data });
             transactions.push(topUpTransaction);
         }
 
@@ -424,7 +423,7 @@ export class DatabaseTestUtilities {
             ];
 
             for (const ruleData of rules) {
-                const rule = await this.client.aIReviewRule.create({ 
+                const rule = await this.client.aIReviewRule.create({
                     data: {
                         ...ruleData,
                         config: ruleData.config as Prisma.InputJsonValue
@@ -461,7 +460,7 @@ export class DatabaseTestUtilities {
             ];
 
             for (const resultData of results) {
-                const result = await this.client.aIReviewResult.create({ 
+                const result = await this.client.aIReviewResult.create({
                     data: {
                         ...resultData,
                         rulesViolated: resultData.rulesViolated as Prisma.InputJsonValue,

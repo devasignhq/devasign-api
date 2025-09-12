@@ -1,7 +1,5 @@
-import { PrismaClient } from '../../api/generated/client';
+import { PrismaClient } from '@/generated/client';
 import { execSync } from 'child_process';
-import path from 'path';
-import fs from 'fs';
 
 /**
  * DatabaseTestHelper provides utilities for managing test databases
@@ -13,22 +11,28 @@ export class DatabaseTestHelper {
     private static isDockerRunning = false;
 
     /**
-     * Setup database for unit tests using in-memory SQLite
+     * Setup database for unit tests using PostgreSQL
      */
     static async setupUnitTestDatabase(): Promise<PrismaClient> {
         if (this.unitTestClient) {
             return this.unitTestClient;
         }
 
-        // Configure SQLite database URL for unit tests
-        const sqliteUrl = 'file:./test-unit.db';
-        process.env.DATABASE_URL = sqliteUrl;
+        // Start Docker PostgreSQL container if not running
+        // await this.startDockerPostgres();
 
-        // Create Prisma client for SQLite
+        // Configure PostgreSQL database URL for unit tests
+        const unitTestDbUrl = process.env.UNIT_DATABASE_URL ||
+            'postgresql://test_user:test_password@localhost:5433/test_unit_db';
+
+        // Set the environment variable
+        process.env.DATABASE_URL = unitTestDbUrl;
+
+        // Create Prisma client
         this.unitTestClient = new PrismaClient({
             datasources: {
                 db: {
-                    url: sqliteUrl
+                    url: unitTestDbUrl
                 }
             },
             log: process.env.NODE_ENV === 'test' ? [] : ['query', 'info', 'warn', 'error']
@@ -38,10 +42,7 @@ export class DatabaseTestHelper {
             // Connect to database
             await this.unitTestClient.$connect();
 
-            // Run migrations for SQLite
-            await this.runMigrations('sqlite');
-
-            console.log('✅ Unit test database (SQLite) setup completed');
+            console.log('✅ Unit test database (PostgreSQL) setup completed');
             return this.unitTestClient;
         } catch (error) {
             console.error('❌ Failed to setup unit test database:', error);
@@ -58,7 +59,7 @@ export class DatabaseTestHelper {
         }
 
         // Start Docker PostgreSQL container if not running
-        await this.startDockerPostgres();
+        // await this.startDockerPostgres();
 
         // Configure PostgreSQL database URL for integration tests
         const postgresUrl = process.env.INTEGRATION_DATABASE_URL ||
@@ -77,16 +78,10 @@ export class DatabaseTestHelper {
         });
 
         try {
-            // Wait for database to be ready
-            await this.waitForDatabase(this.integrationTestClient);
-
             // Connect to database
             await this.integrationTestClient.$connect();
 
-            // Run migrations for PostgreSQL
-            await this.runMigrations('postgresql');
-
-            console.log('✅ Integration test database (PostgreSQL) setup completed');
+            console.log('✅ Unit test database (PostgreSQL) setup completed');
             return this.integrationTestClient;
         } catch (error) {
             console.error('❌ Failed to setup integration test database:', error);
@@ -103,46 +98,37 @@ export class DatabaseTestHelper {
         }
 
         try {
-            // Check if container already exists and is running
-            const containerStatus = execSync(
-                'docker ps --filter "name=test-postgres" --format "{{.Status}}"',
-                { encoding: 'utf8', stdio: 'pipe' }
-            ).trim();
-
-            if (containerStatus.includes('Up')) {
-                console.log('📦 Docker PostgreSQL container already running');
-                this.isDockerRunning = true;
-                return;
-            }
-
-            // Stop and remove existing container if it exists
-            try {
-                execSync('docker stop test-postgres', { stdio: 'pipe' });
-                execSync('docker rm test-postgres', { stdio: 'pipe' });
-            } catch {
-                // Container doesn't exist, continue
-            }
-
-            // Start new PostgreSQL container
-            console.log('🐳 Starting Docker PostgreSQL container...');
-            execSync(`
-                docker run -d \
-                --name test-postgres \
-                -e POSTGRES_USER=test_user \
-                -e POSTGRES_PASSWORD=test_password \
-                -e POSTGRES_DB=test_db \
-                -p 5433:5432 \
-                postgres:13-alpine
-            `, { stdio: 'pipe' });
-
+            execSync('docker start test-postgres');
+            await new Promise(resolve => setTimeout(resolve, 5000));
             this.isDockerRunning = true;
-            console.log('✅ Docker PostgreSQL container started');
-
-            // Wait a moment for container to fully start
-            await new Promise(resolve => setTimeout(resolve, 3000));
         } catch (error) {
-            console.error('❌ Failed to start Docker PostgreSQL:', error);
-            throw new Error('Docker PostgreSQL setup failed. Make sure Docker is installed and running.');
+            console.log('Error starting test container:', error);
+            
+            try {
+                // Start new PostgreSQL container
+                console.log('🐳 Starting Docker PostgreSQL container...');
+                execSync(`
+                    docker run \
+                    --name test-postgres \
+                    -e POSTGRES_USER=test_user \
+                    -e POSTGRES_PASSWORD=test_password \
+                    -e POSTGRES_DB=test_unit_db \
+                    -p 5433:5432 \
+                    -d postgres
+                `);
+                execSync('npx prisma migrate deploy');
+
+                // docker run --name test-postgres -e POSTGRES_USER=test_user -e POSTGRES_PASSWORD=test_password -e POSTGRES_DB=test_unit_db -p 5433:5432 -d postgres
+                // npx prisma migrate deploy
+                // npm run prisma-gen
+
+                // Wait for container to start
+                await new Promise(resolve => setTimeout(resolve, 5000));
+                this.isDockerRunning = true;
+            } catch (error) {
+                console.error('❌ Failed to start Docker PostgreSQL:', error);
+                throw new Error('Docker PostgreSQL setup failed. Make sure Docker is installed and running.');
+            }
         }
     }
 
@@ -166,24 +152,16 @@ export class DatabaseTestHelper {
     /**
      * Run database migrations
      */
-    private static async runMigrations(provider: 'sqlite' | 'postgresql'): Promise<void> {
+    private static async runMigrations(): Promise<void> {
         try {
-            if (provider === 'sqlite') {
-                // For SQLite, we need to push the schema directly since migrations might not work
-                execSync('npx prisma db push --force-reset', {
-                    stdio: 'pipe',
-                    env: { ...process.env, DATABASE_URL: process.env.DATABASE_URL }
-                });
-            } else {
-                // For PostgreSQL, run migrations
-                execSync('npx prisma migrate deploy', {
-                    stdio: 'pipe',
-                    env: { ...process.env, DATABASE_URL: process.env.DATABASE_URL }
-                });
-            }
-            console.log(`✅ Database migrations completed for ${provider}`);
+            // For PostgreSQL, use db push for tests to avoid migration files
+            execSync('npx prisma db push --force-reset', {
+                stdio: 'pipe',
+                env: { ...process.env, DATABASE_URL: process.env.DATABASE_URL }
+            });
+            console.log(`✅ Database schema pushed`);
         } catch (error) {
-            console.error(`❌ Failed to run migrations for ${provider}:`, error);
+            console.error(`❌ Failed to push schema:`, error);
             throw error;
         }
     }
@@ -196,13 +174,6 @@ export class DatabaseTestHelper {
             try {
                 await this.unitTestClient.$disconnect();
                 this.unitTestClient = null;
-
-                // Remove SQLite database file
-                const dbPath = path.resolve('./test-unit.db');
-                if (fs.existsSync(dbPath)) {
-                    fs.unlinkSync(dbPath);
-                }
-
                 console.log('✅ Unit test database cleanup completed');
             } catch (error) {
                 console.error('❌ Failed to cleanup unit test database:', error);
@@ -357,16 +328,22 @@ export class DatabaseTestHelper {
         client: PrismaClient,
         fn: (tx: any) => Promise<T>
     ): Promise<T> {
-        return await client.$transaction(async (tx) => {
-            const result = await fn(tx);
-            // Transaction will be automatically rolled back if an error is thrown
-            throw new Error('ROLLBACK_TRANSACTION'); // Force rollback for testing
-        }).catch((error) => {
+        let result: T;
+
+        try {
+            await client.$transaction(async (tx) => {
+                result = await fn(tx);
+                // Force rollback by throwing an error
+                throw new Error('ROLLBACK_TRANSACTION');
+            });
+        } catch (error: any) {
             if (error.message === 'ROLLBACK_TRANSACTION') {
                 // This is expected for test isolation
-                return undefined as T;
+                return result!;
             }
             throw error;
-        });
+        }
+
+        return result!;
     }
 }
