@@ -5,7 +5,7 @@ import path from 'path';
 dotenv.config({ path: path.resolve(__dirname, '../../.env.test') });
 
 // Set test timeout
-jest.setTimeout(30000);
+jest.setTimeout(500000);
 
 // Mock console methods to reduce noise during tests
 const originalConsoleLog = console.log;

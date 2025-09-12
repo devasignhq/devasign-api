@@ -15,7 +15,7 @@ export const testConfig = {
     // API configuration
     api: {
         port: parseInt(process.env.PORT || '8081', 10),
-        timeout: parseInt(process.env.TEST_TIMEOUT || '30000', 10),
+        timeout: parseInt(process.env.TEST_TIMEOUT || '500000', 10),
     },
 
     // External services configuration

@@ -117,7 +117,7 @@ export const MSWTestHelpers = {
     /**
      * Mock network timeouts for testing timeout handling
      */
-    mockTimeout: (url: string, delay: number = 30000) => {
+    mockTimeout: (url: string, delay: number = 500000) => {
         const { http } = require('msw');
 
         const handler = http.get(url, async () => {

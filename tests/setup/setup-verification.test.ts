@@ -96,7 +96,7 @@ describe('Test Infrastructure Setup', () => {
         });
 
         it('should have test timeout configured', () => {
-            expect(testConfig.api.timeout).toBe(30000);
+            expect(testConfig.api.timeout).toBe(500000);
         });
     });
 });
