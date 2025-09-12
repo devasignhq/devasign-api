@@ -32,7 +32,7 @@ COPY api ./api/
 RUN npm ci
 
 # Generate Prisma client (this creates api/generated/client)
-RUN npm run p-gen
+RUN npm run prisma-gen-acc
 
 # Build the application
 RUN npm run build

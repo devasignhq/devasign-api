@@ -35,7 +35,7 @@ You can run the devasign api locally with the following commands:
 git clone https://github.com/devasignhq/devasign-api.git
 cd devasign-api
 npm install
-npm run p-gen
+npm run prisma-gen-acc
 npx prisma migrate dev --name migration_name
 npm run dev
 ```

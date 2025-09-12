@@ -4,9 +4,13 @@ node_modules
 .env.test
 
 prisma/migrations
-requirements.txt
 /api/generated/client
+
 /no-git/*
+requirements.txt
+
 /.kiro/*
 /dist/*
+
+# Testing folders
 coverage
