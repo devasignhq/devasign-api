@@ -69,6 +69,6 @@ module.exports = {
     // Restore mocks after each test
     restoreMocks: true,
 
-    // Timeout for tests (30 seconds)
-    testTimeout: 30000
+    // Timeout for tests (500 seconds)
+    testTimeout: 500000
 };

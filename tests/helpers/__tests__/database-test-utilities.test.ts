@@ -6,12 +6,12 @@ describe('DatabaseTestUtilities', () => {
     let client: any;
 
     beforeAll(async () => {
-        client = await DatabaseTestHelper.setupUnitTestDatabase();
+        client = await DatabaseTestHelper.setupTestDatabase();
         dbUtils = new DatabaseTestUtilities(client);
     });
 
     afterAll(async () => {
-        await DatabaseTestHelper.cleanupUnitTestDatabase();
+        await DatabaseTestHelper.cleanupTestDatabase();
     });
 
     beforeEach(async () => {

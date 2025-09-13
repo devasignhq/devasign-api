@@ -5,7 +5,6 @@ import { userRoutes } from '../../../api/routes/user.route';
 import { execSync } from 'child_process';
 import { errorHandler } from '../../../api/middlewares/error.middleware';
 import { DatabaseTestHelper } from '@tests/helpers';
-import { PrismaClient } from '@prisma/client';
 import { ErrorClass, NotFoundErrorClass } from '@/models/general.model';
 import { validateUser } from '@/middlewares/auth.middleware';
 
@@ -39,7 +38,7 @@ describe('User API Integration Tests', () => {
     let mockEncrypt: jest.Mock;
 
     beforeAll(async () => {
-        prisma = await DatabaseTestHelper.setupUnitTestDatabase();
+        prisma = await DatabaseTestHelper.setupTestDatabase();
         
         // Setup Express app with user routes
         app = express();

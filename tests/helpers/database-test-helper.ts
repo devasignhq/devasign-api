@@ -6,30 +6,29 @@ import { execSync } from 'child_process';
  * Supports both in-memory SQLite for unit tests and Docker PostgreSQL for integration tests
  */
 export class DatabaseTestHelper {
-    private static unitTestClient: PrismaClient | null = null;
-    private static integrationTestClient: PrismaClient | null = null;
+    private static testClient: PrismaClient | null = null;
     private static isDockerRunning = false;
 
     /**
-     * Setup database for unit tests using PostgreSQL
+     * Setup database for tests using PostgreSQL
      */
-    static async setupUnitTestDatabase(): Promise<PrismaClient> {
-        if (this.unitTestClient) {
-            return this.unitTestClient;
+    static async setupTestDatabase(): Promise<PrismaClient> {
+        if (this.testClient) {
+            return this.testClient;
         }
 
         // Start Docker PostgreSQL container if not running
         // await this.startDockerPostgres();
 
         // Configure PostgreSQL database URL for unit tests
-        const unitTestDbUrl = process.env.UNIT_DATABASE_URL ||
-            'postgresql://test_user:test_password@localhost:5433/test_unit_db';
+        const unitTestDbUrl = process.env.DATABASE_URL ||
+            'postgresql://test_user:test_password@localhost:5433/test_db';
 
         // Set the environment variable
         process.env.DATABASE_URL = unitTestDbUrl;
 
         // Create Prisma client
-        this.unitTestClient = new PrismaClient({
+        this.testClient = new PrismaClient({
             datasources: {
                 db: {
                     url: unitTestDbUrl
@@ -40,51 +39,12 @@ export class DatabaseTestHelper {
 
         try {
             // Connect to database
-            await this.unitTestClient.$connect();
+            await this.testClient.$connect();
 
             console.log('✅ Unit test database (PostgreSQL) setup completed');
-            return this.unitTestClient;
+            return this.testClient;
         } catch (error) {
             console.error('❌ Failed to setup unit test database:', error);
-            throw error;
-        }
-    }
-
-    /**
-     * Setup database for integration tests using Docker PostgreSQL
-     */
-    static async setupIntegrationTestDatabase(): Promise<PrismaClient> {
-        if (this.integrationTestClient) {
-            return this.integrationTestClient;
-        }
-
-        // Start Docker PostgreSQL container if not running
-        // await this.startDockerPostgres();
-
-        // Configure PostgreSQL database URL for integration tests
-        const postgresUrl = process.env.INTEGRATION_DATABASE_URL ||
-            'postgresql://test_user:test_password@localhost:5433/test_db';
-
-        process.env.DATABASE_URL = postgresUrl;
-
-        // Create Prisma client for PostgreSQL
-        this.integrationTestClient = new PrismaClient({
-            datasources: {
-                db: {
-                    url: postgresUrl
-                }
-            },
-            log: process.env.NODE_ENV === 'test' ? [] : ['query', 'info', 'warn', 'error']
-        });
-
-        try {
-            // Connect to database
-            await this.integrationTestClient.$connect();
-
-            console.log('✅ Unit test database (PostgreSQL) setup completed');
-            return this.integrationTestClient;
-        } catch (error) {
-            console.error('❌ Failed to setup integration test database:', error);
             throw error;
         }
     }
@@ -112,13 +72,13 @@ export class DatabaseTestHelper {
                     --name test-postgres \
                     -e POSTGRES_USER=test_user \
                     -e POSTGRES_PASSWORD=test_password \
-                    -e POSTGRES_DB=test_unit_db \
+                    -e POSTGRES_DB=test_db \
                     -p 5433:5432 \
                     -d postgres
                 `);
                 execSync('npx prisma migrate deploy');
 
-                // docker run --name test-postgres -e POSTGRES_USER=test_user -e POSTGRES_PASSWORD=test_password -e POSTGRES_DB=test_unit_db -p 5433:5432 -d postgres
+                // docker run --name test-postgres -e POSTGRES_USER=test_user -e POSTGRES_PASSWORD=test_password -e POSTGRES_DB=test_db -p 5433:5432 -d postgres
                 // npx prisma migrate deploy
                 // npm run prisma-gen
 
@@ -167,28 +127,13 @@ export class DatabaseTestHelper {
     }
 
     /**
-     * Clean up unit test database
+     * Clean up test database
      */
-    static async cleanupUnitTestDatabase(): Promise<void> {
-        if (this.unitTestClient) {
+    static async cleanupTestDatabase(): Promise<void> {
+        if (this.testClient) {
             try {
-                await this.unitTestClient.$disconnect();
-                this.unitTestClient = null;
-                console.log('✅ Unit test database cleanup completed');
-            } catch (error) {
-                console.error('❌ Failed to cleanup unit test database:', error);
-            }
-        }
-    }
-
-    /**
-     * Clean up integration test database
-     */
-    static async cleanupIntegrationTestDatabase(): Promise<void> {
-        if (this.integrationTestClient) {
-            try {
-                await this.integrationTestClient.$disconnect();
-                this.integrationTestClient = null;
+                await this.testClient.$disconnect();
+                this.testClient = null;
                 console.log('✅ Integration test database cleanup completed');
             } catch (error) {
                 console.error('❌ Failed to cleanup integration test database:', error);
@@ -300,23 +245,6 @@ export class DatabaseTestHelper {
         } catch (error) {
             console.error('❌ Failed to seed database:', error);
             throw error;
-        }
-    }
-
-    /**
-     * Get the appropriate database client for the current test type
-     */
-    static getClient(testType: 'unit' | 'integration' = 'unit'): PrismaClient {
-        if (testType === 'unit') {
-            if (!this.unitTestClient) {
-                throw new Error('Unit test database not initialized. Call setupUnitTestDatabase() first.');
-            }
-            return this.unitTestClient;
-        } else {
-            if (!this.integrationTestClient) {
-                throw new Error('Integration test database not initialized. Call setupIntegrationTestDatabase() first.');
-            }
-            return this.integrationTestClient;
         }
     }
 
