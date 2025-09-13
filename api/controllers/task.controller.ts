@@ -926,8 +926,8 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
             }
         });
 
-        try {
-            if (additionalFundsTransaction.txHash) {
+        if (additionalFundsTransaction.txHash) {
+            try {
                 await prisma.transaction.create({
                     data: {
                         txHash: additionalFundsTransaction.txHash,
@@ -939,9 +939,9 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
                 });
 
                 additionalFundsTransaction.recorded = true;
+            } catch (error) {
+                additionalFundsTransaction.error = error;
             }
-        } catch (error) {
-            additionalFundsTransaction.error = error;
         }
 
         try {
@@ -1063,9 +1063,9 @@ export const submitTaskApplication = async (req: Request, res: Response, next: N
         if (task.status !== "OPEN") {
             throw new ErrorClass("TaskError", null, "Task is not open");
         }
-        
+
         const existingApplication = await prisma.taskActivity.findFirst({
-            where: { 
+            where: {
                 taskId,
                 userId,
                 taskSubmissionId: null
@@ -1534,7 +1534,7 @@ export const validateCompletion = async (req: Request, res: Response, next: Next
                 await FirebaseService.updateTaskStatus(taskId);
             } catch { }
 
-            res.status(201).json(updatedTask);
+            res.status(200).json(updatedTask);
         } catch (error: any) {
             res.status(202).json({
                 error,
@@ -1631,7 +1631,7 @@ export const markActivityAsViewed = async (req: Request, res: Response, next: Ne
     try {
         // Check if the activity exists and user has access to it
         const activity = await prisma.taskActivity.findUnique({
-            where: { 
+            where: {
                 id: taskActivityId,
                 task: {
                     installation: {

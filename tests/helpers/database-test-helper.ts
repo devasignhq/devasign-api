@@ -18,7 +18,7 @@ export class DatabaseTestHelper {
         }
 
         // Start Docker PostgreSQL container if not running
-        // await this.startDockerPostgres();
+        await this.startDockerPostgres();
 
         // Configure PostgreSQL database URL for unit tests
         const unitTestDbUrl = process.env.DATABASE_URL ||
@@ -59,7 +59,7 @@ export class DatabaseTestHelper {
 
         try {
             execSync('docker start test-postgres');
-            await new Promise(resolve => setTimeout(resolve, 5000));
+            await new Promise(resolve => setTimeout(resolve, 7000));
             this.isDockerRunning = true;
         } catch (error) {
             console.log('Error starting test container:', error);
@@ -67,23 +67,20 @@ export class DatabaseTestHelper {
             try {
                 // Start new PostgreSQL container
                 console.log('🐳 Starting Docker PostgreSQL container...');
-                execSync(`
-                    docker run \
-                    --name test-postgres \
-                    -e POSTGRES_USER=test_user \
-                    -e POSTGRES_PASSWORD=test_password \
-                    -e POSTGRES_DB=test_db \
-                    -p 5433:5432 \
-                    -d postgres
-                `);
+                execSync('docker run --name test-postgres -e POSTGRES_USER=test_user -e POSTGRES_PASSWORD=test_password -e POSTGRES_DB=test_db -p 5433:5432 -d postgres');
+                
+                // Wait for container to start
+                await new Promise(resolve => setTimeout(resolve, 5000));
+
                 execSync('npx prisma migrate deploy');
+                
+                // Wait for migration to be completed
+                await new Promise(resolve => setTimeout(resolve, 5000));
 
                 // docker run --name test-postgres -e POSTGRES_USER=test_user -e POSTGRES_PASSWORD=test_password -e POSTGRES_DB=test_db -p 5433:5432 -d postgres
                 // npx prisma migrate deploy
                 // npm run prisma-gen
 
-                // Wait for container to start
-                await new Promise(resolve => setTimeout(resolve, 5000));
                 this.isDockerRunning = true;
             } catch (error) {
                 console.error('❌ Failed to start Docker PostgreSQL:', error);
