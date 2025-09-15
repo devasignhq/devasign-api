@@ -11,12 +11,12 @@
         "noEmit": true
     },
     "include": [
-        "../api/**/*",
         "./**/*"
     ],
     "exclude": [
         "../node_modules",
         "../dist",
-        "../coverage"
+        "../coverage",
+        "../api"
     ]
 }
