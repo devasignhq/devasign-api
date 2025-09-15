@@ -6,7 +6,6 @@
             "ES2020"
         ],
         "outDir": "./dist",
-        "rootDir": "./api",
         "strict": true,
         "esModuleInterop": true,
         "skipLibCheck": true,
@@ -15,15 +14,22 @@
         "resolveJsonModule": true,
         "baseUrl": ".",
         "paths": {
-            "*": [
-                "node_modules/*"
-            ]
-        }
+            "@/*": ["api/*"],
+            "@tests/*": ["tests/*"],
+            "*": ["node_modules/*"]
+        },
+        "types": ["node"],
+        "allowSyntheticDefaultImports": true,
+        "experimentalDecorators": true,
+        "emitDecoratorMetadata": true
     },
     "include": [
-        "api/**/*"
+        "api/**/*",
+        "tests/**/*"
     ],
     "exclude": [
-        "node_modules"
+        "node_modules",
+        "dist",
+        "coverage"
     ]
 }

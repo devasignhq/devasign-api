@@ -3,14 +3,14 @@ import { OctokitService } from "../services/octokit.service";
 import { IssueFilters } from "../models/general.model";
 import { validateUserInstallation } from "../middlewares/auth.middleware";
 import { PRAnalysisService } from "../services/pr-analysis.service";
-import { 
-    PullRequestData, 
-    APIResponse 
+import {
+    PullRequestData,
+    APIResponse
 } from "../models/ai-review.model";
-import { 
-    PRNotEligibleError, 
+import {
+    PRNotEligibleError,
     PRAnalysisError,
-    GitHubAPIError 
+    GitHubAPIError
 } from "../models/ai-review.errors";
 
 export const getInstallationRepositories = async (req: Request, res: Response, next: NextFunction) => {
@@ -37,8 +37,8 @@ export const getRepositoryIssues = async (req: Request, res: Response, next: Nex
         milestone,
         sort = "created",
         direction = "desc",
-        page = 1, 
-        perPage = 30 
+        page = 1,
+        perPage = 30
     } = req.query;
     const { userId } = req.body;
 
@@ -108,12 +108,12 @@ export const getOrCreateBountyLabel = async (req: Request, res: Response, next: 
                 repositoryId as string,
                 installationId
             );
-        } catch {}
+        } catch { }
 
         if (bountyLabel) {
             return res.status(200).json({ valid: true, bountyLabel });
         }
-        
+
         bountyLabel = await OctokitService.createBountyLabel(
             repositoryId as string,
             installationId
@@ -153,7 +153,7 @@ export const triggerManualPRAnalysis = async (req: Request, res: Response, next:
         try {
             // Get PR details from GitHub API
             const prDetails = await OctokitService.getPRDetails(installationId, repositoryName, prNumber);
-            
+
             if (!prDetails) {
                 return res.status(404).json({
                     success: false,
@@ -184,7 +184,7 @@ export const triggerManualPRAnalysis = async (req: Request, res: Response, next:
             // Fix relative issue URLs to use current repository
             prData.linkedIssues = prData.linkedIssues.map(issue => ({
                 ...issue,
-                url: issue.url.startsWith("#") 
+                url: issue.url.startsWith("#")
                     ? `https://github.com/${repositoryName}/issues/${issue.number}`
                     : issue.url
             }));
@@ -201,7 +201,7 @@ export const triggerManualPRAnalysis = async (req: Request, res: Response, next:
 
         } catch (error: any) {
             const extractionTime = Date.now() - startTime;
-            
+
             if (error.status === 404) {
                 return res.status(404).json({
                     success: false,
@@ -216,9 +216,9 @@ export const triggerManualPRAnalysis = async (req: Request, res: Response, next:
             }
 
             PRAnalysisService.logExtractionResult(
-                { installationId, repositoryName, prNumber } as PullRequestData, 
-                extractionTime, 
-                false, 
+                { installationId, repositoryName, prNumber } as PullRequestData,
+                extractionTime,
+                false,
                 error
             );
 
@@ -233,12 +233,12 @@ export const triggerManualPRAnalysis = async (req: Request, res: Response, next:
         // Validate PR data and check eligibility
         try {
             PRAnalysisService.validatePRData(prData);
-            
+
             if (!PRAnalysisService.shouldAnalyzePR(prData)) {
                 const reason = prData.isDraft ? "PR is in draft status" : "PR does not link to any issues";
-                
+
                 PRAnalysisService.logAnalysisDecision(prData, false, reason);
-                
+
                 return res.status(400).json({
                     success: false,
                     error: `PR not eligible for analysis: ${reason}`,
@@ -258,7 +258,7 @@ export const triggerManualPRAnalysis = async (req: Request, res: Response, next:
         } catch (error) {
             if (error instanceof PRNotEligibleError) {
                 PRAnalysisService.logAnalysisDecision(prData, false, error.reason);
-                
+
                 return res.status(400).json({
                     success: false,
                     error: `PR not eligible for analysis: ${error.reason}`,

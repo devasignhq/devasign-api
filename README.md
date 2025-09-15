@@ -15,41 +15,404 @@
 
 <br/>
 
-DevAsign streamlines open-source project management by automating contributor payments and intelligently handling pull requests with advanced AI review.
+**DevAsign** streamlines open-source workflows with advanced PR review, intelligent contributor feedback, and automatic bounty payouts.
 
-The features that distinguish DevAsign from similar systems are:
+## 🚀 What DevAsign Does
 
-* **Automated Payments:** Payments are global and instantaneous
-* **Smart Merge:** Prioritize and merge PRs based on project impact and contributor reliability.
-* **Custom Workflows:** Configure project-specific rules and thresholds for automated decisions.
+DevAsign addresses the critical challenges in open-source project management by providing an intelligent, automated system that:
 
-## Architecture overview
+- **Automates Contributor Rewards**: Instantly processes bounty payments through the Stellar blockchain network, ensuring contributors receive fair compensation for their work without delays or geographical restrictions
+- **Intelligently Reviews Code**: Uses an Retrieval-Augmented Generation (RAG) system to analyze pull requests, assess code quality, security implications, and project impact
+- **Streamlines Project Workflows**: Automatically prioritizes, reviews, and merges contributions based on configurable project-specific criteria
+- **Enhances Collaboration**: Provides transparent tracking of contributions, payments, and project progress for all stakeholders
 
-![Architecture overview](/public/devasign-user-flow_(MVP).png)
+## ✨ Key Features
 
-## Installation
+### 🌟 Stellar Blockchain Integration
+- **Instant Global Payments**: Leverage Stellar's fast, low-cost network to process bounty payments in seconds, not days
+- **Multi-Currency Support**: Accept and distribute payments in various cryptocurrencies and fiat-backed tokens
+- **Transparent Transactions**: All payments are recorded on the blockchain for complete transparency and auditability
+- **Low Transaction Fees**: Minimal costs ensure more funds go directly to contributors
 
-You can run the devasign api locally with the following commands:
+### 🤖 AI-Powered Smart Merge
+- **Intelligent Code Analysis**: Retrieval-Augmented Generation (RAG) system reviews code quality, security vulnerabilities, and adherence to project standards
+- **Impact Assessment**: Automatically evaluates the potential impact of changes on project stability and performance
+- **Contributor Reliability Scoring**: Builds reputation scores based on past contributions and code quality
+- **Automated Decision Making**: Smart algorithms decide when to merge, request changes, or escalate for human review
 
+### ⚙️ Custom Workflows & Configuration
+- **Project-Specific Rules**: Configure custom criteria for different types of contributions (bug fixes, features, documentation)
+- **Flexible Thresholds**: Set automated approval thresholds based on code complexity, contributor experience, and change scope
+- **Integration Hooks**: Connect with existing CI/CD pipelines, testing frameworks, and project management tools
+- **Notification Systems**: Automated alerts and updates keep all stakeholders informed of project progress
+
+
+## 🏗️ Core Components
+
+- **API Layer**: RESTful API built with Node.js and Express for handling all client interactions
+- **AI Engine**: Retrieval-Augmented Generation (RAG) system using Pinecone for vector database management and a large language model from GroqCloud for code analysis and decision-making.
+- **Stellar Integration**: Direct blockchain integration for payment processing and transaction management
+- **Database Layer**: PostgreSQL for reliable data persistence and complex queries
+- **Authentication**: Firebase-based authentication system for secure user management
+- **Real-time Updates**: WebSocket connections for live notifications and status updates
+
+## 📋 Prerequisites
+
+Before setting up DevAsign locally, ensure you have the following installed:
+
+### Required Software
+- **Node.js** (version 18.0 or higher)
+- **npm** (version 8.0 or higher) or **yarn** (version 1.22 or higher)
+- **Git** (latest version)
+
+### Development Tools (Recommended)
+- **Docker** (version 20.0 or higher) - for containerized development
+- **Docker Compose** (version 2.0 or higher)
+- **VS Code** or your preferred IDE
+- **Insomnia or Postman** or similar API testing tool
+
+### Required Accounts & Services
+- **Firebase Project** - for authentication services
+- **Stellar Account** - for blockchain integration (testnet for development)
+- **GitHub Account** - for repository integration
+- **PostgreSQL Database** - local or cloud-hosted
+- **Pinecone Account** - for the vector database
+- **GroqCloud Account** - for the AI model API access
+
+## 🛠️ Installation & Setup
+
+### Method 1: Local Development Setup
+
+#### Step 1: Clone the Repository
 ```bash
 git clone https://github.com/devasignhq/devasign-api.git
 cd devasign-api
-npm install
-npm run p-gen
-npx prisma migrate dev --name migration_name
-npm run dev
 ```
 
-*Note: Setup a PostgreSQL database, a Firebase app, and configure environment variaables after completing the fourth step.*
+#### Step 2: Install Dependencies
+```bash
+# Using npm
+npm install
 
-## Community
+# Or using yarn
+yarn install
+```
 
-[Join our Discord!](https://discord.com/channels/1335941257155055688/1335941257641328743) We are here to answer questions and help you get the most out of DevAsign.
+#### Step 3: Environment Configuration
+1. Copy the example environment file:
+```bash
+cp .env.example .env
+```
 
-## Contributing
+2. Configure your `.env` file with the following variables:
+```bash
+# Environment Configuration
+NODE_ENV=development
+PORT=8080
 
-We welcome community contributions. For guidelines, refer to our [CONTRIBUTING.md](/CONTRIBUTING.md).
+# Database Configuration
+DATABASE_URL="postgresql://user:password@localhost:5433/devasign_db"
 
-## License
+# Firebase Configuration
+FIREBASE_PROJECT_ID="project"
+FIREBASE_PRIVATE_KEY="private-key"
+FIREBASE_CLIENT_EMAIL="example@project.iam.gserviceaccount.com"
 
-Apache 2.0, see [LICENSE](https://github.com/devasignhq/devasign-api/blob/main/LICENSE).
+# GitHub Configuration
+GITHUB_ACCESS_TOKEN="access-token"
+GITHUB_APP_ID=123456
+GITHUB_APP_PRIVATE_KEY="private-key"
+GITHUB_WEBHOOK_SECRET="webhook-secret"
+
+# AI Service Configuration
+GROQ_API_KEY="groq-key"
+HUGGINGFACE_API_KEY="hf-key"
+OPENAI_API_KEY="openai-key"
+
+# Vector Database Configuration
+PINECONE_API_KEY="pinecone-key"
+PINECONE_INDEX_NAME="index"
+
+# Stellar Configuration
+STELLAR_HORIZON_URL="https://horizon-testnet.stellar.org"
+STELLAR_NETWORK="testnet"
+STELLAR_MASTER_PUBLIC_KEY="public-key"
+STELLAR_MASTER_SECRET_KEY="secret-key"
+
+# Encryption Key
+ENCRYPTION_KEY="encryption-key"
+
+# Others
+DEFAULT_SUBSCRIPTION_PACKAGE_ID="package-id"
+CONTRIBUTOR_APP_URL="http://localhost:4001"
+```
+
+#### Step 4: Database Setup
+1. Create a Docker PostgreSQL database:
+```bash
+docker run --name postgres-database -e POSTGRES_USER=user -e POSTGRES_PASSWORD=password -e POSTGRES_DB=devasign_db -p 5433:5432 -d postgres
+```
+
+2. Generate Prisma client and run migrations:
+```bash
+# Generate Prisma client
+npm run prisma-gen
+
+# Run database migrations
+npx prisma migrate dev --name initial_migration
+```
+
+#### Step 5: Start the Development Server
+```bash
+# Start the API server
+npm run dev
+
+# The server will be available at http://localhost:8080
+```
+
+### Method 2: Docker Development Setup
+
+#### Step 1: Clone and Configure
+```bash
+git clone https://github.com/devasignhq/devasign-api.git
+cd devasign-api
+cp .env.example .env
+```
+
+#### Step 2: Configure Docker Environment
+Create a `docker-compose.yml` file (if not present):
+```yaml
+version: '3.8'
+
+services:
+  app:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - NODE_ENV=development
+      - DATABASE_URL=postgresql://user:password@db:5433/devasign_db
+    depends_on:
+      - db
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: npm run dev
+
+  db:
+    image: postgres:latest
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: devasign_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
+```
+
+#### Step 3: Build and Run with Docker
+```bash
+# Build and start all services
+docker-compose up --build
+
+# Run in detached mode
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+
+# Stop services
+docker-compose down
+```
+
+#### Step 4: Run Database Migrations in Docker
+```bash
+# Execute migrations inside the container
+docker-compose exec app npx prisma migrate dev --name initial_migration
+
+# Generate Prisma client
+docker-compose exec app npm run prisma-gen
+```
+
+### Method 3: Production Docker Build
+
+#### Step 1: Build Production Image
+```bash
+# Build the production Docker image
+docker build -t devasign-api:latest .
+
+# Or build with specific tag
+docker build -t devasign-api:v1.0.0 .
+```
+
+#### Step 2: Run Production Container
+```bash
+# Run the production container
+docker run -d --name devasign-api -p 8080:8080 --env-file .env.production devasign-api:latest
+
+# Check container status
+docker ps
+
+# View container logs
+docker logs devasign-api
+```
+
+## 🚀 Running the Application
+
+### Development Mode
+```bash
+# Start with hot reload
+npm run dev
+
+# Run tests
+npm test
+
+# Run tests with coverage
+npm run test:coverage
+```
+
+### Production Mode
+```bash
+# Build the application
+npm run build
+
+# Start production server
+npm start
+```
+
+### Available Scripts
+- `npm run dev` - Start development server with hot reload
+- `npm run build` - Build the application for production
+- `npm start` - Start production server
+- `npm test` - Run test suite
+- `npm run test:watch` - Run tests in watch mode
+- `npm run prisma-gen` - Generate Prisma client
+- `npm run prisma-gen-acc` - Generate Prisma client (with Prisma Accelerate)
+
+
+## 🔧 Configuration
+
+### Firebase Setup
+1. Create a new Firebase project at [Firebase Console](https://console.firebase.google.com/)
+2. Enable Authentication and choose your preferred sign-in methods
+3. Generate a service account key:
+   - Go to Project Settings > Service Accounts
+   - Click "Generate new private key"
+   - Download the JSON file and extract the required fields for your `.env`
+
+### RAG System Setup
+1. **Pinecone Vector Database**:
+   - Create an account at [Pinecone](https://www.pinecone.io/)
+   - Create a new index for your vector embeddings
+   - Get your API key and environment details
+   - Add `PINECONE_API_KEY` and `PINECONE_ENVIRONMENT` to your `.env` file
+
+2. **GroqCloud AI Model**:
+   - Sign up at [GroqCloud](https://console.groq.com/)
+   - Generate an API key from your dashboard
+   - Add `GROQ_API_KEY` to your `.env` file
+
+### Stellar Blockchain Setup
+1. Create a Stellar account:
+   - For testnet: Use [Stellar Laboratory](https://lab.stellar.org/account/create?$=network$id=testnet&label=Testnet&horizonUrl=https:////horizon-testnet.stellar.org&rpcUrl=https:////soroban-testnet.stellar.org&passphrase=Test%20SDF%20Network%20/;%20September%202015)
+   - For mainnet: Use a Stellar wallet like [StellarTerm](https://stellarterm.com/)
+2. Fund your testnet account using the [Friendbot](https://lab.stellar.org/account/fund/)
+3. Add your public and secret keys to the `.env` file
+
+### Database Configuration
+1. Set up PostgreSQL using Prisma-Postgres (recommended):
+   - Sign up at [Prisma Data Platform](https://cloud.prisma.io/) or use local PostgreSQL
+   - Create a new database instance
+   - Configure your Prisma schema and run migrations
+2. Alternative: Install PostgreSQL locally or use a cloud service
+3. Update the `DATABASE_URL` in your `.env` file
+
+## 🧪 Testing
+
+### Running Tests
+```bash
+# Run all tests
+npm test
+
+# Run tests with coverage
+npm run test:coverage
+
+# Run tests in watch mode
+npm run test:watch
+
+# Run specific test file
+npm test -- --testPathPatterns=task.api.test
+```
+
+### Test Structure
+```
+tests/
+├── unit/                  # Unit tests
+│   ├── services/           # Service layer tests
+│   ├── controllers/        # Controller tests
+│   └── middlewares/        # Middleware tests
+├── integration/           # Integration tests
+│   ├── api/                # API endpoint tests
+│   ├── database/           # Database integration tests
+│   └── workflows/          # End-to-end workflow tests
+├── helpers/               # Test utility functions
+├── mocks/                 # Mock implementations
+└──setup/                 # Test environment setup
+```
+
+## 🚀 Deployment
+
+### Environment Setup
+1. Set up production environment variables
+2. Configure production database
+3. Set up Stellar master account credentials
+4. Configure Firebase for production
+
+### Docker Deployment
+```bash
+# Build production image
+docker build -t devasign-api:production .
+
+# Deploy with docker-compose
+docker-compose -f docker-compose.prod.yml up -d
+```
+
+### Cloud Deployment
+DevAsign can be deployed on various cloud platforms:
+- **Google Cloud**: Use Cloud Run, GKE, or App Engine
+- **AWS**: Use ECS, EKS, or Elastic Beanstalk
+- **Azure**: Use Container Instances or App Service
+
+## 🔍 Logging
+
+### Health Checks
+- `GET /health` - Basic health check
+- `GET /health/detailed` - Detailed system status
+<!-- - `GET /metrics` - Prometheus metrics endpoint -->
+
+### Logging
+DevAsign uses structured logging with different levels:
+- `ERROR` - System errors and exceptions
+- `WARN` - Warning messages
+- `INFO` - General information
+- `DEBUG` - Detailed debugging information
+
+<!-- ## 🛡️ Security -->
+
+<!-- ## 🤝 Community -->
+
+<!-- ## 🤝 Contributing -->
+
+## 📄 License
+
+DevAsign is open-source software licensed under the Apache 2.0 License. See [LICENSE](https://github.com/devasignhq/devasign-api/blob/main/LICENSE) for more details.
+
+<!-- ## 🙏 Acknowledgments -->
+
+<!-- <div align="center">
+  <p>Made with ❤️ by the DevAsign team <a href="https://www.devasign.com">Website</a></p>
+</div> -->
