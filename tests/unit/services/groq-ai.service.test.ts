@@ -474,8 +474,6 @@ describe('GroqAIService', () => {
             // Arrange
             const invalidResponse = {
                 mergeScore: 85,
-                suggestions: [],
-                summary: "Valid summary",
                 confidence: 0.9,
                 codeQuality: {
                     codeStyle: 90,
@@ -485,7 +483,7 @@ describe('GroqAIService', () => {
                     performance: 80,
                     maintainability: 85
                 }
-            } as AIReview;
+            } as unknown as AIReview;
 
             // Act
             const result = groqService.validateAIResponse(invalidResponse);
@@ -518,6 +516,7 @@ describe('GroqAIService', () => {
             expect(result).toBe(false);
         });
     });
+
     describe('handleRateLimit', () => {
         it('should retry operation on rate limit error', async () => {
             // Arrange
