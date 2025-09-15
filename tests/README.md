@@ -6,17 +6,14 @@ This directory contains the comprehensive testing infrastructure for the DevAsig
 
 ```
 tests/
-├── unit/                    # Unit tests
+├── unit/                  # Unit tests
 │   ├── services/           # Service layer tests
 │   ├── controllers/        # Controller tests
-│   ├── middlewares/        # Middleware tests
-│   ├── validators/         # Validator tests
-│   └── models/            # Model tests
-├── integration/            # Integration tests
-│   ├── api/               # API endpoint tests
-│   ├── database/          # Database integration tests
-│   └── workflows/         # End-to-end workflow tests
-├── fixtures/              # Test data and fixtures
+│   └── middlewares/        # Middleware tests
+├── integration/           # Integration tests
+│   ├── api/                # API endpoint tests
+│   ├── database/           # Database integration tests
+│   └── workflows/          # End-to-end workflow tests
 ├── helpers/               # Test utility functions
 ├── mocks/                 # Mock implementations
 ├── setup/                 # Test environment setup
