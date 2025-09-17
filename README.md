@@ -409,7 +409,7 @@ DevAsign uses structured logging with different levels:
 
 ## 📄 License
 
-DevAsign is open-source software licensed under the Apache 2.0 License. See [LICENSE](https://github.com/devasignhq/devasign-api/blob/main/LICENSE) for more details.
+This project is licensed under the Apache 2.0 License. See [LICENSE](https://github.com/devasignhq/devasign-api/blob/main/LICENSE) for more details.
 
 <!-- ## 🙏 Acknowledgments -->
 
