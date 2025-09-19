@@ -74,7 +74,7 @@ Before setting up DevAsign locally, ensure you have the following installed:
 ### Required Accounts & Services
 - **Firebase Project** - for authentication services
 - **Stellar Account** - for blockchain integration (testnet for development)
-- **GitHub Account** - for repository integration
+- **GitHub App** - for repository integration
 - **PostgreSQL Database** - local or cloud-hosted
 - **Pinecone Account** - for the vector database
 - **GroqCloud Account** - for the AI model API access
@@ -119,7 +119,6 @@ FIREBASE_PRIVATE_KEY="private-key"
 FIREBASE_CLIENT_EMAIL="example@project.iam.gserviceaccount.com"
 
 # GitHub Configuration
-GITHUB_ACCESS_TOKEN="access-token"
 GITHUB_APP_ID=123456
 GITHUB_APP_PRIVATE_KEY="private-key"
 GITHUB_WEBHOOK_SECRET="webhook-secret"
@@ -298,11 +297,16 @@ npm start
 
 ### Firebase Setup
 1. Create a new Firebase project at [Firebase Console](https://console.firebase.google.com/)
-2. Enable Authentication and choose your preferred sign-in methods
+2. Enable Authentication and choose GitHub as your preferred sign-in method
 3. Generate a service account key:
    - Go to Project Settings > Service Accounts
    - Click "Generate new private key"
    - Download the JSON file and extract the required fields for your `.env`
+
+### GitHub App Integration
+1. Go to developer settings on your GitHub account
+2. Create and configure a new GitHub App 
+3. Extract the required fields for your `.env`
 
 ### RAG System Setup
 1. **Pinecone Vector Database**:
@@ -387,20 +391,6 @@ DevAsign can be deployed on various cloud platforms:
 - **AWS**: Use ECS, EKS, or Elastic Beanstalk
 - **Azure**: Use Container Instances or App Service
 
-## 🔍 Logging
-
-### Health Checks
-- `GET /health` - Basic health check
-- `GET /health/detailed` - Detailed system status
-<!-- - `GET /metrics` - Prometheus metrics endpoint -->
-
-### Logging
-DevAsign uses structured logging with different levels:
-- `ERROR` - System errors and exceptions
-- `WARN` - Warning messages
-- `INFO` - General information
-- `DEBUG` - Detailed debugging information
-
 <!-- ## 🛡️ Security -->
 
 <!-- ## 🤝 Community -->
@@ -410,6 +400,12 @@ DevAsign uses structured logging with different levels:
 ## 📄 License
 
 This project is licensed under the Apache 2.0 License. See [LICENSE](https://github.com/devasignhq/devasign-api/blob/main/LICENSE) for more details.
+
+## 🔗 Related Projects
+
+- [DevAsign Project Maintainer App](https://github.com/devasignhq/app.devasign.com) - Frontend for project maintainer
+- [DevAsign Contributor App](https://github.com/devasignhq/contributor.devasign.com) - Frontend for contributors
+- [Soroban Task Escrow Contract](https://github.com/devasignhq/soroban-contract) - Task Escrow Management
 
 <!-- ## 🙏 Acknowledgments -->
 
