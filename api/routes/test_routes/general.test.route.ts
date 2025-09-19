@@ -65,6 +65,40 @@ router.post('/encryption',
     }) as RequestHandler
 );
 
+router.post('/decryption',
+    [
+        body('text').notEmpty().withMessage('Text to decrypt is required'),
+    ],
+    (async (req: Request, res: Response, next: NextFunction) => {
+        try {
+            const errors = validationResult(req);
+            if (!errors.isEmpty()) {
+                return res.status(400).json({ errors: errors.array() });
+            }
+
+            const { text } = req.body;
+
+            // Decrypt the text
+            const decrypted = decrypt(text);
+
+            // Eecrypt to verify
+            const ecrypted = encrypt(decrypted);
+
+            res.status(200).json({
+                message: 'Decryption test successful',
+                data: {
+                    original: text,
+                    decrypted: decrypted,
+                    ecrypted: ecrypted,
+                    verified: text === ecrypted
+                }
+            });
+        } catch (error) {
+            next(createError(500, 'Decryption test failed', { cause: error }));
+        }
+    }) as RequestHandler
+);
+
 router.get('/select',
     [
         body('select').isObject().withMessage('Text to encrypt is required'),
