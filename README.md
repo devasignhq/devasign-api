@@ -60,15 +60,6 @@ DevAsign streamlines open-source workflows with advanced PR review, intelligent 
 - **Bounty Payouts**: Pay bounties to contributors once code passes test and PR merged.
 - **Contributor Reward**: Automatically calculate and distribute rewards based on contribution quality and complexity.
 
-## Core Components
-
-- **API Layer**: RESTful API built with Node.js and Express for handling all client interactions
-- **AI Engine**: Retrieval-Augmented Generation (RAG) system using Pinecone for vector database management and a large language model from GroqCloud for code analysis and decision-making.
-- **Stellar Integration**: Direct blockchain integration for payment processing and transaction management via Stellar SDK
-- **Database Layer**: PostgreSQL for reliable data persistence and complex queries
-- **Authentication**: Firebase-based authentication system for secure user management
-- **Real-time Updates**: WebSocket connections for live notifications and status updates
-
 ## Prerequisites
 
 Before setting up DevAsign locally, ensure you have the following installed:
@@ -79,14 +70,13 @@ Before setting up DevAsign locally, ensure you have the following installed:
 - **Git** (latest version)
 
 #### Development Tools (Recommended)
-- **Docker** (version 20.0 or higher) - for containerized development
+- **Docker** (version 20.0 or higher)
 - **Docker Compose** (version 2.0 or higher)
 - **VS Code** or your preferred IDE
 - **Insomnia or Postman** or similar API testing tool
 
 #### Required Accounts & Services
 - **Firebase Project** - for authentication services
-- **Stellar SDK** - for blockchain integration (testnet for development)
 - **GitHub App** - for repository integration
 - **PostgreSQL Database** - local or cloud-hosted
 - **Pinecone Account** - for the vector database
@@ -179,7 +169,7 @@ npx prisma migrate dev --name initial_migration
 # Start the API server
 npm run dev
 
-# The server will be available at http://localhost:8080
+# The server will be available at http://localhost:5000
 ```
 
 ### Method 2: Docker Development Setup
@@ -233,12 +223,6 @@ docker-compose up --build
 
 # Run in detached mode
 docker-compose up -d
-
-# View logs
-docker-compose logs -f
-
-# Stop services
-docker-compose down
 ```
 
 #### Step 4: Run Database Migrations in Docker
@@ -250,7 +234,7 @@ docker-compose exec app npx prisma migrate dev --name initial_migration
 docker-compose exec app npm run prisma-gen
 ```
 
-### Method 3: Production Docker Build
+<!-- ### Method 3: Production Docker Build
 
 #### Step 1: Build Production Image
 ```bash
@@ -265,46 +249,7 @@ docker build -t devasign-api:v1.0.0 .
 ```bash
 # Run the production container
 docker run -d --name devasign-api -p 8080:8080 --env-file .env.production devasign-api:latest
-
-# Check container status
-docker ps
-
-# View container logs
-docker logs devasign-api
-```
-
-## Running the Application
-
-#### Development Mode
-```bash
-# Start with hot reload
-npm run dev
-
-# Run tests
-npm test
-
-# Run tests with coverage
-npm run test:coverage
-```
-
-#### Production Mode
-```bash
-# Build the application
-npm run build
-
-# Start production server
-npm start
-```
-
-#### Available Scripts
-- `npm run dev` - Start development server with hot reload
-- `npm run build` - Build the application for production
-- `npm start` - Start production server
-- `npm test` - Run test suite
-- `npm run test:watch` - Run tests in watch mode
-- `npm run prisma-gen` - Generate Prisma client
-- `npm run prisma-gen-acc` - Generate Prisma client (with Prisma Accelerate)
-
+``` -->
 
 ## Configuration
 
@@ -333,7 +278,7 @@ npm start
    - Generate an API key from your dashboard
    - Add `GROQ_API_KEY` to your `.env` file
 
-#### Stellar Blockchain Setup
+#### Stellar Master Account Setup
 1. Create a Stellar account:
    - For testnet: Use [Stellar Laboratory](https://lab.stellar.org/account/create?$=network$id=testnet&label=Testnet&horizonUrl=https:////horizon-testnet.stellar.org&rpcUrl=https:////soroban-testnet.stellar.org&passphrase=Test%20SDF%20Network%20/;%20September%202015)
    - For mainnet: Use a Stellar wallet like [StellarTerm](https://stellarterm.com/)
@@ -350,7 +295,6 @@ npm start
 
 ## Testing
 
-#### Running Tests
 ```bash
 # Run all tests
 npm test
@@ -358,57 +302,11 @@ npm test
 # Run tests with coverage
 npm run test:coverage
 
-# Run tests in watch mode
-npm run test:watch
-
 # Run specific test file
 npm test -- --testPathPatterns=task.api.test
 ```
 
-#### Test Structure
-```
-tests/
-├── unit/                  # Unit tests
-│   ├── services/           # Service layer tests
-│   ├── controllers/        # Controller tests
-│   └── middlewares/        # Middleware tests
-├── integration/           # Integration tests
-│   ├── api/                # API endpoint tests
-│   ├── database/           # Database integration tests
-│   └── workflows/          # End-to-end workflow tests
-├── helpers/               # Test utility functions
-├── mocks/                 # Mock implementations
-└──setup/                 # Test environment setup
-```
-
-## Deployment
-
-#### Environment Setup
-1. Set up production environment variables
-2. Configure production database
-3. Set up Stellar master account credentials
-4. Configure Firebase for production
-
-#### Docker Deployment
-```bash
-# Build production image
-docker build -t devasign-api:production .
-
-# Deploy with docker-compose
-docker-compose -f docker-compose.prod.yml up -d
-```
-
-#### Cloud Deployment
-DevAsign can be deployed on various cloud platforms:
-- **Google Cloud**: Use Cloud Run, GKE, or App Engine
-- **AWS**: Use ECS, EKS, or Elastic Beanstalk
-- **Azure**: Use Container Instances or App Service
-
-<!-- ## 🛡️ Security -->
-
-<!-- ## 🤝 Community -->
-
-<!-- ## 🤝 Contributing -->
+<!-- ## Contributing -->
 
 ## License
 
@@ -424,8 +322,4 @@ This project is licensed under the Apache 2.0 License. See [LICENSE](https://git
 - [DevAsign Contributor App](https://github.com/devasignhq/contributor.devasign.com) - Frontend for contributors
 - [Soroban Task Escrow Contract](https://github.com/devasignhq/soroban-contract) - Task Escrow Management
 
-<!-- ## 🙏 Acknowledgments -->
-
-<!-- <div align="center">
-  <p>Made with ❤️ by the DevAsign team <a href="https://www.devasign.com">Website</a></p>
-</div> -->
+<!-- ## Acknowledgments -->
