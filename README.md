@@ -4,7 +4,7 @@
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset="./public/devasign-white.png">
       <source media="(prefers-color-scheme: light)" srcset="./public/devasign-black.png">
-      <img alt="DevAsign Logo" src="./public/devasign-white.png" height="120" style="display: block; margin: 0 auto;">
+      <img alt="DevAsign Logo" src="./public/devasign-white.png" height="80" style="display: block; margin: 0 auto;">
     </picture>
   </a>
 <br/>
@@ -34,14 +34,21 @@
   </p>
 </div>
 
-## What is DevAsign?
-[DevAsign](https://devasign.com?ref=github) streamlines open-source workflows with advanced PR review, intelligent contributor feedback, and automatic bounty payouts upon merge.
 
-_Join our stargazers :)_ 
+<div align="center">
+  DevAsign streamlines open-source workflows with advanced PR review, intelligent contributor feedback, and automatic bounty payouts upon merge.
 
-<a href="https://github.com/devasignhq/devasign-api">
-  <img src="https://img.shields.io/github/stars/devasignhq?style=social&label=Star&maxAge=2592000" alt="GitHub stars">
-</a>
+  **Join our stargazers :)** 
+
+  <a href="https://github.com/devasignhq/maintainer-app">
+    <img src="https://img.shields.io/github/stars/devasignhq?style=social&label=Star&maxAge=2592000" alt="GitHub stars">
+  </a>
+
+  <br/>
+  </div>
+  <br/>
+  </div>
+
 
 ## Key Features
 
