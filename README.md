@@ -36,8 +36,6 @@
 
 
 <div align="center">
-  DevAsign streamlines open-source workflows with advanced PR review, intelligent contributor feedback, and automatic bounty payouts upon merge.
-
   
   **Join our stargazers :)** 
 
@@ -50,6 +48,8 @@
   <br/>
   </div>
 
+## What is DevAsign?
+DevAsign streamlines open-source workflows with advanced PR review, intelligent contributor feedback, and automatic bounty payouts upon merge.
 
 ## Key Features
 
