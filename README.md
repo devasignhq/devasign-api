@@ -10,76 +10,81 @@
 <br/>
 
 <br/>
-
 </div>
-
 <br/>
 
-**DevAsign** streamlines open-source workflows with advanced PR review, intelligent contributor feedback, and automatic bounty payouts.
+<div align="center">
+    <a href="https://github.com/devasignhq/devasign-api?tab=Apache-2.0-1-ov-file">
+  <img src="https://img.shields.io/github/license/devasignhq/devasign-api" alt="License">
+<a href="https://GitHub.com/devasignhq/devasign-api/graphs/contributors">
+  <img src="https://img.shields.io/github/contributors/devasignhq/devasign-api" alt="GitHub Contributors">
+</a>
+<a href="https://devasign.com">
+  <img src="https://img.shields.io/badge/Visit-devasign.com-orange" alt="Visit devasign.com">
+</a>
+</div>
+<div>
+  <p align="center">
+    <a href="https://x.com/devasign">
+      <img src="https://img.shields.io/badge/Follow%20on%20X-000000?style=for-the-badge&logo=x&logoColor=white" alt="Follow on X" />
+    </a>
+    <a href="https://www.linkedin.com/company/devasign">
+      <img src="https://img.shields.io/badge/Follow%20on%20LinkedIn-0077B5?style=for-the-badge&logo=linkedin&logoColor=white" alt="Follow on LinkedIn" />
+    </a>
+  </p>
+</div>
 
-## 🚀 What DevAsign Does
+## What is DevAsign?
+[DevAsign](https://devasign.com?ref=github) streamlines open-source workflows with advanced PR review, intelligent contributor feedback, and automatic bounty payouts upon merge.
 
-DevAsign addresses the critical challenges in open-source project management by providing an intelligent, automated system that:
+_Join our stargazers :)_ 
 
-- **Automates Contributor Rewards**: Instantly processes bounty payments through the Stellar blockchain network, ensuring contributors receive fair compensation for their work without delays or geographical restrictions
-- **Intelligently Reviews Code**: Uses an Retrieval-Augmented Generation (RAG) system to analyze pull requests, assess code quality, security implications, and project impact
-- **Streamlines Project Workflows**: Automatically prioritizes, reviews, and merges contributions based on configurable project-specific criteria
-- **Enhances Collaboration**: Provides transparent tracking of contributions, payments, and project progress for all stakeholders
+<a href="https://github.com/devasignhq/devasign-api">
+  <img src="https://img.shields.io/github/stars/devasignhq/devasign-api?style=social&label=Star&maxAge=2592000" alt="GitHub stars">
+</a>
 
-## ✨ Key Features
+## Key Features
 
-### 🌟 Stellar Blockchain Integration
-- **Instant Global Payments**: Leverage Stellar's fast, low-cost network to process bounty payments in seconds, not days
-- **Multi-Currency Support**: Accept and distribute payments in various cryptocurrencies and fiat-backed tokens
-- **Transparent Transactions**: All payments are recorded on the blockchain for complete transparency and auditability
-- **Low Transaction Fees**: Minimal costs ensure more funds go directly to contributors
+- **Smart Merge**: Prioritize and merge PRs based on project impact and contributor reliability.
+- **Feedback Loop**: Provide constructive, automated feedback to help contributors improve.
+- **Security Scanning**: Identify and flag potential security vulnerabilities before they enter your codebase.
+- **Custom Workflows**: Configure project-specific rules and thresholds for automated decisions.
+- **Bounty Payouts**: Pay bounties to contributors once code passes test and PR merged.
+- **Contributor Reward**: Automatically calculate and distribute rewards based on contribution quality and complexity.
 
-### 🤖 AI-Powered Smart Merge
-- **Intelligent Code Analysis**: Retrieval-Augmented Generation (RAG) system reviews code quality, security vulnerabilities, and adherence to project standards
-- **Impact Assessment**: Automatically evaluates the potential impact of changes on project stability and performance
-- **Contributor Reliability Scoring**: Builds reputation scores based on past contributions and code quality
-- **Automated Decision Making**: Smart algorithms decide when to merge, request changes, or escalate for human review
-
-### ⚙️ Custom Workflows & Configuration
-- **Project-Specific Rules**: Configure custom criteria for different types of contributions (bug fixes, features, documentation)
-- **Flexible Thresholds**: Set automated approval thresholds based on code complexity, contributor experience, and change scope
-- **Integration Hooks**: Connect with existing CI/CD pipelines, testing frameworks, and project management tools
-- **Notification Systems**: Automated alerts and updates keep all stakeholders informed of project progress
-
-
-## 🏗️ Core Components
+## Core Components
 
 - **API Layer**: RESTful API built with Node.js and Express for handling all client interactions
 - **AI Engine**: Retrieval-Augmented Generation (RAG) system using Pinecone for vector database management and a large language model from GroqCloud for code analysis and decision-making.
-- **Stellar Integration**: Direct blockchain integration for payment processing and transaction management
+- **Stellar Integration**: Direct blockchain integration for payment processing and transaction management via Stellar SDK
 - **Database Layer**: PostgreSQL for reliable data persistence and complex queries
 - **Authentication**: Firebase-based authentication system for secure user management
 - **Real-time Updates**: WebSocket connections for live notifications and status updates
 
-## 📋 Prerequisites
+## Prerequisites
 
 Before setting up DevAsign locally, ensure you have the following installed:
 
-### Required Software
+#### Required Software
 - **Node.js** (version 18.0 or higher)
 - **npm** (version 8.0 or higher) or **yarn** (version 1.22 or higher)
 - **Git** (latest version)
 
-### Development Tools (Recommended)
+#### Development Tools (Recommended)
 - **Docker** (version 20.0 or higher) - for containerized development
 - **Docker Compose** (version 2.0 or higher)
 - **VS Code** or your preferred IDE
 - **Insomnia or Postman** or similar API testing tool
 
-### Required Accounts & Services
+#### Required Accounts & Services
 - **Firebase Project** - for authentication services
-- **Stellar Account** - for blockchain integration (testnet for development)
+- **Stellar SDK** - for blockchain integration (testnet for development)
 - **GitHub App** - for repository integration
 - **PostgreSQL Database** - local or cloud-hosted
 - **Pinecone Account** - for the vector database
 - **GroqCloud Account** - for the AI model API access
 
-## 🛠️ Installation & Setup
+## Installation & Setup
 
 ### Method 1: Local Development Setup
 
@@ -260,9 +265,9 @@ docker ps
 docker logs devasign-api
 ```
 
-## 🚀 Running the Application
+## Running the Application
 
-### Development Mode
+#### Development Mode
 ```bash
 # Start with hot reload
 npm run dev
@@ -274,7 +279,7 @@ npm test
 npm run test:coverage
 ```
 
-### Production Mode
+#### Production Mode
 ```bash
 # Build the application
 npm run build
@@ -283,7 +288,7 @@ npm run build
 npm start
 ```
 
-### Available Scripts
+#### Available Scripts
 - `npm run dev` - Start development server with hot reload
 - `npm run build` - Build the application for production
 - `npm start` - Start production server
@@ -293,9 +298,9 @@ npm start
 - `npm run prisma-gen-acc` - Generate Prisma client (with Prisma Accelerate)
 
 
-## 🔧 Configuration
+## Configuration
 
-### Firebase Setup
+#### Firebase Setup
 1. Create a new Firebase project at [Firebase Console](https://console.firebase.google.com/)
 2. Enable Authentication and choose GitHub as your preferred sign-in method
 3. Generate a service account key:
@@ -303,12 +308,12 @@ npm start
    - Click "Generate new private key"
    - Download the JSON file and extract the required fields for your `.env`
 
-### GitHub App Integration
+#### GitHub App Integration
 1. Go to developer settings on your GitHub account
 2. Create and configure a new GitHub App 
 3. Extract the required fields for your `.env`
 
-### RAG System Setup
+#### RAG System Setup
 1. **Pinecone Vector Database**:
    - Create an account at [Pinecone](https://www.pinecone.io/)
    - Create a new index for your vector embeddings
@@ -320,14 +325,14 @@ npm start
    - Generate an API key from your dashboard
    - Add `GROQ_API_KEY` to your `.env` file
 
-### Stellar Blockchain Setup
+#### Stellar Blockchain Setup
 1. Create a Stellar account:
    - For testnet: Use [Stellar Laboratory](https://lab.stellar.org/account/create?$=network$id=testnet&label=Testnet&horizonUrl=https:////horizon-testnet.stellar.org&rpcUrl=https:////soroban-testnet.stellar.org&passphrase=Test%20SDF%20Network%20/;%20September%202015)
    - For mainnet: Use a Stellar wallet like [StellarTerm](https://stellarterm.com/)
 2. Fund your testnet account using the [Friendbot](https://lab.stellar.org/account/fund/)
 3. Add your public and secret keys to the `.env` file
 
-### Database Configuration
+#### Database Configuration
 1. Set up PostgreSQL using Prisma-Postgres (recommended):
    - Sign up at [Prisma Data Platform](https://cloud.prisma.io/) or use local PostgreSQL
    - Create a new database instance
@@ -335,9 +340,9 @@ npm start
 2. Alternative: Install PostgreSQL locally or use a cloud service
 3. Update the `DATABASE_URL` in your `.env` file
 
-## 🧪 Testing
+## Testing
 
-### Running Tests
+#### Running Tests
 ```bash
 # Run all tests
 npm test
@@ -352,7 +357,7 @@ npm run test:watch
 npm test -- --testPathPatterns=task.api.test
 ```
 
-### Test Structure
+#### Test Structure
 ```
 tests/
 ├── unit/                  # Unit tests
@@ -368,15 +373,15 @@ tests/
 └──setup/                 # Test environment setup
 ```
 
-## 🚀 Deployment
+## Deployment
 
-### Environment Setup
+#### Environment Setup
 1. Set up production environment variables
 2. Configure production database
 3. Set up Stellar master account credentials
 4. Configure Firebase for production
 
-### Docker Deployment
+#### Docker Deployment
 ```bash
 # Build production image
 docker build -t devasign-api:production .
@@ -385,7 +390,7 @@ docker build -t devasign-api:production .
 docker-compose -f docker-compose.prod.yml up -d
 ```
 
-### Cloud Deployment
+#### Cloud Deployment
 DevAsign can be deployed on various cloud platforms:
 - **Google Cloud**: Use Cloud Run, GKE, or App Engine
 - **AWS**: Use ECS, EKS, or Elastic Beanstalk
@@ -397,11 +402,11 @@ DevAsign can be deployed on various cloud platforms:
 
 <!-- ## 🤝 Contributing -->
 
-## 📄 License
+## License
 
 This project is licensed under the Apache 2.0 License. See [LICENSE](https://github.com/devasignhq/devasign-api/blob/main/LICENSE) for more details.
 
-## 🔗 Related Projects
+## Related Projects
 
 - [DevAsign Project Maintainer App](https://github.com/devasignhq/app.devasign.com) - Frontend for project maintainer
 - [DevAsign Contributor App](https://github.com/devasignhq/contributor.devasign.com) - Frontend for contributors
