@@ -40,7 +40,7 @@
 _Join our stargazers :)_ 
 
 <a href="https://github.com/devasignhq/devasign-api">
-  <img src="https://img.shields.io/github/stars/devasignhq/devasign-api?style=social&label=Star&maxAge=2592000" alt="GitHub stars">
+  <img src="https://img.shields.io/github/stars/devasignhq?style=social&label=Star&maxAge=2592000" alt="GitHub stars">
 </a>
 
 ## Key Features
