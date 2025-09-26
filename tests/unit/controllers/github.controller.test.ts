@@ -1,28 +1,23 @@
-import { Request, Response, NextFunction } from 'express';
+import { Request, Response, NextFunction } from "express";
 import {
     getInstallationRepositories,
     getRepositoryIssues,
     getRepositoryResources,
     getOrCreateBountyLabel,
     triggerManualPRAnalysis
-} from '../../../api/controllers/github.controller';
-import { OctokitService } from '../../../api/services/octokit.service';
-import { PRAnalysisService } from '../../../api/services/pr-analysis.service';
-import { validateUserInstallation } from '../../../api/middlewares/auth.middleware';
-import {
-    PRNotEligibleError,
-    PRAnalysisError,
-    GitHubAPIError
-} from '../../../api/models/ai-review.errors';
-import { TestDataFactory } from '../../helpers/test-data-factory';
-import { createMockRequest, createMockResponse, createMockNext } from '../../helpers/test-utils';
-import { IssueDto, IssueLabel, IssueMilestone, RepositoryDto } from '@/models/github.model';
+} from "../../../api/controllers/github.controller";
+import { OctokitService } from "../../../api/services/octokit.service";
+import { PRAnalysisService } from "../../../api/services/pr-analysis.service";
+import { validateUserInstallation } from "../../../api/middlewares/auth.middleware";
+import { PRAnalysisError, GitHubAPIError } from "../../../api/models/ai-review.errors";
+import { createMockRequest, createMockResponse, createMockNext } from "../../helpers/test-utils";
+import { RepositoryDto, IssueDto, IssueLabel, IssueMilestone } from "../../../api/models/github.model";
 
 // Mock dependencies
-jest.mock('../../../api/services/octokit.service');
-jest.mock('../../../api/services/pr-analysis.service');
-jest.mock('../../../api/middlewares/auth.middleware');
-jest.mock('../../../api/config/firebase.config', () => ({
+jest.mock("../../../api/services/octokit.service");
+jest.mock("../../../api/services/pr-analysis.service");
+jest.mock("../../../api/middlewares/auth.middleware");
+jest.mock("../../../api/config/firebase.config", () => ({
     firebaseAdmin: {
         auth: jest.fn(() => ({
             verifyIdToken: jest.fn()
@@ -30,7 +25,7 @@ jest.mock('../../../api/config/firebase.config', () => ({
     }
 }));
 
-describe('GitHubController', () => {
+describe("GitHubController", () => {
     let mockRequest: Partial<Request>;
     let mockResponse: Partial<Response>;
     let mockNext: NextFunction;
@@ -48,13 +43,13 @@ describe('GitHubController', () => {
         jest.clearAllMocks();
     });
 
-    describe('getInstallationRepositories', () => {
-        it('should return repositories for valid installation', async () => {
-            const installationId = 'test-installation-1';
-            const userId = 'test-user-1';
+    describe("getInstallationRepositories", () => {
+        it("should return repositories for valid installation", async () => {
+            const installationId = "test-installation-1";
+            const userId = "test-user-1";
             const mockRepositories = [
-                { id: 1, name: 'repo1', full_name: 'owner/repo1' } as unknown as RepositoryDto,
-                { id: 2, name: 'repo2', full_name: 'owner/repo2' } as unknown as RepositoryDto
+                { id: 1, name: "repo1", full_name: "owner/repo1" } as unknown as RepositoryDto,
+                { id: 2, name: "repo2", full_name: "owner/repo2" } as unknown as RepositoryDto
             ];
 
             mockRequest.params = { installationId };
@@ -70,8 +65,8 @@ describe('GitHubController', () => {
             expect(mockResponse.json).toHaveBeenCalledWith(mockRepositories);
         });
 
-        it('should handle validation errors', async () => {
-            const error = new Error('Access denied');
+        it("should handle validation errors", async () => {
+            const error = new Error("Access denied");
             mockValidateUserInstallation.mockRejectedValue(error);
 
             await getInstallationRepositories(mockRequest as Request, mockResponse as Response, mockNext);
@@ -80,13 +75,13 @@ describe('GitHubController', () => {
         });
     });
 
-    describe('getRepositoryIssues', () => {
-        it('should return filtered issues with pagination', async () => {
-            const installationId = 'test-installation-1';
-            const userId = 'test-user-1';
-            const repoUrl = 'https://github.com/owner/repo';
+    describe("getRepositoryIssues", () => {
+        it("should return filtered issues with pagination", async () => {
+            const installationId = "test-installation-1";
+            const userId = "test-user-1";
+            const repoUrl = "https://github.com/owner/repo";
             const mockResult = {
-                issues: [{ id: 1, title: 'Test Issue' } as unknown as IssueDto],
+                issues: [{ id: 1, title: "Test Issue" } as unknown as IssueDto],
                 hasMore: false
             };
 
@@ -94,11 +89,11 @@ describe('GitHubController', () => {
             mockRequest.body = { userId };
             mockRequest.query = {
                 repoUrl,
-                title: 'test',
-                sort: 'created',
-                direction: 'desc',
-                page: '1',
-                perPage: '30'
+                title: "test",
+                sort: "created",
+                direction: "desc",
+                page: "1",
+                perPage: "30"
             };
 
             mockValidateUserInstallation.mockResolvedValue(undefined);
@@ -110,11 +105,11 @@ describe('GitHubController', () => {
                 repoUrl,
                 installationId,
                 {
-                    title: 'test',
+                    title: "test",
                     labels: undefined,
                     milestone: undefined,
-                    sort: 'created',
-                    direction: 'desc'
+                    sort: "created",
+                    direction: "desc"
                 },
                 1,
                 30
@@ -128,14 +123,14 @@ describe('GitHubController', () => {
         });
     });
 
-    describe('getRepositoryResources', () => {
-        it('should return repository labels and milestones', async () => {
-            const installationId = 'test-installation-1';
-            const userId = 'test-user-1';
-            const repoUrl = 'https://github.com/owner/repo';
+    describe("getRepositoryResources", () => {
+        it("should return repository labels and milestones", async () => {
+            const installationId = "test-installation-1";
+            const userId = "test-user-1";
+            const repoUrl = "https://github.com/owner/repo";
             const mockResources = {
-                labels: [{ name: 'bug', color: 'ff0000' } as unknown as IssueLabel],
-                milestones: [{ title: 'v1.0', number: 1 } as unknown as IssueMilestone]
+                labels: [{ name: "bug", color: "ff0000" } as unknown as IssueLabel],
+                milestones: [{ title: "v1.0", number: 1 } as unknown as IssueMilestone]
             };
 
             mockRequest.params = { installationId };
@@ -153,12 +148,12 @@ describe('GitHubController', () => {
         });
     });
 
-    describe('getOrCreateBountyLabel', () => {
-        it('should return existing bounty label', async () => {
-            const installationId = 'test-installation-1';
-            const userId = 'test-user-1';
-            const repositoryId = 'repo-123';
-            const mockLabel = { name: 'bounty', color: '00ff00' } as unknown as IssueLabel;
+    describe("getOrCreateBountyLabel", () => {
+        it("should return existing bounty label", async () => {
+            const installationId = "test-installation-1";
+            const userId = "test-user-1";
+            const repositoryId = "repo-123";
+            const mockLabel = { name: "bounty", color: "00ff00" } as unknown as IssueLabel;
 
             mockRequest.params = { installationId };
             mockRequest.body = { userId };
@@ -174,18 +169,18 @@ describe('GitHubController', () => {
             expect(mockResponse.json).toHaveBeenCalledWith({ valid: true, bountyLabel: mockLabel });
         });
 
-        it('should create bounty label if not exists', async () => {
-            const installationId = 'test-installation-1';
-            const userId = 'test-user-1';
-            const repositoryId = 'repo-123';
-            const mockLabel = { name: 'bounty', color: '00ff00' };
+        it("should create bounty label if not exists", async () => {
+            const installationId = "test-installation-1";
+            const userId = "test-user-1";
+            const repositoryId = "repo-123";
+            const mockLabel = { id: 1, name: "bounty", description: "test-label", color: "00ff00" };
 
             mockRequest.params = { installationId };
             mockRequest.body = { userId };
             mockRequest.query = { repositoryId };
 
             mockValidateUserInstallation.mockResolvedValue(undefined);
-            mockOctokitService.getBountyLabel.mockRejectedValue(new Error('Not found'));
+            mockOctokitService.getBountyLabel.mockRejectedValue(new Error("Not found"));
             mockOctokitService.createBountyLabel.mockResolvedValue(mockLabel);
 
             await getOrCreateBountyLabel(mockRequest as Request, mockResponse as Response, mockNext);
@@ -196,10 +191,10 @@ describe('GitHubController', () => {
         });
     });
 
-    describe('triggerManualPRAnalysis', () => {
-        const installationId = 'test-installation-1';
-        const userId = 'test-user-1';
-        const repositoryName = 'owner/repo';
+    describe("triggerManualPRAnalysis", () => {
+        const installationId = "test-installation-1";
+        const userId = "test-user-1";
+        const repositoryName = "owner/repo";
         const prNumber = 123;
 
         beforeEach(() => {
@@ -207,17 +202,17 @@ describe('GitHubController', () => {
             mockRequest.body = { userId, repositoryName, prNumber };
         });
 
-        it('should successfully trigger PR analysis', async () => {
+        it("should successfully trigger PR analysis", async () => {
             const mockPRDetails = {
-                html_url: 'https://github.com/owner/repo/pull/123',
-                title: 'Test PR',
-                body: 'Fixes #456',
-                user: { login: 'testuser' },
+                html_url: "https://github.com/owner/repo/pull/123",
+                title: "Test PR",
+                body: "Fixes #456",
+                user: { login: "testuser" },
                 draft: false
             };
 
             const mockChangedFiles = [
-                { filename: 'src/test.ts', status: 'modified', additions: 10, deletions: 5, patch: 5 }
+                { filename: "src/test.ts", status: "modified", additions: 10, deletions: 5, patch: 5 }
             ];
 
             const mockPRData = {
@@ -232,8 +227,8 @@ describe('GitHubController', () => {
                     title: "fix bug",
                     body: "bug fixes",
                     number: 456,
-                    url: 'https://github.com/owner/repo/issues/456',
-                    linkType: 'fixes' as any
+                    url: "https://github.com/owner/repo/issues/456",
+                    linkType: "fixes" as any
                 }],
                 author: mockPRDetails.user.login,
                 isDraft: false
@@ -251,7 +246,7 @@ describe('GitHubController', () => {
                 totalDeletions: 200,
                 totalChanges: 700,
                 averageChangesPerFile: 46.67,
-                fileTypes: ['.ts', '.tsx', '.js', '.json', '.css'],
+                fileTypes: [".ts", ".tsx", ".js", ".json", ".css"]
             });
 
             await triggerManualPRAnalysis(mockRequest as Request, mockResponse as Response, mockNext);
@@ -263,12 +258,12 @@ describe('GitHubController', () => {
             expect(mockResponse.status).toHaveBeenCalledWith(200);
             expect(mockResponse.json).toHaveBeenCalledWith(expect.objectContaining({
                 success: true,
-                message: 'PR analysis triggered successfully',
+                message: "PR analysis triggered successfully",
                 data: expect.objectContaining(mockPRData)
             }));
         });
 
-        it('should handle PR not found error', async () => {
+        it("should handle PR not found error", async () => {
             const error = { status: 404 };
             mockValidateUserInstallation.mockResolvedValue(undefined);
             mockOctokitService.getPRDetails.mockRejectedValue(error);
@@ -282,12 +277,12 @@ describe('GitHubController', () => {
             }));
         });
 
-        it('should handle draft PR rejection', async () => {
+        it("should handle draft PR rejection", async () => {
             const mockPRDetails = {
-                html_url: 'https://github.com/owner/repo/pull/123',
-                title: 'Test PR',
-                body: 'Fixes #456',
-                user: { login: 'testuser' },
+                html_url: "https://github.com/owner/repo/pull/123",
+                title: "Test PR",
+                body: "Fixes #456",
+                user: { login: "testuser" },
                 draft: true
             };
 
@@ -303,12 +298,12 @@ describe('GitHubController', () => {
             expect(mockResponse.status).toHaveBeenCalledWith(400);
             expect(mockResponse.json).toHaveBeenCalledWith(expect.objectContaining({
                 success: false,
-                error: 'PR not eligible for analysis: PR is in draft status'
+                error: "PR not eligible for analysis: PR is in draft status"
             }));
         });
 
-        it('should handle PR analysis errors', async () => {
-            const error = new PRAnalysisError(123, 'owner/repo', 'ANALYSIS_ERROR');
+        it("should handle PR analysis errors", async () => {
+            const error = new PRAnalysisError(123, "owner/repo", "ANALYSIS_ERROR");
             mockValidateUserInstallation.mockResolvedValue(undefined);
             mockOctokitService.getPRDetails.mockRejectedValue(error);
 
@@ -322,8 +317,8 @@ describe('GitHubController', () => {
             }));
         });
 
-        it('should handle GitHub API errors', async () => {
-            const error = new GitHubAPIError('API Error', 500);
+        it("should handle GitHub API errors", async () => {
+            const error = new GitHubAPIError("API Error", 500);
             mockValidateUserInstallation.mockResolvedValue(undefined);
             mockOctokitService.getPRDetails.mockRejectedValue(error);
 

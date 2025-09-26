@@ -1,4 +1,4 @@
-import { Request, Response, NextFunction } from 'express';
+import { Request, Response, NextFunction } from "express";
 import {
     getInstallations,
     getInstallation,
@@ -8,17 +8,17 @@ import {
     addTeamMember,
     updateTeamMemberPermissions,
     removeTeamMember
-} from '../../../api/controllers/installation.controller';
-import { prisma } from '../../../api/config/database.config';
-import { stellarService } from '../../../api/services/stellar.service';
-import { OctokitService } from '../../../api/services/octokit.service';
-import { encrypt, decrypt } from '../../../api/helper';
-import { ErrorClass, NotFoundErrorClass } from '../../../api/models/general.model';
-import { TestDataFactory } from '../../helpers/test-data-factory';
-import { createMockRequest, createMockResponse, createMockNext } from '../../helpers/test-utils';
+} from "../../../api/controllers/installation.controller";
+import { prisma } from "../../../api/config/database.config";
+import { stellarService } from "../../../api/services/stellar.service";
+import { OctokitService } from "../../../api/services/octokit.service";
+import { encrypt, decrypt } from "../../../api/helper";
+import { ErrorClass, NotFoundErrorClass } from "../../../api/models/general.model";
+import { TestDataFactory } from "../../helpers/test-data-factory";
+import { createMockRequest, createMockResponse, createMockNext } from "../../helpers/test-utils";
 
 // Mock dependencies
-jest.mock('../../../api/config/database.config', () => ({
+jest.mock("../../../api/config/database.config", () => ({
     prisma: {
         installation: {
             count: jest.fn(),
@@ -26,44 +26,44 @@ jest.mock('../../../api/config/database.config', () => ({
             findUnique: jest.fn(),
             create: jest.fn(),
             update: jest.fn(),
-            delete: jest.fn(),
+            delete: jest.fn()
         },
         user: {
             findUnique: jest.fn(),
-            findFirst: jest.fn(),
+            findFirst: jest.fn()
         },
         userInstallationPermission: {
             create: jest.fn(),
             update: jest.fn(),
-            delete: jest.fn(),
-        },
-    },
+            delete: jest.fn()
+        }
+    }
 }));
 
-jest.mock('../../../api/services/stellar.service', () => ({
+jest.mock("../../../api/services/stellar.service", () => ({
     stellarService: {
         createWallet: jest.fn(),
         addTrustLineViaSponsor: jest.fn(),
-        transferAssetViaSponsor: jest.fn(),
-    },
+        transferAssetViaSponsor: jest.fn()
+    }
 }));
 
-jest.mock('../../../api/services/octokit.service', () => ({
+jest.mock("../../../api/services/octokit.service", () => ({
     OctokitService: {
-        getInstallationDetails: jest.fn(),
-    },
+        getInstallationDetails: jest.fn()
+    }
 }));
 
-jest.mock('../../../api/helper', () => ({
+jest.mock("../../../api/helper", () => ({
     encrypt: jest.fn(),
-    decrypt: jest.fn(),
+    decrypt: jest.fn()
 }));
 
 // Mock environment variables
-process.env.DEFAULT_SUBSCRIPTION_PACKAGE_ID = 'default-package-id';
-process.env.STELLAR_MASTER_SECRET_KEY = 'MOCK_MASTER_SECRET';
+process.env.DEFAULT_SUBSCRIPTION_PACKAGE_ID = "default-package-id";
+process.env.STELLAR_MASTER_SECRET_KEY = "MOCK_MASTER_SECRET";
 
-describe('InstallationController', () => {
+describe("InstallationController", () => {
     let mockRequest: Partial<Request>;
     let mockResponse: Partial<Response>;
     let mockNext: NextFunction;
@@ -84,15 +84,15 @@ describe('InstallationController', () => {
         TestDataFactory.resetCounters();
     });
 
-    describe('getInstallations', () => {
-        const testUserId = 'test-user-123';
+    describe("getInstallations", () => {
+        const testUserId = "test-user-123";
 
         beforeEach(() => {
             mockRequest.body = { userId: testUserId };
             mockRequest.query = {};
         });
 
-        it('should return paginated installations for user', async () => {
+        it("should return paginated installations for user", async () => {
             const mockInstallations = TestDataFactory.installations(3);
             const totalCount = 10;
 
@@ -122,8 +122,8 @@ describe('InstallationController', () => {
             });
         });
 
-        it('should handle pagination parameters correctly', async () => {
-            mockRequest.query = { page: '2', limit: '5' };
+        it("should handle pagination parameters correctly", async () => {
+            mockRequest.query = { page: "2", limit: "5" };
 
             const mockInstallations = TestDataFactory.installations(5);
             mockPrisma.installation.count.mockResolvedValue(12);
@@ -150,41 +150,41 @@ describe('InstallationController', () => {
             });
         });
 
-        it('should throw validation error for invalid limit', async () => {
-            mockRequest.query = { limit: '150' };
+        it("should throw validation error for invalid limit", async () => {
+            mockRequest.query = { limit: "150" };
 
             await getInstallations(mockRequest as Request, mockResponse as Response, mockNext);
 
             expect(mockNext).toHaveBeenCalledWith(expect.any(ErrorClass));
             expect(mockNext).toHaveBeenCalledWith(
                 expect.objectContaining({
-                    name: 'ValidationError',
-                    message: 'Maximum limit is 100'
+                    name: "ValidationError",
+                    message: "Maximum limit is 100"
                 })
             );
         });
 
-        it('should throw validation error for invalid page', async () => {
-            mockRequest.query = { page: '0' };
+        it("should throw validation error for invalid page", async () => {
+            mockRequest.query = { page: "0" };
 
             await getInstallations(mockRequest as Request, mockResponse as Response, mockNext);
 
             expect(mockNext).toHaveBeenCalledWith(expect.any(ErrorClass));
             expect(mockNext).toHaveBeenCalledWith(
                 expect.objectContaining({
-                    name: 'ValidationError',
-                    message: 'Page must be greater than 0'
+                    name: "ValidationError",
+                    message: "Page must be greater than 0"
                 })
             );
         });
     });   
- describe('getInstallation', () => {
+    describe("getInstallation", () => {
         const testParams = {
-            id: 'test-installation-123'
+            id: "test-installation-123"
         };
 
         const testBody = {
-            userId: 'test-user-123'
+            userId: "test-user-123"
         };
 
         beforeEach(() => {
@@ -192,20 +192,20 @@ describe('InstallationController', () => {
             mockRequest.body = testBody;
         });
 
-        it('should return installation with stats for authorized user', async () => {
+        it("should return installation with stats for authorized user", async () => {
             const mockInstallation = {
                 id: testParams.id,
-                htmlUrl: 'https://github.com/test/repo',
+                htmlUrl: "https://github.com/test/repo",
                 targetId: 123,
-                targetType: 'Repository',
+                targetType: "Repository",
                 account: TestDataFactory.installation().account,
-                walletAddress: 'GWALLET123',
+                walletAddress: "GWALLET123",
                 tasks: [
-                    { id: 'task-1', bounty: 100, status: 'OPEN', issue: {}, creator: {}, contributor: {}, createdAt: new Date() },
-                    { id: 'task-2', bounty: 200, status: 'COMPLETED', issue: {}, creator: {}, contributor: {}, createdAt: new Date() }
+                    { id: "task-1", bounty: 100, status: "OPEN", issue: {}, creator: {}, contributor: {}, createdAt: new Date() },
+                    { id: "task-2", bounty: 200, status: "COMPLETED", issue: {}, creator: {}, contributor: {}, createdAt: new Date() }
                 ],
                 users: [
-                    { userId: testBody.userId, username: 'testuser', contributionSummary: { tasksCompleted: 5, totalEarnings: 500 } }
+                    { userId: testBody.userId, username: "testuser", contributionSummary: { tasksCompleted: 5, totalEarnings: 500 } }
                 ],
                 subscriptionPackage: {},
                 createdAt: new Date(),
@@ -229,7 +229,7 @@ describe('InstallationController', () => {
             });
         });
 
-        it('should throw NotFoundError when installation does not exist', async () => {
+        it("should throw NotFoundError when installation does not exist", async () => {
             mockPrisma.installation.findUnique.mockResolvedValue(null);
 
             await getInstallation(mockRequest as Request, mockResponse as Response, mockNext);
@@ -237,15 +237,15 @@ describe('InstallationController', () => {
             expect(mockNext).toHaveBeenCalledWith(expect.any(NotFoundErrorClass));
             expect(mockNext).toHaveBeenCalledWith(
                 expect.objectContaining({
-                    message: 'Installation not found'
+                    message: "Installation not found"
                 })
             );
         });
 
-        it('should throw authorization error when user is not team member', async () => {
+        it("should throw authorization error when user is not team member", async () => {
             const mockInstallation = {
                 users: [
-                    { userId: 'other-user', username: 'otheruser' }
+                    { userId: "other-user", username: "otheruser" }
                 ]
             };
 
@@ -256,47 +256,47 @@ describe('InstallationController', () => {
             expect(mockNext).toHaveBeenCalledWith(expect.any(ErrorClass));
             expect(mockNext).toHaveBeenCalledWith(
                 expect.objectContaining({
-                    name: 'AuthorizationError',
-                    message: 'Not authorized to view this installation'
+                    name: "AuthorizationError",
+                    message: "Not authorized to view this installation"
                 })
             );
         });
     });
 
-    describe('createInstallation', () => {
+    describe("createInstallation", () => {
         const testBody = {
-            userId: 'test-user-123',
-            installationId: 'new-installation-456'
+            userId: "test-user-123",
+            installationId: "new-installation-456"
         };
 
         beforeEach(() => {
             mockRequest.body = testBody;
         });
 
-        it('should create installation with wallets successfully', async () => {
+        it("should create installation with wallets successfully", async () => {
             const mockUser = TestDataFactory.user({ userId: testBody.userId });
             const mockGithubInstallation: any = {
-                html_url: 'https://github.com/test/repo',
+                html_url: "https://github.com/test/repo",
                 target_id: 123,
-                target_type: 'Repository',
+                target_type: "Repository",
                 account: {
-                    login: 'testorg',
-                    node_id: 'MDEwOlJlcG9zaXRvcnk',
-                    avatar_url: 'https://github.com/testorg.png',
-                    html_url: 'https://github.com/testorg'
+                    login: "testorg",
+                    node_id: "MDEwOlJlcG9zaXRvcnk",
+                    avatar_url: "https://github.com/testorg.png",
+                    html_url: "https://github.com/testorg"
                 }
             };
 
             const mockInstallationWallet = {
-                publicKey: 'GINSTALL123',
-                secretKey: 'SINSTALL123',
-                txHash: 'tx-hash-1'
+                publicKey: "GINSTALL123",
+                secretKey: "SINSTALL123",
+                txHash: "tx-hash-1"
             };
 
             const mockEscrowWallet = {
-                publicKey: 'GESCROW123',
-                secretKey: 'SESCROW123',
-                txHash: 'tx-hash-2'
+                publicKey: "GESCROW123",
+                secretKey: "SESCROW123",
+                txHash: "tx-hash-2"
             };
 
             const mockCreatedInstallation = {
@@ -318,10 +318,10 @@ describe('InstallationController', () => {
                 .mockResolvedValueOnce(mockInstallationWallet)
                 .mockResolvedValueOnce(mockEscrowWallet);
             mockEncrypt
-                .mockReturnValueOnce('encrypted_installation_secret')
-                .mockReturnValueOnce('encrypted_escrow_secret');
+                .mockReturnValueOnce("encrypted_installation_secret")
+                .mockReturnValueOnce("encrypted_escrow_secret");
             mockPrisma.installation.create.mockResolvedValue(mockCreatedInstallation);
-            mockStellarService.addTrustLineViaSponsor.mockResolvedValue({ txHash: 'trustline-tx' });
+            mockStellarService.addTrustLineViaSponsor.mockResolvedValue({ txHash: "trustline-tx" });
 
             await createInstallation(mockRequest as Request, mockResponse as Response, mockNext);
 
@@ -333,13 +333,13 @@ describe('InstallationController', () => {
             expect(mockResponse.json).toHaveBeenCalledWith(mockCreatedInstallation);
         });
 
-        it('should handle trustline creation failure gracefully', async () => {
+        it("should handle trustline creation failure gracefully", async () => {
             const mockUser = TestDataFactory.user({ userId: testBody.userId });
             const mockGithubInstallation: any = {
-                html_url: 'https://github.com/test/repo',
+                html_url: "https://github.com/test/repo",
                 target_id: 123,
-                target_type: 'Repository',
-                account: { login: 'testorg', node_id: 'node', avatar_url: 'avatar', html_url: 'html' }
+                target_type: "Repository",
+                account: { login: "testorg", node_id: "node", avatar_url: "avatar", html_url: "html" }
             };
 
             const mockCreatedInstallation = TestDataFactory.installation();
@@ -347,10 +347,10 @@ describe('InstallationController', () => {
             mockPrisma.user.findUnique.mockResolvedValue(mockUser);
             mockPrisma.installation.findUnique.mockResolvedValue(null);
             mockOctokitService.getInstallationDetails.mockResolvedValue(mockGithubInstallation);
-            mockStellarService.createWallet.mockResolvedValue({ publicKey: 'GWALLET', secretKey: 'SWALLET', txHash: 'tx' });
-            mockEncrypt.mockReturnValue('encrypted_secret');
+            mockStellarService.createWallet.mockResolvedValue({ publicKey: "GWALLET", secretKey: "SWALLET", txHash: "tx" });
+            mockEncrypt.mockReturnValue("encrypted_secret");
             mockPrisma.installation.create.mockResolvedValue(mockCreatedInstallation);
-            mockStellarService.addTrustLineViaSponsor.mockRejectedValue(new Error('Trustline failed'));
+            mockStellarService.addTrustLineViaSponsor.mockRejectedValue(new Error("Trustline failed"));
 
             await createInstallation(mockRequest as Request, mockResponse as Response, mockNext);
 
@@ -358,11 +358,11 @@ describe('InstallationController', () => {
             expect(mockResponse.json).toHaveBeenCalledWith({
                 error: expect.any(Error),
                 installation: mockCreatedInstallation,
-                message: 'Failed to add USDC trustlines.'
+                message: "Failed to add USDC trustlines."
             });
         });
 
-        it('should throw error when user not found', async () => {
+        it("should throw error when user not found", async () => {
             mockPrisma.user.findUnique.mockResolvedValue(null);
 
             await createInstallation(mockRequest as Request, mockResponse as Response, mockNext);
@@ -370,12 +370,12 @@ describe('InstallationController', () => {
             expect(mockNext).toHaveBeenCalledWith(expect.any(NotFoundErrorClass));
             expect(mockNext).toHaveBeenCalledWith(
                 expect.objectContaining({
-                    message: 'User not found'
+                    message: "User not found"
                 })
             );
         });
 
-        it('should throw error when installation already exists', async () => {
+        it("should throw error when installation already exists", async () => {
             const mockUser = TestDataFactory.user();
             const existingInstallation = TestDataFactory.installation();
 
@@ -387,23 +387,23 @@ describe('InstallationController', () => {
             expect(mockNext).toHaveBeenCalledWith(expect.any(ErrorClass));
             expect(mockNext).toHaveBeenCalledWith(
                 expect.objectContaining({
-                    name: 'ValidationError',
-                    message: 'Installation already exists'
+                    name: "ValidationError",
+                    message: "Installation already exists"
                 })
             );
         });
     });
 
-    describe('updateInstallation', () => {
+    describe("updateInstallation", () => {
         const testParams = {
-            id: 'test-installation-123'
+            id: "test-installation-123"
         };
 
         const testBody = {
-            userId: 'test-user-123',
-            htmlUrl: 'https://github.com/updated/repo',
+            userId: "test-user-123",
+            htmlUrl: "https://github.com/updated/repo",
             targetId: 456,
-            account: { login: 'updatedorg' }
+            account: { login: "updatedorg" }
         };
 
         beforeEach(() => {
@@ -411,7 +411,7 @@ describe('InstallationController', () => {
             mockRequest.body = testBody;
         });
 
-        it('should update installation successfully', async () => {
+        it("should update installation successfully", async () => {
             const mockInstallation = {
                 users: [{ userId: testBody.userId }]
             };
@@ -432,7 +432,7 @@ describe('InstallationController', () => {
             expect(mockResponse.json).toHaveBeenCalledWith(mockUpdatedInstallation);
         });
 
-        it('should throw NotFoundError when installation does not exist', async () => {
+        it("should throw NotFoundError when installation does not exist", async () => {
             mockPrisma.installation.findUnique.mockResolvedValue(null);
 
             await updateInstallation(mockRequest as Request, mockResponse as Response, mockNext);
@@ -440,14 +440,14 @@ describe('InstallationController', () => {
             expect(mockNext).toHaveBeenCalledWith(expect.any(NotFoundErrorClass));
             expect(mockNext).toHaveBeenCalledWith(
                 expect.objectContaining({
-                    message: 'Installation not found'
+                    message: "Installation not found"
                 })
             );
         });
 
-        it('should throw authorization error when user is not team member', async () => {
+        it("should throw authorization error when user is not team member", async () => {
             const mockInstallation = {
-                users: [{ userId: 'other-user' }]
+                users: [{ userId: "other-user" }]
             };
 
             mockPrisma.installation.findUnique.mockResolvedValue(mockInstallation);
@@ -457,21 +457,21 @@ describe('InstallationController', () => {
             expect(mockNext).toHaveBeenCalledWith(expect.any(ErrorClass));
             expect(mockNext).toHaveBeenCalledWith(
                 expect.objectContaining({
-                    name: 'AuthorizationError',
-                    message: 'Not authorized to update this installation'
+                    name: "AuthorizationError",
+                    message: "Not authorized to update this installation"
                 })
             );
         });
     });
 
-    describe('deleteInstallation', () => {
+    describe("deleteInstallation", () => {
         const testParams = {
-            id: 'test-installation-123'
+            id: "test-installation-123"
         };
 
         const testBody = {
-            userId: 'test-user-123',
-            walletAddress: 'GUSER123'
+            userId: "test-user-123",
+            walletAddress: "GUSER123"
         };
 
         beforeEach(() => {
@@ -479,23 +479,23 @@ describe('InstallationController', () => {
             mockRequest.body = testBody;
         });
 
-        it('should delete installation and refund escrow funds', async () => {
+        it("should delete installation and refund escrow funds", async () => {
             const mockInstallation = {
-                walletSecret: 'encrypted_wallet_secret',
-                escrowSecret: 'encrypted_escrow_secret',
+                walletSecret: "encrypted_wallet_secret",
+                escrowSecret: "encrypted_escrow_secret",
                 tasks: [
-                    { status: 'COMPLETED', bounty: 100 },
-                    { status: 'COMPLETED', bounty: 200 }
+                    { status: "COMPLETED", bounty: 100 },
+                    { status: "COMPLETED", bounty: 200 }
                 ]
             };
 
             mockPrisma.installation.findUnique.mockResolvedValue(mockInstallation);
             mockDecrypt
-                .mockReturnValueOnce('decrypted_wallet_secret')
-                .mockReturnValueOnce('decrypted_escrow_secret');
+                .mockReturnValueOnce("decrypted_wallet_secret")
+                .mockReturnValueOnce("decrypted_escrow_secret");
             mockStellarService.transferAssetViaSponsor.mockResolvedValue({ 
-                txHash: 'refund-tx',
-                sponsorTxHash: 'sponsor-tx'
+                txHash: "refund-tx",
+                sponsorTxHash: "sponsor-tx"
             });
             mockPrisma.installation.delete.mockResolvedValue({});
 
@@ -506,17 +506,17 @@ describe('InstallationController', () => {
 
             expect(mockResponse.status).toHaveBeenCalledWith(200);
             expect(mockResponse.json).toHaveBeenCalledWith({
-                message: 'Installation deleted successfully',
-                refunded: '300 USDC'
+                message: "Installation deleted successfully",
+                refunded: "300 USDC"
             });
         });
 
-        it('should throw error when installation has active tasks', async () => {
+        it("should throw error when installation has active tasks", async () => {
             const mockInstallation = {
-                walletSecret: 'encrypted_secret',
-                escrowSecret: 'encrypted_secret',
+                walletSecret: "encrypted_secret",
+                escrowSecret: "encrypted_secret",
                 tasks: [
-                    { status: 'OPEN', bounty: 100 }
+                    { status: "OPEN", bounty: 100 }
                 ]
             };
 
@@ -527,13 +527,13 @@ describe('InstallationController', () => {
             expect(mockNext).toHaveBeenCalledWith(expect.any(ErrorClass));
             expect(mockNext).toHaveBeenCalledWith(
                 expect.objectContaining({
-                    name: 'InstallationError',
-                    message: 'Cannot delete installation with active or completed tasks'
+                    name: "InstallationError",
+                    message: "Cannot delete installation with active or completed tasks"
                 })
             );
         });
 
-        it('should throw NotFoundError when installation does not exist', async () => {
+        it("should throw NotFoundError when installation does not exist", async () => {
             mockPrisma.installation.findUnique.mockResolvedValue(null);
 
             await deleteInstallation(mockRequest as Request, mockResponse as Response, mockNext);
@@ -541,22 +541,22 @@ describe('InstallationController', () => {
             expect(mockNext).toHaveBeenCalledWith(expect.any(NotFoundErrorClass));
             expect(mockNext).toHaveBeenCalledWith(
                 expect.objectContaining({
-                    message: 'Installation not found'
+                    message: "Installation not found"
                 })
             );
         });
     });
 
-    describe('addTeamMember', () => {
+    describe("addTeamMember", () => {
         const testParams = {
-            id: 'test-installation-123'
+            id: "test-installation-123"
         };
 
         const testBody = {
-            userId: 'test-admin-123',
-            username: 'newmember',
-            email: 'newmember@example.com',
-            permissionCodes: ['VIEW_TASKS', 'APPLY_TASKS']
+            userId: "test-admin-123",
+            username: "newmember",
+            email: "newmember@example.com",
+            permissionCodes: ["VIEW_TASKS", "APPLY_TASKS"]
         };
 
         beforeEach(() => {
@@ -564,16 +564,16 @@ describe('InstallationController', () => {
             mockRequest.body = testBody;
         });
 
-        it('should add existing user to installation', async () => {
+        it("should add existing user to installation", async () => {
             const mockInstallation = {
                 id: testParams.id,
                 users: [
-                    { userId: 'existing-user', username: 'existinguser' }
+                    { userId: "existing-user", username: "existinguser" }
                 ]
             };
 
             const mockExistingUser = {
-                userId: 'new-user-456'
+                userId: "new-user-456"
             };
 
             mockPrisma.installation.findUnique.mockResolvedValue(mockInstallation);
@@ -586,20 +586,20 @@ describe('InstallationController', () => {
             expect(mockResponse.status).toHaveBeenCalledWith(200);
             expect(mockResponse.json).toHaveBeenCalledWith({
                 username: testBody.username,
-                status: 'added'
+                status: "added"
             });
         });
 
-        it('should return already_member status when user is already a member', async () => {
+        it("should return already_member status when user is already a member", async () => {
             const mockInstallation = {
                 id: testParams.id,
                 users: [
-                    { userId: 'existing-user', username: testBody.username }
+                    { userId: "existing-user", username: testBody.username }
                 ]
             };
 
             const mockExistingUser = {
-                userId: 'existing-user'
+                userId: "existing-user"
             };
 
             mockPrisma.installation.findUnique.mockResolvedValue(mockInstallation);
@@ -609,13 +609,13 @@ describe('InstallationController', () => {
 
             expect(mockResponse.status).toHaveBeenCalledWith(400);
             expect(mockResponse.json).toHaveBeenCalledWith({
-                message: 'User is already a member of this installation',
+                message: "User is already a member of this installation",
                 username: testBody.username,
-                status: 'already_member'
+                status: "already_member"
             });
         });
 
-        it('should return not_found status when user does not exist', async () => {
+        it("should return not_found status when user does not exist", async () => {
             const mockInstallation = {
                 id: testParams.id,
                 users: []
@@ -629,11 +629,11 @@ describe('InstallationController', () => {
             expect(mockResponse.status).toHaveBeenCalledWith(200);
             expect(mockResponse.json).toHaveBeenCalledWith({
                 username: testBody.username,
-                status: 'not_found'
+                status: "not_found"
             });
         });
 
-        it('should throw NotFoundError when installation does not exist', async () => {
+        it("should throw NotFoundError when installation does not exist", async () => {
             mockPrisma.installation.findUnique.mockResolvedValue(null);
 
             await addTeamMember(mockRequest as Request, mockResponse as Response, mockNext);
@@ -641,21 +641,21 @@ describe('InstallationController', () => {
             expect(mockNext).toHaveBeenCalledWith(expect.any(NotFoundErrorClass));
             expect(mockNext).toHaveBeenCalledWith(
                 expect.objectContaining({
-                    message: 'Installation not found'
+                    message: "Installation not found"
                 })
             );
         });
     });
 
-    describe('updateTeamMemberPermissions', () => {
+    describe("updateTeamMemberPermissions", () => {
         const testParams = {
-            id: 'test-installation-123',
-            userId: 'member-user-456'
+            id: "test-installation-123",
+            userId: "member-user-456"
         };
 
         const testBody = {
-            userId: 'admin-user-123',
-            permissionCodes: ['VIEW_TASKS', 'CREATE_TASKS', 'MANAGE_TEAM']
+            userId: "admin-user-123",
+            permissionCodes: ["VIEW_TASKS", "CREATE_TASKS", "MANAGE_TEAM"]
         };
 
         beforeEach(() => {
@@ -663,7 +663,7 @@ describe('InstallationController', () => {
             mockRequest.body = testBody;
         });
 
-        it('should update team member permissions successfully', async () => {
+        it("should update team member permissions successfully", async () => {
             const mockInstallation = {
                 users: [
                     { userId: testBody.userId },
@@ -678,13 +678,13 @@ describe('InstallationController', () => {
 
             expect(mockResponse.status).toHaveBeenCalledWith(200);
             expect(mockResponse.json).toHaveBeenCalledWith({
-                message: 'Permissions updated successfully'
+                message: "Permissions updated successfully"
             });
         });
 
-        it('should throw authorization error when user is not team member', async () => {
+        it("should throw authorization error when user is not team member", async () => {
             const mockInstallation = {
-                users: [{ userId: 'other-user' }]
+                users: [{ userId: "other-user" }]
             };
 
             mockPrisma.installation.findUnique.mockResolvedValue(mockInstallation);
@@ -694,21 +694,21 @@ describe('InstallationController', () => {
             expect(mockNext).toHaveBeenCalledWith(expect.any(ErrorClass));
             expect(mockNext).toHaveBeenCalledWith(
                 expect.objectContaining({
-                    name: 'AuthorizationError',
-                    message: 'Not authorized to update permissions for this installation'
+                    name: "AuthorizationError",
+                    message: "Not authorized to update permissions for this installation"
                 })
             );
         });
     });
 
-    describe('removeTeamMember', () => {
+    describe("removeTeamMember", () => {
         const testParams = {
-            id: 'test-installation-123',
-            userId: 'member-to-remove-456'
+            id: "test-installation-123",
+            userId: "member-to-remove-456"
         };
 
         const testBody = {
-            userId: 'admin-user-123'
+            userId: "admin-user-123"
         };
 
         beforeEach(() => {
@@ -716,7 +716,7 @@ describe('InstallationController', () => {
             mockRequest.body = testBody;
         });
 
-        it('should remove team member successfully', async () => {
+        it("should remove team member successfully", async () => {
             const mockInstallation = {
                 users: [
                     { userId: testBody.userId },
@@ -732,13 +732,13 @@ describe('InstallationController', () => {
 
             expect(mockResponse.status).toHaveBeenCalledWith(200);
             expect(mockResponse.json).toHaveBeenCalledWith({
-                message: 'Team member removed successfully'
+                message: "Team member removed successfully"
             });
         });
 
-        it('should throw authorization error when user is not team member', async () => {
+        it("should throw authorization error when user is not team member", async () => {
             const mockInstallation = {
-                users: [{ userId: 'other-user' }]
+                users: [{ userId: "other-user" }]
             };
 
             mockPrisma.installation.findUnique.mockResolvedValue(mockInstallation);
@@ -748,8 +748,8 @@ describe('InstallationController', () => {
             expect(mockNext).toHaveBeenCalledWith(expect.any(ErrorClass));
             expect(mockNext).toHaveBeenCalledWith(
                 expect.objectContaining({
-                    name: 'AuthorizationError',
-                    message: 'Not authorized to remove members from this installation'
+                    name: "AuthorizationError",
+                    message: "Not authorized to remove members from this installation"
                 })
             );
         });
