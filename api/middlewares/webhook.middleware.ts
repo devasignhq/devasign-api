@@ -1,37 +1,36 @@
-import { Request, Response, NextFunction } from 'express';
-import crypto from 'crypto';
-import { GitHubWebhookError } from '../models/ai-review.errors';
-import { OctokitService } from '../services/octokit.service';
-import { LoggingService } from '../services/logging.service';
+import { Request, Response, NextFunction } from "express";
+import crypto from "crypto";
+import { GitHubWebhookError } from "../models/ai-review.errors";
+import { OctokitService } from "../services/octokit.service";
+import { LoggingService } from "../services/logging.service";
 
 /**
  * Middleware to validate GitHub webhook signatures
- * Requirement 1.2: System SHALL have access to monitor pull requests and issues
  */
 export const validateGitHubWebhook = (req: Request, res: Response, next: NextFunction): void => {
     try {
-        const signature = req.get('X-Hub-Signature-256');
+        const signature = req.get("X-Hub-Signature-256");
         const secret = process.env.GITHUB_WEBHOOK_SECRET;
 
         if (!secret) {
-            throw new GitHubWebhookError('GitHub webhook secret not configured');
+            throw new GitHubWebhookError("GitHub webhook secret not configured");
         }
 
         if (!signature) {
-            throw new GitHubWebhookError('Missing webhook signature');
+            throw new GitHubWebhookError("Missing webhook signature");
         }
 
         // Get raw body (should be Buffer from express.raw middleware)
         const rawBody = req.body;
         if (!Buffer.isBuffer(rawBody)) {
-            throw new GitHubWebhookError('Invalid request body format');
+            throw new GitHubWebhookError("Invalid request body format");
         }
 
         // Create expected signature using raw body
         const expectedSignature = `sha256=${crypto
-            .createHmac('sha256', secret)
+            .createHmac("sha256", secret)
             .update(rawBody)
-            .digest('hex')}`;
+            .digest("hex")}`;
 
         // Compare signatures using timing-safe comparison
         const isValid = crypto.timingSafeEqual(
@@ -40,14 +39,14 @@ export const validateGitHubWebhook = (req: Request, res: Response, next: NextFun
         );
 
         if (!isValid) {
-            throw new GitHubWebhookError('Invalid webhook signature');
+            throw new GitHubWebhookError("Invalid webhook signature");
         }
 
         // Parse the JSON body for subsequent middleware
         try {
             req.body = JSON.parse(rawBody.toString());
-        } catch (parseError) {
-            throw new GitHubWebhookError('Invalid JSON payload');
+        } catch {
+            throw new GitHubWebhookError("Invalid JSON payload");
         }
 
         next();
@@ -63,8 +62,8 @@ export const validateGitHubWebhook = (req: Request, res: Response, next: NextFun
 
         res.status(500).json({
             success: false,
-            error: 'Webhook validation failed',
-            code: 'WEBHOOK_VALIDATION_ERROR'
+            error: "Webhook validation failed",
+            code: "WEBHOOK_VALIDATION_ERROR"
         });
         return;
     }
@@ -83,25 +82,25 @@ export const validateGitHubWebhook = (req: Request, res: Response, next: NextFun
  */
 export const validatePRWebhookEvent = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-        const eventType = req.get('X-GitHub-Event');
+        const eventType = req.get("X-GitHub-Event");
         const { action, pull_request, repository, installation } = req.body;
 
         // Only process pull_request events
-        if (eventType !== 'pull_request') {
+        if (eventType !== "pull_request") {
             res.status(200).json({
                 success: true,
-                message: 'Event type not processed',
+                message: "Event type not processed",
                 eventType
             });
             return;
         }
 
         // Only process specific PR actions
-        const validActions = ['opened', 'synchronize', 'ready_for_review'];
+        const validActions = ["opened", "synchronize", "ready_for_review"];
         if (!validActions.includes(action)) {
             res.status(200).json({
                 success: true,
-                message: 'PR action not processed',
+                message: "PR action not processed",
                 action
             });
             return;
@@ -120,26 +119,26 @@ export const validatePRWebhookEvent = async (req: Request, res: Response, next: 
                 // Only process PRs targeting the default branch
                 if (targetBranch !== defaultBranch) {
                     LoggingService.logInfo(
-                        'pr_webhook_skipped',
-                        'PR skipped - not targeting default branch',
+                        "pr_webhook_skipped",
+                        "PR skipped - not targeting default branch",
                         {
                             prNumber: pull_request.number,
                             repositoryName,
                             targetBranch,
                             defaultBranch,
-                            reason: 'not_default_branch'
+                            reason: "not_default_branch"
                         }
                     );
 
                     res.status(200).json({
                         success: true,
-                        message: 'PR not targeting default branch - skipping review',
+                        message: "PR not targeting default branch - skipping review",
                         data: {
                             prNumber: pull_request.number,
                             repositoryName,
                             targetBranch,
                             defaultBranch,
-                            reason: 'not_default_branch'
+                            reason: "not_default_branch"
                         }
                     });
                     return;
@@ -147,8 +146,8 @@ export const validatePRWebhookEvent = async (req: Request, res: Response, next: 
             } catch (error) {
                 // Log the error but don't fail the webhook - continue processing
                 LoggingService.logWarning(
-                    'default_branch_validation_error',
-                    'Failed to validate default branch, continuing with processing',
+                    "default_branch_validation_error",
+                    "Failed to validate default branch, continuing with processing",
                     {
                         repositoryName: repository.full_name,
                         targetBranch: pull_request.base.ref,
@@ -162,7 +161,7 @@ export const validatePRWebhookEvent = async (req: Request, res: Response, next: 
         req.body.webhookMeta = {
             eventType,
             action,
-            deliveryId: req.get('X-GitHub-Delivery'),
+            deliveryId: req.get("X-GitHub-Delivery"),
             timestamp: new Date().toISOString()
         };
 
@@ -170,8 +169,8 @@ export const validatePRWebhookEvent = async (req: Request, res: Response, next: 
     } catch (error) {
         res.status(500).json({
             success: false,
-            error: 'Event validation failed',
-            code: 'EVENT_VALIDATION_ERROR'
+            error,
+            code: "EVENT_VALIDATION_ERROR"
         });
         return;
     }

@@ -5,6 +5,7 @@ import { usdcAssetId } from "../config/stellar.config";
 import { stellarService } from "../services/stellar.service";
 import { decrypt, encrypt } from "../helper";
 import { OctokitService } from "../services/octokit.service";
+import { Prisma } from "../generated/client";
 
 export const getInstallations = async (req: Request, res: Response, next: NextFunction) => {
     const { page = 1, limit = 10} = req.query;
@@ -19,7 +20,7 @@ export const getInstallations = async (req: Request, res: Response, next: NextFu
         }
 
         // Build where clause based on filters
-        const where: any = {
+        const where: Prisma.InstallationWhereInput = {
             users: {
                 some: { userId: userId as string }
             }
@@ -51,7 +52,7 @@ export const getInstallations = async (req: Request, res: Response, next: NextFu
                 }
             },
             orderBy: {
-                createdAt: 'desc'
+                createdAt: "desc"
             },
             skip,
             take: Number(limit)
@@ -112,7 +113,7 @@ export const getInstallation = async (req: Request, res: Response, next: NextFun
                         createdAt: true
                     },
                     orderBy: {
-                        createdAt: 'desc'
+                        createdAt: "desc"
                     }
                 },
                 users: {
@@ -145,8 +146,8 @@ export const getInstallation = async (req: Request, res: Response, next: NextFun
         // Calculate installation stats
         const stats = {
             totalBounty: installation.tasks.reduce((sum, task) => sum + task.bounty, 0),
-            openTasks: installation.tasks.filter(task => task.status === 'OPEN').length,
-            completedTasks: installation.tasks.filter(task => task.status === 'COMPLETED').length,
+            openTasks: installation.tasks.filter(task => task.status === "OPEN").length,
+            completedTasks: installation.tasks.filter(task => task.status === "COMPLETED").length,
             totalTasks: installation.tasks.length,
             totalMembers: installation.users.length
         };
@@ -245,7 +246,7 @@ export const createInstallation = async (req: Request, res: Response, next: Next
             );
             
             res.status(201).json(installation);
-        } catch (error: any) {
+        } catch (error) {
             res.status(202).json({ 
                 error, 
                 installation, 
@@ -263,7 +264,7 @@ export const updateInstallation = async (req: Request, res: Response, next: Next
         userId,
         htmlUrl,
         targetId,
-        account, 
+        account 
     } = req.body;
 
     try {
@@ -289,13 +290,13 @@ export const updateInstallation = async (req: Request, res: Response, next: Next
             data: { 
                 ...(htmlUrl && { htmlUrl }),
                 ...(targetId && { targetId }),
-                ...(account && { account }),
+                ...(account && { account })
             },
             select: {
                 htmlUrl: true,
                 targetId: true,
                 account: true,
-                updatedAt: true,
+                updatedAt: true
             }
         });
         res.status(200).json(updatedInstallation);
@@ -329,12 +330,12 @@ export const deleteInstallation = async (req: Request, res: Response, next: Next
         }
 
         // Check if there are active tasks
-        if (!installation.tasks.every(task => task.status !== 'OPEN')) {
+        if (!installation.tasks.every(task => task.status !== "OPEN")) {
             throw new ErrorClass(
                 "InstallationError",
                 null,
                 "Cannot delete installation with active or completed tasks"
-            )
+            );
         }
 
         // Refund escrow funds
@@ -349,7 +350,7 @@ export const deleteInstallation = async (req: Request, res: Response, next: Next
                 walletAddress,
                 usdcAssetId,
                 usdcAssetId,
-                task.bounty.toString(),
+                task.bounty.toString()
             );
             refunded += task.bounty;
         });
@@ -369,7 +370,7 @@ export const deleteInstallation = async (req: Request, res: Response, next: Next
 
 export const addTeamMember = async (req: Request, res: Response, next: NextFunction) => {
     const { id: installationId } = req.params;
-    const { userId, username, email, permissionCodes } = req.body;
+    const { userId, username, permissionCodes } = req.body;
 
     try {
         const installation = await prisma.installation.findUnique({
@@ -381,7 +382,7 @@ export const addTeamMember = async (req: Request, res: Response, next: NextFunct
                         userId: true,
                         username: true
                     }
-                },
+                }
             }
         });
 
@@ -477,11 +478,11 @@ export const updateTeamMemberPermissions = async (req: Request, res: Response, n
             where: { 
                 userId_installationId: {
                     userId: memberId,
-                    installationId: installationId
+                    installationId
                 }
             },
             data: {
-                permissionCodes: permissionCodes,
+                permissionCodes,
                 assignedBy: userId,
                 permissions: {
                     set: (permissionCodes as string[]).map(code => ({ code }))
@@ -530,9 +531,9 @@ export const removeTeamMember = async (req: Request, res: Response, next: NextFu
             where: { 
                 userId_installationId: {
                     userId: memberId,
-                    installationId: installationId
+                    installationId
                 }
-            },
+            }
         });
 
         res.status(200).json({ message: "Team member removed successfully" });

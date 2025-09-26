@@ -13,7 +13,7 @@ import {
     FilterTasks
 } from "../models/general.model";
 import { HorizonApi } from "../models/horizonapi.model";
-import { Prisma, TaskStatus, TimelineType } from "../generated/client";
+import { $Enums, Prisma, TaskStatus, TimelineType } from "../generated/client";
 import { OctokitService } from "../services/octokit.service";
 
 type USDCBalance = HorizonApi.BalanceLineAsset<"credit_alphanum12">;
@@ -59,7 +59,7 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
         ) {
             await stellarService.addTrustLineViaSponsor(
                 decryptedInstallationWalletSecret,
-                decryptedEscrowWalletSecret,
+                decryptedEscrowWalletSecret
             );
         }
 
@@ -69,7 +69,7 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
             installation.escrowAddress!,
             usdcAssetId,
             usdcAssetId,
-            payload.bounty,
+            payload.bounty
         );
 
         const { installationId, bountyLabelId, ...others } = payload;
@@ -78,7 +78,7 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
             const weeks = Math.floor(others.timeline / 7);
             const days = others.timeline % 7;
             others.timeline = weeks + (days / 10);
-            others.timelineType = "WEEK" as any;
+            others.timelineType = "WEEK" as $Enums.TimelineType;
         }
 
         const task = await prisma.task.create({
@@ -95,15 +95,15 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
         });
 
 
-        const bountyTransactionStatus: any = {
+        const bountyTransactionStatus = {
             recorded: false,
             error: undefined
-        };
+        } as { recorded: boolean; error?: unknown };
 
         try {
             await prisma.transaction.create({
                 data: {
-                    txHash: txHash,
+                    txHash,
                     category: "BOUNTY",
                     amount: parseFloat(task.bounty.toString()),
                     task: { connect: { id: task.id } },
@@ -121,7 +121,7 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
                 installationId,
                 others.issue.id,
                 bountyLabelId,
-                OctokitService.customBountyMessage(others.bounty, task.id),
+                OctokitService.customBountyMessage(others.bounty, task.id)
             );
 
             const updatedTask = await prisma.task.update({
@@ -145,11 +145,11 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
             }
 
             res.status(201).json({ ...task, ...updatedTask });
-        } catch (error: any) {
+        } catch (error) {
             let message = "Failed to either create bounty comment or add bounty label.";
 
             if (!bountyTransactionStatus.recorded) {
-                message = "Failed to record bounty transaction and to either create bounty comment or add bounty label."
+                message = "Failed to record bounty transaction and to either create bounty comment or add bounty label.";
             }
 
             res.status(202).json({
@@ -205,7 +205,7 @@ export const createManyTasks = async (req: Request, res: Response, next: NextFun
         });
 
         if (!installation) {
-            throw new NotFoundErrorClass(`Installation not found`);
+            throw new NotFoundErrorClass("Installation not found");
         }
 
         // Ensure USDC trustline exists
@@ -215,7 +215,7 @@ export const createManyTasks = async (req: Request, res: Response, next: NextFun
         )) {
             await stellarService.addTrustLineViaSponsor(
                 decryptedUserSecret,
-                installation.escrowSecret!,
+                installation.escrowSecret!
             );
         }
 
@@ -225,7 +225,7 @@ export const createManyTasks = async (req: Request, res: Response, next: NextFun
             installation.escrowAddress!,
             usdcAssetId,
             usdcAssetId,
-            totalBounty.toString(),
+            totalBounty.toString()
         );
 
         // TODO: find a way to refund user if creating tasks fails
@@ -266,12 +266,12 @@ export const getTasks = async (req: Request, res: Response, next: NextFunction) 
         sort,
         repoUrl,
         issueTitle,
-        issueLabels,
+        issueLabels
     } = req.query;
     const filters = {
         repoUrl,
         issueTitle,
-        issueLabels,
+        issueLabels
     } as FilterTasks;
 
     try {
@@ -281,12 +281,12 @@ export const getTasks = async (req: Request, res: Response, next: NextFunction) 
             where.installationId = installationId as string;
         }
 
-        const issueFilters: any[] = [];
+        const issueFilters: Prisma.JsonFilter<"Task">[] = [];
 
         if (filters.repoUrl) {
             issueFilters.push({
                 path: ["repository", "url"],
-                string_contains: filters.repoUrl,
+                string_contains: filters.repoUrl
             });
         }
         if (filters.issueTitle) {
@@ -299,27 +299,11 @@ export const getTasks = async (req: Request, res: Response, next: NextFunction) 
         if (filters.issueLabels && filters.issueLabels.length > 0) {
             issueFilters.push({
                 path: ["labels"],
-                array_contains: filters.issueLabels.map((label) => ({ name: label })),
+                array_contains: filters.issueLabels.map((label) => ({ name: label }))
             });
         }
         if (issueFilters.length > 0) {
             where.AND = issueFilters.map(filter => ({ issue: filter }));
-        }
-
-        let selectRelations: any = {};
-
-        if (detailed) {
-            selectRelations = {
-                installation: {
-                    select: { account: true }
-                },
-                creator: {
-                    select: {
-                        userId: true,
-                        username: true
-                    }
-                },
-            }
         }
 
         // Get total count for pagination
@@ -341,10 +325,20 @@ export const getTasks = async (req: Request, res: Response, next: NextFunction) 
                 creatorId: true,
                 createdAt: true,
                 updatedAt: true,
-                ...selectRelations
+                ...(detailed ? {
+                    installation: {
+                        select: { account: true }
+                    },
+                    creator: {
+                        select: {
+                            userId: true,
+                            username: true
+                        }
+                    }
+                } : {})
             },
             orderBy: {
-                createdAt: (sort as "asc" | "desc") || 'desc'
+                createdAt: (sort as "asc" | "desc") || "desc"
             },
             skip,
             take: Number(limit)
@@ -374,14 +368,14 @@ export const getInstallationTasks = async (req: Request, res: Response, next: Ne
         sort,
         repoUrl,
         issueTitle,
-        issueLabels,
+        issueLabels
     } = req.query;
     const { installationId } = req.params;
     const { userId } = req.body;
     const filters = {
         repoUrl,
         issueTitle,
-        issueLabels,
+        issueLabels
     } as FilterTasks;
 
     try {
@@ -398,12 +392,12 @@ export const getInstallationTasks = async (req: Request, res: Response, next: Ne
             where.status = status as TaskStatus;
         }
 
-        const issueFilters: any[] = [];
+        const issueFilters: Prisma.JsonFilter<"Task">[] = [];
 
         if (filters.repoUrl) {
             issueFilters.push({
                 path: ["repository", "url"],
-                string_contains: filters.repoUrl,
+                string_contains: filters.repoUrl
             });
         }
         if (filters.issueTitle) {
@@ -416,49 +410,11 @@ export const getInstallationTasks = async (req: Request, res: Response, next: Ne
         if (filters.issueLabels && filters.issueLabels.length > 0) {
             issueFilters.push({
                 path: ["labels"],
-                array_contains: filters.issueLabels.map((label) => ({ name: label })),
+                array_contains: filters.issueLabels.map((label) => ({ name: label }))
             });
         }
         if (issueFilters.length > 0) {
             where.AND = issueFilters.map(filter => ({ issue: filter }));
-        }
-
-        let selectRelations: any = {};
-
-        if (detailed) {
-            selectRelations = {
-                installation: {
-                    select: {
-                        id: true,
-                        account: true
-                    }
-                },
-                creator: {
-                    select: {
-                        userId: true,
-                        username: true
-                    }
-                },
-                contributor: {
-                    select: {
-                        userId: true,
-                        username: true
-                    }
-                },
-                applications: {
-                    select: {
-                        userId: true,
-                        username: true
-                    }
-                },
-                taskSubmissions: {
-                    select: {
-                        id: true,
-                        pullRequest: true,
-                        attachmentUrl: true
-                    }
-                }
-            }
         }
 
         // Get total count for pagination
@@ -483,14 +439,46 @@ export const getInstallationTasks = async (req: Request, res: Response, next: Ne
                 creatorId: true,
                 createdAt: true,
                 updatedAt: true,
-                ...selectRelations,
                 _count: {
                     select: {
                         taskActivities: {
                             where: { viewed: false }
                         }
                     }
-                }
+                },
+                ...(detailed ? {
+                    installation: {
+                        select: {
+                            id: true,
+                            account: true
+                        }
+                    },
+                    creator: {
+                        select: {
+                            userId: true,
+                            username: true
+                        }
+                    },
+                    contributor: {
+                        select: {
+                            userId: true,
+                            username: true
+                        }
+                    },
+                    applications: {
+                        select: {
+                            userId: true,
+                            username: true
+                        }
+                    },
+                    taskSubmissions: {
+                        select: {
+                            id: true,
+                            pullRequest: true,
+                            attachmentUrl: true
+                        }
+                    }
+                } : {})
             },
             orderBy: {
                 createdAt: (sort as "asc" | "desc") || "desc"
@@ -525,12 +513,12 @@ export const getContributorTasks = async (req: Request, res: Response, next: Nex
         sort,
         repoUrl,
         issueTitle,
-        issueLabels,
+        issueLabels
     } = req.query;
     const filters = {
         repoUrl,
         issueTitle,
-        issueLabels,
+        issueLabels
     } as FilterTasks;
 
     try {
@@ -543,12 +531,12 @@ export const getContributorTasks = async (req: Request, res: Response, next: Nex
             where.installationId = installationId as string;
         }
 
-        const issueFilters: any[] = [];
+        const issueFilters: Prisma.JsonFilter<"Task">[] = [];
 
         if (filters.repoUrl) {
             issueFilters.push({
                 path: ["repository", "url"],
-                string_contains: filters.repoUrl,
+                string_contains: filters.repoUrl
             });
         }
         if (filters.issueTitle) {
@@ -561,33 +549,11 @@ export const getContributorTasks = async (req: Request, res: Response, next: Nex
         if (filters.issueLabels && filters.issueLabels.length > 0) {
             issueFilters.push({
                 path: ["labels"],
-                array_contains: filters.issueLabels.map((label) => ({ name: label })),
+                array_contains: filters.issueLabels.map((label) => ({ name: label }))
             });
         }
         if (issueFilters.length > 0) {
             where.AND = issueFilters.map(filter => ({ issue: filter }));
-        }
-
-        let selectRelations: any = {};
-
-        if (detailed) {
-            selectRelations = {
-                installation: {
-                    select: { account: true }
-                },
-                creator: {
-                    select: {
-                        userId: true,
-                        username: true
-                    }
-                },
-                contributor: {
-                    select: {
-                        userId: true,
-                        username: true
-                    }
-                },
-            }
         }
 
         // Get total count for pagination
@@ -612,10 +578,26 @@ export const getContributorTasks = async (req: Request, res: Response, next: Nex
                 creatorId: true,
                 createdAt: true,
                 updatedAt: true,
-                ...selectRelations
+                ...(detailed ? {
+                    installation: {
+                        select: { account: true }
+                    },
+                    creator: {
+                        select: {
+                            userId: true,
+                            username: true
+                        }
+                    },
+                    contributor: {
+                        select: {
+                            userId: true,
+                            username: true
+                        }
+                    }
+                } : {})
             },
             orderBy: {
-                createdAt: (sort as "asc" | "desc") || 'desc'
+                createdAt: (sort as "asc" | "desc") || "desc"
             },
             skip,
             take: Number(limit)
@@ -875,11 +857,16 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
 
         const bountyDifference = Number(newBounty) - task.bounty;
         const decryptedWalletSecret = decrypt(task.installation.walletSecret!);
-        const additionalFundsTransaction: any = {
+        const additionalFundsTransaction = {
             txHash: "",
             amount: "",
             recorded: false,
             error: undefined
+        } as { 
+            txHash: string; 
+            amount: string; 
+            recorded: boolean; 
+            error?: unknown 
         };
 
         if (bountyDifference > 0) {
@@ -948,7 +935,7 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
             await OctokitService.updateIssueComment(
                 task.installationId,
                 (task.issue as TaskIssue).bountyCommentId!,
-                OctokitService.customBountyMessage(newBounty as string, taskId),
+                OctokitService.customBountyMessage(newBounty as string, taskId)
             );
 
             if (!additionalFundsTransaction.recorded && additionalFundsTransaction.txHash) {
@@ -961,11 +948,11 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
             }
 
             res.status(200).json(updatedTask);
-        } catch (error: any) {
+        } catch (error) {
             let message = "Failed to update bounty amount on GitHub.";
 
             if (!additionalFundsTransaction.recorded && additionalFundsTransaction.txHash) {
-                message = "Failed to update bounty amount on GitHub and also record the additional bounty transaction."
+                message = "Failed to update bounty amount on GitHub and also record the additional bounty transaction.";
             }
 
             const transactionRecord = additionalFundsTransaction.txHash
@@ -1084,7 +1071,7 @@ export const submitTaskApplication = async (req: Request, res: Response, next: N
                 },
                 user: {
                     connect: { userId }
-                },
+                }
             }
         });
 
@@ -1153,7 +1140,7 @@ export const acceptTaskApplication = async (req: Request, res: Response, next: N
             res.status(200).json(updatedTask);
         } catch (error) {
             return res.status(202).json({
-                error: error,
+                error,
                 task: updatedTask,
                 message: "Failed to enable chat functionality for this task."
             });
@@ -1181,7 +1168,7 @@ export const requestTimelineExtension = async (req: Request, res: Response, next
                 status: true,
                 contributorId: true,
                 timeline: true,
-                timelineType: true,
+                timelineType: true
             }
         });
 
@@ -1225,7 +1212,7 @@ export const replyTimelineExtensionRequest = async (req: Request, res: Response,
         userId,
         accept,
         requestedTimeline,
-        timelineType,
+        timelineType
     } = req.body;
 
     try {
@@ -1323,7 +1310,7 @@ export const replyTimelineExtensionRequest = async (req: Request, res: Response,
                 attachments: [],
                 metadata: {
                     requestedTimeline: newTimeline,
-                    timelineType: newTimelineType as any,
+                    timelineType: newTimelineType,
                     reason: "ACCEPTED"
                 }
             });
@@ -1360,7 +1347,7 @@ export const markAsComplete = async (req: Request, res: Response, next: NextFunc
             select: {
                 status: true,
                 contributorId: true,
-                installationId: true,
+                installationId: true
             }
         });
 
@@ -1407,7 +1394,7 @@ export const markAsComplete = async (req: Request, res: Response, next: NextFunc
                     select: {
                         id: true,
                         pullRequest: true,
-                        attachmentUrl: true,
+                        attachmentUrl: true
                     }
                 }
             }
@@ -1423,7 +1410,7 @@ export const markAsComplete = async (req: Request, res: Response, next: NextFunc
                 },
                 user: {
                     connect: { userId }
-                },
+                }
             }
         });
 
@@ -1459,7 +1446,7 @@ export const validateCompletion = async (req: Request, res: Response, next: Next
                 },
                 issue: true,
                 bounty: true,
-                status: true,
+                status: true
             }
         });
 
@@ -1532,10 +1519,11 @@ export const validateCompletion = async (req: Request, res: Response, next: Next
 
             try {
                 await FirebaseService.updateTaskStatus(taskId);
+                // eslint-disable-next-line no-empty
             } catch { }
 
             res.status(200).json(updatedTask);
-        } catch (error: any) {
+        } catch (error) {
             res.status(202).json({
                 error,
                 validated: true,
@@ -1552,7 +1540,7 @@ export const getTaskActivities = async (req: Request, res: Response, next: NextF
     const {
         page = 1,
         limit = 10,
-        sort,
+        sort
     } = req.query;
     const { id: taskId } = req.params;
     const { userId } = req.body;
@@ -1603,7 +1591,7 @@ export const getTaskActivities = async (req: Request, res: Response, next: NextF
                 updatedAt: true
             },
             orderBy: {
-                createdAt: (sort as "asc" | "desc") || 'desc'
+                createdAt: (sort as "asc" | "desc") || "desc"
             },
             skip,
             take: Number(limit)
@@ -1729,14 +1717,14 @@ export const deleteTask = async (req: Request, res: Response, next: NextFunction
             await OctokitService.removeBountyLabelAndDeleteBountyComment(
                 task.installation.id,
                 (task.issue as TaskIssue).id,
-                (task.issue as TaskIssue).bountyCommentId!,
+                (task.issue as TaskIssue).bountyCommentId!
             );
 
             res.status(200).json({
                 message: "Task deleted successfully",
                 refunded: `${task.bounty} USDC`
             });
-        } catch (error: any) {
+        } catch (error) {
             res.status(202).json({
                 error,
                 data: {

@@ -3,7 +3,7 @@ import { prisma } from "../config/database.config";
 import { decrypt } from "../helper";
 import { ErrorClass, NotFoundErrorClass } from "../models/general.model";
 import { HorizonApi } from "../models/horizonapi.model";
-import { TransactionCategory } from "../generated/client";
+import { Prisma, TransactionCategory } from "../generated/client";
 import { usdcAssetId, xlmAssetId } from "../config/stellar.config";
 import { stellarService } from "../services/stellar.service";
 
@@ -32,7 +32,7 @@ export const withdrawAsset = async (req: Request, res: Response, next: NextFunct
                     id: installationId,
                     users: {
                         some: {
-                            userId: userId
+                            userId
                         }
                     }
                 },
@@ -68,7 +68,7 @@ export const withdrawAsset = async (req: Request, res: Response, next: NextFunct
 
         if (assetType === "USDC") {
             const usdcAsset = accountInfo.balances.find(
-                (asset): asset is USDCBalance => 'asset_code' in asset && asset.asset_code === "USDC"
+                (asset): asset is USDCBalance => "asset_code" in asset && asset.asset_code === "USDC"
             );
 
             if (!usdcAsset) {
@@ -84,7 +84,7 @@ export const withdrawAsset = async (req: Request, res: Response, next: NextFunct
             }
         } else {
             // XLM balance check
-            const xlmBalance = accountInfo.balances.find(balance => 'asset_type' in balance && balance.asset_type === 'native');
+            const xlmBalance = accountInfo.balances.find(balance => "asset_type" in balance && balance.asset_type === "native");
 
             if (!xlmBalance) {
                 throw new ErrorClass("ValidationError", null, "No XLM balance found");
@@ -153,7 +153,7 @@ export const swapAsset = async (req: Request, res: Response, next: NextFunction)
                     id: installationId,
                     users: {
                         some: {
-                            userId: userId
+                            userId
                         }
                     }
                 },
@@ -189,7 +189,7 @@ export const swapAsset = async (req: Request, res: Response, next: NextFunction)
 
         if (toAssetType === "USDC") {
             // Check XLM balance for swap to USDC
-            const xlmBalance = accountInfo.balances.find(balance => 'asset_type' in balance && balance.asset_type === 'native');
+            const xlmBalance = accountInfo.balances.find(balance => "asset_type" in balance && balance.asset_type === "native");
 
             if (!xlmBalance) {
                 throw new ErrorClass("ValidationError", null, "No XLM balance found");
@@ -208,7 +208,7 @@ export const swapAsset = async (req: Request, res: Response, next: NextFunction)
         } else {
             // Check USDC balance for swap to XLM
             const usdcAsset = accountInfo.balances.find(
-                (asset): asset is USDCBalance => 'asset_code' in asset && asset.asset_code === "USDC"
+                (asset): asset is USDCBalance => "asset_code" in asset && asset.asset_code === "USDC"
             );
 
             if (!usdcAsset) {
@@ -272,7 +272,7 @@ export const getWalletInfo = async (req: Request, res: Response, next: NextFunct
                     id: installationId,
                     users: {
                         some: {
-                            userId: userId
+                            userId
                         }
                     }
                 },
@@ -328,7 +328,7 @@ export const getTransactions = async (req: Request, res: Response, next: NextFun
                     id: installationId,
                     users: {
                         some: {
-                            userId: userId
+                            userId
                         }
                     }
                 },
@@ -353,14 +353,14 @@ export const getTransactions = async (req: Request, res: Response, next: NextFun
         const take = Math.min(Number(limit) || 20, 50); // max 50 per page
 
         // Build filter for categories if provided
-        const whereClause: any = installationId ? { installationId } : { userId };
+        const whereClause: Prisma.TransactionWhereInput = installationId ? { installationId } : { userId };
         if (categoryList && categoryList.length > 0) {
             whereClause.category = { in: categoryList };
         }
 
         const transactions = await prisma.transaction.findMany({
             where: whereClause,
-            orderBy: { doneAt: (sort as "asc" | "desc") || 'desc' },
+            orderBy: { doneAt: (sort as "asc" | "desc") || "desc" },
             skip: ((Number(page) - 1) * take) || 0,
             take,
             include: {
@@ -370,19 +370,19 @@ export const getTransactions = async (req: Request, res: Response, next: NextFun
                         issue: true,
                         bounty: true,
                         contributor: { select: { userId: true, username: true } }
-                    },
+                    }
                 }
             }
         });
 
         res.status(200).json({
             transactions,
-            hasMore: transactions.length === take,
+            hasMore: transactions.length === take
         });
     } catch (error) {
         next(error);
     }
-}
+};
 
 export const recordWalletTopups = async (req: Request, res: Response, next: NextFunction) => {
     const { userId } = req.body;
@@ -399,7 +399,7 @@ export const recordWalletTopups = async (req: Request, res: Response, next: Next
                     id: installationId,
                     users: {
                         some: {
-                            userId: userId
+                            userId
                         }
                     }
                 },
@@ -443,7 +443,7 @@ export const recordWalletTopups = async (req: Request, res: Response, next: Next
         const lastRecordedTopup = await prisma.transaction.findFirst({
             where: {
                 category: "TOP_UP",
-                ...(installationId ? { installationId } : { userId }),
+                ...(installationId ? { installationId } : { userId })
             },
             orderBy: {
                 doneAt: "desc"
@@ -462,7 +462,7 @@ export const recordWalletTopups = async (req: Request, res: Response, next: Next
         }
 
         // Process stellar topup transactions until we find a match with existing records
-        const newTransactions = [];
+        const newTransactions: Prisma.TransactionCreateInput[] = [];
         let processed = 0;
 
         for (const stellarTx of stellarTopups) {
@@ -471,14 +471,10 @@ export const recordWalletTopups = async (req: Request, res: Response, next: Next
                 break;
             }
 
-            let amount: number;
-            let asset: string;
-            let sourceAddress: string;
-
             const paymentTx = stellarTx as (HorizonApi.PaymentOperationResponse | HorizonApi.PathPaymentOperationResponse);
-            amount = parseFloat(paymentTx.amount);
-            asset = paymentTx.asset_type === "native" ? "XLM" : paymentTx.asset_code!;
-            sourceAddress = installationId
+            const amount = parseFloat(paymentTx.amount);
+            const asset = paymentTx.asset_type === "native" ? "XLM" : paymentTx.asset_code!;
+            const sourceAddress = installationId
                 ? escrowAddress === paymentTx.from
                     ? "Escrow Refunds"
                     : paymentTx.from
@@ -492,8 +488,8 @@ export const recordWalletTopups = async (req: Request, res: Response, next: Next
                 sourceAddress,
                 doneAt: new Date(stellarTx.created_at),
                 ...(installationId 
-                        ? { installation: { connect: { id: installationId } } }
-                        : { user: { connect: { userId } } }
+                    ? { installation: { connect: { id: installationId } } }
+                    : { user: { connect: { userId } } }
                 )
             };
 
@@ -526,4 +522,4 @@ export const recordWalletTopups = async (req: Request, res: Response, next: Next
     } catch (error) {
         next(error);
     }
-}
+};
