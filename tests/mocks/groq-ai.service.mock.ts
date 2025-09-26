@@ -4,14 +4,12 @@ import {
     AIReview,
     CodeAnalysis,
     RuleEvaluation,
-    CodeSuggestion,
-    QualityMetrics
+    CodeSuggestion
 } from "../../api/models/ai-review.model";
 
 /**
  * Mock GroqAI Service for testing
  * Provides realistic AI responses for testing AI review functionality
- * Requirements: 1.2, 3.2, 5.4
  */
 
 /**
@@ -139,7 +137,7 @@ const mockCodeSuggestions: CodeSuggestion[] = [
 export class MockGroqAIService {
     private static mockResponses = new Map<string, AIReview>();
     private static shouldSimulateError = false;
-    private static errorType: 'rate_limit' | 'context_limit' | 'api_error' | null = null;
+    private static errorType: "rate_limit" | "context_limit" | "api_error" | null = null;
 
     /**
      * Mock generateReview method
@@ -178,7 +176,7 @@ export class MockGroqAIService {
     /**
      * Mock generateSuggestions method
      */
-    static async generateSuggestions(prData: PullRequestData, context: RelevantContext): Promise<CodeSuggestion[]> {
+    static async generateSuggestions(prData: PullRequestData, _context: RelevantContext): Promise<CodeSuggestion[]> {
         await new Promise(resolve => setTimeout(resolve, 50));
 
         if (this.shouldSimulateError) {
@@ -186,7 +184,7 @@ export class MockGroqAIService {
         }
 
         return mockCodeSuggestions.filter(suggestion =>
-            prData.changedFiles.some(file => file.filename.includes(suggestion.file.split('/').pop() || ''))
+            prData.changedFiles.some(file => file.filename.includes(suggestion.file.split("/").pop() || ""))
         );
     }
 
@@ -215,7 +213,7 @@ export class MockGroqAIService {
             } catch (error: any) {
                 attempts++;
 
-                if (error.name === 'GroqRateLimitError' && attempts < maxRetries) {
+                if (error.name === "GroqRateLimitError" && attempts < maxRetries) {
                     await new Promise(resolve => setTimeout(resolve, 1000 * attempts));
                     continue;
                 }
@@ -224,7 +222,7 @@ export class MockGroqAIService {
             }
         }
 
-        throw new Error('Max retries exceeded');
+        throw new Error("Max retries exceeded");
     }
 
     /**
@@ -235,7 +233,7 @@ export class MockGroqAIService {
         this.mockResponses.set(key, response);
     }
 
-    static simulateError(errorType: 'rate_limit' | 'context_limit' | 'api_error') {
+    static simulateError(errorType: "rate_limit" | "context_limit" | "api_error") {
         this.shouldSimulateError = true;
         this.errorType = errorType;
     }
@@ -256,14 +254,14 @@ export class MockGroqAIService {
         return `${prData.repositoryName}_${prData.prNumber}`;
     }
 
-    private static generateRealisticResponse(prData: PullRequestData, context: RelevantContext): AIReview {
+    private static generateRealisticResponse(prData: PullRequestData, _context: RelevantContext): AIReview {
         // Analyze PR characteristics to determine response type
         const hasTests = prData.changedFiles.some(file =>
-            file.filename.includes('test') || file.filename.includes('spec')
+            file.filename.includes("test") || file.filename.includes("spec")
         );
 
         const hasSecurityFiles = prData.changedFiles.some(file =>
-            file.filename.includes('auth') || file.filename.includes('security')
+            file.filename.includes("auth") || file.filename.includes("security")
         );
 
         const linesChanged = prData.changedFiles.reduce((total, file) =>
@@ -282,21 +280,21 @@ export class MockGroqAIService {
 
     private static throwMockError() {
         switch (this.errorType) {
-            case 'rate_limit':
-                const rateLimitError = new Error('Rate limit exceeded');
-                rateLimitError.name = 'GroqRateLimitError';
-                throw rateLimitError;
+        case "rate_limit":
+            const rateLimitError = new Error("Rate limit exceeded");
+            rateLimitError.name = "GroqRateLimitError";
+            throw rateLimitError;
 
-            case 'context_limit':
-                const contextError = new Error('Context length exceeded');
-                contextError.name = 'GroqContextLimitError';
-                throw contextError;
+        case "context_limit":
+            const contextError = new Error("Context length exceeded");
+            contextError.name = "GroqContextLimitError";
+            throw contextError;
 
-            case 'api_error':
-            default:
-                const apiError = new Error('Groq API error');
-                apiError.name = 'GroqServiceError';
-                throw apiError;
+        case "api_error":
+        default:
+            const apiError = new Error("Groq API error");
+            apiError.name = "GroqServiceError";
+            throw apiError;
         }
     }
 }
@@ -354,7 +352,7 @@ export const GroqAITestHelpers = {
     /**
      * Creates mock relevant context for testing
      */
-    createMockContext: (overrides: Partial<RelevantContext> = {}): RelevantContext => ({
+    createMockContext: (_overrides: Partial<RelevantContext> = {}): RelevantContext => ({
         similarPRs: [
             {
                 prNumber: 123,
@@ -363,7 +361,7 @@ export const GroqAITestHelpers = {
                 linkedIssues: ["issue-123"],
                 outcome: "merged",
                 reviewComments: ["LGTM", "Needs more testing"],
-                similarity: 0.8,
+                similarity: 0.8
             },
             {
                 prNumber: 456,
@@ -372,8 +370,8 @@ export const GroqAITestHelpers = {
                 linkedIssues: ["issue-456"],
                 outcome: "closed",
                 reviewComments: ["Needs more info"],
-                similarity: 0.6,
-            },
+                similarity: 0.6
+            }
         ],
         relevantFiles: [
             {
@@ -381,44 +379,44 @@ export const GroqAITestHelpers = {
                 content: "console.log('login feature');",
                 language: "typescript",
                 similarity: 0.9,
-                lastModified: "2022-01-01T12:00:00.000Z",
+                lastModified: "2022-01-01T12:00:00.000Z"
             },
             {
                 filename: "dashboard.js",
                 content: "console.log('dashboard feature');",
                 language: "javascript",
                 similarity: 0.7,
-                lastModified: "2022-01-02T12:00:00.000Z",
-            },
+                lastModified: "2022-01-02T12:00:00.000Z"
+            }
         ],
         codePatterns: [
             {
                 pattern: "console.log",
                 description: "Logging statement",
                 examples: ["console.log('hello world');"],
-                frequency: 10,
+                frequency: 10
             },
             {
                 pattern: "try-catch",
                 description: "Error handling block",
                 examples: ["try { ... } catch (error) { ... }"],
-                frequency: 5,
-            },
+                frequency: 5
+            }
         ],
         projectStandards: [
             {
                 category: "Best Practices",
                 rule: "Use semicolons",
                 description: "Consistently use semicolons to end statements",
-                examples: ["const x = 5;"],
+                examples: ["const x = 5;"]
             },
             {
                 category: "Security",
                 rule: "Validate user input",
                 description: "Always validate user input to prevent security vulnerabilities",
-                examples: ["if (userInput === 'expectedValue') { ... }"],
-            },
-        ],
+                examples: ["if (userInput === 'expectedValue') { ... }"]
+            }
+        ]
     }),
 
     /**

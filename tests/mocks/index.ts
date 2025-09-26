@@ -1,65 +1,63 @@
 /**
- * Mock Services Index
  * Central export point for all mock implementations
- * Requirements: 1.2, 3.2, 5.4
  */
 
 // Firebase Service Mocks
 import {
     createFirebaseServiceMock,
     FirebaseTestHelpers
-} from './firebase.service.mock';
+} from "./firebase.service.mock";
 export {
     MockFirebaseService,
     createFirebaseServiceMock,
     mockFirestoreDB,
     mockTimestamp,
     FirebaseTestHelpers
-} from './firebase.service.mock';
+} from "./firebase.service.mock";
 
 // GroqAI Service Mocks
 import {
     MockGroqAIService,
     createGroqAIServiceMock,
     GroqAITestHelpers
-} from './groq-ai.service.mock';
+} from "./groq-ai.service.mock";
 export {
     MockGroqAIService,
     createGroqAIServiceMock,
     GroqAITestHelpers
-} from './groq-ai.service.mock';
+} from "./groq-ai.service.mock";
 
 // Stellar Service Mocks
 import {
     MockStellarService,
     createStellarServiceMock,
     StellarTestHelpers
-} from './stellar.service.mock';
+} from "./stellar.service.mock";
 export {
     MockStellarService,
     createStellarServiceMock,
     mockAssetIds,
     StellarTestHelpers
-} from './stellar.service.mock';
+} from "./stellar.service.mock";
 
 // Octokit Service Mocks
 import {
     MockOctokitService,
     createOctokitServiceMock,
     OctokitTestHelpers
-} from './octokit.service.mock';
+} from "./octokit.service.mock";
 export {
     MockOctokitService,
     createOctokitServiceMock,
     OctokitTestHelpers
-} from './octokit.service.mock';
+} from "./octokit.service.mock";
 
 // MSW (Mock Service Worker) Setup
 import {
     MSWTestHelpers,
     setupMSW,
     MSWPresets
-} from './msw';
+} from "./msw";
 export {
     handlers,
     server,
@@ -68,7 +66,7 @@ export {
     MockScenarios,
     setupMSW,
     MSWPresets
-} from './msw';
+} from "./msw";
 
 /**
  * Comprehensive mock setup for all services
@@ -136,9 +134,9 @@ export const TestScenarios = {
      */
     errorScenario: () => {
         MSWPresets.errorTesting();
-        MockGroqAIService.simulateError('api_error');
-        MockStellarService.simulateError('network');
-        MockOctokitService.simulateError('network');
+        MockGroqAIService.simulateError("api_error");
+        MockStellarService.simulateError("network");
+        MockOctokitService.simulateError("network");
     },
 
     /**
@@ -146,9 +144,9 @@ export const TestScenarios = {
      */
     rateLimitScenario: () => {
         MSWPresets.rateLimitTesting();
-        MockGroqAIService.simulateError('rate_limit');
-        MockStellarService.simulateError('rate_limit');
-        MockOctokitService.simulateError('rate_limit');
+        MockGroqAIService.simulateError("rate_limit");
+        MockStellarService.simulateError("rate_limit");
+        MockOctokitService.simulateError("rate_limit");
     },
 
     /**
@@ -203,8 +201,8 @@ export const TestScenarios = {
         MSWPresets.integration();
 
         // Add delays to simulate slow responses
-        MSWTestHelpers.mockResponse('https://api.github.com/*', {}, { delay: 2000 });
-        MSWTestHelpers.mockResponse('https://api.groq.com/*', {}, { delay: 5000 });
+        MSWTestHelpers.mockResponse("https://api.github.com/*", {}, { delay: 2000 });
+        MSWTestHelpers.mockResponse("https://api.groq.com/*", {}, { delay: 5000 });
     }
 };
 

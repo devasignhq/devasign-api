@@ -1,10 +1,9 @@
 /**
  * MSW Setup for Jest Testing Environment
  * Configures Mock Service Worker for HTTP request mocking in tests
- * Requirements: 3.2, 4.4
  */
 
-import { setupMSW } from '../mocks/msw';
+import { setupMSW } from "../mocks/msw";
 
 /**
  * Global MSW setup for all tests
@@ -29,9 +28,9 @@ beforeAll(() => {
     // Suppress MSW warnings in test output
     console.error = (...args: any[]) => {
         if (
-            typeof args[0] === 'string' &&
-            (args[0].includes('[MSW]') ||
-                args[0].includes('Warning: ReactDOM.render'))
+            typeof args[0] === "string" &&
+            (args[0].includes("[MSW]") ||
+                args[0].includes("Warning: ReactDOM.render"))
         ) {
             return;
         }
@@ -40,8 +39,8 @@ beforeAll(() => {
 
     console.warn = (...args: any[]) => {
         if (
-            typeof args[0] === 'string' &&
-            args[0].includes('[MSW]')
+            typeof args[0] === "string" &&
+            args[0].includes("[MSW]")
         ) {
             return;
         }
@@ -58,32 +57,25 @@ afterAll(() => {
 /**
  * Global error handling for unhandled promise rejections
  */
-process.on('unhandledRejection', (reason, promise) => {
-    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+process.on("unhandledRejection", (reason, promise) => {
+    console.error("Unhandled Rejection at:", promise, "reason:", reason);
 });
 
 /**
  * Environment variables for testing
  */
-process.env.NODE_ENV = 'test';
-process.env.GROQ_API_KEY = 'test_groq_api_key';
-process.env.STELLAR_MASTER_SECRET_KEY = 'test_stellar_secret';
-process.env.STELLAR_MASTER_PUBLIC_KEY = 'test_stellar_public';
-process.env.GITHUB_APP_ID = 'test_github_app_id';
-process.env.GITHUB_APP_PRIVATE_KEY = 'test_github_private_key';
-
-/**
- * Mock global fetch if not available (for older Node versions)
- */
-if (!global.fetch) {
-    const { fetch, Headers, Request, Response } = require('undici');
-    Object.assign(global, { fetch, Headers, Request, Response });
-}
+process.env.NODE_ENV = "test";
+process.env.GROQ_API_KEY = "test_groq_api_key";
+process.env.STELLAR_MASTER_SECRET_KEY = "test_stellar_secret";
+process.env.STELLAR_MASTER_PUBLIC_KEY = "test_stellar_public";
+process.env.GITHUB_APP_ID = "test_github_app_id";
+process.env.GITHUB_APP_PRIVATE_KEY = "test_github_private_key";
 
 /**
  * Global test utilities
  */
 declare global {
+    // eslint-disable-next-line @typescript-eslint/no-namespace
     namespace jest {
         interface Matchers<R> {
             toBeValidAIReview(): R;
@@ -102,14 +94,14 @@ expect.extend({
      */
     toBeValidAIReview(received: any) {
         const pass =
-            typeof received === 'object' &&
-            typeof received.mergeScore === 'number' &&
+            typeof received === "object" &&
+            typeof received.mergeScore === "number" &&
             received.mergeScore >= 0 && received.mergeScore <= 100 &&
-            typeof received.summary === 'string' &&
-            typeof received.confidence === 'number' &&
+            typeof received.summary === "string" &&
+            typeof received.confidence === "number" &&
             received.confidence >= 0 && received.confidence <= 1 &&
             Array.isArray(received.suggestions) &&
-            typeof received.codeQuality === 'object';
+            typeof received.codeQuality === "object";
 
         return {
             message: () =>
@@ -125,8 +117,8 @@ expect.extend({
      */
     toHaveValidStellarTransaction(received: any) {
         const pass =
-            typeof received === 'object' &&
-            typeof received.txHash === 'string' &&
+            typeof received === "object" &&
+            typeof received.txHash === "string" &&
             received.txHash.length > 0;
 
         return {
@@ -143,7 +135,7 @@ expect.extend({
      */
     toMatchGitHubAPIResponse(received: any) {
         const pass =
-            typeof received === 'object' &&
+            typeof received === "object" &&
             received !== null;
 
         return {

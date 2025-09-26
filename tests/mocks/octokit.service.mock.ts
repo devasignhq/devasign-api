@@ -9,7 +9,6 @@ import { IssueFilters } from "../../api/models/general.model";
 /**
  * Mock Octokit Service for testing
  * Provides comprehensive mocks for GitHub API operations
- * Requirements: 1.2, 3.2, 5.4
  */
 
 /**
@@ -31,13 +30,13 @@ interface MockPullRequest {
         sha: string;
         ref: string;
     };
-    state: 'open' | 'closed';
+    state: "open" | "closed";
     merged: boolean;
 }
 
 interface MockPullRequestFile {
     filename: string;
-    status: 'added' | 'modified' | 'removed';
+    status: "added" | "modified" | "removed";
     additions: number;
     deletions: number;
     changes: number;
@@ -175,14 +174,14 @@ export class MockOctokitService {
     };
 
     private static shouldSimulateError = false;
-    private static errorType: 'network' | 'not_found' | 'unauthorized' | 'rate_limit' | null = null;
+    private static errorType: "network" | "not_found" | "unauthorized" | "rate_limit" | null = null;
 
     /**
      * Mock getOctokit method
      */
-    static async getOctokit(installationId: string) {
-        if (this.shouldSimulateError && this.errorType === 'unauthorized') {
-            throw new Error('Installation not found or unauthorized');
+    static async getOctokit() {
+        if (this.shouldSimulateError && this.errorType === "unauthorized") {
+            throw new Error("Installation not found or unauthorized");
         }
 
         return {
@@ -206,19 +205,19 @@ export class MockOctokitService {
      * Mock getOwnerAndRepo method
      */
     static getOwnerAndRepo(repoUrl: string): [string, string] {
-        if (repoUrl.includes('/')) {
-            const parts = repoUrl.split('/');
+        if (repoUrl.includes("/")) {
+            const parts = repoUrl.split("/");
             if (parts.length >= 2) {
                 return [parts[parts.length - 2], parts[parts.length - 1]];
             }
         }
-        return ['test-org', 'test-repo'];
+        return ["test-org", "test-repo"];
     }
 
     /**
      * Mock getInstallationRepositories method
      */
-    static async getInstallationRepositories(installationId: string) {
+    static async getInstallationRepositories(_installationId: string) {
         await this.simulateNetworkDelay();
 
         if (this.shouldSimulateError) {
@@ -253,20 +252,20 @@ export class MockOctokitService {
     /**
      * Mock checkGithubUser method
      */
-    static async checkGithubUser(username: string, installationId: string): Promise<boolean> {
+    static async checkGithubUser(username: string, _installationId: string): Promise<boolean> {
         await this.simulateNetworkDelay();
 
-        if (this.shouldSimulateError && this.errorType === 'not_found') {
+        if (this.shouldSimulateError && this.errorType === "not_found") {
             return false;
         }
 
-        return username !== 'nonexistent-user';
+        return username !== "nonexistent-user";
     }
 
     /**
      * Mock getRepoDetails method
      */
-    static async getRepoDetails(repoUrl: string, installationId: string) {
+    static async getRepoDetails(_repoUrl: string, _installationId: string) {
         await this.simulateNetworkDelay();
 
         if (this.shouldSimulateError) {
@@ -332,7 +331,7 @@ export class MockOctokitService {
 
         const issue = this.mockData.issues.find(i => i.number === issueNumber);
         if (!issue) {
-            throw new Error('Issue not found');
+            throw new Error("Issue not found");
         }
 
         return issue;
@@ -342,13 +341,13 @@ export class MockOctokitService {
      * Mock updateRepoIssue method
      */
     static async updateRepoIssue(
-        installationId: string,
-        repoUrl: string,
-        issueId: string | number,
-        body?: string,
-        labels?: string[],
-        assignees?: string[],
-        state?: "open" | "closed"
+        _installationId: string,
+        _repoUrl: string,
+        _issueId: string | number,
+        _body?: string,
+        _labels?: string[],
+        _assignees?: string[],
+        _state?: "open" | "closed"
     ) {
         await this.simulateNetworkDelay();
 
@@ -362,7 +361,7 @@ export class MockOctokitService {
     /**
      * Mock getRepoLabelsAndMilestones method
      */
-    static async getRepoLabelsAndMilestones(repoUrl: string, installationId: string) {
+    static async getRepoLabelsAndMilestones(_repoUrl: string, _installationId: string) {
         await this.simulateNetworkDelay();
 
         if (this.shouldSimulateError) {
@@ -378,7 +377,7 @@ export class MockOctokitService {
     /**
      * Mock createBountyLabel method
      */
-    static async createBountyLabel(repositoryId: string, installationId: string) {
+    static async createBountyLabel(_repositoryId: string, _installationId: string) {
         await this.simulateNetworkDelay();
 
         if (this.shouldSimulateError) {
@@ -392,7 +391,7 @@ export class MockOctokitService {
     /**
      * Mock getBountyLabel method
      */
-    static async getBountyLabel(repositoryId: string, installationId: string) {
+    static async getBountyLabel(_repositoryId: string, _installationId: string) {
         await this.simulateNetworkDelay();
 
         if (this.shouldSimulateError) {
@@ -457,9 +456,9 @@ export class MockOctokitService {
      * Mock removeBountyLabelAndDeleteBountyComment method
      */
     static async removeBountyLabelAndDeleteBountyComment(
-        installationId: string,
-        issueId: string,
-        commentId: string
+        _installationId: string,
+        _issueId: string,
+        _commentId: string
     ) {
         await this.simulateNetworkDelay();
 
@@ -532,7 +531,7 @@ export class MockOctokitService {
         installationId: string,
         repoUrl: string,
         filePath: string,
-        ref?: string
+        _ref?: string
     ): Promise<string> {
         await this.simulateNetworkDelay();
 
@@ -547,7 +546,7 @@ export class MockOctokitService {
     /**
      * Test utility methods
      */
-    static simulateError(errorType: 'network' | 'not_found' | 'unauthorized' | 'rate_limit') {
+    static simulateError(errorType: "network" | "not_found" | "unauthorized" | "rate_limit") {
         this.shouldSimulateError = true;
         this.errorType = errorType;
     }
@@ -591,26 +590,26 @@ export class MockOctokitService {
 
     private static throwMockError() {
         switch (this.errorType) {
-            case 'network':
-                throw new Error('Network request failed');
+        case "network":
+            throw new Error("Network request failed");
 
-            case 'not_found':
-                const notFoundError = new Error('Not found');
-                (notFoundError as any).status = 404;
-                throw notFoundError;
+        case "not_found":
+            const notFoundError = new Error("Not found");
+            (notFoundError as any).status = 404;
+            throw notFoundError;
 
-            case 'unauthorized':
-                const unauthorizedError = new Error('Unauthorized');
-                (unauthorizedError as any).status = 403;
-                throw unauthorizedError;
+        case "unauthorized":
+            const unauthorizedError = new Error("Unauthorized");
+            (unauthorizedError as any).status = 403;
+            throw unauthorizedError;
 
-            case 'rate_limit':
-                const rateLimitError = new Error('Rate limit exceeded');
-                (rateLimitError as any).status = 429;
-                throw rateLimitError;
+        case "rate_limit":
+            const rateLimitError = new Error("Rate limit exceeded");
+            (rateLimitError as any).status = 429;
+            throw rateLimitError;
 
-            default:
-                throw new Error('GitHub API error');
+        default:
+            throw new Error("GitHub API error");
         }
     }
 
@@ -638,29 +637,29 @@ export class MockOctokitService {
         };
     }
 
-    private static async mockGetFileContent({ owner, repo, path, ref }: any) {
+    private static async mockGetFileContent({ owner, repo, path, _ref }: any) {
         const key = `${owner}/${repo}_${path}`;
         const content = this.mockData.fileContents.get(key) || `// Mock content for ${path}`;
         return {
             data: {
-                content: Buffer.from(content).toString('base64'),
-                encoding: 'base64'
+                content: Buffer.from(content).toString("base64"),
+                encoding: "base64"
             }
         };
     }
 
     private static async mockGetUser({ username }: any) {
-        if (username === 'nonexistent-user') {
-            const error = new Error('Not Found');
+        if (username === "nonexistent-user") {
+            const error = new Error("Not Found");
             (error as any).status = 404;
             throw error;
         }
         return { status: 200, data: { login: username } };
     }
 
-    private static async mockGraphQL(query: string, variables?: any) {
+    private static async mockGraphQL(query: string, _variables?: unknown) {
         // Simple GraphQL response mocking based on query content
-        if (query.includes('GetInstallationRepositories')) {
+        if (query.includes("GetInstallationRepositories")) {
             return {
                 viewer: {
                     repositories: {
@@ -671,13 +670,13 @@ export class MockOctokitService {
             };
         }
 
-        if (query.includes('GetRepoDetails')) {
+        if (query.includes("GetRepoDetails")) {
             return {
                 repository: this.mockData.repositories[0]
             };
         }
 
-        if (query.includes('search')) {
+        if (query.includes("search")) {
             return {
                 search: {
                     nodes: this.mockData.issues,

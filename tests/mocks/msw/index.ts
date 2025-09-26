@@ -1,21 +1,19 @@
 /**
- * MSW (Mock Service Worker) exports
  * Central export point for MSW testing utilities
- * Requirements: 3.2, 4.4
  */
 
-export { handlers } from './handlers';
-export { server, mswServer, MSWTestHelpers, MockScenarios } from './server';
+export { handlers } from "./handlers";
+export { server, mswServer, MSWTestHelpers, MockScenarios } from "./server";
 
 // Re-export MSW types for convenience
-export type { HttpHandler } from 'msw';
+export type { HttpHandler } from "msw";
 
 /**
  * Quick setup function for MSW in tests
  * Use this in your test setup files for easy MSW configuration
  */
-export const setupMSW = () => {
-    const { MSWTestHelpers } = require('./server');
+export const setupMSW = async () => {
+    const { MSWTestHelpers } = await import("./server");
     MSWTestHelpers.setupServer();
 };
 
@@ -27,8 +25,8 @@ export const MSWPresets = {
      * Integration testing preset
      * Mocks all external APIs with realistic responses
      */
-    integration: () => {
-        const { MockScenarios } = require('./server');
+    integration: async () => {
+        const { MockScenarios } = await import("./server");
         MockScenarios.github.success();
         MockScenarios.groq.success();
         MockScenarios.stellar.success();
@@ -38,8 +36,8 @@ export const MSWPresets = {
      * Error testing preset
      * Configures APIs to return various error responses
      */
-    errorTesting: () => {
-        const { MockScenarios } = require('./server');
+    errorTesting: async () => {
+        const { MockScenarios } = await import("./server");
         MockScenarios.github.serverError();
         MockScenarios.groq.apiError();
         MockScenarios.stellar.networkError();
@@ -49,8 +47,8 @@ export const MSWPresets = {
      * Rate limiting testing preset
      * Configures APIs to return rate limit responses
      */
-    rateLimitTesting: () => {
-        const { MockScenarios } = require('./server');
+    rateLimitTesting: async () => {
+        const { MockScenarios } = await import("./server");
         MockScenarios.github.rateLimit();
         MockScenarios.groq.rateLimit();
     },
@@ -59,10 +57,10 @@ export const MSWPresets = {
      * Offline testing preset
      * Simulates network unavailability
      */
-    offline: () => {
-        const { MSWTestHelpers } = require('./server');
-        MSWTestHelpers.mockTimeout('https://api.github.com/*');
-        MSWTestHelpers.mockTimeout('https://api.groq.com/*');
-        MSWTestHelpers.mockTimeout('https://horizon-testnet.stellar.org/*');
+    offline: async () => {
+        const { MSWTestHelpers } = await import("./server");
+        MSWTestHelpers.mockTimeout("https://api.github.com/*");
+        MSWTestHelpers.mockTimeout("https://api.groq.com/*");
+        MSWTestHelpers.mockTimeout("https://horizon-testnet.stellar.org/*");
     }
 };
