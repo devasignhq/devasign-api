@@ -9,7 +9,7 @@ import {
 import {
     withdrawAssetValidator,
     swapAssetValidator,
-    walletInstallationIdValidator,
+    walletInstallationIdValidator
 } from "../validators/wallet.validator";
 
 export const walletRoutes = Router();

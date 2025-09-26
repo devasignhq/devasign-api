@@ -18,19 +18,19 @@ import {
 export const customRulesRoutes = Router();
 
 // Get all custom rules for an installation
-customRulesRoutes.get('/:installationId', getCustomRulesValidator, getCustomRules as RequestHandler);
+customRulesRoutes.get("/:installationId", getCustomRulesValidator, getCustomRules as RequestHandler);
 
 // Get a specific custom rule
-customRulesRoutes.get('/:installationId/:ruleId', getCustomRuleValidator, getCustomRule as RequestHandler);
+customRulesRoutes.get("/:installationId/:ruleId", getCustomRuleValidator, getCustomRule as RequestHandler);
 
 // Create a new custom rule
-customRulesRoutes.post('/:installationId', createCustomRuleValidator, createCustomRule as RequestHandler);
+customRulesRoutes.post("/:installationId", createCustomRuleValidator, createCustomRule as RequestHandler);
 
 // Update an existing custom rule
-customRulesRoutes.put('/:installationId/:ruleId', updateCustomRuleValidator, updateCustomRule as RequestHandler);
+customRulesRoutes.put("/:installationId/:ruleId", updateCustomRuleValidator, updateCustomRule as RequestHandler);
 
 // Delete a custom rule
-customRulesRoutes.delete('/:installationId/:ruleId', deleteCustomRuleValidator, deleteCustomRule as RequestHandler);
+customRulesRoutes.delete("/:installationId/:ruleId", deleteCustomRuleValidator, deleteCustomRule as RequestHandler);
 
 // Get default rules (no installation ID needed)
-customRulesRoutes.get('/default', getDefaultRules as RequestHandler);
+customRulesRoutes.get("/default", getDefaultRules as RequestHandler);

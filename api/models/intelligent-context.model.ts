@@ -3,7 +3,7 @@
 // Data models for AI-powered context determination and selective file fetching
 // ============================================================================
 
-import { RelevantContext, LinkedIssue } from './ai-review.model';
+import { RelevantContext, LinkedIssue, ReviewResult } from "./ai-review.model";
 
 // ============================================================================
 // Raw Code Changes Extraction Types
@@ -23,7 +23,7 @@ export interface RawCodeChanges {
 
 export interface FileChange {
     filename: string;
-    status: 'added' | 'modified' | 'removed' | 'renamed';
+    status: "added" | "modified" | "removed" | "renamed";
     additions: number;
     deletions: number;
     patch: string; // Raw patch content
@@ -45,7 +45,7 @@ export interface RepositoryStructure {
 export interface DirectoryNode {
     name: string;
     path: string;
-    type: 'file' | 'directory';
+    type: "file" | "directory";
     children?: DirectoryNode[];
     language?: string;
 }
@@ -69,7 +69,7 @@ export interface ContextAnalysisResponse {
     relevantFiles: RelevantFileRecommendation[];
     reasoning: string;
     confidence: number;
-    analysisType: 'comprehensive' | 'focused' | 'minimal';
+    analysisType: "comprehensive" | "focused" | "minimal";
     estimatedReviewQuality: number; // 0-100
 }
 
@@ -77,8 +77,8 @@ export interface RelevantFileRecommendation {
     filePath: string;
     relevanceScore: number; // 0-1
     reason: string;
-    category: 'dependency' | 'interface' | 'test' | 'config' | 'documentation' | 'related_logic';
-    priority: 'high' | 'medium' | 'low';
+    category: "dependency" | "interface" | "test" | "config" | "documentation" | "related_logic";
+    priority: "high" | "medium" | "low";
 }
 
 // ============================================================================
@@ -219,51 +219,51 @@ export interface BatchProcessingConfig {
 // Type Guards and Utility Functions
 // ============================================================================
 
-export function isValidRawCodeChanges(obj: any): obj is RawCodeChanges {
+export function isValidRawCodeChanges(obj: RawCodeChanges): obj is RawCodeChanges {
     return obj &&
-        typeof obj.prNumber === 'number' &&
-        typeof obj.repositoryName === 'string' &&
+        typeof obj.prNumber === "number" &&
+        typeof obj.repositoryName === "string" &&
         obj.totalChanges &&
         Array.isArray(obj.fileChanges) &&
-        typeof obj.rawDiff === 'string';
+        typeof obj.rawDiff === "string";
 }
 
-export function isValidRepositoryStructure(obj: any): obj is RepositoryStructure {
+export function isValidRepositoryStructure(obj: RepositoryStructure): obj is RepositoryStructure {
     return obj &&
-        typeof obj.totalFiles === 'number' &&
+        typeof obj.totalFiles === "number" &&
         Array.isArray(obj.filePaths) &&
         obj.filesByLanguage &&
         Array.isArray(obj.directoryStructure);
 }
 
-export function isValidContextAnalysisResponse(obj: any): obj is ContextAnalysisResponse {
+export function isValidContextAnalysisResponse(obj: ContextAnalysisResponse): obj is ContextAnalysisResponse {
     return obj &&
         Array.isArray(obj.relevantFiles) &&
-        typeof obj.reasoning === 'string' &&
-        typeof obj.confidence === 'number' &&
-        ['comprehensive', 'focused', 'minimal'].includes(obj.analysisType) &&
-        typeof obj.estimatedReviewQuality === 'number';
+        typeof obj.reasoning === "string" &&
+        typeof obj.confidence === "number" &&
+        ["comprehensive", "focused", "minimal"].includes(obj.analysisType as string) &&
+        typeof obj.estimatedReviewQuality === "number";
 }
 
-export function isValidFetchedFile(obj: any): obj is FetchedFile {
+export function isValidFetchedFile(obj: FetchedFile): obj is FetchedFile {
     return obj &&
-        typeof obj.filePath === 'string' &&
-        typeof obj.content === 'string' &&
-        typeof obj.language === 'string' &&
-        typeof obj.size === 'number' &&
-        typeof obj.lastModified === 'string' &&
-        typeof obj.fetchSuccess === 'boolean';
+        typeof obj.filePath === "string" &&
+        typeof obj.content === "string" &&
+        typeof obj.language === "string" &&
+        typeof obj.size === "number" &&
+        typeof obj.lastModified === "string" &&
+        typeof obj.fetchSuccess === "boolean";
 }
 
 // ============================================================================
 // Utility Types for Enhanced Context System
 // ============================================================================
 
-export type ContextAnalysisStatus = 'pending' | 'analyzing' | 'completed' | 'failed' | 'cached';
+export type ContextAnalysisStatus = "pending" | "analyzing" | "completed" | "failed" | "cached";
 
-export type FileFetchStatus = 'pending' | 'fetching' | 'completed' | 'failed' | 'skipped';
+export type FileFetchStatus = "pending" | "fetching" | "completed" | "failed" | "skipped";
 
-export type IntelligentContextMode = 'full' | 'selective' | 'minimal' | 'disabled';
+export type IntelligentContextMode = "full" | "selective" | "minimal" | "disabled";
 
 export interface IntelligentContextConfig {
     mode: IntelligentContextMode;
@@ -282,7 +282,7 @@ export interface IntelligentContextConfig {
 // ============================================================================
 
 export interface ContextEnhancedResult {
-    standardResult: any; // Existing AIReviewResult
+    standardResult: ReviewResult;
     contextMetrics: ContextMetrics;
     intelligentContextUsed: boolean;
     fallbackReason?: string;

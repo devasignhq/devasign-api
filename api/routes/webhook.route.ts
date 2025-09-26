@@ -1,24 +1,23 @@
-import { Router, RequestHandler } from 'express';
+import { Router, RequestHandler } from "express";
 import { 
-  handlePRWebhook, 
-  webhookHealthCheck, 
-  getJobStatus,
-  getQueueStats,
-  getWorkflowStatus,
-  triggerManualAnalysis,
-  getIntelligentContextConfig,
-  updateIntelligentContextConfig
-} from '../controllers/webhook.controller';
+    handlePRWebhook, 
+    webhookHealthCheck, 
+    getJobStatus,
+    getQueueStats,
+    getWorkflowStatus,
+    triggerManualAnalysis,
+    getIntelligentContextConfig,
+    updateIntelligentContextConfig
+} from "../controllers/webhook.controller";
 import { 
-  validateGitHubWebhook, 
-  validatePRWebhookEvent,
-} from '../middlewares/webhook.middleware';
+    validateGitHubWebhook, 
+    validatePRWebhookEvent
+} from "../middlewares/webhook.middleware";
 
 export const webhookRoutes = Router();
 
 /**
  * GitHub webhook endpoint for PR events
- * Requirements: 1.1, 1.2, 1.3
  * 
  * This endpoint:
  * - Validates GitHub webhook signatures for security
@@ -28,9 +27,9 @@ export const webhookRoutes = Router();
  * - Triggers AI review process for eligible PRs
  */
 webhookRoutes.post(
-  '/github/pr-review',
-  validateGitHubWebhook,
-  validatePRWebhookEvent,
+    "/github/pr-review",
+    validateGitHubWebhook,
+    validatePRWebhookEvent,
   handlePRWebhook as RequestHandler
 );
 
@@ -38,7 +37,7 @@ webhookRoutes.post(
  * Health check endpoint for webhook service
  */
 webhookRoutes.get(
-  '/health',
+    "/health",
   webhookHealthCheck as RequestHandler
 );
 
@@ -47,7 +46,7 @@ webhookRoutes.get(
  * Get status of a specific analysis job
  */
 webhookRoutes.get(
-  '/jobs/:jobId',
+    "/jobs/:jobId",
   getJobStatus as RequestHandler
 );
 
@@ -56,7 +55,7 @@ webhookRoutes.get(
  * Get current queue statistics and metrics
  */
 webhookRoutes.get(
-  '/queue/stats',
+    "/queue/stats",
   getQueueStats as RequestHandler
 );
 
@@ -65,36 +64,33 @@ webhookRoutes.get(
  * Get comprehensive workflow status and monitoring information
  */
 webhookRoutes.get(
-  '/workflow/status',
+    "/workflow/status",
   getWorkflowStatus as RequestHandler
 );
 
 /**
  * Manual analysis trigger endpoint
  * Manually trigger PR analysis for a specific PR
- * Requirements: 1.4, 6.4
  */
 webhookRoutes.post(
-  '/github/manual-analysis',
+    "/github/manual-analysis",
   triggerManualAnalysis as RequestHandler
 );
 
 /**
  * Intelligent context configuration endpoint
  * Get current intelligent context configuration
- * Requirements: 6.1, 6.4
  */
 webhookRoutes.get(
-  '/intelligent-context/config',
+    "/intelligent-context/config",
   getIntelligentContextConfig as RequestHandler
 );
 
 /**
  * Update intelligent context configuration endpoint
  * Update intelligent context configuration at runtime
- * Requirements: 6.1, 6.4
  */
 webhookRoutes.post(
-  '/intelligent-context/config',
+    "/intelligent-context/config",
   updateIntelligentContextConfig as RequestHandler
 );

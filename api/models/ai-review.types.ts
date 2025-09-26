@@ -4,13 +4,13 @@
 // ============================================================================
 
 // Core Data Models and DTOs
-export * from './ai-review.model';
+export * from "./ai-review.model";
 
 // Intelligent Context Fetching Models
-export * from './intelligent-context.model';
+export * from "./intelligent-context.model";
 
 // Error Classes
-export * from './ai-review.errors';
+export * from "./ai-review.errors";
 
 // Prisma Generated Types (re-export for convenience)
 export type {
@@ -19,7 +19,7 @@ export type {
     RuleType,
     RuleSeverity,
     ReviewStatus
-} from '../generated/client';
+} from "../generated/client";
 
 // ============================================================================
 // Type Guards and Utility Types
@@ -28,14 +28,14 @@ export type {
 /**
  * Type guard to check if an error is an AI review error
  */
-export function isAIReviewError(error: any): error is import('./ai-review.errors').AIReviewError {
-    return error && typeof error === 'object' && 'code' in error && 'retryable' in error;
+export function isAIReviewError(error: unknown): error is import("./ai-review.errors").AIReviewError {
+    return Boolean(error && typeof error === "object" && "code" in error && "retryable" in error);
 }
 
 /**
  * Type guard to check if a PR should be analyzed
  */
-export function isPRAnalyzable(prData: import('./ai-review.model').PullRequestData): boolean {
+export function isPRAnalyzable(prData: import("./ai-review.model").PullRequestData): boolean {
     return !prData.isDraft && prData.linkedIssues.length > 0;
 }
 
@@ -47,7 +47,7 @@ export type PartialUpdate<T> = Partial<T> & { id: string };
 /**
  * Utility type for creating new entities (without generated fields)
  */
-export type CreateEntity<T> = Omit<T, 'id' | 'createdAt' | 'updatedAt'>;
+export type CreateEntity<T> = Omit<T, "id" | "createdAt" | "updatedAt">;
 
 /**
  * Utility type for API responses with metadata
@@ -104,18 +104,18 @@ export interface AIReviewConfig {
  */
 export interface ServiceHealth {
     service: string;
-    status: 'healthy' | 'degraded' | 'unhealthy';
+    status: "healthy" | "degraded" | "unhealthy";
     lastCheck: string;
     responseTime?: number;
     error?: string;
-    details?: Record<string, any>;
+    details?: Record<string, unknown>;
 }
 
 /**
  * Batch operation types
  */
 export interface BatchOperation<T> {
-    operation: 'create' | 'update' | 'delete';
+    operation: "create" | "update" | "delete";
     data: T;
     id?: string;
 }
@@ -137,15 +137,15 @@ export interface BatchResult<T> {
  * Webhook event types
  */
 export type WebhookEventType =
-    | 'pull_request.opened'
-    | 'pull_request.synchronize'
-    | 'pull_request.ready_for_review'
-    | 'pull_request.closed';
+    | "pull_request.opened"
+    | "pull_request.synchronize"
+    | "pull_request.ready_for_review"
+    | "pull_request.closed";
 
 /**
  * Analysis trigger types
  */
-export type AnalysisTrigger = 'webhook' | 'manual' | 'scheduled' | 'retry';
+export type AnalysisTrigger = "webhook" | "manual" | "scheduled" | "retry";
 
 /**
  * Review comment template types
@@ -190,7 +190,7 @@ export interface ContextWindow {
     maxTokens: number;
     currentTokens: number;
     priority: Array<{
-        type: 'pr_data' | 'similar_prs' | 'relevant_files' | 'rules';
+        type: "pr_data" | "similar_prs" | "relevant_files" | "rules";
         content: string;
         tokens: number;
         priority: number;
@@ -206,7 +206,7 @@ export interface FileAnalysis {
     complexity: number;
     issues: Array<{
         line: number;
-        severity: 'low' | 'medium' | 'high';
+        severity: "low" | "medium" | "high";
         message: string;
         rule?: string;
     }>;
@@ -228,5 +228,5 @@ export interface PerformanceMetrics {
     duration: number;
     success: boolean;
     error?: string;
-    metadata?: Record<string, any>;
+    metadata?: Record<string, unknown>;
 }

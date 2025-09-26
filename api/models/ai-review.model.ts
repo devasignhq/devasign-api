@@ -19,7 +19,7 @@ export interface PullRequestData {
 
 export interface ChangedFile {
     filename: string;
-    status: 'added' | 'modified' | 'removed';
+    status: "added" | "modified" | "removed";
     additions: number;
     deletions: number;
     patch: string;
@@ -30,7 +30,7 @@ export interface LinkedIssue {
     title: string;
     body: string;
     url: string;
-    linkType: 'closes' | 'resolves' | 'fixes';
+    linkType: "closes" | "resolves" | "fixes";
 }
 
 // ============================================================================
@@ -49,7 +49,7 @@ export interface HistoricalPR {
     title: string;
     description: string;
     linkedIssues: string[];
-    outcome: 'merged' | 'closed';
+    outcome: "merged" | "closed";
     reviewComments: string[];
     similarity: number;
 }
@@ -100,8 +100,8 @@ export interface QualityMetrics {
 export interface CodeSuggestion {
     file: string;
     lineNumber?: number;
-    type: 'improvement' | 'fix' | 'optimization' | 'style';
-    severity: 'low' | 'medium' | 'high';
+    type: "improvement" | "fix" | "optimization" | "style";
+    severity: "low" | "medium" | "high";
     description: string;
     suggestedCode?: string;
     reasoning: string;
@@ -119,7 +119,7 @@ export interface CodeIssue {
     line: number;
     column?: number;
     type: string;
-    severity: 'low' | 'medium' | 'high' | 'critical';
+    severity: "low" | "medium" | "high" | "critical";
     message: string;
     rule?: string;
 }
@@ -165,7 +165,7 @@ export interface DefaultRule {
     type: RuleType;
     severity: RuleSeverity;
     pattern?: string;
-    config: Record<string, any>;
+    config: Record<string, unknown>;
 }
 
 export interface ValidationResult {
@@ -186,7 +186,7 @@ export interface EmbeddingDocument {
 
 export interface EmbeddingMetadata {
     installationId: string;
-    type: 'pr' | 'issue' | 'file' | 'rule';
+    type: "pr" | "issue" | "file" | "rule";
     repositoryName: string;
     filename?: string;
     prNumber?: number;
@@ -289,7 +289,7 @@ export interface GitHubBranch {
 
 export interface GitHubFile {
     filename: string;
-    status: 'added' | 'modified' | 'removed' | 'renamed';
+    status: "added" | "modified" | "removed" | "renamed";
     additions: number;
     deletions: number;
     changes: number;
@@ -301,7 +301,7 @@ export interface GitHubFile {
 // API Response Types
 // ============================================================================
 
-export interface APIResponse<T = any> {
+export interface APIResponse<T = unknown> {
     success: boolean;
     data?: T;
     error?: string;
