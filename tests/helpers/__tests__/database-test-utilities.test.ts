@@ -1,7 +1,6 @@
-import { DatabaseTestHelper, DatabaseTestUtilities, TestDataFactory } from '../index';
+import { DatabaseTestHelper, DatabaseTestUtilities, TestDataFactory } from "../index";
 
-describe('DatabaseTestUtilities', () => {
-    let dbHelper: DatabaseTestHelper;
+describe("DatabaseTestUtilities", () => {
     let dbUtils: DatabaseTestUtilities;
     let client: any;
 
@@ -19,8 +18,8 @@ describe('DatabaseTestUtilities', () => {
         TestDataFactory.resetCounters();
     });
 
-    describe('seedDatabase', () => {
-        it('should seed database with comprehensive test data', async () => {
+    describe("seedDatabase", () => {
+        it("should seed database with comprehensive test data", async () => {
             const seedData = await dbUtils.seedDatabase();
 
             expect(seedData.users).toHaveLength(4);
@@ -37,8 +36,8 @@ describe('DatabaseTestUtilities', () => {
         });
     });
 
-    describe('seedMinimalData', () => {
-        it('should seed database with minimal test data', async () => {
+    describe("seedMinimalData", () => {
+        it("should seed database with minimal test data", async () => {
             const seedData = await dbUtils.seedMinimalData();
 
             expect(seedData.user).toBeDefined();
@@ -55,8 +54,8 @@ describe('DatabaseTestUtilities', () => {
         });
     });
 
-    describe('cleanupDatabase', () => {
-        it('should remove all test data from database', async () => {
+    describe("cleanupDatabase", () => {
+        it("should remove all test data from database", async () => {
             // First seed some data
             await dbUtils.seedMinimalData();
             
@@ -73,8 +72,8 @@ describe('DatabaseTestUtilities', () => {
         });
     });
 
-    describe('resetAndSeed', () => {
-        it('should clean database and reseed with fresh data', async () => {
+    describe("resetAndSeed", () => {
+        it("should clean database and reseed with fresh data", async () => {
             // Seed initial data
             await dbUtils.seedMinimalData();
             
@@ -90,8 +89,8 @@ describe('DatabaseTestUtilities', () => {
         });
     });
 
-    describe('withTransaction', () => {
-        it('should execute function within transaction and rollback changes', async () => {
+    describe("withTransaction", () => {
+        it("should execute function within transaction and rollback changes", async () => {
             // Seed initial data
             await dbUtils.seedMinimalData();
             
@@ -102,15 +101,15 @@ describe('DatabaseTestUtilities', () => {
                 // Create additional user within transaction
                 await tx.user.create({
                     data: TestDataFactory.user({
-                        userId: 'transaction-test-user',
-                        username: 'transactionuser'
+                        userId: "transaction-test-user",
+                        username: "transactionuser"
                     })
                 });
                 
-                return 'test-result';
+                return "test-result";
             });
 
-            expect(result).toBe('test-result');
+            expect(result).toBe("test-result");
             
             // Verify changes were rolled back
             const finalStats = await dbUtils.getDatabaseStats();
@@ -118,8 +117,8 @@ describe('DatabaseTestUtilities', () => {
         });
     });
 
-    describe('getDatabaseStats', () => {
-        it('should return accurate database statistics', async () => {
+    describe("getDatabaseStats", () => {
+        it("should return accurate database statistics", async () => {
             const seedData = await dbUtils.seedDatabase();
             const stats = await dbUtils.getDatabaseStats();
 
