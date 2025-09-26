@@ -1,4 +1,4 @@
-import CryptoJS from 'crypto-js';
+import CryptoJS from "crypto-js";
 
 const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY!;
 
@@ -31,23 +31,30 @@ export const decrypt = (ciphertext: string): string => {
  * moneyFormat(1234.56, 'en-US', 2, true) // Returns "1,235"
  */
 export function moneyFormat(
-	value: number | string | bigint, 
-	standard?: string | string[], 
-	dec?: number,
-	noDecimals?: boolean,
+    value: number | string | bigint, 
+    standard?: string | string[], 
+    dec?: number,
+    noDecimals?: boolean
 ) {
-	const options: Intl.NumberFormatOptions = noDecimals ? {} : {
-		minimumFractionDigits: dec || 2,
-		maximumFractionDigits: dec || 2,
-	};
+    const options: Intl.NumberFormatOptions = noDecimals ? {} : {
+        minimumFractionDigits: dec || 2,
+        maximumFractionDigits: dec || 2
+    };
     try {
         // Use default locale if none provided or invalid
-        const locale = standard || 'en-US';
+        const locale = standard || "en-US";
         const nf = new Intl.NumberFormat(locale, options);
         return (value || value === 0) ? nf.format(Number(value)) : "--";
     } catch {
         // Fallback to basic locale if the provided one fails
-        const nf = new Intl.NumberFormat('en-US', options);
+        const nf = new Intl.NumberFormat("en-US", options);
         return (value || value === 0) ? nf.format(Number(value)) : "--";
     }
+}
+
+export function getFieldFromUnknownObject<T>(obj: unknown, field: string) {
+    if (typeof obj === "object" && field in obj!) {
+        return (obj as Record<string, T>)[field];
+    }
+    return undefined;
 }

@@ -1,128 +1,128 @@
-import { body, query, param } from 'express-validator';
+import { body, query, param } from "express-validator";
 
 export const getInstallationsValidator = [
-    query('page')
+    query("page")
         .optional()
         .trim()
         .notEmpty()
         .toInt() 
         .isInt({ min: 1 })
-        .withMessage('Page must be a positive integer')
+        .withMessage("Page must be a positive integer")
         .custom((value) => {
             if (isNaN(value)) {
-                throw new Error('Page must be a valid number');
+                throw new Error("Page must be a valid number");
             }
             return true;
         }),
-    query('limit')
+    query("limit")
         .optional()
         .trim()
         .notEmpty()
         .toInt() 
         .isInt({ min: 1, max: 100 })
-        .withMessage('Limit must be a positive integer')
+        .withMessage("Limit must be a positive integer")
         .custom((value) => {
             if (isNaN(value)) {
-                throw new Error('Page must be a valid number');
+                throw new Error("Page must be a valid number");
             }
             return true;
-        }),
+        })
 ];
 
 export const createInstallationValidator = [
-    body('installationId')
+    body("installationId")
         .exists()
-        .withMessage('Installation ID is required')
+        .withMessage("Installation ID is required")
         .isString()
-        .withMessage('Installation ID must be a string'),
+        .withMessage("Installation ID must be a string")
 ];
 
 export const updateInstallationValidator = [
-    body('htmlUrl')
+    body("htmlUrl")
         .optional()
         .isString()
-        .withMessage('HTML URL must be a string')
+        .withMessage("HTML URL must be a string")
         .isURL()
-        .withMessage('HTML URL must be a valid URL'),
-    body('targetId')
+        .withMessage("HTML URL must be a valid URL"),
+    body("targetId")
         .optional()
         .isInt()
-        .withMessage('Target ID must be an integer'),
-    body('account')
+        .withMessage("Target ID must be an integer"),
+    body("account")
         .optional()
         .isObject()
-        .withMessage('Account must be an object')
+        .withMessage("Account must be an object")
         .custom((value) => {
             if (!value.login || !value.nodeId || !value.avatarUrl || !value.htmlUrl) {
-                throw new Error('Account object must contain login, nodeId, avatarUrl, and htmlUrl');
+                throw new Error("Account object must contain login, nodeId, avatarUrl, and htmlUrl");
             }
             return true;
-        }),
+        })
 ];
 
 export const deleteInstallationValidator = [
-    body('walletAddress')
+    body("walletAddress")
         .exists()
-        .withMessage('Wallet address is required')
+        .withMessage("Wallet address is required")
         .isString()
-        .withMessage('Wallet address must be a string'),
+        .withMessage("Wallet address must be a string")
 ];
 
 export const addTeamMemberValidator = [
-    param('id')
+    param("id")
         .exists()
-        .withMessage('Installation ID is required')
+        .withMessage("Installation ID is required")
         .isString()
-        .withMessage('Installation ID must be a string'),
-    body('username')
+        .withMessage("Installation ID must be a string"),
+    body("username")
         .exists()
-        .withMessage('Username is required')
+        .withMessage("Username is required")
         .isString()
-        .withMessage('Username must be a string'),
-    body('permissionCodes')
+        .withMessage("Username must be a string"),
+    body("permissionCodes")
         .exists()
-        .withMessage('Permission codes are required')
+        .withMessage("Permission codes are required")
         .isArray({ min: 1 })
-        .withMessage('Permission codes must be a non-empty array'),
-    body('permissionCodes.*')
+        .withMessage("Permission codes must be a non-empty array"),
+    body("permissionCodes.*")
         .isString()
-        .withMessage('Each permission code must be a string'),
-    body('email')
+        .withMessage("Each permission code must be a string"),
+    body("email")
         .optional()
         .isEmail()
-        .withMessage('Email must be valid'),
+        .withMessage("Email must be valid")
 ];
 
 export const updateTeamMemberPermissionsValidator = [
-    param('id')
+    param("id")
         .exists()
-        .withMessage('Installation ID is required')
+        .withMessage("Installation ID is required")
         .isString()
-        .withMessage('Installation ID must be a string'),
-    param('userId')
+        .withMessage("Installation ID must be a string"),
+    param("userId")
         .exists()
-        .withMessage('User ID is required')
+        .withMessage("User ID is required")
         .isString()
-        .withMessage('User ID must be a string'),
-    body('permissionCodes')
+        .withMessage("User ID must be a string"),
+    body("permissionCodes")
         .exists()
-        .withMessage('Permission codes are required')
+        .withMessage("Permission codes are required")
         .isArray({ min: 1 })
-        .withMessage('Permission codes must be a non-empty array'),
-    body('permissionCodes.*')
+        .withMessage("Permission codes must be a non-empty array"),
+    body("permissionCodes.*")
         .isString()
-        .withMessage('Each permission code must be a string'),
+        .withMessage("Each permission code must be a string")
 ];
 
 export const removeTeamMemberValidator = [
-    param('id')
+    param("id")
         .exists()
-        .withMessage('Installation ID is required')
+        .withMessage("Installation ID is required")
         .isString()
-        .withMessage('Installation ID must be a string'),
-    param('userId')
+        .withMessage("Installation ID must be a string"),
+    param("userId")
         .exists()
-        .withMessage('User ID is required')
+        .withMessage("User ID is required")
         .isString()
-        .withMessage('User ID must be a string'),
+        .withMessage("User ID must be a string")
 ];
