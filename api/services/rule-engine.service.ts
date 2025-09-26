@@ -1,5 +1,5 @@
 import { RuleType, RuleSeverity, AIReviewRule } from "../generated/client";
-import { PullRequestData, ChangedFile } from "../models/ai-review.model";
+import { PullRequestData } from "../models/ai-review.model";
 
 export interface DefaultRule {
     id: string;
@@ -8,6 +8,7 @@ export interface DefaultRule {
     ruleType: RuleType;
     severity: RuleSeverity;
     pattern?: string;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     config: any;
 }
 
@@ -155,19 +156,19 @@ export class RuleEngineService {
             if (rule.pattern) {
                 try {
                     new RegExp(rule.pattern);
-                } catch (error) {
+                } catch {
                     return { isValid: false, error: "Pattern must be a valid regular expression" };
                 }
             }
 
             // Validate config based on rule type
-            const configValidation = this.validateRuleConfig(rule.ruleType, rule.config, rule.pattern);
+            const configValidation = this.validateRuleConfig(rule.ruleType, rule.config);
             if (!configValidation.isValid) {
                 return configValidation;
             }
 
             return { isValid: true };
-        } catch (error) {
+        } catch {
             return { isValid: false, error: "Invalid rule configuration" };
         }
     }
@@ -175,58 +176,59 @@ export class RuleEngineService {
     /**
      * Validate rule configuration based on rule type
      */
-    private static validateRuleConfig(ruleType: RuleType, config: any, pattern?: string | null): ValidationResult {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    private static validateRuleConfig(ruleType: RuleType, config: any): ValidationResult {
         try {
             // Basic config validation
-            if (!config || typeof config !== 'object') {
+            if (!config || typeof config !== "object") {
                 return { isValid: false, error: "Config must be a valid object" };
             }
 
             // Rule type specific validation
             switch (ruleType) {
-                case RuleType.CODE_QUALITY:
-                    if (!config.metrics || !Array.isArray(config.metrics)) {
-                        return { isValid: false, error: "Code quality rules must specify metrics array" };
-                    }
-                    break;
+            case RuleType.CODE_QUALITY:
+                if (!config.metrics || !Array.isArray(config.metrics)) {
+                    return { isValid: false, error: "Code quality rules must specify metrics array" };
+                }
+                break;
 
-                case RuleType.SECURITY:
-                    if (!config.checks || !Array.isArray(config.checks)) {
-                        return { isValid: false, error: "Security rules must specify checks array" };
-                    }
-                    break;
+            case RuleType.SECURITY:
+                if (!config.checks || !Array.isArray(config.checks)) {
+                    return { isValid: false, error: "Security rules must specify checks array" };
+                }
+                break;
 
-                case RuleType.PERFORMANCE:
-                    if (!config.thresholds || typeof config.thresholds !== 'object') {
-                        return { isValid: false, error: "Performance rules must specify thresholds object" };
-                    }
-                    break;
+            case RuleType.PERFORMANCE:
+                if (!config.thresholds || typeof config.thresholds !== "object") {
+                    return { isValid: false, error: "Performance rules must specify thresholds object" };
+                }
+                break;
 
-                case RuleType.DOCUMENTATION:
-                    if (!config.requirements || !Array.isArray(config.requirements)) {
-                        return { isValid: false, error: "Documentation rules must specify requirements array" };
-                    }
-                    break;
+            case RuleType.DOCUMENTATION:
+                if (!config.requirements || !Array.isArray(config.requirements)) {
+                    return { isValid: false, error: "Documentation rules must specify requirements array" };
+                }
+                break;
 
-                case RuleType.TESTING:
-                    if (!config.coverage || typeof config.coverage !== 'object') {
-                        return { isValid: false, error: "Testing rules must specify coverage object" };
-                    }
-                    break;
+            case RuleType.TESTING:
+                if (!config.coverage || typeof config.coverage !== "object") {
+                    return { isValid: false, error: "Testing rules must specify coverage object" };
+                }
+                break;
 
-                case RuleType.CUSTOM:
-                    // Custom rules are more flexible, just ensure basic structure
-                    if (!config.description) {
-                        return { isValid: false, error: "Custom rules must include a description in config" };
-                    }
-                    break;
+            case RuleType.CUSTOM:
+                // Custom rules are more flexible, just ensure basic structure
+                if (!config.description) {
+                    return { isValid: false, error: "Custom rules must include a description in config" };
+                }
+                break;
 
-                default:
-                    return { isValid: false, error: "Invalid rule type" };
+            default:
+                return { isValid: false, error: "Invalid rule type" };
             }
 
             return { isValid: true };
-        } catch (error) {
+        } catch {
             return { isValid: false, error: "Invalid rule configuration" };
         }
     }
@@ -236,16 +238,16 @@ export class RuleEngineService {
      */
     static getSeverityWeight(severity: RuleSeverity): number {
         switch (severity) {
-            case RuleSeverity.LOW:
-                return 1;
-            case RuleSeverity.MEDIUM:
-                return 3;
-            case RuleSeverity.HIGH:
-                return 7;
-            case RuleSeverity.CRITICAL:
-                return 15;
-            default:
-                return 1;
+        case RuleSeverity.LOW:
+            return 1;
+        case RuleSeverity.MEDIUM:
+            return 3;
+        case RuleSeverity.HIGH:
+            return 7;
+        case RuleSeverity.CRITICAL:
+            return 15;
+        default:
+            return 1;
         }
     }
 
@@ -254,26 +256,25 @@ export class RuleEngineService {
      */
     static getRuleTypeWeight(ruleType: RuleType): number {
         switch (ruleType) {
-            case RuleType.SECURITY:
-                return 2.0;
-            case RuleType.TESTING:
-                return 1.5;
-            case RuleType.CODE_QUALITY:
-                return 1.2;
-            case RuleType.PERFORMANCE:
-                return 1.1;
-            case RuleType.DOCUMENTATION:
-                return 0.8;
-            case RuleType.CUSTOM:
-                return 1.0;
-            default:
-                return 1.0;
+        case RuleType.SECURITY:
+            return 2.0;
+        case RuleType.TESTING:
+            return 1.5;
+        case RuleType.CODE_QUALITY:
+            return 1.2;
+        case RuleType.PERFORMANCE:
+            return 1.1;
+        case RuleType.DOCUMENTATION:
+            return 0.8;
+        case RuleType.CUSTOM:
+            return 1.0;
+        default:
+            return 1.0;
         }
     }
 
     /**
      * Evaluates PR against all applicable rules
-     * Requirement 3.2: System shall check compliance against both default and custom rules
      */
     static async evaluateRules(prData: PullRequestData, customRules: AIReviewRule[]): Promise<RuleEvaluation> {
         const passed: RuleResult[] = [];
@@ -342,7 +343,6 @@ export class RuleEngineService {
 
     /**
      * Calculate rule evaluation score contribution
-     * Requirement 2.3: System shall consider rule compliance in merge score
      */
     static calculateRuleScore(evaluation: RuleEvaluation): number {
         const totalRules = evaluation.passed.length + evaluation.violated.length;
@@ -378,18 +378,18 @@ export class RuleEngineService {
     private static async evaluateDefaultRule(rule: DefaultRule, prData: PullRequestData): Promise<RuleEvaluationResult> {
         try {
             switch (rule.ruleType) {
-                case RuleType.CODE_QUALITY:
-                    return await this.evaluateCodeQualityRule(rule, prData);
-                case RuleType.SECURITY:
-                    return await this.evaluateSecurityRule(rule, prData);
-                case RuleType.PERFORMANCE:
-                    return await this.evaluatePerformanceRule(rule, prData);
-                case RuleType.DOCUMENTATION:
-                    return await this.evaluateDocumentationRule(rule, prData);
-                case RuleType.TESTING:
-                    return await this.evaluateTestingRule(rule, prData);
-                default:
-                    return { passed: true, details: "Rule type not implemented" };
+            case RuleType.CODE_QUALITY:
+                return await this.evaluateCodeQualityRule(rule, prData);
+            case RuleType.SECURITY:
+                return await this.evaluateSecurityRule(rule, prData);
+            case RuleType.PERFORMANCE:
+                return await this.evaluatePerformanceRule(rule, prData);
+            case RuleType.DOCUMENTATION:
+                return await this.evaluateDocumentationRule(rule, prData);
+            case RuleType.TESTING:
+                return await this.evaluateTestingRule(rule, prData);
+            default:
+                return { passed: true, details: "Rule type not implemented" };
             }
         } catch (error) {
             console.error(`Error evaluating rule ${rule.id}:`, error);
@@ -415,6 +415,7 @@ export class RuleEngineService {
                 ruleType: rule.ruleType,
                 severity: rule.severity,
                 pattern: rule.pattern || undefined,
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 config: rule.config as Record<string, any>
             };
 
@@ -434,7 +435,7 @@ export class RuleEngineService {
         }
 
         try {
-            const regex = new RegExp(rule.pattern, 'gi');
+            const regex = new RegExp(rule.pattern, "gi");
             const affectedFiles: string[] = [];
             const violations: string[] = [];
 
@@ -463,7 +464,7 @@ export class RuleEngineService {
                 affectedFiles: passed ? undefined : affectedFiles
             };
         } catch (error) {
-            console.error(`Error evaluating pattern rule:`, error);
+            console.error("Error evaluating pattern rule:", error);
             return { passed: true, details: "Pattern evaluation failed" };
         }
     }
@@ -478,10 +479,10 @@ export class RuleEngineService {
 
         // For non-pattern code quality rules, implement specific logic
         switch (rule.id) {
-            case "default-function-complexity":
-                return await this.evaluateFunctionComplexity(rule, prData);
-            default:
-                return { passed: true, details: "Code quality rule not implemented" };
+        case "default-function-complexity":
+            return await this.evaluateFunctionComplexity(rule, prData);
+        default:
+            return { passed: true, details: "Code quality rule not implemented" };
         }
     }
 
@@ -502,10 +503,10 @@ export class RuleEngineService {
      */
     private static async evaluatePerformanceRule(rule: DefaultRule, prData: PullRequestData): Promise<RuleEvaluationResult> {
         switch (rule.id) {
-            case "default-function-complexity":
-                return await this.evaluateFunctionComplexity(rule, prData);
-            default:
-                return { passed: true, details: "Performance rule not implemented" };
+        case "default-function-complexity":
+            return await this.evaluateFunctionComplexity(rule, prData);
+        default:
+            return { passed: true, details: "Performance rule not implemented" };
         }
     }
 
@@ -549,17 +550,17 @@ export class RuleEngineService {
     private static async evaluateTestingRule(rule: DefaultRule, prData: PullRequestData): Promise<RuleEvaluationResult> {
         // Check if test files are included for new features
         const codeFiles = prData.changedFiles.filter(f =>
-            !f.filename.includes('.test.') &&
-            !f.filename.includes('.spec.') &&
-            (f.filename.endsWith('.js') || f.filename.endsWith('.ts') || f.filename.endsWith('.jsx') || f.filename.endsWith('.tsx'))
+            !f.filename.includes(".test.") &&
+            !f.filename.includes(".spec.") &&
+            (f.filename.endsWith(".js") || f.filename.endsWith(".ts") || f.filename.endsWith(".jsx") || f.filename.endsWith(".tsx"))
         );
 
         const testFiles = prData.changedFiles.filter(f =>
-            f.filename.includes('.test.') || f.filename.includes('.spec.')
+            f.filename.includes(".test.") || f.filename.includes(".spec.")
         );
 
         // Simple heuristic: if adding/modifying code files, should have test files
-        const hasNewCode = codeFiles.some(f => f.status === 'added' || f.additions > f.deletions);
+        const hasNewCode = codeFiles.some(f => f.status === "added" || f.additions > f.deletions);
         const hasTests = testFiles.length > 0;
 
         const passed = !hasNewCode || hasTests;
@@ -591,7 +592,7 @@ export class RuleEngineService {
             const functions = file.patch.match(functionPattern) || [];
 
             for (const func of functions) {
-                const lines = func.split('\n').length;
+                const lines = func.split("\n").length;
                 if (lines > thresholds.maxLinesPerFunction) {
                     affectedFiles.push(file.filename);
                     violations.push(`Function in ${file.filename} has ${lines} lines (max: ${thresholds.maxLinesPerFunction})`);
@@ -610,6 +611,7 @@ export class RuleEngineService {
     /**
      * Check if file should be excluded based on rule config
      */
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     private static shouldExcludeFile(filename: string, config: any): boolean {
         if (!config || !config.excludeFiles) return false;
 
@@ -618,9 +620,9 @@ export class RuleEngineService {
         return excludePatterns.some((pattern: string) => {
             // Convert glob pattern to regex
             const regexPattern = pattern
-                .replace(/\./g, '\\.')
-                .replace(/\*/g, '.*')
-                .replace(/\?/g, '.');
+                .replace(/\./g, "\\.")
+                .replace(/\*/g, ".*")
+                .replace(/\?/g, ".");
 
             return new RegExp(regexPattern).test(filename);
         });
@@ -632,11 +634,11 @@ export class RuleEngineService {
     private static getRuleTypeFromResult(rule: RuleResult): RuleType {
         // This is a simplified approach - in a real implementation,
         // you might want to store the rule type in the result
-        if (rule.ruleId.includes('security')) return RuleType.SECURITY;
-        if (rule.ruleId.includes('test')) return RuleType.TESTING;
-        if (rule.ruleId.includes('performance') || rule.ruleId.includes('complexity')) return RuleType.PERFORMANCE;
-        if (rule.ruleId.includes('documentation')) return RuleType.DOCUMENTATION;
-        if (rule.ruleId.includes('custom')) return RuleType.CUSTOM;
+        if (rule.ruleId.includes("security")) return RuleType.SECURITY;
+        if (rule.ruleId.includes("test")) return RuleType.TESTING;
+        if (rule.ruleId.includes("performance") || rule.ruleId.includes("complexity")) return RuleType.PERFORMANCE;
+        if (rule.ruleId.includes("documentation")) return RuleType.DOCUMENTATION;
+        if (rule.ruleId.includes("custom")) return RuleType.CUSTOM;
         return RuleType.CODE_QUALITY;
     }
 }

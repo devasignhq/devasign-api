@@ -4,13 +4,12 @@ import {
     QualityMetrics,
     ComplexityMetrics,
     TestCoverageMetrics
-} from '../models/ai-review.model';
-import { RuleSeverity } from '../generated/client';
+} from "../models/ai-review.model";
+import { RuleSeverity } from "../generated/client";
 
 /**
  * Merge Score Calculation System
  * Implements scoring algorithm that combines rule compliance and AI analysis
- * Requirements: 2.1, 2.2, 2.3, 2.4
  */
 export class MergeScoreService {
     // Scoring weights for different quality factors
@@ -32,8 +31,6 @@ export class MergeScoreService {
 
     /**
      * Calculates comprehensive merge score combining all quality factors
-     * Requirement 2.1: System shall generate merge score between 0 and 100
-     * Requirement 2.2: System shall consider code quality, test coverage, documentation, and standards
      */
     static calculateMergeScore(analysis: CodeAnalysis, ruleEvaluation: RuleEvaluation): number {
         // Calculate individual component scores
@@ -59,7 +56,6 @@ export class MergeScoreService {
 
     /**
      * Calculates rule compliance score based on violations and severity
-     * Requirement 2.3: System shall consider adherence to project standards
      */
     private static calculateRuleComplianceScore(ruleEvaluation: RuleEvaluation): number {
         const totalRules = ruleEvaluation.passed.length + ruleEvaluation.violated.length;
@@ -90,7 +86,6 @@ export class MergeScoreService {
 
     /**
      * Calculates code quality score from AI analysis metrics
-     * Requirement 2.2: System shall consider code quality
      */
     private static calculateCodeQualityScore(metrics: QualityMetrics): number {
         // Weighted average of quality metrics
@@ -112,7 +107,6 @@ export class MergeScoreService {
 
     /**
      * Calculates test coverage score
-     * Requirement 2.2: System shall consider test coverage
      */
     private static calculateTestCoverageScore(testCoverage: TestCoverageMetrics): number {
         if (!testCoverage || testCoverage.totalLines === 0) {
@@ -137,7 +131,6 @@ export class MergeScoreService {
 
     /**
      * Calculates complexity score (lower complexity = higher score)
-     * Requirement 2.2: System shall consider code complexity
      */
     private static calculateComplexityScore(complexity: ComplexityMetrics): number {
         if (!complexity) {
@@ -168,7 +161,6 @@ export class MergeScoreService {
 
     /**
      * Calculates documentation score
-     * Requirement 2.2: System shall consider documentation
      */
     private static calculateDocumentationScore(documentationMetric: number): number {
         // Documentation metric is already 0-100, just ensure bounds
@@ -180,16 +172,16 @@ export class MergeScoreService {
      */
     private static getSeverityWeight(severity: RuleSeverity): number {
         switch (severity) {
-            case RuleSeverity.LOW:
-                return 1;
-            case RuleSeverity.MEDIUM:
-                return 3;
-            case RuleSeverity.HIGH:
-                return 7;
-            case RuleSeverity.CRITICAL:
-                return 15;
-            default:
-                return 1;
+        case RuleSeverity.LOW:
+            return 1;
+        case RuleSeverity.MEDIUM:
+            return 3;
+        case RuleSeverity.HIGH:
+            return 7;
+        case RuleSeverity.CRITICAL:
+            return 15;
+        default:
+            return 1;
         }
     }
 
@@ -215,31 +207,29 @@ export class MergeScoreService {
 
     /**
      * Provides merge recommendation based on score
-     * Requirement 2.3: System shall recommend against merging when score is below 70
-     * Requirement 2.4: System shall indicate PR is ready when score is above 85
      */
     static getMergeRecommendation(mergeScore: number): {
-        recommendation: 'ready' | 'review_needed' | 'not_ready';
+        recommendation: "ready" | "review_needed" | "not_ready";
         message: string;
-        color: 'green' | 'yellow' | 'red';
+        color: "green" | "yellow" | "red";
     } {
         if (mergeScore >= 85) {
             return {
-                recommendation: 'ready',
-                message: '✅ Ready for merge - Excellent quality!',
-                color: 'green'
+                recommendation: "ready",
+                message: "✅ Ready for merge - Excellent quality!",
+                color: "green"
             };
         } else if (mergeScore >= 70) {
             return {
-                recommendation: 'review_needed',
-                message: '⚠️ Review recommended - Good quality with minor issues',
-                color: 'yellow'
+                recommendation: "review_needed",
+                message: "⚠️ Review recommended - Good quality with minor issues",
+                color: "yellow"
             };
         } else {
             return {
-                recommendation: 'not_ready',
-                message: '❌ Not ready for merge - Significant issues need attention',
-                color: 'red'
+                recommendation: "not_ready",
+                message: "❌ Not ready for merge - Significant issues need attention",
+                color: "red"
             };
         }
     }
@@ -310,41 +300,41 @@ export class MergeScoreService {
 
         // Validate analysis object
         if (!analysis) {
-            errors.push('CodeAnalysis is required');
+            errors.push("CodeAnalysis is required");
         } else {
             if (!analysis.metrics) {
-                errors.push('QualityMetrics are required in CodeAnalysis');
+                errors.push("QualityMetrics are required in CodeAnalysis");
             } else {
                 // Validate quality metrics are in valid range
                 const metrics = analysis.metrics;
-                const metricNames = ['codeStyle', 'testCoverage', 'documentation', 'security', 'performance', 'maintainability'];
+                const metricNames = ["codeStyle", "testCoverage", "documentation", "security", "performance", "maintainability"];
 
                 for (const metricName of metricNames) {
                     const value = metrics[metricName as keyof QualityMetrics];
-                    if (typeof value !== 'number' || value < 0 || value > 100) {
+                    if (typeof value !== "number" || value < 0 || value > 100) {
                         errors.push(`${metricName} must be a number between 0 and 100`);
                     }
                 }
             }
 
             if (!analysis.complexity) {
-                errors.push('ComplexityMetrics are required in CodeAnalysis');
+                errors.push("ComplexityMetrics are required in CodeAnalysis");
             }
 
             if (!analysis.testCoverage) {
-                errors.push('TestCoverageMetrics are required in CodeAnalysis');
+                errors.push("TestCoverageMetrics are required in CodeAnalysis");
             }
         }
 
         // Validate rule evaluation object
         if (!ruleEvaluation) {
-            errors.push('RuleEvaluation is required');
+            errors.push("RuleEvaluation is required");
         } else {
             if (!Array.isArray(ruleEvaluation.passed)) {
-                errors.push('RuleEvaluation.passed must be an array');
+                errors.push("RuleEvaluation.passed must be an array");
             }
             if (!Array.isArray(ruleEvaluation.violated)) {
-                errors.push('RuleEvaluation.violated must be an array');
+                errors.push("RuleEvaluation.violated must be an array");
             }
         }
 
@@ -377,7 +367,7 @@ export class MergeScoreService {
         // Validate inputs first
         const validation = this.validateInputs(analysis, ruleEvaluation);
         if (!validation.isValid) {
-            throw new Error(`Invalid inputs for merge score calculation: ${validation.errors.join(', ')}`);
+            throw new Error(`Invalid inputs for merge score calculation: ${validation.errors.join(", ")}`);
         }
 
         // Calculate merge score and get all related data
@@ -395,7 +385,7 @@ export class MergeScoreService {
             metadata: {
                 calculatedAt: new Date(),
                 processingTimeMs: processingTime,
-                version: '1.0.0' // Version of the scoring algorithm
+                version: "1.0.0" // Version of the scoring algorithm
             }
         };
     }

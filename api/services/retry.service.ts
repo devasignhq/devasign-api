@@ -2,16 +2,15 @@ import {
     AIReviewError,
     GroqRateLimitError,
     GitHubAPIError,
-    TimeoutError,
-    ErrorUtils
-} from '../models/ai-review.errors';
-import { LoggingService } from './logging.service';
-import { CircuitBreakerService } from './circuit-breaker.service';
+    TimeoutError
+} from "../models/ai-review.errors";
+import { LoggingService } from "./logging.service";
+import { CircuitBreakerService } from "./circuit-breaker.service";
+import { getFieldFromUnknownObject } from "../helper";
 
 /**
  * Retry Service for AI Review System
  * Provides intelligent retry logic with exponential backoff and circuit breaker integration
- * Requirements: 7.4, 6.4
  */
 export class RetryService {
     private static readonly DEFAULT_MAX_RETRIES = 3;
@@ -62,7 +61,7 @@ export class RetryService {
                     success: true
                 });
 
-                return result;
+                return result as T;
             }
 
             // Execute without circuit breaker
@@ -86,7 +85,7 @@ export class RetryService {
             lastError = error as Error;
 
             // Log final failure
-            LoggingService.logError('retry_exhausted', lastError, {
+            LoggingService.logError("retry_exhausted", lastError, {
                 operationName,
                 maxRetries,
                 totalDuration: timer.getCurrentDuration()
@@ -94,7 +93,7 @@ export class RetryService {
 
             // Use fallback if available
             if (fallback) {
-                LoggingService.logWarning('using_fallback', `Using fallback for ${operationName}`, {
+                LoggingService.logWarning("using_fallback", `Using fallback for ${operationName}`, {
                     originalError: lastError.message
                 });
                 const fallbackResult = await fallback();
@@ -105,7 +104,7 @@ export class RetryService {
                     usedFallback: true
                 });
 
-                return fallbackResult;
+                return fallbackResult as T;
             }
 
             timer.end({
@@ -128,9 +127,10 @@ export class RetryService {
         baseDelay: number,
         maxDelay: number,
         timeout: number,
+         
         retryCondition: (error: Error, attempt: number) => boolean
     ): Promise<T> {
-        let lastError: Error;
+        let lastError: unknown;
 
         for (let attempt = 0; attempt < maxRetries; attempt++) {
             try {
@@ -139,7 +139,7 @@ export class RetryService {
 
                 // Log success if this was a retry
                 if (attempt > 0) {
-                    LoggingService.logInfo('retry_success', `${operationName} succeeded on attempt ${attempt + 1}`, {
+                    LoggingService.logInfo("retry_success", `${operationName} succeeded on attempt ${attempt + 1}`, {
                         operationName,
                         attempt: attempt + 1,
                         totalAttempts: maxRetries
@@ -147,33 +147,33 @@ export class RetryService {
                 }
 
                 return result;
-            } catch (error: any) {
+            } catch (error) {
                 lastError = error;
 
                 // Log the attempt
-                LoggingService.logWarning('retry_attempt_failed', `Attempt ${attempt + 1}/${maxRetries} failed for ${operationName}`, {
+                LoggingService.logWarning("retry_attempt_failed", `Attempt ${attempt + 1}/${maxRetries} failed for ${operationName}`, {
                     operationName,
                     attempt: attempt + 1,
                     totalAttempts: maxRetries,
-                    error: error.message,
-                    errorCode: error.code,
-                    retryable: retryCondition(error, attempt)
+                    error: getFieldFromUnknownObject<number>(error, "message"),
+                    errorCode: getFieldFromUnknownObject<number>(error, "code"),
+                    retryable: retryCondition(error as Error, attempt)
                 });
 
                 // Check if we should retry
-                if (!retryCondition(error, attempt)) {
-                    LoggingService.logError('retry_aborted', lastError, {
+                if (!retryCondition(error as Error, attempt)) {
+                    LoggingService.logError("retry_aborted", lastError, {
                         operationName,
                         attempt: attempt + 1,
-                        reason: 'Non-retryable error'
+                        reason: "Non-retryable error"
                     });
                     throw error;
                 }
 
                 // Don't wait after the last attempt
                 if (attempt < maxRetries - 1) {
-                    const delay = RetryService.calculateDelay(error, attempt, baseDelay, maxDelay);
-                    LoggingService.logInfo('retry_delay', `Waiting ${delay}ms before retry ${attempt + 2}/${maxRetries} for ${operationName}`, {
+                    const delay = RetryService.calculateDelay(error as Error, attempt, baseDelay, maxDelay);
+                    LoggingService.logInfo("retry_delay", `Waiting ${delay}ms before retry ${attempt + 2}/${maxRetries} for ${operationName}`, {
                         operationName,
                         delay,
                         nextAttempt: attempt + 2
@@ -221,11 +221,11 @@ export class RetryService {
 
         // Retry on network/timeout errors
         if (error instanceof TimeoutError ||
-            error.message.includes('timeout') ||
-            error.message.includes('network') ||
-            error.message.includes('connection') ||
-            error.message.includes('ECONNRESET') ||
-            error.message.includes('ENOTFOUND')) {
+            error.message.includes("timeout") ||
+            error.message.includes("network") ||
+            error.message.includes("connection") ||
+            error.message.includes("ECONNRESET") ||
+            error.message.includes("ENOTFOUND")) {
             return true;
         }
 
@@ -343,9 +343,9 @@ export class RetryService {
                 if (attempt >= 2) return false;
 
                 // Retry on connection errors
-                return error.message.includes('connection') ||
-                    error.message.includes('timeout') ||
-                    error.message.includes('ECONNRESET');
+                return error.message.includes("connection") ||
+                    error.message.includes("timeout") ||
+                    error.message.includes("ECONNRESET");
             }
         };
     }
@@ -366,7 +366,7 @@ export interface RetryOptions {
     /** Whether to use circuit breaker protection */
     useCircuitBreaker?: boolean;
     /** Fallback function to execute if all retries fail */
-    fallback?: () => Promise<any>;
+    fallback?: () => Promise<unknown>;
     /** Custom retry condition function */
     retryCondition?: (error: Error, attempt: number) => boolean;
 }

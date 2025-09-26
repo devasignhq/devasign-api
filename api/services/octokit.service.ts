@@ -1,15 +1,16 @@
 import { App } from "octokit";
 import { ErrorClass, IssueFilters } from "../models/general.model";
 import {
+    GitHubComment,
     InstallationOctokit,
     IssueDto,
     IssueLabel,
     IssueMilestone,
     RepositoryDto
 } from "../models/github.model";
-import { moneyFormat } from "../helper";
+import { getFieldFromUnknownObject, moneyFormat } from "../helper";
 
-const commentCTA = process.env.CONTRIBUTOR_APP_URL! + "/application";
+const commentCTA = `${process.env.CONTRIBUTOR_APP_URL!  }/application`;
 
 export class OctokitService {
     private static githubApp = new App({
@@ -18,14 +19,20 @@ export class OctokitService {
     });
 
     public static customBountyMessage = (bounty: string, taskId: string) => {
-        return `\n\n\n## 💵 ${moneyFormat(bounty)} USDC Bounty\n\n### Steps to solve:\n1. **Accept task**: Follow the CTA and apply to solve this issue.\n2. **Submit work**: If your application was accepted, you'll be required to submit the link to your pull request and an optional link to a reference that will give more credibility to the work done.\n3. **Receive payment**: When your pull request is approved, 100% of the bounty is instantly transferred to your wallet.\n\n**To work on this task, [Apply here](${commentCTA}?taskId=${taskId})**`
-    }
+        return `\n\n\n## 💵 ${moneyFormat(bounty)} USDC Bounty\n\n
+        ### Steps to solve:\n
+        1. **Accept task**: Follow the CTA and apply to solve this issue.\n
+        2. **Submit work**: If your application was accepted, you'll be required to submit the link to your pull request and an optional link to a reference that will give more credibility to the work done.\n
+        3. **Receive payment**: When your pull request is approved, 100% of the bounty is instantly transferred to your wallet.\n\n
+        **To work on this task, [Apply here](${commentCTA}?taskId=${taskId})**`;
+    };
 
     /**
      * Get Octokit instance for a specific installation
      */
     public static async getOctokit(installationId: string): Promise<InstallationOctokit> {
-        return await this.githubApp.getInstallationOctokit(Number(installationId));
+        const octokit = await this.githubApp.getInstallationOctokit(Number(installationId));
+        return octokit as unknown as InstallationOctokit;
     }
 
     /**
@@ -46,7 +53,7 @@ export class OctokitService {
         } else {
             // URL format - find owner and repo in the path
             // For URLs like: https://github.com/owner/repo or https://github.com/owner/repo/pull/123
-            const githubIndex = parts.findIndex(part => part === 'github.com');
+            const githubIndex = parts.findIndex(part => part === "github.com");
             if (githubIndex !== -1 && githubIndex + 2 < parts.length) {
                 return [parts[githubIndex + 1], parts[githubIndex + 2]];
             } else {
@@ -92,9 +99,11 @@ export class OctokitService {
             }
         `;
 
-        const response = await octokit.graphql(query);
+        const response = await octokit.graphql(query) as {
+            viewer : { repositories: { nodes: RepositoryDto[] } }
+        };
 
-        return (response as any).viewer.repositories.nodes as RepositoryDto[];
+        return response.viewer.repositories.nodes;
     }
 
     /**
@@ -140,8 +149,9 @@ export class OctokitService {
                         "Unauthorized: You must be an active member of this organization to access its installation"
                     );
                 }
-            } catch (error: any) {
-                if (error.status === 404 || error.status === 403) {
+            } catch (error) {
+                const errorStatus = getFieldFromUnknownObject<number>(error, "status");
+                if (errorStatus === 404 || errorStatus === 403) {
                     throw new ErrorClass(
                         "OctokitServiceError",
                         error,
@@ -167,7 +177,7 @@ export class OctokitService {
 
         try {
             const response = await octokit.rest.users.getByUsername({
-                username,
+                username
             });
             return response.status === 200;
         } catch {
@@ -231,10 +241,10 @@ export class OctokitService {
 
         const response = await octokit.graphql(query, {
             owner,
-            name: repo,
-        });
+            name: repo
+        }) as { repository: RepositoryDto };
 
-        return (response as any).repository as RepositoryDto;
+        return response.repository;
     }
 
     /**
@@ -245,7 +255,7 @@ export class OctokitService {
         installationId: string,
         filters?: IssueFilters,
         page = 1,
-        perPage = 30,
+        perPage = 30
     ) {
         const octokit = await this.getOctokit(installationId);
         const [owner, repo] = this.getOwnerAndRepo(repoUrl);
@@ -257,7 +267,7 @@ export class OctokitService {
         }
 
         if (filters?.labels?.length) {
-            queryString += ` ${filters.labels.map(label => `label:"${label}"`).join(' ')}`;
+            queryString += ` ${filters.labels.map(label => `label:"${label}"`).join(" ")}`;
         }
 
         if (filters?.milestone) {
@@ -268,9 +278,9 @@ export class OctokitService {
             queryString += ` sort:"${filters.sort}-${filters.direction}"`;
         }
 
-        queryString += ` -label:"💵 Bounty"`;
+        queryString += " -label:\"💵 Bounty\"";
 
-        const after = page > 1 ? `after: "${btoa(`cursor:${(page - 1) * perPage}`)}",` : '';
+        const after = page > 1 ? `after: "${btoa(`cursor:${(page - 1) * perPage}`)}",` : "";
 
         const query = `
             query($queryString: String!) {
@@ -315,10 +325,16 @@ export class OctokitService {
             }
         `;
 
-        const response = await octokit.graphql(query, { queryString });
+        const response = await octokit.graphql(query, { queryString }) as {
+            search: {
+                nodes: IssueDto[],
+                pageInfo: { hasNextPage: boolean }
+            }
+        };
+
         return {
-            issues: (response as any)?.search?.nodes as IssueDto[],
-            hasMore: (response as any)?.search?.pageInfo?.hasNextPage as boolean
+            issues: response.search.nodes,
+            hasMore: response.search.pageInfo.hasNextPage
         };
     }
 
@@ -365,10 +381,10 @@ export class OctokitService {
         const response = await octokit.graphql(query, {
             owner,
             name: repo,
-            number: issueNumber,
-        });
+            number: issueNumber
+        }) as { repository: { issue: IssueDto } };
 
-        return (response as any).repository.issue as IssueDto;
+        return response.repository.issue;
     }
 
     /**
@@ -381,14 +397,14 @@ export class OctokitService {
         body?: string,
         labels?: string[],
         assignees?: string[],
-        state?: "open" | "closed",
+        state?: "open" | "closed"
     ) {
         const octokit = await this.getOctokit(installationId);
         const [owner, repo] = this.getOwnerAndRepo(repoUrl);
 
         // Build the mutation dynamically based on what needs to be updated
-        let mutations = [];
-        let variables: any = { issueId };
+        const mutations = [];
+        const variables: Record<string, unknown> = { issueId };
 
         if (body !== undefined) {
             mutations.push(`
@@ -441,12 +457,12 @@ export class OctokitService {
 
             const labelsResponse = await octokit.graphql(labelsQuery, {
                 owner,
-                name: repo,
-            });
+                name: repo
+            }) as { repository: { labels: { nodes: IssueLabel[] } } };
 
-            const allLabels = (labelsResponse as any).repository.labels.nodes;
+            const allLabels = labelsResponse.repository.labels.nodes;
             const labelIds = labels.map(labelName => {
-                const label = allLabels.find((l: any) => l.name === labelName);
+                const label = allLabels.find((l) => l.name === labelName);
                 return label?.id;
             }).filter(Boolean);
 
@@ -475,13 +491,13 @@ export class OctokitService {
 
         const mutation = `
             mutation UpdateIssue(${Object.keys(variables).map(key => {
-            if (key === 'issueId') return '$issueId: ID!';
-            if (key === 'body') return '$body: String!';
-            if (key === 'labelIds') return '$labelIds: [ID!]!';
-            if (key === 'assigneeIds') return '$assigneeIds: [String!]!';
-            return '';
-        }).filter(Boolean).join(', ')}) {
-                ${mutations.join('\n')}
+        if (key === "issueId") return "$issueId: ID!";
+        if (key === "body") return "$body: String!";
+        if (key === "labelIds") return "$labelIds: [ID!]!";
+        if (key === "assigneeIds") return "$assigneeIds: [String!]!";
+        return "";
+    }).filter(Boolean).join(", ")}) {
+                ${mutations.join("\n")}
             }
         `;
 
@@ -528,15 +544,20 @@ export class OctokitService {
 
         const response = await octokit.graphql(query, {
             owner,
-            name: repo,
-        });
+            name: repo
+        }) as {
+            repository: {
+                labels: { nodes: IssueLabel[] },
+                milestones: { nodes: IssueMilestone[] }
+            }
+        };
 
-        const allLabels = (response as any).repository.labels.nodes as IssueLabel[];
+        const allLabels = response.repository.labels.nodes;
         const filteredLabels = allLabels.filter(label => label.name !== "💵 Bounty");
 
         return {
             labels: filteredLabels,
-            milestones: (response as any).repository.milestones.nodes as IssueMilestone[],
+            milestones: response.repository.milestones.nodes
         };
     }
 
@@ -564,9 +585,9 @@ export class OctokitService {
             name: "💵 Bounty",
             color: "85BB65",
             description: "Issues with a monetary reward"
-        });
+        }) as { createLabel: { label: IssueLabel } };
 
-        return (response as any).createLabel.label;
+        return response.createLabel.label;
     }
 
     /**
@@ -593,18 +614,18 @@ export class OctokitService {
         `;
 
         const response = await octokit.graphql(query, {
-            repositoryId,
-        });
+            repositoryId
+        }) as { node: { labels: { nodes: IssueLabel[] } } };
 
-        const bountyLabel = (response as any).node.labels.nodes.find(
-            (label: any) => label.name === "💵 Bounty"
+        const bountyLabel = response.node.labels.nodes.find(
+            (label) => label.name === "💵 Bounty"
         );
 
         if (!bountyLabel) {
             throw new Error("Bounty label not found");
         }
 
-        return bountyLabel as IssueLabel;
+        return bountyLabel;
     }
 
     /**
@@ -641,10 +662,10 @@ export class OctokitService {
         const response = await octokit.graphql(mutation, {
             issueId,
             labelIds: [bountyLabelId],
-            body,
-        });
+            body
+        }) as { addComment: { commentEdge: { node: GitHubComment } } };
 
-        return (response as any).addComment.commentEdge.node;
+        return response.addComment.commentEdge.node;
     }
 
     /**
@@ -674,10 +695,10 @@ export class OctokitService {
         `;
         const response = await octokit.graphql(mutation, {
             commentId,
-            body,
-        });
+            body
+        }) as { updateIssueComment: { issueComment: GitHubComment } };
 
-        return (response as any).updateIssueComment.issueComment;
+        return response.updateIssueComment.issueComment;
     }
 
     /**
@@ -706,9 +727,11 @@ export class OctokitService {
             }
         `;
 
-        const issueResponse = await octokit.graphql(issueQuery, { issueId });
-        const labels = (issueResponse as any).node.labels.nodes;
-        const bountyLabel = labels.find((label: any) => label.name === "💵 Bounty");
+        const issueResponse = await octokit.graphql(
+            issueQuery, { issueId }
+        ) as { node: { labels: { nodes: IssueLabel[] } } };
+        const labels = issueResponse.node.labels.nodes;
+        const bountyLabel = labels.find((label) => label.name === "💵 Bounty");
 
         if (!bountyLabel) {
             if (commentId && issueId) {
@@ -722,7 +745,7 @@ export class OctokitService {
 
                 await octokit.graphql(mutation, {
                     issueId,
-                    commentId,
+                    commentId
                 });
 
                 return "SUCCESS";
@@ -745,7 +768,7 @@ export class OctokitService {
         await octokit.graphql(mutation, {
             issueId,
             labelIds: [bountyLabel.id],
-            commentId,
+            commentId
         });
 
         return "SUCCESS";
@@ -791,8 +814,8 @@ export class OctokitService {
             });
 
             return pr;
-        } catch (error: any) {
-            if (error.status === 404) {
+        } catch (error) {
+            if (getFieldFromUnknownObject<number>(error, "status") === 404) {
                 return null; // PR not found
             }
             throw new ErrorClass(
@@ -820,18 +843,18 @@ export class OctokitService {
                 owner,
                 repo,
                 path: filePath,
-                ref: ref || 'HEAD'
+                ref: ref || "HEAD"
             });
 
             // Handle file content (not directory)
-            if ('content' in data && typeof data.content === 'string') {
+            if ("content" in data && typeof data.content === "string") {
                 // Decode base64 content
-                return Buffer.from(data.content, 'base64').toString('utf-8');
+                return Buffer.from(data.content, "base64").toString("utf-8");
             } else {
                 throw new Error(`Path ${filePath} is not a file or content not available`);
             }
-        } catch (error: any) {
-            if (error.status === 404) {
+        } catch (error) {
+            if (getFieldFromUnknownObject<number>(error, "status") === 404) {
                 throw new ErrorClass(
                     "OctokitServiceError",
                     error,
@@ -841,7 +864,7 @@ export class OctokitService {
             throw new ErrorClass(
                 "OctokitServiceError",
                 error,
-                `Failed to fetch file content: ${error.message}`
+                `Failed to fetch file content: ${getFieldFromUnknownObject<number>(error, "message")}`
             );
         }
     }
@@ -868,7 +891,7 @@ export class OctokitService {
             const branchRef = await octokit.rest.git.getRef({
                 owner,
                 repo,
-                ref: `heads/${branch}`,
+                ref: `heads/${branch}`
             });
             const commitSha = branchRef.data.object.sha;
 
@@ -877,7 +900,7 @@ export class OctokitService {
                 owner,
                 repo,
                 tree_sha: commitSha,
-                recursive: "true", // This is key - gets the entire tree structure
+                recursive: "true" // This is key - gets the entire tree structure
             });
 
             // Filter to only get file paths (not directories)
@@ -887,15 +910,15 @@ export class OctokitService {
                 .filter(path => path); // Remove any undefined paths
 
             return filePaths;
-        } catch (error: any) {
-            if (error.status === 409) {
+        } catch (error) {
+            if (getFieldFromUnknownObject<number>(error, "status") === 409) {
                 console.log(`Repository ${owner}/${repo} is empty`);
                 return [];
             }
             throw new ErrorClass(
                 "OctokitServiceError",
                 error,
-                `Failed to get file paths: ${error.message}`
+                `Failed to get file paths: ${getFieldFromUnknownObject<string>(error, "message")}`
             );
         }
     }
@@ -916,9 +939,12 @@ export class OctokitService {
         }`;
 
         try {
-            const response = await octokit.graphql(query, { owner, repo });
-            return (response as any).repository.defaultBranchRef?.name || "main";
-        } catch (error) {
+            const response = await octokit.graphql(
+                query, { owner, repo }
+            ) as { repository: { defaultBranchRef: { name: string } } };
+
+            return response.repository.defaultBranchRef?.name || "main";
+        } catch {
             console.warn(`Could not get default branch for ${owner}/${repo}, using 'main'`);
             return "main";
         }
@@ -949,12 +975,12 @@ export class OctokitService {
                     owner,
                     repo,
                     expression: branch
-                });
+                }) as { repository: { object: { oid: string } } };
 
-                if ((response as any).repository.object) {
+                if (response.repository.object) {
                     return branch;
                 }
-            } catch (error) {
+            } catch {
                 continue; // Try next branch
             }
         }
@@ -962,7 +988,7 @@ export class OctokitService {
         throw new ErrorClass(
             "OctokitServiceError",
             null,
-            `No valid branch found among: ${branchCandidates.join(', ')}`
+            `No valid branch found among: ${branchCandidates.join(", ")}`
         );
     }
 
@@ -983,21 +1009,21 @@ export class OctokitService {
         if (!branch) {
             try {
                 branch = await this.getDefaultBranch(installationId, repoUrl);
-            } catch (error) {
+            } catch {
                 branch = await this.findValidBranch(installationId, repoUrl);
             }
         }
 
         // Limit the number of files per request to avoid GraphQL limits
         const maxFilesPerRequest = 50;
-        const results: Record<string, any> = {};
+        const results: Record<string, { text: string; byteSize: number; isBinary: boolean; oid: string } | null> = {};
 
         for (let i = 0; i < filePaths.length; i += maxFilesPerRequest) {
             const batchPaths = filePaths.slice(i, i + maxFilesPerRequest);
             
             const fileQueries = batchPaths.map((path, index) => {
                 return `file${index}: object(expression: "${branch}:${path}") { ...FileContent }`;
-            }).join('\n');
+            }).join("\n");
 
             const query = `
                 fragment FileContent on Blob {
@@ -1014,10 +1040,12 @@ export class OctokitService {
             `;
 
             try {
-                const response = await octokit.graphql(query, { owner, repo });
+                const response = await octokit.graphql(query, { owner, repo }) as {
+                    repository: Record<string, { text: string; byteSize: number; isBinary: boolean; oid: string }>
+                };
                 
                 batchPaths.forEach((path, index) => {
-                    results[path] = (response as any).repository[`file${index}`];
+                    results[path] = response.repository[`file${index}`];
                 });
             } catch (error) {
                 console.error(`Error fetching file batch starting at index ${i}:`, error);

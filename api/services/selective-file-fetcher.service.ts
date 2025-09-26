@@ -3,14 +3,14 @@
 // AI-powered selective file fetching with prioritization and batch processing
 // ============================================================================
 
-import { OctokitService } from './octokit.service';
-import { LoggingService } from './logging.service';
+import { OctokitService } from "./octokit.service";
+import { LoggingService } from "./logging.service";
 import {
     RelevantFileRecommendation,
     FetchedFile,
     BatchProcessingConfig,
     RetryConfig
-} from '../models/intelligent-context.model';
+} from "../models/intelligent-context.model";
 
 /**
  * Service for selectively fetching files based on AI recommendations
@@ -26,17 +26,17 @@ export class SelectiveFileFetcherService {
             maxDelay: 10000,
             backoffMultiplier: 2,
             retryableErrors: [
-                'ECONNRESET',
-                'ENOTFOUND',
-                'ECONNREFUSED',
-                'ETIMEDOUT',
-                'EPIPE',
-                'EPROTO',
-                'RequestError',
-                'HttpError',
-                'GitHubAPIError',
-                'RateLimitError',
-                'NetworkError'
+                "ECONNRESET",
+                "ENOTFOUND",
+                "ECONNREFUSED",
+                "ETIMEDOUT",
+                "EPIPE",
+                "EPROTO",
+                "RequestError",
+                "HttpError",
+                "GitHubAPIError",
+                "RateLimitError",
+                "NetworkError"
             ]
         }
     };
@@ -52,8 +52,8 @@ export class SelectiveFileFetcherService {
     ): Promise<FetchedFile[]> {
         const startTime = Date.now();
         LoggingService.logInfo(
-            'selective_file_fetching_started',
-            'Starting selective file fetching',
+            "selective_file_fetching_started",
+            "Starting selective file fetching",
             {
                 installationId,
                 repositoryName,
@@ -82,8 +82,8 @@ export class SelectiveFileFetcherService {
             const failureCount = processedFiles.length - successCount;
 
             LoggingService.logInfo(
-                'selective_file_fetching_completed',
-                'Selective file fetching completed',
+                "selective_file_fetching_completed",
+                "Selective file fetching completed",
                 {
                     installationId,
                     repositoryName,
@@ -99,7 +99,7 @@ export class SelectiveFileFetcherService {
 
         } catch (error) {
             LoggingService.logError(
-                'selective_file_fetching_failed',
+                "selective_file_fetching_failed",
                 error instanceof Error ? error : new Error(String(error)),
                 {
                     installationId,
@@ -111,7 +111,7 @@ export class SelectiveFileFetcherService {
             // Return empty array with error information rather than throwing
             return recommendations.map(rec => ({
                 filePath: rec.filePath,
-                content: '',
+                content: "",
                 language: this.detectLanguage(rec.filePath),
                 size: 0,
                 lastModified: new Date().toISOString(),
@@ -163,8 +163,8 @@ export class SelectiveFileFetcherService {
 
         if (failedFiles.length > 0) {
             LoggingService.logWarning(
-                'file_fetch_partial_failure',
-                'Some files failed to fetch',
+                "file_fetch_partial_failure",
+                "Some files failed to fetch",
                 {
                     totalFiles: files.length,
                     successfulFiles: successfulFiles.length,
@@ -203,11 +203,11 @@ export class SelectiveFileFetcherService {
                 const batchResults = await Promise.allSettled(batchPromises);
                 
                 batchResults.forEach((result, index) => {
-                    if (result.status === 'fulfilled') {
+                    if (result.status === "fulfilled") {
                         results.push(...result.value);
                     } else {
                         LoggingService.logError(
-                            'batch_processing_failed',
+                            "batch_processing_failed",
                             new Error(`Batch ${i + index} failed: ${result.reason}`),
                             {
                                 batchIndex: i + index,
@@ -218,7 +218,7 @@ export class SelectiveFileFetcherService {
                         // Add failed entries for this batch
                         const failedFiles = concurrentBatches[index].map(rec => ({
                             filePath: rec.filePath,
-                            content: '',
+                            content: "",
                             language: this.detectLanguage(rec.filePath),
                             size: 0,
                             lastModified: new Date().toISOString(),
@@ -230,7 +230,7 @@ export class SelectiveFileFetcherService {
                 });
             } catch (error) {
                 LoggingService.logError(
-                    'concurrent_batch_processing_failed',
+                    "concurrent_batch_processing_failed",
                     error instanceof Error ? error : new Error(String(error)),
                     {
                         batchIndex: i
@@ -254,8 +254,8 @@ export class SelectiveFileFetcherService {
         const batchStartTime = Date.now();
 
         LoggingService.logDebug(
-            'batch_processing_started',
-            'Processing file batch',
+            "batch_processing_started",
+            "Processing file batch",
             {
                 installationId,
                 repositoryName,
@@ -291,12 +291,12 @@ export class SelectiveFileFetcherService {
                 } else {
                     return {
                         filePath: recommendation.filePath,
-                        content: '',
+                        content: "",
                         language,
                         size: 0,
                         lastModified: new Date().toISOString(),
                         fetchSuccess: false,
-                        error: fileData?.isBinary ? 'Binary file not supported' : 'File not found or not accessible'
+                        error: fileData?.isBinary ? "Binary file not supported" : "File not found or not accessible"
                     };
                 }
             });
@@ -305,8 +305,8 @@ export class SelectiveFileFetcherService {
             const successCount = results.filter(r => r.fetchSuccess).length;
 
             LoggingService.logDebug(
-                'batch_processing_completed',
-                'Batch processing completed',
+                "batch_processing_completed",
+                "Batch processing completed",
                 {
                     batchSize: batch.length,
                     successCount,
@@ -320,8 +320,8 @@ export class SelectiveFileFetcherService {
         } catch (error) {
             // If batch fetching fails, fall back to individual file fetching with retries
             LoggingService.logWarning(
-                'batch_fetch_failed_fallback',
-                'Batch fetch failed, falling back to individual file fetching',
+                "batch_fetch_failed_fallback",
+                "Batch fetch failed, falling back to individual file fetching",
                 {
                     batchSize: batch.length,
                     error: error instanceof Error ? error.message : String(error)
@@ -355,8 +355,8 @@ export class SelectiveFileFetcherService {
                 results.push(fetchedFile);
             } catch (error) {
                 LoggingService.logWarning(
-                    'file_fetch_failed_after_retries',
-                    'File fetch failed after retries',
+                    "file_fetch_failed_after_retries",
+                    "File fetch failed after retries",
                     {
                         filePath: recommendation.filePath,
                         error: error instanceof Error ? error.message : String(error)
@@ -366,7 +366,7 @@ export class SelectiveFileFetcherService {
                 // Add failed file entry
                 results.push({
                     filePath: recommendation.filePath,
-                    content: '',
+                    content: "",
                     language: this.detectLanguage(recommendation.filePath),
                     size: 0,
                     lastModified: new Date().toISOString(),
@@ -403,11 +403,11 @@ export class SelectiveFileFetcherService {
 
                 const fetchTime = Date.now() - startTime;
                 const language = this.detectLanguage(recommendation.filePath);
-                const size = Buffer.byteLength(content, 'utf8');
+                const size = Buffer.byteLength(content, "utf8");
 
                 LoggingService.logDebug(
-                    'file_fetch_success',
-                    'File fetched successfully',
+                    "file_fetch_success",
+                    "File fetched successfully",
                     {
                         filePath: recommendation.filePath,
                         size,
@@ -436,8 +436,8 @@ export class SelectiveFileFetcherService {
                     // Last attempt failed or error is not retryable, will throw
                     if (!isRetryable) {
                         LoggingService.logDebug(
-                            'file_fetch_non_retryable_error',
-                            'Non-retryable error encountered, not retrying',
+                            "file_fetch_non_retryable_error",
+                            "Non-retryable error encountered, not retrying",
                             {
                                 filePath: recommendation.filePath,
                                 error: lastError.message,
@@ -455,8 +455,8 @@ export class SelectiveFileFetcherService {
                 );
 
                 LoggingService.logDebug(
-                    'file_fetch_retry',
-                    'File fetch attempt failed, retrying',
+                    "file_fetch_retry",
+                    "File fetch attempt failed, retrying",
                     {
                         filePath: recommendation.filePath,
                         attempt: attempt + 1,
@@ -472,7 +472,7 @@ export class SelectiveFileFetcherService {
         }
 
         // All retries failed
-        throw lastError || new Error('Unknown error during file fetch');
+        throw lastError || new Error("Unknown error during file fetch");
     }
 
     /**
@@ -510,56 +510,56 @@ export class SelectiveFileFetcherService {
      * Detect programming language from file extension
      */
     private detectLanguage(filePath: string): string {
-        const extension = filePath.split('.').pop()?.toLowerCase();
+        const extension = filePath.split(".").pop()?.toLowerCase();
         
         const languageMap: Record<string, string> = {
-            'ts': 'typescript',
-            'js': 'javascript',
-            'tsx': 'typescript',
-            'jsx': 'javascript',
-            'py': 'python',
-            'java': 'java',
-            'cpp': 'cpp',
-            'c': 'c',
-            'cs': 'csharp',
-            'php': 'php',
-            'rb': 'ruby',
-            'go': 'go',
-            'rs': 'rust',
-            'swift': 'swift',
-            'kt': 'kotlin',
-            'scala': 'scala',
-            'sh': 'bash',
-            'bash': 'bash',
-            'zsh': 'zsh',
-            'fish': 'fish',
-            'ps1': 'powershell',
-            'sql': 'sql',
-            'html': 'html',
-            'css': 'css',
-            'scss': 'scss',
-            'sass': 'sass',
-            'less': 'less',
-            'json': 'json',
-            'xml': 'xml',
-            'yaml': 'yaml',
-            'yml': 'yaml',
-            'toml': 'toml',
-            'ini': 'ini',
-            'cfg': 'ini',
-            'conf': 'ini',
-            'md': 'markdown',
-            'markdown': 'markdown',
-            'txt': 'text',
-            'log': 'text',
-            'dockerfile': 'dockerfile',
-            'makefile': 'makefile',
-            'gradle': 'gradle',
-            'maven': 'xml',
-            'pom': 'xml'
+            "ts": "typescript",
+            "js": "javascript",
+            "tsx": "typescript",
+            "jsx": "javascript",
+            "py": "python",
+            "java": "java",
+            "cpp": "cpp",
+            "c": "c",
+            "cs": "csharp",
+            "php": "php",
+            "rb": "ruby",
+            "go": "go",
+            "rs": "rust",
+            "swift": "swift",
+            "kt": "kotlin",
+            "scala": "scala",
+            "sh": "bash",
+            "bash": "bash",
+            "zsh": "zsh",
+            "fish": "fish",
+            "ps1": "powershell",
+            "sql": "sql",
+            "html": "html",
+            "css": "css",
+            "scss": "scss",
+            "sass": "sass",
+            "less": "less",
+            "json": "json",
+            "xml": "xml",
+            "yaml": "yaml",
+            "yml": "yaml",
+            "toml": "toml",
+            "ini": "ini",
+            "cfg": "ini",
+            "conf": "ini",
+            "md": "markdown",
+            "markdown": "markdown",
+            "txt": "text",
+            "log": "text",
+            "dockerfile": "dockerfile",
+            "makefile": "makefile",
+            "gradle": "gradle",
+            "maven": "xml",
+            "pom": "xml"
         };
 
-        return languageMap[extension || ''] || 'text';
+        return languageMap[extension || ""] || "text";
     }
 
     /**
@@ -576,7 +576,7 @@ export class SelectiveFileFetcherService {
         defaultBatchSize: number;
         defaultMaxConcurrency: number;
         defaultRetryConfig: RetryConfig;
-    } {
+        } {
         return {
             defaultBatchSize: this.defaultBatchConfig.batchSize,
             defaultMaxConcurrency: this.defaultBatchConfig.maxConcurrency,
@@ -599,8 +599,8 @@ export class SelectiveFileFetcherService {
         }
 
         LoggingService.logInfo(
-            'batch_config_updated',
-            'Batch processing configuration updated',
+            "batch_config_updated",
+            "Batch processing configuration updated",
             {
                 newConfig: this.defaultBatchConfig
             }

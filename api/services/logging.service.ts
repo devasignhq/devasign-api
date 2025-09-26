@@ -1,15 +1,16 @@
+import { getFieldFromUnknownObject } from "../helper";
+
 /**
  * Structured Logging Service for AI Review System
  * Provides centralized logging with structured format and monitoring integration
- * Requirements: 7.4, 6.4
  */
 export class LoggingService {
-    private static readonly SERVICE_NAME = 'ai-review';
+    private static readonly SERVICE_NAME = "ai-review";
     private static readonly LOG_LEVELS = {
-        ERROR: 'error',
-        WARN: 'warn',
-        INFO: 'info',
-        DEBUG: 'debug'
+        ERROR: "error",
+        WARN: "warn",
+        INFO: "info",
+        DEBUG: "debug"
     } as const;
 
     /**
@@ -17,21 +18,21 @@ export class LoggingService {
      */
     static logError(
         eventType: string,
-        error: Error | any,
-        context?: Record<string, any>
+        error: Error | unknown,
+        context?: Record<string, unknown>
     ): void {
         const logEntry = LoggingService.createLogEntry(
             LoggingService.LOG_LEVELS.ERROR,
             eventType,
-            error.message || String(error),
+            getFieldFromUnknownObject<string>(error, "message") || String(error),
             {
                 ...context,
                 error: {
-                    name: error.name || 'UnknownError',
-                    message: error.message || String(error),
-                    code: error.code,
-                    stack: error.stack,
-                    retryable: error.retryable
+                    name: getFieldFromUnknownObject<string>(error, "name") || "UnknownError",
+                    message: getFieldFromUnknownObject<string>(error, "message") || String(error),
+                    code: getFieldFromUnknownObject<string>(error, "code"),
+                    stack: getFieldFromUnknownObject<string>(error, "stack"),
+                    retryable: getFieldFromUnknownObject<string>(error, "retryable")
                 }
             }
         );
@@ -46,7 +47,7 @@ export class LoggingService {
     static logWarning(
         eventType: string,
         message: string,
-        context?: Record<string, any>
+        context?: Record<string, unknown>
     ): void {
         const logEntry = LoggingService.createLogEntry(
             LoggingService.LOG_LEVELS.WARN,
@@ -65,7 +66,7 @@ export class LoggingService {
     static logInfo(
         eventType: string,
         message: string,
-        context?: Record<string, any>
+        context?: Record<string, unknown>
     ): void {
         const logEntry = LoggingService.createLogEntry(
             LoggingService.LOG_LEVELS.INFO,
@@ -83,9 +84,9 @@ export class LoggingService {
     static logDebug(
         eventType: string,
         message: string,
-        context?: Record<string, any>
+        context?: Record<string, unknown>
     ): void {
-        if (process.env.NODE_ENV !== 'development') {
+        if (process.env.NODE_ENV !== "development") {
             return;
         }
 
@@ -105,11 +106,11 @@ export class LoggingService {
     static logPerformance(
         operation: string,
         durationMs: number,
-        context?: Record<string, any>
+        context?: Record<string, unknown>
     ): void {
         const logEntry = LoggingService.createLogEntry(
             LoggingService.LOG_LEVELS.INFO,
-            'performance_metric',
+            "performance_metric",
             `${operation} completed in ${durationMs}ms`,
             {
                 ...context,
@@ -130,12 +131,12 @@ export class LoggingService {
      */
     static logHealthStatus(
         serviceName: string,
-        status: 'healthy' | 'degraded' | 'unhealthy',
-        details?: Record<string, any>
+        status: "healthy" | "degraded" | "unhealthy",
+        details?: Record<string, unknown>
     ): void {
         const logEntry = LoggingService.createLogEntry(
-            status === 'healthy' ? LoggingService.LOG_LEVELS.INFO : LoggingService.LOG_LEVELS.WARN,
-            'health_check',
+            status === "healthy" ? LoggingService.LOG_LEVELS.INFO : LoggingService.LOG_LEVELS.WARN,
+            "health_check",
             `Service ${serviceName} is ${status}`,
             {
                 health: {
@@ -155,14 +156,14 @@ export class LoggingService {
      * Logs AI review workflow events
      */
     static logAIReviewEvent(
-        eventType: 'started' | 'completed' | 'failed' | 'skipped',
+        eventType: "started" | "completed" | "failed" | "skipped",
         installationId: string,
         prNumber: number,
         repositoryName: string,
-        details?: Record<string, any>
+        details?: Record<string, unknown>
     ): void {
         const logEntry = LoggingService.createLogEntry(
-            eventType === 'failed' ? LoggingService.LOG_LEVELS.ERROR : LoggingService.LOG_LEVELS.INFO,
+            eventType === "failed" ? LoggingService.LOG_LEVELS.ERROR : LoggingService.LOG_LEVELS.INFO,
             `ai_review_${eventType}`,
             `AI review ${eventType} for PR #${prNumber} in ${repositoryName}`,
             {
@@ -185,15 +186,15 @@ export class LoggingService {
      * Logs external service interactions
      */
     static logExternalServiceCall(
-        serviceName: 'groq' | 'pinecone' | 'github',
+        serviceName: "groq" | "pinecone" | "github",
         operation: string,
-        status: 'success' | 'failure' | 'timeout',
+        status: "success" | "failure" | "timeout",
         durationMs: number,
-        details?: Record<string, any>
+        details?: Record<string, unknown>
     ): void {
         const logEntry = LoggingService.createLogEntry(
-            status === 'success' ? LoggingService.LOG_LEVELS.INFO : LoggingService.LOG_LEVELS.WARN,
-            'external_service_call',
+            status === "success" ? LoggingService.LOG_LEVELS.INFO : LoggingService.LOG_LEVELS.WARN,
+            "external_service_call",
             `${serviceName} ${operation} ${status} (${durationMs}ms)`,
             {
                 ...details,
@@ -218,7 +219,7 @@ export class LoggingService {
         level: string,
         eventType: string,
         message: string,
-        context?: Record<string, any>
+        context?: Record<string, unknown>
     ): LogEntry {
         return {
             timestamp: new Date().toISOString(),
@@ -226,8 +227,8 @@ export class LoggingService {
             service: LoggingService.SERVICE_NAME,
             eventType,
             message,
-            environment: process.env.NODE_ENV || 'development',
-            version: process.env.npm_package_version || '1.0.0',
+            environment: process.env.NODE_ENV || "development",
+            version: process.env.npm_package_version || "1.0.0",
             requestId: LoggingService.generateRequestId(),
             ...context
         };
@@ -250,12 +251,12 @@ export class LoggingService {
             }
 
             // Store critical errors in database for analysis
-            if (logEntry.level === 'error') {
+            if (logEntry.level === "error") {
                 await LoggingService.storeErrorInDatabase(logEntry);
             }
         } catch (error) {
             // Don't let monitoring failures break the main flow
-            console.error('Failed to send log to monitoring:', error);
+            console.error("Failed to send log to monitoring:", error);
         }
     }
 
@@ -265,10 +266,10 @@ export class LoggingService {
     private static async sendToWebhook(logEntry: LogEntry): Promise<void> {
         try {
             const response = await fetch(process.env.MONITORING_WEBHOOK_URL!, {
-                method: 'POST',
+                method: "POST",
                 headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${process.env.MONITORING_WEBHOOK_TOKEN || ''}`
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${process.env.MONITORING_WEBHOOK_TOKEN || ""}`
                 },
                 body: JSON.stringify(logEntry)
             });
@@ -277,7 +278,7 @@ export class LoggingService {
                 throw new Error(`Webhook responded with status: ${response.status}`);
             }
         } catch (error) {
-            console.error('Failed to send log to webhook:', error);
+            console.error("Failed to send log to webhook:", error);
         }
     }
 
@@ -299,12 +300,12 @@ export class LoggingService {
             // });
 
             // For now, just log that we would store it
-            console.debug('Would store error in database:', {
+            console.debug("Would store error in database:", {
                 eventType: logEntry.eventType,
                 message: logEntry.message
             });
         } catch (error) {
-            console.error('Failed to store error in database:', error);
+            console.error("Failed to store error in database:", error);
         }
     }
 
@@ -335,7 +336,7 @@ interface LogEntry {
     environment: string;
     version: string;
     requestId: string;
-    [key: string]: any;
+    [key: string]: unknown;
 }
 
 /**
@@ -351,7 +352,7 @@ export class PerformanceTimer {
     /**
      * Ends the timer and logs performance
      */
-    end(context?: Record<string, any>): number {
+    end(context?: Record<string, unknown>): number {
         const durationMs = Date.now() - this.startTime;
         LoggingService.logPerformance(this.operation, durationMs, context);
         return durationMs;

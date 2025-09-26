@@ -1,33 +1,30 @@
 import {
-    AIReviewError,
     GroqServiceError,
     PineconeServiceError,
     GitHubAPIError,
     TimeoutError,
     ErrorUtils
-} from '../models/ai-review.errors';
+} from "../models/ai-review.errors";
 import {
     PullRequestData,
     RelevantContext,
     AIReview,
     RuleEvaluation,
-    ReviewResult
-} from '../models/ai-review.model';
+    CodeSuggestion,
+    CodePattern,
+    ProjectStandard
+} from "../models/ai-review.model";
 
 /**
  * Error Handler Service for AI Review System
  * Implements fallback mechanisms and graceful degradation
- * Requirements: 7.4, 6.4
  */
 export class ErrorHandlerService {
     private static readonly MAX_RETRIES = 3;
-    private static readonly BASE_DELAY = 1000; // 1 second
-    private static readonly MAX_DELAY = 30000; // 30 seconds
     private static readonly TIMEOUT_MS = 60000; // 60 seconds
 
     /**
      * Executes operation with retry logic and exponential backoff
-     * Requirement 7.4: System shall handle rate limiting gracefully
      */
     static async withRetry<T>(
         operation: () => Promise<T>,
@@ -45,13 +42,13 @@ export class ErrorHandlerService {
             try {
                 // Wrap operation with timeout
                 return await ErrorHandlerService.withTimeout(operation, operationName, timeoutMs);
-            } catch (error: any) {
+            } catch (err) {
+                const error = err as Error;
                 lastError = error;
 
                 // Log the attempt
                 console.warn(`Attempt ${attempt + 1}/${maxRetries} failed for ${operationName}:`, {
                     error: error.message,
-                    code: error.code,
                     retryable: ErrorUtils.isRetryable(error)
                 });
 
@@ -86,6 +83,7 @@ export class ErrorHandlerService {
         return Promise.race([
             operation(),
             new Promise<never>((_, reject) => {
+                 
                 setTimeout(() => {
                     reject(new TimeoutError(operationName, timeoutMs));
                 }, timeoutMs);
@@ -95,7 +93,6 @@ export class ErrorHandlerService {
 
     /**
      * Handles Groq AI service failures with fallback
-     * Requirement 7.4: System shall gracefully handle service unavailability
      */
     static async handleGroqFailure(
         prData: PullRequestData,
@@ -103,7 +100,7 @@ export class ErrorHandlerService {
         ruleEvaluation: RuleEvaluation,
         error: GroqServiceError
     ): Promise<AIReview> {
-        console.warn('Groq AI service failed, using fallback review generation:', {
+        console.warn("Groq AI service failed, using fallback review generation:", {
             error: error.message,
             code: error.code,
             prNumber: prData.prNumber,
@@ -116,13 +113,12 @@ export class ErrorHandlerService {
 
     /**
      * Handles Pinecone service failures with fallback
-     * Requirement 7.4: System shall provide limited review without RAG
      */
     static async handlePineconeFailure(
         prData: PullRequestData,
         error: PineconeServiceError
     ): Promise<RelevantContext> {
-        console.warn('Pinecone service failed, using basic context without RAG:', {
+        console.warn("Pinecone service failed, using basic context without RAG:", {
             error: error.message,
             code: error.code,
             prNumber: prData.prNumber,
@@ -140,7 +136,6 @@ export class ErrorHandlerService {
 
     /**
      * Handles GitHub API failures with fallback
-     * Requirement 6.4: System shall skip comment posting if necessary
      */
     static async handleGitHubFailure(
         installationId: string,
@@ -149,7 +144,7 @@ export class ErrorHandlerService {
         operation: string,
         error: GitHubAPIError
     ): Promise<boolean> {
-        console.warn('GitHub API operation failed:', {
+        console.warn("GitHub API operation failed:", {
             error: error.message,
             code: error.code,
             statusCode: error.statusCode,
@@ -161,7 +156,7 @@ export class ErrorHandlerService {
 
         // For rate limiting, we should retry
         if (error.statusCode === 429) {
-            console.log('GitHub API rate limited, operation will be retried by retry mechanism');
+            console.log("GitHub API rate limited, operation will be retried by retry mechanism");
             throw error; // Let retry mechanism handle this
         }
 
@@ -172,21 +167,20 @@ export class ErrorHandlerService {
 
     /**
      * Handles database operation failures
-     * Requirement 7.4: System shall continue with in-memory fallback
      */
     static async handleDatabaseFailure<T>(
         operation: string,
         fallbackValue: T,
         error: Error
     ): Promise<T> {
-        console.warn('Database operation failed, using fallback:', {
+        console.warn("Database operation failed, using fallback:", {
             operation,
             error: error.message,
             fallbackValue: typeof fallbackValue
         });
 
         // Log to external monitoring if available
-        await ErrorHandlerService.logToMonitoring('database_failure', {
+        await ErrorHandlerService.logToMonitoring("database_failure", {
             operation,
             error: error.message,
             timestamp: new Date().toISOString()
@@ -233,8 +227,8 @@ export class ErrorHandlerService {
         const baseScore = (passedRules / totalRules) * 100;
 
         // Apply penalties for critical violations
-        const criticalViolations = ruleEvaluation.violated.filter(v => v.severity === 'CRITICAL').length;
-        const highViolations = ruleEvaluation.violated.filter(v => v.severity === 'HIGH').length;
+        const criticalViolations = ruleEvaluation.violated.filter(v => v.severity === "CRITICAL").length;
+        const highViolations = ruleEvaluation.violated.filter(v => v.severity === "HIGH").length;
 
         const penalty = (criticalViolations * 20) + (highViolations * 10);
 
@@ -247,30 +241,30 @@ export class ErrorHandlerService {
     private static generateBasicQualityMetrics(
         prData: PullRequestData,
         ruleEvaluation: RuleEvaluation
-    ): any {
+    ) {
         const hasTests = prData.changedFiles.some(f =>
-            f.filename.includes('test') ||
-            f.filename.includes('spec') ||
-            f.filename.includes('__tests__')
+            f.filename.includes("test") ||
+            f.filename.includes("spec") ||
+            f.filename.includes("__tests__")
         );
 
         const hasDocumentation = prData.changedFiles.some(f =>
-            f.filename.toLowerCase().includes('readme') ||
-            f.filename.toLowerCase().includes('doc') ||
-            f.filename.endsWith('.md')
+            f.filename.toLowerCase().includes("readme") ||
+            f.filename.toLowerCase().includes("doc") ||
+            f.filename.endsWith(".md")
         );
 
         const securityViolations = ruleEvaluation.violated.filter(v =>
-            v.ruleName.toLowerCase().includes('security')
+            v.ruleName.toLowerCase().includes("security")
         ).length;
 
         return {
-            codeStyle: ErrorHandlerService.calculateMetricFromRules(ruleEvaluation, 'CODE_QUALITY'),
+            codeStyle: ErrorHandlerService.calculateMetricFromRules(ruleEvaluation, "CODE_QUALITY"),
             testCoverage: hasTests ? 70 : 30,
             documentation: hasDocumentation ? 80 : 40,
             security: securityViolations > 0 ? 30 : 80,
-            performance: ErrorHandlerService.calculateMetricFromRules(ruleEvaluation, 'PERFORMANCE'),
-            maintainability: ErrorHandlerService.calculateMetricFromRules(ruleEvaluation, 'MAINTAINABILITY')
+            performance: ErrorHandlerService.calculateMetricFromRules(ruleEvaluation, "PERFORMANCE"),
+            maintainability: ErrorHandlerService.calculateMetricFromRules(ruleEvaluation, "MAINTAINABILITY")
         };
     }
 
@@ -295,32 +289,32 @@ export class ErrorHandlerService {
     private static generateBasicSuggestions(
         prData: PullRequestData,
         ruleEvaluation: RuleEvaluation
-    ): any[] {
-        const suggestions: any[] = [];
+    ) {
+        const suggestions: CodeSuggestion[] = [];
 
         // Convert rule violations to suggestions
         for (const violation of ruleEvaluation.violated) {
             suggestions.push({
-                file: violation.affectedFiles?.[0] || 'multiple files',
-                lineNumber: null,
-                type: 'fix',
-                severity: violation.severity.toLowerCase(),
+                file: violation.affectedFiles?.[0] || "multiple files",
+                lineNumber: undefined,
+                type: "fix",
+                severity: violation.severity.toLowerCase() as ("low" | "medium" | "high"),
                 description: `${violation.ruleName}: ${violation.description}`,
-                suggestedCode: null,
-                reasoning: violation.details || 'Rule violation detected by automated analysis'
+                suggestedCode: undefined,
+                reasoning: violation.details || "Rule violation detected by automated analysis"
             });
         }
 
         // Add basic suggestions based on PR characteristics
-        if (!prData.changedFiles.some(f => f.filename.includes('test'))) {
+        if (!prData.changedFiles.some(f => f.filename.includes("test"))) {
             suggestions.push({
-                file: 'tests',
-                lineNumber: null,
-                type: 'improvement',
-                severity: 'medium',
-                description: 'Consider adding tests for the changes in this PR',
-                suggestedCode: null,
-                reasoning: 'No test files were modified or added in this PR'
+                file: "tests",
+                lineNumber: undefined,
+                type: "improvement",
+                severity: "medium",
+                description: "Consider adding tests for the changes in this PR",
+                suggestedCode: undefined,
+                reasoning: "No test files were modified or added in this PR"
             });
         }
 
@@ -330,13 +324,13 @@ export class ErrorHandlerService {
     /**
      * Extracts basic code patterns without vector analysis
      */
-    private static extractBasicCodePatterns(prData: PullRequestData): any[] {
-        const patterns: any[] = [];
+    private static extractBasicCodePatterns(prData: PullRequestData) {
+        const patterns: CodePattern[] = [];
 
         // Extract file extension patterns
         const extensions = prData.changedFiles.map(f => {
-            const ext = f.filename.split('.').pop();
-            return ext ? `.${ext}` : '';
+            const ext = f.filename.split(".").pop();
+            return ext ? `.${ext}` : "";
         }).filter(Boolean);
 
         const extensionCounts = extensions.reduce((acc, ext) => {
@@ -361,22 +355,22 @@ export class ErrorHandlerService {
     /**
      * Extracts basic project standards without vector analysis
      */
-    private static extractBasicProjectStandards(prData: PullRequestData): any[] {
-        const standards: any[] = [];
+    private static extractBasicProjectStandards(prData: PullRequestData) {
+        const standards: ProjectStandard[] = [];
 
         // Extract directory structure patterns
         const directories = prData.changedFiles.map(f => {
-            const parts = f.filename.split('/');
-            return parts.length > 1 ? parts[0] : '';
+            const parts = f.filename.split("/");
+            return parts.length > 1 ? parts[0] : "";
         }).filter(Boolean);
 
         const uniqueDirectories = [...new Set(directories)];
 
         if (uniqueDirectories.length > 0) {
             standards.push({
-                category: 'File Organization',
-                rule: 'Directory structure',
-                description: 'Files are organized in specific directories',
+                category: "File Organization",
+                rule: "Directory structure",
+                description: "Files are organized in specific directories",
                 examples: uniqueDirectories.slice(0, 3)
             });
         }
@@ -387,18 +381,19 @@ export class ErrorHandlerService {
     /**
      * Logs errors to monitoring system
      */
-    private static async logToMonitoring(eventType: string, data: any): Promise<void> {
+    private static async logToMonitoring(eventType: string, data: unknown): Promise<void> {
         try {
             // Use the new LoggingService for structured logging
-            const { LoggingService } = await import('./logging.service');
+            const { LoggingService } = await import("./logging.service");
 
-            LoggingService.logError(eventType, new Error(data.error || 'Unknown error'), {
-                ...data,
-                source: 'error_handler_service'
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            LoggingService.logError(eventType, new Error((data as any)?.error || "Unknown error"), {
+                ...(typeof data === "object" ? data : { data }),
+                source: "error_handler_service"
             });
         } catch (error) {
             // Don't let monitoring failures break the main flow
-            console.error('Failed to log to monitoring:', error);
+            console.error("Failed to log to monitoring:", error);
         }
     }
 
@@ -406,6 +401,7 @@ export class ErrorHandlerService {
      * Sleep utility for delays
      */
     private static sleep(ms: number): Promise<void> {
+         
         return new Promise(resolve => setTimeout(resolve, ms));
     }
 }

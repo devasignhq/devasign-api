@@ -1,10 +1,9 @@
 import { firestoreDB } from "../config/firebase.config";
 import { Timestamp } from "firebase-admin/firestore";
-import { Message, MessageType } from "../models/general.model";
-import { TaskStatus } from "../generated/client";
+import { Message, MessageMetadata, MessageType } from "../models/general.model";
 
-export const messagesCollection = firestoreDB.collection('messages');
-export const tasksCollection = firestoreDB.collection('tasks');
+export const messagesCollection = firestoreDB.collection("messages");
+export const tasksCollection = firestoreDB.collection("tasks");
 
 export class FirebaseService {
     static async createMessage({
@@ -12,7 +11,7 @@ export class FirebaseService {
         taskId,
         type = MessageType.GENERAL,
         body,
-        metadata = {} as any,
+        metadata = {} as MessageMetadata,
         attachments = []
     }: Message) {
         const messageRef = messagesCollection.doc();
@@ -38,7 +37,7 @@ export class FirebaseService {
         const message = await messagesCollection.doc(messageId).get();
 
         if (!message.exists) {
-            throw new Error('Message not found');
+            throw new Error("Message not found");
         }
 
         const updateData = {
@@ -57,8 +56,8 @@ export class FirebaseService {
 
     static async getTaskMessages(taskId: string) {
         const snapshot = await messagesCollection
-            .where('taskId', '==', taskId)
-            .orderBy('createdAt', 'desc')
+            .where("taskId", "==", taskId)
+            .orderBy("createdAt", "desc")
             .get();
         return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     }
@@ -95,7 +94,7 @@ export class FirebaseService {
         // Check if task exists
         const task = await taskRef.get();
         if (!task.exists) {
-            throw new Error('Task not found in Firebase');
+            throw new Error("Task not found in Firebase");
         }
 
         const updateData = {

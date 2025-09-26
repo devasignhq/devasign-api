@@ -1,12 +1,11 @@
-import { ErrorHandlerService } from './error-handler.service';
-import { CircuitBreakerService } from './circuit-breaker.service';
-import { LoggingService } from './logging.service';
-import { prisma } from '../config/database.config';
+import { ErrorHandlerService } from "./error-handler.service";
+import { CircuitBreakerService } from "./circuit-breaker.service";
+import { LoggingService } from "./logging.service";
+import { prisma } from "../config/database.config";
 
 /**
  * Health Check Service for AI Review System
  * Monitors system health and provides degraded mode capabilities
- * Requirements: 7.4, 6.4
  */
 export class HealthCheckService {
     private static readonly HEALTH_CHECK_TIMEOUT = 5000; // 5 seconds
@@ -18,11 +17,11 @@ export class HealthCheckService {
      */
     static async performHealthCheck(includeDetailed: boolean = false): Promise<HealthCheckResult> {
         if (HealthCheckService.healthCheckInProgress) {
-            return HealthCheckService.lastHealthCheck || HealthCheckService.createUnhealthyResult('Health check in progress');
+            return HealthCheckService.lastHealthCheck || HealthCheckService.createUnhealthyResult("Health check in progress");
         }
 
         HealthCheckService.healthCheckInProgress = true;
-        const timer = LoggingService.createTimer('health_check');
+        const timer = LoggingService.createTimer("health_check");
 
         try {
             const result = await HealthCheckService.checkAllServices(includeDetailed);
@@ -33,7 +32,7 @@ export class HealthCheckService {
                 servicesChecked: Object.keys(result.services).length
             });
 
-            LoggingService.logHealthStatus('ai-review-system', result.status, {
+            LoggingService.logHealthStatus("ai-review-system", result.status, {
                 services: result.services,
                 degradedMode: result.degradedMode
             });
@@ -42,7 +41,7 @@ export class HealthCheckService {
         } catch (error) {
             const errorResult = HealthCheckService.createUnhealthyResult(`Health check failed: ${error}`);
             timer.end({ error: true });
-            LoggingService.logError('health_check_failed', error as Error);
+            LoggingService.logError("health_check_failed", error as Error);
             return errorResult;
         } finally {
             HealthCheckService.healthCheckInProgress = false;
@@ -57,22 +56,22 @@ export class HealthCheckService {
         const checks: Promise<[string, ServiceHealth]>[] = [];
 
         // Check core services
-        checks.push(HealthCheckService.checkService('database', () => HealthCheckService.checkDatabase()));
-        checks.push(HealthCheckService.checkService('groq', () => HealthCheckService.checkGroq()));
-        checks.push(HealthCheckService.checkService('pinecone', () => HealthCheckService.checkPinecone()));
-        checks.push(HealthCheckService.checkService('github', () => HealthCheckService.checkGitHub()));
+        checks.push(HealthCheckService.checkService("database", () => HealthCheckService.checkDatabase()));
+        checks.push(HealthCheckService.checkService("groq", () => HealthCheckService.checkGroq()));
+        checks.push(HealthCheckService.checkService("pinecone", () => HealthCheckService.checkPinecone()));
+        checks.push(HealthCheckService.checkService("github", () => HealthCheckService.checkGitHub()));
 
         // Wait for all checks with timeout
         const results = await Promise.allSettled(checks);
 
         // Process results
         for (const result of results) {
-            if (result.status === 'fulfilled') {
+            if (result.status === "fulfilled") {
                 const [serviceName, health] = result.value;
                 services[serviceName] = health;
             } else {
                 // Handle rejected promises
-                console.error('Health check promise rejected:', result.reason);
+                console.error("Health check promise rejected:", result.reason);
             }
         }
 
@@ -84,8 +83,8 @@ export class HealthCheckService {
             status: overallStatus,
             timestamp: new Date().toISOString(),
             uptime: process.uptime(),
-            version: process.env.npm_package_version || '1.0.0',
-            environment: process.env.NODE_ENV || 'development',
+            version: process.env.npm_package_version || "1.0.0",
+            environment: process.env.NODE_ENV || "development",
             services,
             degradedMode,
             circuitBreakers: includeDetailed ? CircuitBreakerService.getCircuitStatus() : undefined
@@ -110,7 +109,7 @@ export class HealthCheckService {
             return [serviceName, health];
         } catch (error) {
             return [serviceName, {
-                status: 'unhealthy',
+                status: "unhealthy",
                 message: `Health check failed: ${error}`,
                 lastChecked: new Date().toISOString(),
                 responseTime: HealthCheckService.HEALTH_CHECK_TIMEOUT
@@ -130,15 +129,15 @@ export class HealthCheckService {
 
             const responseTime = Date.now() - startTime;
             return {
-                status: 'healthy',
-                message: 'Database connection successful',
+                status: "healthy",
+                message: "Database connection successful",
                 lastChecked: new Date().toISOString(),
                 responseTime
             };
         } catch (error) {
             const responseTime = Date.now() - startTime;
             return {
-                status: 'unhealthy',
+                status: "unhealthy",
                 message: `Database connection failed: ${error}`,
                 lastChecked: new Date().toISOString(),
                 responseTime,
@@ -155,7 +154,7 @@ export class HealthCheckService {
 
         try {
             if (!process.env.GROQ_API_KEY) {
-                throw new Error('GROQ_API_KEY not configured');
+                throw new Error("GROQ_API_KEY not configured");
             }
 
             // Simple health check - in real implementation, this would make a minimal API call
@@ -163,15 +162,15 @@ export class HealthCheckService {
             const responseTime = Date.now() - startTime;
 
             return {
-                status: 'healthy',
-                message: 'Groq service configuration valid',
+                status: "healthy",
+                message: "Groq service configuration valid",
                 lastChecked: new Date().toISOString(),
                 responseTime
             };
         } catch (error) {
             const responseTime = Date.now() - startTime;
             return {
-                status: 'unhealthy',
+                status: "unhealthy",
                 message: `Groq service check failed: ${error}`,
                 lastChecked: new Date().toISOString(),
                 responseTime,
@@ -188,22 +187,22 @@ export class HealthCheckService {
 
         try {
             if (!process.env.PINECONE_API_KEY) {
-                throw new Error('PINECONE_API_KEY not configured');
+                throw new Error("PINECONE_API_KEY not configured");
             }
 
             // Simple health check - in real implementation, this would check index status
             const responseTime = Date.now() - startTime;
 
             return {
-                status: 'healthy',
-                message: 'Pinecone service configuration valid',
+                status: "healthy",
+                message: "Pinecone service configuration valid",
                 lastChecked: new Date().toISOString(),
                 responseTime
             };
         } catch (error) {
             const responseTime = Date.now() - startTime;
             return {
-                status: 'unhealthy',
+                status: "unhealthy",
                 message: `Pinecone service check failed: ${error}`,
                 lastChecked: new Date().toISOString(),
                 responseTime,
@@ -220,22 +219,22 @@ export class HealthCheckService {
 
         try {
             if (!process.env.GITHUB_APP_ID || !process.env.GITHUB_APP_PRIVATE_KEY) {
-                throw new Error('GitHub app credentials not configured');
+                throw new Error("GitHub app credentials not configured");
             }
 
             // Simple health check - in real implementation, this would check API status
             const responseTime = Date.now() - startTime;
 
             return {
-                status: 'healthy',
-                message: 'GitHub service configuration valid',
+                status: "healthy",
+                message: "GitHub service configuration valid",
                 lastChecked: new Date().toISOString(),
                 responseTime
             };
         } catch (error) {
             const responseTime = Date.now() - startTime;
             return {
-                status: 'unhealthy',
+                status: "unhealthy",
                 message: `GitHub service check failed: ${error}`,
                 lastChecked: new Date().toISOString(),
                 responseTime,
@@ -247,25 +246,25 @@ export class HealthCheckService {
     /**
      * Determines overall system status based on individual services
      */
-    private static determineOverallStatus(services: Record<string, ServiceHealth>): 'healthy' | 'degraded' | 'unhealthy' {
+    private static determineOverallStatus(services: Record<string, ServiceHealth>): "healthy" | "degraded" | "unhealthy" {
         const serviceStatuses = Object.values(services).map(s => s.status);
 
         // If database is unhealthy, system is unhealthy
-        if (services.database?.status === 'unhealthy') {
-            return 'unhealthy';
+        if (services.database?.status === "unhealthy") {
+            return "unhealthy";
         }
 
         // If all services are healthy
-        if (serviceStatuses.every(status => status === 'healthy')) {
-            return 'healthy';
+        if (serviceStatuses.every(status => status === "healthy")) {
+            return "healthy";
         }
 
         // If critical services (database) are healthy but others are not
-        if (services.database?.status === 'healthy') {
-            return 'degraded';
+        if (services.database?.status === "healthy") {
+            return "degraded";
         }
 
-        return 'unhealthy';
+        return "unhealthy";
     }
 
     /**
@@ -273,8 +272,8 @@ export class HealthCheckService {
      */
     private static isDegradedMode(services: Record<string, ServiceHealth>): boolean {
         // System is in degraded mode if AI services are unavailable but core services work
-        const coreServicesHealthy = services.database?.status === 'healthy';
-        const aiServicesUnhealthy = services.groq?.status !== 'healthy' || services.pinecone?.status !== 'healthy';
+        const coreServicesHealthy = services.database?.status === "healthy";
+        const aiServicesUnhealthy = services.groq?.status !== "healthy" || services.pinecone?.status !== "healthy";
 
         return coreServicesHealthy && aiServicesUnhealthy;
     }
@@ -284,11 +283,11 @@ export class HealthCheckService {
      */
     private static createUnhealthyResult(message: string): HealthCheckResult {
         return {
-            status: 'unhealthy',
+            status: "unhealthy",
             timestamp: new Date().toISOString(),
             uptime: process.uptime(),
-            version: process.env.npm_package_version || '1.0.0',
-            environment: process.env.NODE_ENV || 'development',
+            version: process.env.npm_package_version || "1.0.0",
+            environment: process.env.NODE_ENV || "development",
             services: {},
             degradedMode: false,
             error: message
@@ -307,7 +306,7 @@ export class HealthCheckService {
      */
     static isSystemHealthy(): boolean {
         const cached = HealthCheckService.getCachedHealthStatus();
-        return cached?.status === 'healthy';
+        return cached?.status === "healthy";
     }
 
     /**
@@ -331,14 +330,14 @@ export class HealthCheckService {
  * Health check result structure
  */
 export interface HealthCheckResult {
-    status: 'healthy' | 'degraded' | 'unhealthy';
+    status: "healthy" | "degraded" | "unhealthy";
     timestamp: string;
     uptime: number;
     version: string;
     environment: string;
     services: Record<string, ServiceHealth>;
     degradedMode: boolean;
-    circuitBreakers?: Record<string, any>;
+    circuitBreakers?: Record<string, unknown>;
     error?: string;
 }
 
@@ -346,10 +345,10 @@ export interface HealthCheckResult {
  * Individual service health structure
  */
 export interface ServiceHealth {
-    status: 'healthy' | 'degraded' | 'unhealthy';
+    status: "healthy" | "degraded" | "unhealthy";
     message: string;
     lastChecked: string;
     responseTime: number;
     error?: string;
-    details?: Record<string, any>;
+    details?: Record<string, unknown>;
 }

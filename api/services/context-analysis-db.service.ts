@@ -1,4 +1,6 @@
-import { PrismaClient, AIReviewResult, ContextAnalysisMetrics } from '../generated/client';
+import { PrismaClient, AIReviewResult, ContextAnalysisMetrics, Prisma } from "../generated/client";
+import { getFieldFromUnknownObject } from "../helper";
+import { ContextAnalysisResponse, ContextMetrics } from "../models/ai-review.types";
 
 export interface ContextAnalysisData {
     contextAnalysisUsed: boolean;
@@ -8,8 +10,8 @@ export interface ContextAnalysisData {
     fetchSuccessRate?: number;
     contextQualityScore?: number;
     processingTimeMs?: number;
-    contextMetrics?: any;
-    aiRecommendations?: any;
+    contextMetrics?: ContextMetrics;
+    aiRecommendations?: ContextAnalysisResponse;
     fetchedFilePaths?: string[];
 }
 
@@ -21,7 +23,7 @@ export interface ContextAnalysisMetricsData {
     filesRecommended: number;
     filesFetched: number;
     fetchSuccessRate: number;
-    processingTimes: any;
+    processingTimes: ContextMetrics["processingTime"];
     aiConfidence: number;
     reviewQualityScore: number;
 }
@@ -50,10 +52,10 @@ export class ContextAnalysisDbService {
                 fetchSuccessRate: contextData.fetchSuccessRate,
                 contextQualityScore: contextData.contextQualityScore,
                 processingTimeMs: contextData.processingTimeMs,
-                contextMetrics: contextData.contextMetrics,
-                aiRecommendations: contextData.aiRecommendations,
-                fetchedFilePaths: contextData.fetchedFilePaths,
-            },
+                contextMetrics: contextData.contextMetrics as unknown as Prisma.InputJsonObject,
+                aiRecommendations: contextData.aiRecommendations as unknown as Prisma.InputJsonObject,
+                fetchedFilePaths: contextData.fetchedFilePaths
+            }
         });
     }
 
@@ -74,8 +76,8 @@ export class ContextAnalysisDbService {
                 fetchSuccessRate: metricsData.fetchSuccessRate,
                 processingTimes: metricsData.processingTimes,
                 aiConfidence: metricsData.aiConfidence,
-                reviewQualityScore: metricsData.reviewQualityScore,
-            },
+                reviewQualityScore: metricsData.reviewQualityScore
+            }
         });
     }
 
@@ -91,11 +93,11 @@ export class ContextAnalysisDbService {
             where: {
                 installationId,
                 repositoryName,
-                prNumber,
+                prNumber
             },
             orderBy: {
-                createdAt: 'desc',
-            },
+                createdAt: "desc"
+            }
         });
     }
 
@@ -108,9 +110,9 @@ export class ContextAnalysisDbService {
         startDate?: Date,
         endDate?: Date
     ): Promise<ContextAnalysisMetrics[]> {
-        const whereClause: any = {
+        const whereClause: Prisma.ContextAnalysisMetricsWhereInput = {
             installationId,
-            repositoryName,
+            repositoryName
         };
 
         if (startDate || endDate) {
@@ -126,8 +128,8 @@ export class ContextAnalysisDbService {
         return this.prisma.contextAnalysisMetrics.findMany({
             where: whereClause,
             orderBy: {
-                createdAt: 'desc',
-            },
+                createdAt: "desc"
+            }
         });
     }
 
@@ -147,9 +149,9 @@ export class ContextAnalysisDbService {
         averageAiConfidence: number;
         averageReviewQualityScore: number;
     }> {
-        const whereClause: any = {
+        const whereClause: Prisma.ContextAnalysisMetricsWhereInput = {
             installationId,
-            repositoryName,
+            repositoryName
         };
 
         if (startDate || endDate) {
@@ -165,15 +167,15 @@ export class ContextAnalysisDbService {
         const aggregation = await this.prisma.contextAnalysisMetrics.aggregate({
             where: whereClause,
             _count: {
-                id: true,
+                id: true
             },
             _avg: {
                 filesRecommended: true,
                 filesFetched: true,
                 fetchSuccessRate: true,
                 aiConfidence: true,
-                reviewQualityScore: true,
-            },
+                reviewQualityScore: true
+            }
         });
 
         return {
@@ -182,7 +184,7 @@ export class ContextAnalysisDbService {
             averageFilesFetched: aggregation._avg.filesFetched || 0,
             averageFetchSuccessRate: aggregation._avg.fetchSuccessRate || 0,
             averageAiConfidence: aggregation._avg.aiConfidence || 0,
-            averageReviewQualityScore: aggregation._avg.reviewQualityScore || 0,
+            averageReviewQualityScore: aggregation._avg.reviewQualityScore || 0
         };
     }
 
@@ -194,9 +196,9 @@ export class ContextAnalysisDbService {
         repositoryName?: string,
         limit: number = 50
     ): Promise<AIReviewResult[]> {
-        const whereClause: any = {
+        const whereClause: Prisma.AIReviewResultWhereInput = {
             installationId,
-            contextAnalysisUsed: true,
+            contextAnalysisUsed: true
         };
 
         if (repositoryName) {
@@ -206,9 +208,9 @@ export class ContextAnalysisDbService {
         return this.prisma.aIReviewResult.findMany({
             where: whereClause,
             orderBy: {
-                createdAt: 'desc',
+                createdAt: "desc"
             },
-            take: limit,
+            take: limit
         });
     }
 
@@ -222,9 +224,9 @@ export class ContextAnalysisDbService {
         const result = await this.prisma.contextAnalysisMetrics.deleteMany({
             where: {
                 createdAt: {
-                    lt: cutoffDate,
-                },
-            },
+                    lt: cutoffDate
+                }
+            }
         });
 
         return result.count;
@@ -251,12 +253,12 @@ export class ContextAnalysisDbService {
                 installationId,
                 repositoryName,
                 createdAt: {
-                    gte: startDate,
-                },
+                    gte: startDate
+                }
             },
             orderBy: {
-                createdAt: 'asc',
-            },
+                createdAt: "asc"
+            }
         });
 
         // Group by date and calculate daily averages
@@ -267,15 +269,15 @@ export class ContextAnalysisDbService {
         }>();
 
         metrics.forEach(metric => {
-            const date = metric.createdAt.toISOString().split('T')[0];
-            const processingTimes = metric.processingTimes as any;
-            const totalProcessingTime = processingTimes?.total || 0;
+            const date = metric.createdAt.toISOString().split("T")[0];
+            const processingTimes = metric.processingTimes as unknown;
+            const totalProcessingTime = getFieldFromUnknownObject<number>(processingTimes, "total") || 0;
 
             if (!dailyStats.has(date)) {
                 dailyStats.set(date, {
                     count: 0,
                     totalProcessingTime: 0,
-                    totalQualityScore: 0,
+                    totalQualityScore: 0
                 });
             }
 
@@ -289,7 +291,7 @@ export class ContextAnalysisDbService {
             date,
             totalAnalyses: stats.count,
             averageProcessingTime: stats.totalProcessingTime / stats.count,
-            averageQualityScore: stats.totalQualityScore / stats.count,
+            averageQualityScore: stats.totalQualityScore / stats.count
         }));
     }
 }

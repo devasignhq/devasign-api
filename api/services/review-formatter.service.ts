@@ -1,17 +1,14 @@
-import { ReviewResult, FormattedReview, CodeSuggestion, RuleResult } from '../models/ai-review.model';
-import { RuleSeverity } from '../generated/client';
+import { ReviewResult, FormattedReview, CodeSuggestion } from "../models/ai-review.model";
+import { RuleSeverity } from "../generated/client";
 
 /**
  * Review Formatter Service
  * Creates structured comment formatter for AI review results
- * Requirements: 6.1, 6.2, 6.3
  */
 export class ReviewFormatterService {
 
     /**
      * Formats a complete review result into a structured GitHub comment
-     * Requirement 6.1: System SHALL post comprehensive comment on PR
-     * Requirement 6.2: System SHALL include merge score, rule compliance, and suggestions
      */
     public static formatReview(result: ReviewResult): FormattedReview {
         const header = this.createHeader(result);
@@ -26,7 +23,7 @@ export class ReviewFormatterService {
             rulesSection,
             suggestionsSection,
             footer
-        ].join('\n\n');
+        ].join("\n\n");
 
         return {
             header,
@@ -55,7 +52,6 @@ export class ReviewFormatterService {
 
     /**
      * Creates the merge score section with visual indicators
-     * Requirement 6.2: System SHALL include merge score in structured format
      */
     private static createMergeScoreSection(result: ReviewResult): string {
         const scoreBar = this.createScoreBar(result.mergeScore);
@@ -73,7 +69,6 @@ ${result.summary}`;
 
     /**
      * Creates the rules compliance section
-     * Requirement 6.2: System SHALL include rule compliance status
      */
     private static createRulesSection(result: ReviewResult): string {
         const totalRules = result.rulesPassed.length + result.rulesViolated.length;
@@ -102,10 +97,10 @@ ${result.summary}`;
 
                 if (rule.affectedFiles && rule.affectedFiles.length > 0) {
                     section += `
-   📁 Files: ${rule.affectedFiles.join(', ')}`;
+   📁 Files: ${rule.affectedFiles.join(", ")}`;
                 }
 
-                section += '\n\n';
+                section += "\n\n";
             });
         }
 
@@ -120,7 +115,7 @@ ${result.summary}`;
                 section += `${index + 1}. **${rule.ruleName}** - ${rule.description}\n`;
             });
 
-            section += '\n</details>';
+            section += "\n</details>";
         }
 
         return section;
@@ -128,7 +123,6 @@ ${result.summary}`;
 
     /**
      * Creates the code suggestions section
-     * Requirement 6.2: System SHALL include code suggestions in structured format
      */
     private static createSuggestionsSection(result: ReviewResult): string {
         if (result.suggestions.length === 0) {
@@ -144,10 +138,10 @@ ${result.summary}`;
         // Group suggestions by severity
         const groupedSuggestions = this.groupSuggestionsBySeverity(result.suggestions);
 
-        ['high', 'medium', 'low'].forEach(severity => {
+        ["high", "medium", "low"].forEach(severity => {
             const suggestions = groupedSuggestions[severity as keyof typeof groupedSuggestions];
             if (suggestions.length > 0) {
-                const severityEmoji = this.getSuggestionSeverityEmoji(severity as 'high' | 'medium' | 'low');
+                const severityEmoji = this.getSuggestionSeverityEmoji(severity as "high" | "medium" | "low");
                 const severityLabel = severity.charAt(0).toUpperCase() + severity.slice(1);
 
                 section += `#### ${severityEmoji} ${severityLabel} Priority (${suggestions.length})
@@ -157,7 +151,7 @@ ${result.summary}`;
                 suggestions.forEach((suggestion, index) => {
                     const typeEmoji = this.getSuggestionTypeEmoji(suggestion.type);
 
-                    section += `${index + 1}. **${suggestion.file}**${suggestion.lineNumber ? ` (Line ${suggestion.lineNumber})` : ''}
+                    section += `${index + 1}. **${suggestion.file}**${suggestion.lineNumber ? ` (Line ${suggestion.lineNumber})` : ""}
    ${typeEmoji} ${suggestion.description}
    
    💭 **Reasoning:** ${suggestion.reasoning}`;
@@ -171,7 +165,7 @@ ${result.summary}`;
    \`\`\``;
                     }
 
-                    section += '\n\n';
+                    section += "\n\n";
                 });
             }
         });
@@ -183,7 +177,7 @@ ${result.summary}`;
      * Creates the footer with metadata and actions
      */
     private static createFooter(result: ReviewResult): string {
-        const processingTime = result.processingTime ? `${Math.round(result.processingTime / 1000)}s` : 'N/A';
+        const processingTime = result.processingTime ? `${Math.round(result.processingTime / 1000)}s` : "N/A";
         const timestamp = result.createdAt.toISOString();
 
         return `
@@ -211,12 +205,12 @@ ${result.summary}`;
         const filledLength = Math.round((score / 100) * barLength);
         const emptyLength = barLength - filledLength;
 
-        const filled = '█'.repeat(filledLength);
-        const empty = '░'.repeat(emptyLength);
+        const filled = "█".repeat(filledLength);
+        const empty = "░".repeat(emptyLength);
 
-        let color = '🔴'; // Red for low scores
-        if (score >= 70) color = '🟡'; // Yellow for medium scores
-        if (score >= 85) color = '🟢'; // Green for high scores
+        let color = "🔴"; // Red for low scores
+        if (score >= 70) color = "🟡"; // Yellow for medium scores
+        if (score >= 85) color = "🟢"; // Green for high scores
 
         return `${color} \`${filled}${empty}\` ${score}%`;
     }
@@ -225,20 +219,20 @@ ${result.summary}`;
      * Gets emoji based on merge score
      */
     private static getMergeScoreEmoji(score: number): string {
-        if (score >= 85) return '🟢';
-        if (score >= 70) return '🟡';
-        if (score >= 50) return '🟠';
-        return '🔴';
+        if (score >= 85) return "🟢";
+        if (score >= 70) return "🟡";
+        if (score >= 50) return "🟠";
+        return "🔴";
     }
 
     /**
      * Gets status text based on merge score
      */
     private static getMergeScoreStatus(score: number): string {
-        if (score >= 85) return 'Ready to Merge';
-        if (score >= 70) return 'Review Recommended';
-        if (score >= 50) return 'Changes Needed';
-        return 'Major Issues Found';
+        if (score >= 85) return "Ready to Merge";
+        if (score >= 70) return "Review Recommended";
+        if (score >= 50) return "Changes Needed";
+        return "Major Issues Found";
     }
 
     /**
@@ -246,13 +240,13 @@ ${result.summary}`;
      */
     private static getMergeRecommendation(score: number): string {
         if (score >= 85) {
-            return '✅ This PR looks great and is ready for merge!';
+            return "✅ This PR looks great and is ready for merge!";
         } else if (score >= 70) {
-            return '⚠️ This PR is mostly good but could benefit from some improvements before merging.';
+            return "⚠️ This PR is mostly good but could benefit from some improvements before merging.";
         } else if (score >= 50) {
-            return '❌ This PR needs significant improvements before it should be merged.';
+            return "❌ This PR needs significant improvements before it should be merged.";
         } else {
-            return '🚫 This PR has major issues that must be addressed before merging.';
+            return "🚫 This PR has major issues that must be addressed before merging.";
         }
     }
 
@@ -261,11 +255,11 @@ ${result.summary}`;
      */
     private static getSeverityEmoji(severity: RuleSeverity): string {
         switch (severity) {
-            case 'CRITICAL': return '🚨';
-            case 'HIGH': return '🔴';
-            case 'MEDIUM': return '🟡';
-            case 'LOW': return '🔵';
-            default: return '⚪';
+        case "CRITICAL": return "🚨";
+        case "HIGH": return "🔴";
+        case "MEDIUM": return "🟡";
+        case "LOW": return "🔵";
+        default: return "⚪";
         }
     }
 
@@ -274,23 +268,23 @@ ${result.summary}`;
      */
     private static getSeverityBadge(severity: RuleSeverity): string {
         switch (severity) {
-            case 'CRITICAL': return '![Critical](https://img.shields.io/badge/Critical-red)';
-            case 'HIGH': return '![High](https://img.shields.io/badge/High-orange)';
-            case 'MEDIUM': return '![Medium](https://img.shields.io/badge/Medium-yellow)';
-            case 'LOW': return '![Low](https://img.shields.io/badge/Low-blue)';
-            default: return '![Unknown](https://img.shields.io/badge/Unknown-gray)';
+        case "CRITICAL": return "![Critical](https://img.shields.io/badge/Critical-red)";
+        case "HIGH": return "![High](https://img.shields.io/badge/High-orange)";
+        case "MEDIUM": return "![Medium](https://img.shields.io/badge/Medium-yellow)";
+        case "LOW": return "![Low](https://img.shields.io/badge/Low-blue)";
+        default: return "![Unknown](https://img.shields.io/badge/Unknown-gray)";
         }
     }
 
     /**
      * Gets emoji for suggestion severity
      */
-    private static getSuggestionSeverityEmoji(severity: 'high' | 'medium' | 'low'): string {
+    private static getSuggestionSeverityEmoji(severity: "high" | "medium" | "low"): string {
         switch (severity) {
-            case 'high': return '🔴';
-            case 'medium': return '🟡';
-            case 'low': return '🔵';
-            default: return '⚪';
+        case "high": return "🔴";
+        case "medium": return "🟡";
+        case "low": return "🔵";
+        default: return "⚪";
         }
     }
 
@@ -299,11 +293,11 @@ ${result.summary}`;
      */
     private static getSuggestionTypeEmoji(type: string): string {
         switch (type) {
-            case 'fix': return '🔧';
-            case 'improvement': return '✨';
-            case 'optimization': return '⚡';
-            case 'style': return '🎨';
-            default: return '💡';
+        case "fix": return "🔧";
+        case "improvement": return "✨";
+        case "optimization": return "⚡";
+        case "style": return "🎨";
+        default: return "💡";
         }
     }
 
@@ -334,7 +328,6 @@ ${result.summary}`;
 
     /**
      * Extracts the AI review marker from a comment to identify existing reviews
-     * Requirement 6.3: System SHALL update existing comment rather than creating new one
      */
     public static extractReviewMarker(commentBody: string): {
         installationId: string;
@@ -359,12 +352,12 @@ ${result.summary}`;
      * Checks if a comment is an AI review comment
      */
     public static isAIReviewComment(commentBody: string): boolean {
-        return commentBody.includes('<!-- AI-REVIEW-MARKER:') &&
-            commentBody.includes('## 🤖 AI Code Review Results') ||
-            commentBody.includes('## 🟢 AI Code Review Results') ||
-            commentBody.includes('## 🟡 AI Code Review Results') ||
-            commentBody.includes('## 🟠 AI Code Review Results') ||
-            commentBody.includes('## 🔴 AI Code Review Results');
+        return commentBody.includes("<!-- AI-REVIEW-MARKER:") &&
+            commentBody.includes("## 🤖 AI Code Review Results") ||
+            commentBody.includes("## 🟢 AI Code Review Results") ||
+            commentBody.includes("## 🟡 AI Code Review Results") ||
+            commentBody.includes("## 🟠 AI Code Review Results") ||
+            commentBody.includes("## 🔴 AI Code Review Results");
     }
 
     /**

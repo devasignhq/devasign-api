@@ -1,3 +1,4 @@
+import { getFieldFromUnknownObject } from "../helper";
 import { ErrorClass } from "../models/general.model";
 import { RepositoryStructure, DirectoryNode } from "../models/intelligent-context.model";
 import { OctokitService } from "./octokit.service";
@@ -45,14 +46,17 @@ export class RepositoryFilePathService {
                 directoryStructure
             };
 
-        } catch (error: any) {
+        } catch (error) {
+            const errorStatus = getFieldFromUnknownObject<number>(error, "status");
+            const errorMessage = getFieldFromUnknownObject<string>(error, "message");
+            
             // Handle specific error cases
-            if (error.message?.includes('empty')) {
+            if (errorMessage?.includes("empty")) {
                 console.log(`Repository ${repositoryName} is empty, returning empty structure`);
                 return this.createEmptyRepositoryStructure();
             }
 
-            if (error.status === 404) {
+            if (errorStatus === 404) {
                 throw new ErrorClass(
                     "RepositoryFilePathServiceError",
                     error,
@@ -60,7 +64,7 @@ export class RepositoryFilePathService {
                 );
             }
 
-            if (error.status === 403) {
+            if (errorStatus === 403) {
                 throw new ErrorClass(
                     "RepositoryFilePathServiceError", 
                     error,
@@ -72,7 +76,7 @@ export class RepositoryFilePathService {
             throw new ErrorClass(
                 "RepositoryFilePathServiceError",
                 error,
-                `Failed to retrieve repository structure for ${repositoryName}: ${error.message}`
+                `Failed to retrieve repository structure for ${repositoryName}: ${errorMessage}`
             );
         }
     }
@@ -84,9 +88,9 @@ export class RepositoryFilePathService {
         const root: Map<string, DirectoryNode> = new Map();
 
         for (const filePath of filePaths) {
-            const pathParts = filePath.split('/');
+            const pathParts = filePath.split("/");
             let currentLevel = root;
-            let currentPath = '';
+            let currentPath = "";
 
             for (let i = 0; i < pathParts.length; i++) {
                 const part = pathParts[i];
@@ -97,7 +101,7 @@ export class RepositoryFilePathService {
                     const node: DirectoryNode = {
                         name: part,
                         path: currentPath,
-                        type: isFile ? 'file' : 'directory',
+                        type: isFile ? "file" : "directory",
                         language: isFile ? this.detectLanguage(part) : undefined
                     };
 
@@ -128,7 +132,7 @@ export class RepositoryFilePathService {
         const rootNodes = Array.from(root.values()).sort((a, b) => {
             // Directories first, then files
             if (a.type !== b.type) {
-                return a.type === 'directory' ? -1 : 1;
+                return a.type === "directory" ? -1 : 1;
             }
             return a.name.localeCompare(b.name);
         });
@@ -167,121 +171,121 @@ export class RepositoryFilePathService {
      * Detect programming language from file extension
      */
     private detectLanguage(filename: string): string {
-        const extension = filename.split('.').pop()?.toLowerCase();
+        const extension = filename.split(".").pop()?.toLowerCase();
         
         const languageMap: Record<string, string> = {
             // JavaScript/TypeScript
-            'js': 'JavaScript',
-            'jsx': 'JavaScript',
-            'ts': 'TypeScript',
-            'tsx': 'TypeScript',
-            'mjs': 'JavaScript',
-            'cjs': 'JavaScript',
+            "js": "JavaScript",
+            "jsx": "JavaScript",
+            "ts": "TypeScript",
+            "tsx": "TypeScript",
+            "mjs": "JavaScript",
+            "cjs": "JavaScript",
             
             // Python
-            'py': 'Python',
-            'pyx': 'Python',
-            'pyi': 'Python',
+            "py": "Python",
+            "pyx": "Python",
+            "pyi": "Python",
             
             // Java
-            'java': 'Java',
-            'class': 'Java',
+            "java": "Java",
+            "class": "Java",
             
             // C/C++
-            'c': 'C',
-            'cpp': 'C++',
-            'cc': 'C++',
-            'cxx': 'C++',
-            'h': 'C/C++',
-            'hpp': 'C++',
+            "c": "C",
+            "cpp": "C++",
+            "cc": "C++",
+            "cxx": "C++",
+            "h": "C/C++",
+            "hpp": "C++",
             
             // C#
-            'cs': 'C#',
+            "cs": "C#",
             
             // Go
-            'go': 'Go',
+            "go": "Go",
             
             // Rust
-            'rs': 'Rust',
+            "rs": "Rust",
             
             // PHP
-            'php': 'PHP',
+            "php": "PHP",
             
             // Ruby
-            'rb': 'Ruby',
+            "rb": "Ruby",
             
             // Swift
-            'swift': 'Swift',
+            "swift": "Swift",
             
             // Kotlin
-            'kt': 'Kotlin',
-            'kts': 'Kotlin',
+            "kt": "Kotlin",
+            "kts": "Kotlin",
             
             // Scala
-            'scala': 'Scala',
+            "scala": "Scala",
             
             // R
-            'r': 'R',
+            "r": "R",
             
             // MATLAB
-            'm': 'MATLAB',
+            "m": "MATLAB",
             
             // Shell
-            'sh': 'Shell',
-            'bash': 'Shell',
-            'zsh': 'Shell',
-            'fish': 'Shell',
+            "sh": "Shell",
+            "bash": "Shell",
+            "zsh": "Shell",
+            "fish": "Shell",
             
             // Web
-            'html': 'HTML',
-            'htm': 'HTML',
-            'css': 'CSS',
-            'scss': 'SCSS',
-            'sass': 'Sass',
-            'less': 'Less',
+            "html": "HTML",
+            "htm": "HTML",
+            "css": "CSS",
+            "scss": "SCSS",
+            "sass": "Sass",
+            "less": "Less",
             
             // Data/Config
-            'json': 'JSON',
-            'xml': 'XML',
-            'yaml': 'YAML',
-            'yml': 'YAML',
-            'toml': 'TOML',
-            'ini': 'INI',
-            'cfg': 'Config',
-            'conf': 'Config',
+            "json": "JSON",
+            "xml": "XML",
+            "yaml": "YAML",
+            "yml": "YAML",
+            "toml": "TOML",
+            "ini": "INI",
+            "cfg": "Config",
+            "conf": "Config",
             
             // Documentation
-            'md': 'Markdown',
-            'markdown': 'Markdown',
-            'rst': 'reStructuredText',
-            'txt': 'Text',
+            "md": "Markdown",
+            "markdown": "Markdown",
+            "rst": "reStructuredText",
+            "txt": "Text",
             
             // Database
-            'sql': 'SQL',
+            "sql": "SQL",
             
             // Docker
-            'dockerfile': 'Dockerfile',
+            "dockerfile": "Dockerfile",
             
             // Other
-            'gitignore': 'Git',
-            'gitattributes': 'Git',
-            'env': 'Environment',
-            'lock': 'Lock File'
+            "gitignore": "Git",
+            "gitattributes": "Git",
+            "env": "Environment",
+            "lock": "Lock File"
         };
 
         // Handle special cases for files without extensions
         if (!extension) {
             const filename_lower = filename.toLowerCase();
-            if (filename_lower === 'dockerfile') return 'Dockerfile';
-            if (filename_lower === 'makefile') return 'Makefile';
-            if (filename_lower === 'rakefile') return 'Ruby';
-            if (filename_lower === 'gemfile') return 'Ruby';
-            if (filename_lower === 'podfile') return 'Ruby';
-            if (filename_lower.startsWith('.git')) return 'Git';
-            return 'Unknown';
+            if (filename_lower === "dockerfile") return "Dockerfile";
+            if (filename_lower === "makefile") return "Makefile";
+            if (filename_lower === "rakefile") return "Ruby";
+            if (filename_lower === "gemfile") return "Ruby";
+            if (filename_lower === "podfile") return "Ruby";
+            if (filename_lower.startsWith(".git")) return "Git";
+            return "Unknown";
         }
 
-        return languageMap[extension] || 'Unknown';
+        return languageMap[extension] || "Unknown";
     }
 
     /**
@@ -293,7 +297,7 @@ export class RepositoryFilePathService {
                 node.children.sort((a, b) => {
                     // Directories first, then files
                     if (a.type !== b.type) {
-                        return a.type === 'directory' ? -1 : 1;
+                        return a.type === "directory" ? -1 : 1;
                     }
                     return a.name.localeCompare(b.name);
                 });

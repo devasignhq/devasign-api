@@ -6,24 +6,25 @@ import {
     ReviewResult,
     CodeAnalysis,
     GitHubWebhookPayload,
-    ManualTriggerRequest,
-} from '../models/ai-review.model';
+    CodeSuggestion
+} from "../models/ai-review.model";
 import {
     PRAnalysisError,
     TimeoutError,
     ErrorUtils,
     AIReviewError
-} from '../models/ai-review.errors';
-import { ReviewCommentIntegrationService } from './review-comment-integration.service';
-import { ReviewStatus, AIReviewRule } from '../generated/client';
-import { prisma } from '../config/database.config';
+} from "../models/ai-review.errors";
+import { ReviewCommentIntegrationService } from "./review-comment-integration.service";
+import { ReviewStatus, AIReviewRule, Prisma, $Enums } from "../generated/client";
+import { prisma } from "../config/database.config";
 
 // Import existing services
-import { PRAnalysisService } from './pr-analysis.service';
-import { RAGContextServiceImpl } from './rag-context.service';
-import { GroqAIService } from './groq-ai.service';
-import { RuleEngineService } from './rule-engine.service';
-import { MergeScoreService } from './merge-score.service';
+import { PRAnalysisService } from "./pr-analysis.service";
+import { RAGContextServiceImpl } from "./rag-context.service";
+import { GroqAIService } from "./groq-ai.service";
+import { RuleEngineService, RuleResult } from "./rule-engine.service";
+import { MergeScoreService } from "./merge-score.service";
+import { IntelligentContextConfig } from "../models/intelligent-context.model";
 
 /**
  * AI Review Orchestration Service
@@ -35,10 +36,10 @@ export class AIReviewOrchestrationService {
 
     // Configuration for async processing and retries
     private readonly config = {
-        maxRetries: parseInt(process.env.AI_REVIEW_MAX_RETRIES || '3'),
-        timeoutMs: parseInt(process.env.AI_REVIEW_TIMEOUT_MS || '300000'), // 5 minutes
-        retryDelayMs: parseInt(process.env.AI_REVIEW_RETRY_DELAY_MS || '5000'), // 5 seconds
-        enableGracefulDegradation: process.env.AI_REVIEW_GRACEFUL_DEGRADATION !== 'false'
+        maxRetries: parseInt(process.env.AI_REVIEW_MAX_RETRIES || "3"),
+        timeoutMs: parseInt(process.env.AI_REVIEW_TIMEOUT_MS || "300000"), // 5 minutes
+        retryDelayMs: parseInt(process.env.AI_REVIEW_RETRY_DELAY_MS || "5000"), // 5 seconds
+        enableGracefulDegradation: process.env.AI_REVIEW_GRACEFUL_DEGRADATION !== "false"
     };
 
     constructor() {
@@ -51,17 +52,13 @@ export class AIReviewOrchestrationService {
      */
     async analyzePR(prData: PullRequestData): Promise<ReviewResult> {
         const startTime = Date.now();
-        let reviewResult: ReviewResult;
 
         try {
-            // Create initial review result record
-            reviewResult = await this.createInitialReviewResult(prData);
-
             // Execute analysis workflow with timeout
             const analysisResult = await this.executeWithTimeout(
                 () => this.executeAnalysisWorkflow(prData),
                 this.config.timeoutMs,
-                'PR analysis workflow'
+                "PR analysis workflow"
             );
 
             // Compile final results
@@ -80,7 +77,7 @@ export class AIReviewOrchestrationService {
             return finalResult;
 
         } catch (error) {
-            console.error('Error in PR analysis orchestration:', error);
+            console.error("Error in PR analysis orchestration:", error);
 
             // Handle error and update status
             const errorResult = await this.handleAnalysisError(prData, error as Error, startTime);
@@ -88,7 +85,7 @@ export class AIReviewOrchestrationService {
             try {
                 await this.updateReviewStatus(prData.installationId, prData.prNumber, prData.repositoryName, ReviewStatus.FAILED);
             } catch (statusError) {
-                console.error('Failed to update review status to FAILED:', statusError);
+                console.error("Failed to update review status to FAILED:", statusError);
             }
 
             return errorResult;
@@ -137,7 +134,7 @@ export class AIReviewOrchestrationService {
                     return await this.ragContextService.getRelevantContext(prData);
                 } catch (error) {
                     if (this.config.enableGracefulDegradation) {
-                        console.warn('RAG context service failed, using empty context:', error);
+                        console.warn("RAG context service failed, using empty context:", error);
                         return {
                             similarPRs: [],
                             relevantFiles: [],
@@ -148,7 +145,7 @@ export class AIReviewOrchestrationService {
                     throw error;
                 }
             },
-            'Context gathering',
+            "Context gathering",
             this.config.maxRetries
         );
     }
@@ -168,13 +165,13 @@ export class AIReviewOrchestrationService {
                     });
                 } catch (error) {
                     if (this.config.enableGracefulDegradation) {
-                        console.warn('Failed to fetch custom rules, using empty array:', error);
+                        console.warn("Failed to fetch custom rules, using empty array:", error);
                         return [];
                     }
                     throw error;
                 }
             },
-            'Custom rules retrieval',
+            "Custom rules retrieval",
             this.config.maxRetries
         );
     }
@@ -189,7 +186,7 @@ export class AIReviewOrchestrationService {
                     return await RuleEngineService.evaluateRules(prData, customRules);
                 } catch (error) {
                     if (this.config.enableGracefulDegradation) {
-                        console.warn('Rule evaluation failed, using default evaluation:', error);
+                        console.warn("Rule evaluation failed, using default evaluation:", error);
                         return {
                             passed: [],
                             violated: [],
@@ -199,7 +196,7 @@ export class AIReviewOrchestrationService {
                     throw error;
                 }
             },
-            'Rule evaluation',
+            "Rule evaluation",
             this.config.maxRetries
         );
     }
@@ -214,13 +211,13 @@ export class AIReviewOrchestrationService {
                     return await this.groqAIService.generateReview(prData, context);
                 } catch (error) {
                     if (this.config.enableGracefulDegradation) {
-                        console.warn('AI review generation failed, using fallback review:', error);
+                        console.warn("AI review generation failed, using fallback review:", error);
                         return this.createFallbackAIReview(prData);
                     }
                     throw error;
                 }
             },
-            'AI review generation',
+            "AI review generation",
             this.config.maxRetries
         );
     }
@@ -233,7 +230,7 @@ export class AIReviewOrchestrationService {
             issues: [
                 // Convert rule violations to code issues
                 ...ruleEvaluation.violated.map(rule => ({
-                    file: rule.affectedFiles?.[0] || 'unknown',
+                    file: rule.affectedFiles?.[0] || "unknown",
                     line: 0,
                     type: rule.ruleId,
                     severity: this.mapRuleSeverityToCodeSeverity(rule.severity),
@@ -247,7 +244,7 @@ export class AIReviewOrchestrationService {
                     type: suggestion.type,
                     severity: suggestion.severity,
                     message: suggestion.description,
-                    rule: 'ai-suggestion'
+                    rule: "ai-suggestion"
                 }))
             ],
             metrics: aiReview.codeQuality,
@@ -349,7 +346,7 @@ export class AIReviewOrchestrationService {
             throw new PRAnalysisError(
                 prData.prNumber,
                 prData.repositoryName,
-                'Failed to create initial review result',
+                "Failed to create initial review result",
                 { originalError: error instanceof Error ? error.message : String(error) }
             );
         }
@@ -377,7 +374,7 @@ export class AIReviewOrchestrationService {
                 }
             });
         } catch (error) {
-            console.error('Failed to update review status:', error);
+            console.error("Failed to update review status:", error);
             // Don't throw error to avoid breaking main workflow
         }
     }
@@ -395,15 +392,15 @@ export class AIReviewOrchestrationService {
                 },
                 data: {
                     mergeScore: result.mergeScore,
-                    rulesViolated: result.rulesViolated as any,
-                    rulesPassed: result.rulesPassed as any,
-                    suggestions: result.suggestions as any,
+                    rulesViolated: result.rulesViolated,
+                    rulesPassed: result.rulesPassed,
+                    suggestions: result.suggestions,
                     reviewStatus: result.reviewStatus,
                     updatedAt: new Date()
                 }
             });
         } catch (error) {
-            console.error('Failed to store review result:', error);
+            console.error("Failed to store review result:", error);
             // Don't throw error to avoid breaking main workflow
         }
     }
@@ -426,14 +423,14 @@ export class AIReviewOrchestrationService {
                         result.installationId,
                         result.repositoryName,
                         result.prNumber,
-                        'Review analysis completed but failed to post detailed results. Please check the logs.'
+                        "Review analysis completed but failed to post detailed results. Please check the logs."
                     );
                 } catch (errorCommentError) {
-                    console.error('Failed to post error comment:', errorCommentError);
+                    console.error("Failed to post error comment:", errorCommentError);
                 }
             }
         } catch (error) {
-            console.error('Error in review comment posting:', error);
+            console.error("Error in review comment posting:", error);
             // Don't throw error to avoid breaking main workflow
         }
     }
@@ -445,7 +442,7 @@ export class AIReviewOrchestrationService {
         try {
             await this.ragContextService.storePRContext(prData, result);
         } catch (error) {
-            console.error('Failed to store PR context for future use:', error);
+            console.error("Failed to store PR context for future use:", error);
             // Don't throw error to avoid breaking main workflow
         }
     }
@@ -465,11 +462,11 @@ export class AIReviewOrchestrationService {
             rulesViolated: [],
             rulesPassed: [],
             suggestions: [{
-                file: 'system',
-                type: 'fix',
-                severity: 'high',
-                description: 'AI review failed. Manual review recommended.',
-                reasoning: error instanceof AIReviewError ? error.message : 'Unknown error occurred during analysis'
+                file: "system",
+                type: "fix",
+                severity: "high",
+                description: "AI review failed. Manual review recommended.",
+                reasoning: error instanceof AIReviewError ? error.message : "Unknown error occurred during analysis"
             }],
             reviewStatus: ReviewStatus.FAILED,
             summary: `Analysis failed: ${error.message}. Please review manually.`,
@@ -482,7 +479,7 @@ export class AIReviewOrchestrationService {
         try {
             await this.storeReviewResult(errorResult);
         } catch (storeError) {
-            console.error('Failed to store error result:', storeError);
+            console.error("Failed to store error result:", storeError);
         }
 
         return errorResult;
@@ -503,11 +500,11 @@ export class AIReviewOrchestrationService {
                 maintainability: 50
             },
             suggestions: [{
-                file: 'system',
-                type: 'improvement',
-                severity: 'medium',
-                description: 'AI analysis unavailable. Consider manual code review.',
-                reasoning: 'AI service was unavailable during analysis'
+                file: "system",
+                type: "improvement",
+                severity: "medium",
+                description: "AI analysis unavailable. Consider manual code review.",
+                reasoning: "AI service was unavailable during analysis"
             }],
             summary: `AI analysis unavailable for PR #${prData.prNumber}. Manual review recommended.`,
             confidence: 0.1
@@ -579,18 +576,18 @@ export class AIReviewOrchestrationService {
     /**
      * Maps database result to ReviewResult interface
      */
-    private mapDatabaseResultToReviewResult(dbResult: any): ReviewResult {
+    private mapDatabaseResultToReviewResult(dbResult: Prisma.$AIReviewResultPayload["scalars"]): ReviewResult {
         return {
             installationId: dbResult.installationId,
             prNumber: dbResult.prNumber,
             repositoryName: dbResult.repositoryName,
             mergeScore: dbResult.mergeScore,
-            rulesViolated: Array.isArray(dbResult.rulesViolated) ? dbResult.rulesViolated : [],
-            rulesPassed: Array.isArray(dbResult.rulesPassed) ? dbResult.rulesPassed : [],
-            suggestions: Array.isArray(dbResult.suggestions) ? dbResult.suggestions : [],
+            rulesViolated: Array.isArray(dbResult.rulesViolated) ? dbResult.rulesViolated as unknown as RuleResult[] : [],
+            rulesPassed: Array.isArray(dbResult.rulesPassed) ? dbResult.rulesPassed as unknown as RuleResult[] : [],
+            suggestions: Array.isArray(dbResult.suggestions) ? dbResult.suggestions as unknown as CodeSuggestion[] : [],
             reviewStatus: dbResult.reviewStatus,
-            summary: dbResult.summary || '',
-            confidence: dbResult.confidence || 0,
+            summary: "",
+            confidence: 0,
             processingTime: 0,
             createdAt: dbResult.createdAt
         };
@@ -599,13 +596,13 @@ export class AIReviewOrchestrationService {
     /**
      * Maps rule severity to code issue severity
      */
-    private mapRuleSeverityToCodeSeverity(severity: any): 'low' | 'medium' | 'high' | 'critical' {
+    private mapRuleSeverityToCodeSeverity(severity: $Enums.RuleSeverity): "low" | "medium" | "high" | "critical" {
         switch (severity) {
-            case 'LOW': return 'low';
-            case 'MEDIUM': return 'medium';
-            case 'HIGH': return 'high';
-            case 'CRITICAL': return 'critical';
-            default: return 'medium';
+        case "LOW": return "low";
+        case "MEDIUM": return "medium";
+        case "HIGH": return "high";
+        case "CRITICAL": return "critical";
+        default: return "medium";
         }
     }
 
@@ -620,7 +617,7 @@ export class AIReviewOrchestrationService {
     /**
      * Estimates lines of code from suggestions count
      */
-    private estimateLinesOfCode(suggestions: any[]): number {
+    private estimateLinesOfCode(suggestions: unknown[]): number {
         // Rough estimate based on number of suggestions
         return Math.max(100, suggestions.length * 50);
     }
@@ -650,8 +647,8 @@ export class AIReviewOrchestrationService {
             return await this.analyzeWithIntelligentContext(completePRData);
 
         } catch (error) {
-            console.error('Error processing webhook PR:', error);
-            throw ErrorUtils.wrapError(error as Error, 'Webhook PR processing');
+            console.error("Error processing webhook PR:", error);
+            throw ErrorUtils.wrapError(error as Error, "Webhook PR processing");
         }
     }
 
@@ -673,7 +670,7 @@ export class AIReviewOrchestrationService {
             return dbResult ? this.mapDatabaseResultToReviewResult(dbResult) : null;
 
         } catch (error) {
-            console.error('Error getting analysis status:', error);
+            console.error("Error getting analysis status:", error);
             return null;
         }
     }
@@ -715,10 +712,7 @@ export class AIReviewOrchestrationService {
             return standardResult;
 
         } catch (error) {
-            console.error('Intelligent context analysis failed:', error);
-
-            // Log the failure
-            const processingTime = Date.now() - startTime;
+            console.error("Intelligent context analysis failed:", error);
 
             // Handle error and update status
             const errorResult = await this.handleAnalysisError(prData, error as Error, startTime);
@@ -726,7 +720,7 @@ export class AIReviewOrchestrationService {
             try {
                 await this.updateReviewStatus(prData.installationId, prData.prNumber, prData.repositoryName, ReviewStatus.FAILED);
             } catch (statusError) {
-                console.error('Failed to update review status to FAILED:', statusError);
+                console.error("Failed to update review status to FAILED:", statusError);
             }
 
             // Try to post error comment
@@ -738,7 +732,7 @@ export class AIReviewOrchestrationService {
                     `Analysis failed: ${(error as Error).message}. Please review manually.`
                 );
             } catch (commentError) {
-                console.error('Failed to post error comment:', commentError);
+                console.error("Failed to post error comment:", commentError);
             }
 
             return errorResult;
@@ -754,8 +748,8 @@ export class AIReviewOrchestrationService {
             console.log(`Updating existing review with intelligent context for PR #${prData.prNumber}`);
             return await this.analyzeWithIntelligentContext(prData);
         } catch (error) {
-            console.error('Error updating existing review with intelligent context:', error);
-            throw ErrorUtils.wrapError(error as Error, 'Update existing review');
+            console.error("Error updating existing review with intelligent context:", error);
+            throw ErrorUtils.wrapError(error as Error, "Update existing review");
         }
     }
 
@@ -769,7 +763,7 @@ export class AIReviewOrchestrationService {
     /**
      * Updates intelligent context configuration
      */
-    updateIntelligentContextConfig(updates: any): void {
+    updateIntelligentContextConfig(updates: Partial<IntelligentContextConfig>): void {
         PRAnalysisService.updateIntelligentContextConfig(updates);
     }
 }

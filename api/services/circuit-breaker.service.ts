@@ -1,7 +1,6 @@
 /**
  * Circuit Breaker Service for AI Review System
  * Implements circuit breaker pattern for external service calls
- * Requirements: 7.4, 6.4
  */
 export class CircuitBreakerService {
     private static circuits: Map<string, CircuitBreaker> = new Map();
@@ -58,7 +57,7 @@ export class CircuitBreakerService {
  * Circuit Breaker implementation
  */
 class CircuitBreaker {
-    private state: 'CLOSED' | 'OPEN' | 'HALF_OPEN' = 'CLOSED';
+    private state: "CLOSED" | "OPEN" | "HALF_OPEN" = "CLOSED";
     private failureCount = 0;
     private lastFailureTime?: Date;
     private nextAttemptTime?: Date;
@@ -75,6 +74,7 @@ class CircuitBreaker {
             halfOpenMaxCalls: 3,
             ...options
         };
+        this.serviceName = serviceName;
     }
 
     /**
@@ -84,9 +84,9 @@ class CircuitBreaker {
         operation: () => Promise<T>,
         fallback?: () => Promise<T>
     ): Promise<T> {
-        if (this.state === 'OPEN') {
+        if (this.state === "OPEN") {
             if (this.shouldAttemptReset()) {
-                this.state = 'HALF_OPEN';
+                this.state = "HALF_OPEN";
                 this.successCount = 0;
                 console.log(`Circuit breaker for ${this.serviceName} moved to HALF_OPEN state`);
             } else {
@@ -98,7 +98,7 @@ class CircuitBreaker {
             }
         }
 
-        if (this.state === 'HALF_OPEN' && this.successCount >= this.options.halfOpenMaxCalls!) {
+        if (this.state === "HALF_OPEN" && this.successCount >= this.options.halfOpenMaxCalls!) {
             console.warn(`Circuit breaker for ${this.serviceName} is HALF_OPEN with max calls reached, using fallback`);
             if (fallback) {
                 return fallback();
@@ -133,11 +133,11 @@ class CircuitBreaker {
     private onSuccess(): void {
         this.failureCount = 0;
 
-        if (this.state === 'HALF_OPEN') {
+        if (this.state === "HALF_OPEN") {
             this.successCount++;
 
             if (this.successCount >= this.options.halfOpenMaxCalls!) {
-                this.state = 'CLOSED';
+                this.state = "CLOSED";
                 this.successCount = 0;
                 console.log(`Circuit breaker for ${this.serviceName} recovered to CLOSED state`);
             }
@@ -151,12 +151,12 @@ class CircuitBreaker {
         this.failureCount++;
         this.lastFailureTime = new Date();
 
-        if (this.state === 'HALF_OPEN') {
-            this.state = 'OPEN';
+        if (this.state === "HALF_OPEN") {
+            this.state = "OPEN";
             this.nextAttemptTime = new Date(Date.now() + this.options.recoveryTimeout!);
             console.warn(`Circuit breaker for ${this.serviceName} failed in HALF_OPEN, moving to OPEN state`);
         } else if (this.failureCount >= this.options.failureThreshold!) {
-            this.state = 'OPEN';
+            this.state = "OPEN";
             this.nextAttemptTime = new Date(Date.now() + this.options.recoveryTimeout!);
             console.warn(`Circuit breaker for ${this.serviceName} opened due to ${this.failureCount} failures`);
         }
@@ -172,7 +172,7 @@ class CircuitBreaker {
     /**
      * Gets current circuit state
      */
-    getState(): 'CLOSED' | 'OPEN' | 'HALF_OPEN' {
+    getState(): "CLOSED" | "OPEN" | "HALF_OPEN" {
         return this.state;
     }
 
@@ -201,7 +201,7 @@ class CircuitBreaker {
      * Manually resets the circuit breaker
      */
     reset(): void {
-        this.state = 'CLOSED';
+        this.state = "CLOSED";
         this.failureCount = 0;
         this.successCount = 0;
         this.lastFailureTime = undefined;
@@ -227,8 +227,8 @@ interface CircuitBreakerOptions {
 /**
  * Circuit state information
  */
-interface CircuitState {
-    state: 'CLOSED' | 'OPEN' | 'HALF_OPEN';
+export interface CircuitState {
+    state: "CLOSED" | "OPEN" | "HALF_OPEN";
     failureCount: number;
     lastFailureTime?: Date;
     nextAttemptTime?: Date;

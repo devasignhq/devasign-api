@@ -3,9 +3,9 @@
 // Service for extracting comprehensive code changes from pull requests
 // ============================================================================
 
-import { OctokitService } from './octokit.service';
-import { RawCodeChanges, FileChange } from '../models/intelligent-context.model';
-import { ErrorClass } from '../models/general.model';
+import { OctokitService } from "./octokit.service";
+import { RawCodeChanges, FileChange } from "../models/intelligent-context.model";
+import { ErrorClass } from "../models/general.model";
 
 /**
  * Service implementation for extracting raw code changes from pull requests
@@ -43,7 +43,7 @@ export class RawCodeChangesExtractorService {
                 status: this.normalizeFileStatus(file.status),
                 additions: file.additions,
                 deletions: file.deletions,
-                patch: file.patch || '',
+                patch: file.patch || "",
                 language: this.detectLanguage(file.filename),
                 previousFilename: file.previous_filename || undefined
             }));
@@ -59,7 +59,7 @@ export class RawCodeChangesExtractorService {
             const rawDiff = prFiles
                 .filter(file => file.patch)
                 .map(file => `diff --git a/${file.filename} b/${file.filename}\n${file.patch}`)
-                .join('\n\n');
+                .join("\n\n");
 
             const rawCodeChanges: RawCodeChanges = {
                 prNumber,
@@ -100,7 +100,7 @@ export class RawCodeChangesExtractorService {
         try {
             // Basic structure validation
             if (!changes.prNumber || !changes.repositoryName) {
-                console.error('Missing required fields: prNumber or repositoryName');
+                console.error("Missing required fields: prNumber or repositoryName");
                 return false;
             }
 
@@ -123,11 +123,11 @@ export class RawCodeChangesExtractorService {
             // Validate file changes
             for (const fileChange of changes.fileChanges) {
                 if (!fileChange.filename) {
-                    console.error('File change missing filename');
+                    console.error("File change missing filename");
                     return false;
                 }
                 
-                if (!['added', 'modified', 'removed', 'renamed'].includes(fileChange.status)) {
+                if (!["added", "modified", "removed", "renamed"].includes(fileChange.status)) {
                     console.error(`Invalid file status: ${fileChange.status}`);
                     return false;
                 }
@@ -140,13 +140,13 @@ export class RawCodeChangesExtractorService {
 
             // Validate raw diff exists if there are changes
             if (changes.fileChanges.length > 0 && !changes.rawDiff) {
-                console.warn('No raw diff content found despite file changes');
+                console.warn("No raw diff content found despite file changes");
             }
 
             return true;
 
         } catch (error) {
-            console.error('Error during code changes validation:', error);
+            console.error("Error during code changes validation:", error);
             return false;
         }
     }
@@ -165,7 +165,7 @@ export class RawCodeChangesExtractorService {
 
         // Count files by language
         const languageCounts = fileChanges.reduce((counts, file) => {
-            const lang = file.language || 'unknown';
+            const lang = file.language || "unknown";
             counts[lang] = (counts[lang] || 0) + 1;
             return counts;
         }, {} as Record<string, number>);
@@ -190,7 +190,7 @@ export class RawCodeChangesExtractorService {
         if (statusCounts.renamed) statusParts.push(`${statusCounts.renamed} renamed`);
         
         if (statusParts.length > 0) {
-            parts.push(`(${statusParts.join(', ')})`);
+            parts.push(`(${statusParts.join(", ")})`);
         }
 
         // Language breakdown (top 3)
@@ -198,33 +198,33 @@ export class RawCodeChangesExtractorService {
             .sort(([, a], [, b]) => b - a)
             .slice(0, 3)
             .map(([lang, count]) => `${count} ${lang}`)
-            .join(', ');
+            .join(", ");
         
         if (topLanguages) {
             parts.push(`Languages: ${topLanguages}`);
         }
 
-        return parts.join(', ');
+        return parts.join(", ");
     }
 
     /**
      * Normalize GitHub file status to our standard format
      */
-    private normalizeFileStatus(status: string): 'added' | 'modified' | 'removed' | 'renamed' {
+    private normalizeFileStatus(status: string): "added" | "modified" | "removed" | "renamed" {
         switch (status.toLowerCase()) {
-            case 'added':
-                return 'added';
-            case 'modified':
-            case 'changed':
-                return 'modified';
-            case 'removed':
-            case 'deleted':
-                return 'removed';
-            case 'renamed':
-                return 'renamed';
-            default:
-                console.warn(`Unknown file status: ${status}, defaulting to 'modified'`);
-                return 'modified';
+        case "added":
+            return "added";
+        case "modified":
+        case "changed":
+            return "modified";
+        case "removed":
+        case "deleted":
+            return "removed";
+        case "renamed":
+            return "renamed";
+        default:
+            console.warn(`Unknown file status: ${status}, defaulting to 'modified'`);
+            return "modified";
         }
     }
 
@@ -232,135 +232,135 @@ export class RawCodeChangesExtractorService {
      * Detect programming language from file extension
      */
     private detectLanguage(filename: string): string {
-        const parts = filename.split('.');
+        const parts = filename.split(".");
         const extension = parts.length > 1 ? parts.pop()?.toLowerCase() : undefined;
         
         const languageMap: Record<string, string> = {
             // JavaScript/TypeScript
-            'js': 'javascript',
-            'jsx': 'javascript',
-            'ts': 'typescript',
-            'tsx': 'typescript',
-            'mjs': 'javascript',
-            'cjs': 'javascript',
+            "js": "javascript",
+            "jsx": "javascript",
+            "ts": "typescript",
+            "tsx": "typescript",
+            "mjs": "javascript",
+            "cjs": "javascript",
             
             // Python
-            'py': 'python',
-            'pyx': 'python',
-            'pyi': 'python',
+            "py": "python",
+            "pyx": "python",
+            "pyi": "python",
             
             // Java
-            'java': 'java',
-            'class': 'java',
+            "java": "java",
+            "class": "java",
             
             // C/C++
-            'c': 'c',
-            'cpp': 'cpp',
-            'cc': 'cpp',
-            'cxx': 'cpp',
-            'h': 'c',
-            'hpp': 'cpp',
+            "c": "c",
+            "cpp": "cpp",
+            "cc": "cpp",
+            "cxx": "cpp",
+            "h": "c",
+            "hpp": "cpp",
             
             // C#
-            'cs': 'csharp',
+            "cs": "csharp",
             
             // Go
-            'go': 'go',
+            "go": "go",
             
             // Rust
-            'rs': 'rust',
+            "rs": "rust",
             
             // PHP
-            'php': 'php',
+            "php": "php",
             
             // Ruby
-            'rb': 'ruby',
+            "rb": "ruby",
             
             // Swift
-            'swift': 'swift',
+            "swift": "swift",
             
             // Kotlin
-            'kt': 'kotlin',
-            'kts': 'kotlin',
+            "kt": "kotlin",
+            "kts": "kotlin",
             
             // Scala
-            'scala': 'scala',
-            'sc': 'scala',
+            "scala": "scala",
+            "sc": "scala",
             
             // Shell
-            'sh': 'shell',
-            'bash': 'shell',
-            'zsh': 'shell',
+            "sh": "shell",
+            "bash": "shell",
+            "zsh": "shell",
             
             // Web
-            'html': 'html',
-            'htm': 'html',
-            'css': 'css',
-            'scss': 'scss',
-            'sass': 'sass',
-            'less': 'less',
+            "html": "html",
+            "htm": "html",
+            "css": "css",
+            "scss": "scss",
+            "sass": "sass",
+            "less": "less",
             
             // Config/Data
-            'json': 'json',
-            'yaml': 'yaml',
-            'yml': 'yaml',
-            'xml': 'xml',
-            'toml': 'toml',
-            'ini': 'ini',
-            'cfg': 'config',
-            'conf': 'config',
+            "json": "json",
+            "yaml": "yaml",
+            "yml": "yaml",
+            "xml": "xml",
+            "toml": "toml",
+            "ini": "ini",
+            "cfg": "config",
+            "conf": "config",
             
             // Documentation
-            'md': 'markdown',
-            'markdown': 'markdown',
-            'rst': 'restructuredtext',
-            'txt': 'text',
+            "md": "markdown",
+            "markdown": "markdown",
+            "rst": "restructuredtext",
+            "txt": "text",
             
             // Database
-            'sql': 'sql',
+            "sql": "sql",
             
             // Docker
-            'dockerfile': 'dockerfile',
+            "dockerfile": "dockerfile",
             
             // Other
-            'r': 'r',
-            'R': 'r',
-            'pl': 'perl',
-            'lua': 'lua',
-            'vim': 'vim',
-            'ex': 'elixir',
-            'exs': 'elixir',
-            'erl': 'erlang',
-            'hrl': 'erlang',
-            'clj': 'clojure',
-            'cljs': 'clojure',
-            'hs': 'haskell',
-            'elm': 'elm',
-            'dart': 'dart',
-            'f90': 'fortran',
-            'f95': 'fortran',
-            'f03': 'fortran',
-            'f08': 'fortran',
-            'pas': 'pascal',
-            'pp': 'pascal',
-            'asm': 'assembly',
-            's': 'assembly',
-            'S': 'assembly'
+            "r": "r",
+            "R": "r",
+            "pl": "perl",
+            "lua": "lua",
+            "vim": "vim",
+            "ex": "elixir",
+            "exs": "elixir",
+            "erl": "erlang",
+            "hrl": "erlang",
+            "clj": "clojure",
+            "cljs": "clojure",
+            "hs": "haskell",
+            "elm": "elm",
+            "dart": "dart",
+            "f90": "fortran",
+            "f95": "fortran",
+            "f03": "fortran",
+            "f08": "fortran",
+            "pas": "pascal",
+            "pp": "pascal",
+            "asm": "assembly",
+            "s": "assembly",
+            "S": "assembly"
         };
 
         // Special cases for files without extensions
         if (!extension) {
             const filename_lower = filename.toLowerCase();
-            if (filename_lower === 'dockerfile') return 'dockerfile';
-            if (filename_lower === 'makefile') return 'makefile';
-            if (filename_lower === 'rakefile') return 'ruby';
-            if (filename_lower === 'gemfile') return 'ruby';
-            if (filename_lower === 'podfile') return 'ruby';
-            if (filename_lower.startsWith('jenkinsfile')) return 'groovy';
-            return 'text';
+            if (filename_lower === "dockerfile") return "dockerfile";
+            if (filename_lower === "makefile") return "makefile";
+            if (filename_lower === "rakefile") return "ruby";
+            if (filename_lower === "gemfile") return "ruby";
+            if (filename_lower === "podfile") return "ruby";
+            if (filename_lower.startsWith("jenkinsfile")) return "groovy";
+            return "text";
         }
 
-        return languageMap[extension] || 'unknown';
+        return languageMap[extension] || "unknown";
     }
 }
 
