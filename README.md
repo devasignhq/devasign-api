@@ -312,9 +312,9 @@ npm test -- --testPathPatterns=task.api.test
 
 This project is licensed under the Apache 2.0 License. See [LICENSE](https://github.com/devasignhq/devasign-api/blob/main/LICENSE) for more details.
 
-## Repo Activity
+<!-- ## Repo Activity
 
-<img width="100%" src="https://repobeats.axiom.co/api/embed/8b40a2517db299a027b4d1cd78441f14f1910db6.svg" />
+<img width="100%" src="https://repobeats.axiom.co/api/embed/8b40a2517db299a027b4d1cd78441f14f1910db6.svg" /> -->
 
 ## Related Projects
 
