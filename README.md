@@ -79,7 +79,6 @@ Before setting up DevAsign locally, ensure you have the following installed:
 - **Firebase Project** - for authentication services
 - **GitHub App** - for repository integration
 - **PostgreSQL Database** - local or cloud-hosted
-- **Pinecone Account** - for the vector database
 - **GroqCloud Account** - for the AI model API access
 
 ## Installation & Setup
@@ -128,12 +127,6 @@ GITHUB_WEBHOOK_SECRET="webhook-secret"
 
 # AI Service Configuration
 GROQ_API_KEY="groq-key"
-HUGGINGFACE_API_KEY="hf-key"
-OPENAI_API_KEY="openai-key"
-
-# Vector Database Configuration
-PINECONE_API_KEY="pinecone-key"
-PINECONE_INDEX_NAME="index"
 
 # Stellar Configuration
 STELLAR_HORIZON_URL="https://horizon-testnet.stellar.org"
@@ -266,17 +259,10 @@ docker run -d --name devasign-api -p 8080:8080 --env-file .env.production devasi
 2. Create and configure a new GitHub App 
 3. Extract the required fields for your `.env`
 
-#### RAG System Setup
-1. **Pinecone Vector Database**:
-   - Create an account at [Pinecone](https://www.pinecone.io/)
-   - Create a new index for your vector embeddings
-   - Get your API key and environment details
-   - Add `PINECONE_API_KEY` and `PINECONE_ENVIRONMENT` to your `.env` file
-
-2. **GroqCloud AI Model**:
-   - Sign up at [GroqCloud](https://console.groq.com/)
-   - Generate an API key from your dashboard
-   - Add `GROQ_API_KEY` to your `.env` file
+#### GroqCloud Setup
+1. Sign up at [GroqCloud](https://console.groq.com/)
+2. Generate an API key from your dashboard
+3. Add `GROQ_API_KEY` to your `.env` file
 
 #### Stellar Master Account Setup
 1. Create a Stellar account:
