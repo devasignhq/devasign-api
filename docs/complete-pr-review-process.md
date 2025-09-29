@@ -9,7 +9,7 @@ This document provides a comprehensive walkthrough of the entire AI-powered pull
 The AI Review System consists of multiple interconnected services that work together to analyze pull requests:
 
 ```
-GitHub Webhook → Webhook Controller → Workflow Integration → Job Queue → PR Analysis → Context Gathering → AI Analysis → Result Compilation → GitHub Comment
+GitHub Webhook → Webhook Controller → Workflow Integration → Job Queue → PR Analysis → AI Analysis → Result Compilation → GitHub Comment
 ```
 
 ## Complete Process Flow
@@ -117,8 +117,7 @@ interface PullRequestData {
    - Updates PR status if analysis is skipped
 
 **If Ineligible**: Process stops here with appropriate logging and notification.
-### Ph
-ase 3: Intelligent Context Analysis (New Feature)
+### Phase 3: Intelligent Context Analysis (New Feature)
 
 #### Step 5: Raw Code Changes Extraction
 **Service**: `RawCodeChangesExtractorService` (`api/services/raw-code-changes-extractor.service.ts`)
@@ -232,53 +231,11 @@ ase 3: Intelligent Context Analysis (New Feature)
 4. **Metrics Calculation**
    - Method: `EnhancedContextBuilder.calculateContextMetrics()`
    - Tracks performance and quality metrics for monitoring
-   - Records processing times and success rates###
- Phase 4: Traditional Context Retrieval (RAG) - Enhanced Integration
+   - Records processing times and success rates
+   
+### Phase 4: Rule Evaluation
 
-#### Step 10: Vector Context Retrieval
-**Service**: `RAGContextServiceImpl` (`api/services/rag-context.service.ts`)
-
-**Process**:
-1. **Embedding Generation**
-   - Method: `RAGContextService.generateEmbeddings()`
-   - Generates embeddings for changed code using llama-text-embed-v2 model
-   - Creates semantic representations of code changes
-   - Handles different programming languages appropriately
-
-2. **Similar PR Search**
-   - Method: `RAGContextService.searchSimilarPRs()`
-   - Queries Pinecone vector database for similar historical PRs
-   - Finds PRs with similar code patterns and changes
-   - Retrieves relevant context from past reviews
-
-3. **Project Standards Extraction**
-   - Method: `RAGContextService.extractProjectStandards()`
-   - Identifies project-specific coding patterns
-   - Extracts relevant documentation and guidelines
-   - Compiles coding standards from repository history
-
-4. **Context Compilation**
-   - Method: `RAGContextService.getRelevantContext()`
-   - Combines similar PRs, code patterns, and project standards
-   - Filters context for relevance and recency
-   - Limits context size to fit AI model constraints
-
-**Enhanced Context Structure**:
-```typescript
-interface EnhancedReviewContext extends RelevantContext {
-  rawCodeChanges: RawCodeChanges;
-  repositoryStructure: RepositoryStructure;
-  contextAnalysis: ContextAnalysisResponse;
-  fetchedFiles: FetchedFile[];
-  contextMetrics: ContextMetrics;
-}
-```
-
-**Error Handling**: If RAG fails, falls back to basic context without historical data.
-
-### Phase 5: Rule Evaluation
-
-#### Step 11: Rule Collection
+#### Step 10: Rule Collection
 **Service**: `RuleEngineService` (`api/services/rule-engine.service.ts`)
 
 **Process**:
@@ -297,7 +254,7 @@ interface EnhancedReviewContext extends RelevantContext {
    - Filters active rules only
    - Validates rule configurations
 
-#### Step 12: Rule Execution
+#### Step 11: Rule Execution
 **Service**: `RuleEngineService` (`api/services/rule-engine.service.ts`)
 
 **Process**:
@@ -328,9 +285,9 @@ interface RuleEvaluation {
 }
 ```
 
-### Phase 6: AI Analysis
+### Phase 5: AI Analysis
 
-#### Step 13: AI Model Preparation
+#### Step 12: AI Model Preparation
 **Service**: `GroqAIService` (`api/services/groq-ai.service.ts`)
 
 **Process**:
@@ -351,7 +308,7 @@ interface RuleEvaluation {
    - Sets temperature and other parameters
    - Configures response format requirements
 
-#### Step 14: AI Analysis Execution
+#### Step 13: AI Analysis Execution
 **Service**: `GroqAIService` (`api/services/groq-ai.service.ts`)
 
 **Process**:
@@ -394,10 +351,11 @@ interface AIReview {
 }
 ```
 
-**Error Handling**: If AI analysis fails, falls back to rule-based analysis only.### P
-hase 7: Score Calculation and Result Processing
+**Error Handling**: If AI analysis fails, falls back to rule-based analysis only.
 
-#### Step 15: Merge Score Calculation
+### Phase 6: Score Calculation and Result Processing
+
+#### Step 14: Merge Score Calculation
 **Service**: `MergeScoreService` (`api/services/merge-score.service.ts`)
 
 **Process**:
@@ -425,7 +383,7 @@ hase 7: Score Calculation and Result Processing
      - Score 70-85: Needs minor improvements
      - Score < 70: Requires significant changes
 
-#### Step 16: Result Compilation
+#### Step 15: Result Compilation
 **Service**: `AIReviewOrchestrationService` (`api/services/ai-review-orchestration.service.ts`)
 
 **Process**:
@@ -441,9 +399,9 @@ hase 7: Score Calculation and Result Processing
    - Creates comprehensive result object with context metrics
    - Includes processing time breakdown
 
-### Phase 8: Database Storage and Context Analysis Tracking
+### Phase 7: Database Storage and Context Analysis Tracking
 
-#### Step 17: Database Storage
+#### Step 16: Database Storage
 **Service**: `ContextAnalysisIntegrationService` (`api/services/context-analysis-integration.service.ts`)
 
 **Process**:
@@ -497,9 +455,9 @@ model AIReviewResult {
 }
 ```
 
-### Phase 9: Comment Generation and Formatting
+### Phase 8: Comment Generation and Formatting
 
-#### Step 18: Comment Formatting
+#### Step 17: Comment Formatting
 **Service**: `ReviewFormatterService` (`api/services/review-formatter.service.ts`)
 
 **Process**:
@@ -545,7 +503,7 @@ model AIReviewResult {
 [Specific improvement recommendations with context]
 ```
 
-#### Step 19: Comment Integration
+#### Step 18: Comment Integration
 **Service**: `ReviewCommentIntegrationService` (`api/services/review-comment-integration.service.ts`)
 
 **Process**:
@@ -558,10 +516,11 @@ model AIReviewResult {
    - Method: `AIReviewCommentService.postOrUpdateReview()`
    - Posts formatted comment to PR using GitHub API
    - Updates existing comment if previous review exists
-   - Handles rate limiting and retries### P
-hase 10: GitHub Integration
+   - Handles rate limiting and retries
+   
+### Phase 9: GitHub Integration
 
-#### Step 20: GitHub Comment Posting
+#### Step 19: GitHub Comment Posting
 **Service**: `AIReviewCommentService` (`api/services/ai-review-comment.service.ts`)
 
 **Process**:
@@ -584,27 +543,9 @@ hase 10: GitHub Integration
 
 **Error Handling**: If comment posting fails, review is still stored and can be retrieved later.
 
-### Phase 11: Context Storage and Future Learning
+### Phase 10: Monitoring and Cleanup
 
-#### Step 21: Context Storage for Future Use
-**Service**: `RAGContextServiceImpl` (`api/services/rag-context.service.ts`)
-
-**Process**:
-1. **Embedding Storage**
-   - Method: `RAGContextService.storePRContext()`
-   - Stores PR data as embeddings for future context
-   - Updates vector database with new patterns
-   - Optimizes vector searches for performance
-
-2. **Learning Integration**
-   - Method: `AIReviewOrchestrationService.storeContextForFutureUse()`
-   - Stores successful context analysis patterns
-   - Builds knowledge base for future recommendations
-   - Improves AI context selection over time
-
-### Phase 12: Monitoring and Cleanup
-
-#### Step 22: Success Logging and Metrics
+#### Step 20: Success Logging and Metrics
 **Service**: `LoggingService` (`api/services/logging.service.ts`)
 
 **Process**:
@@ -626,13 +567,13 @@ hase 10: GitHub Integration
    - Tracks rule effectiveness
    - Monitors intelligent context adoption rates
 
-#### Step 23: Error Handling Throughout Process
+#### Step 21: Error Handling Throughout Process
 
 **Circuit Breakers**: 
 - Service: `CircuitBreakerService` (`api/services/circuit-breaker.service.ts`)
 - Protect against service failures:
   - Groq AI service failures → Rule-based fallback
-  - Pinecone failures → Basic context without RAG
+
   - GitHub API failures → Skip comment posting
   - Database failures → In-memory temporary storage
   - Intelligent context failures → Standard analysis fallback
@@ -648,7 +589,7 @@ hase 10: GitHub Integration
 - Service: `ErrorHandlerService` (`api/services/error-handler.service.ts`)
 - System continues with reduced functionality:
   - AI unavailable → Rule-based analysis only
-  - RAG unavailable → Analysis without historical context
+
   - Intelligent context unavailable → Standard analysis workflow
   - GitHub unavailable → Analysis stored for later posting
 
@@ -661,18 +602,17 @@ When intelligent context is enabled and available:
 3. AI-powered context analysis
 4. Selective file fetching
 5. Enhanced context building
-6. Traditional RAG context integration
+6. Context integration
 7. AI analysis with enhanced context
 8. Result compilation with context metrics
 
 ### Standard Workflow (Fallback)
 When intelligent context is disabled or fails:
 1. Traditional PR data extraction
-2. RAG context retrieval
-3. Rule evaluation
-4. AI analysis with standard context
-5. Result compilation
-6. Comment posting
+2. Rule evaluation
+3. AI analysis with basic context
+4. Result compilation
+5. Comment posting
 
 ### Manual Trigger Process
 
@@ -700,7 +640,7 @@ The manual trigger follows the same process but with these differences:
 - **AI Context Analysis**: 10-20 seconds
 - **Selective File Fetching**: 5-15 seconds
 - **Enhanced Context Building**: 2-5 seconds
-- **Traditional RAG Context**: 5-10 seconds
+- **Context Integration**: 5-10 seconds
 - **AI Analysis**: 15-30 seconds
 - **Result Processing**: 3-8 seconds
 - **Comment Posting**: 2-5 seconds
@@ -708,7 +648,7 @@ The manual trigger follows the same process but with these differences:
 ### Bottlenecks and Optimizations
 - **AI Context Analysis**: Largest time component, optimized with caching and fallbacks
 - **Selective File Fetching**: Optimized by fetching only AI-recommended files
-- **Context Building**: Cached embeddings reduce processing time
+- **Context Building**: Optimized context processing reduces time
 - **GitHub API**: Rate limiting handled with queuing
 - **Database Operations**: Optimized with connection pooling
 
@@ -717,7 +657,7 @@ The manual trigger follows the same process but with these differences:
 ### Service Failure Recovery
 1. **Intelligent Context Failure**: Falls back to standard analysis workflow
 2. **Groq AI Failure**: Falls back to rule-based analysis
-3. **Pinecone Failure**: Uses basic context without RAG
+
 4. **GitHub API Failure**: Stores results for later posting
 5. **Database Failure**: Uses in-memory storage temporarily
 

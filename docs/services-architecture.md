@@ -2,14 +2,13 @@
 
 ## Overview
 
-The AI Review System is built with a modular service architecture that provides separation of concerns, error resilience, and scalability. The system consists of 29 specialized services, each with specific responsibilities and well-defined interfaces for interaction with other components.
+The AI Review System is built with a modular service architecture that provides separation of concerns, error resilience, and scalability. The system consists of 27 specialized services, each with specific responsibilities and well-defined interfaces for interaction with other components.
 
 ## Service Categories
 
 ### Core Services
 - **PR Analysis Service**: Orchestrates the complete PR analysis workflow
 - **Groq AI Service**: Handles AI model interactions for code analysis
-- **RAG Context Service**: Manages retrieval-augmented generation context
 - **Rule Engine Service**: Evaluates code against rules and standards
 
 ### Integration Services
@@ -54,15 +53,13 @@ GitHub Webhook → Webhook Controller → Workflow Integration Service
                                            ↓
                                     PR Analysis Service
                                            ↓
-                    ┌─────────────────────────────────────┐
-                    ↓                                     ↓
-            RAG Context Service                    Rule Engine Service
-                    ↓                                     ↓
-            Groq AI Service ←─────────────────────────────┘
-                    ↓
-            AI Review Orchestration Service
-                    ↓
-            Octokit Service (Post Results)
+                                    Rule Engine Service
+                                           ↓
+                                    Groq AI Service
+                                           ↓
+                            AI Review Orchestration Service
+                                           ↓
+                                    Octokit Service (Post Results)
 ```
 
 ## Detailed Service Documentation
@@ -110,28 +107,9 @@ GitHub Webhook → Webhook Controller → Workflow Integration Service
 - Logging Service (for API call logging)
 - Error Handler Service (for retry logic)
 
-### 3. RAG Context Service (`rag-context.service.ts`)
 
-**Purpose**: Manages retrieval-augmented generation context using vector embeddings.
 
-**Key Methods**:
-- `retrieveRelevantContext(prData)`: Gets relevant context for PR analysis
-- `generateEmbeddings(codeContent)`: Creates vector embeddings for code
-- `searchSimilarPRs(embeddings)`: Finds similar historical PRs
-- `extractCodePatterns(context)`: Identifies relevant code patterns
-- `storeEmbeddings(prData, embeddings)`: Stores embeddings for future use
-- `getProjectStandards(repository)`: Retrieves project-specific standards
-
-**Used By**:
-- AI Review Orchestration Service
-- Workflow Integration Service
-
-**Dependencies**:
-- Pinecone Service (vector database)
-- Hugging Face Service (embedding generation)
-- Circuit Breaker Service (for external API protection)
-
-### 4. Rule Engine Service (`rule-engine.service.ts`)
+### 3. Rule Engine Service (`rule-engine.service.ts`)
 
 **Purpose**: Evaluates code against both default and custom rules.
 
@@ -154,7 +132,7 @@ GitHub Webhook → Webhook Controller → Workflow Integration Service
 - Database (for custom rules)
 - Logging Service (for rule evaluation logging)
 
-### 5. Octokit Service (`octokit.service.ts`)
+### 4. Octokit Service (`octokit.service.ts`)
 
 **Purpose**: Handles all GitHub API interactions and authentication.
 
@@ -179,7 +157,7 @@ GitHub Webhook → Webhook Controller → Workflow Integration Service
 - Circuit Breaker Service (for API protection)
 - Logging Service (for API call logging)
 
-### 6. Workflow Integration Service (`workflow-integration.service.ts`)
+### 5. Workflow Integration Service (`workflow-integration.service.ts`)
 
 **Purpose**: Orchestrates the complete AI review workflow from webhook to completion.
 
@@ -202,7 +180,7 @@ GitHub Webhook → Webhook Controller → Workflow Integration Service
 - Job Queue Service
 - Error Handling Integration Service
 
-### 7. AI Review Orchestration Service (`ai-review-orchestration.service.ts`)
+### 6. AI Review Orchestration Service (`ai-review-orchestration.service.ts`)
 
 **Purpose**: Coordinates the complete AI review process including context retrieval, analysis, and result generation.
 
@@ -226,7 +204,7 @@ GitHub Webhook → Webhook Controller → Workflow Integration Service
 - Octokit Service
 - Database Service
 
-### 8. Job Queue Service (`job-queue.service.ts`)
+### 7. Job Queue Service (`job-queue.service.ts`)
 
 **Purpose**: Manages background job processing and task queuing.
 
@@ -251,7 +229,7 @@ GitHub Webhook → Webhook Controller → Workflow Integration Service
 
 ## Error Handling Services
 
-### 9. Error Handler Service (`error-handler.service.ts`)
+### 8. Error Handler Service (`error-handler.service.ts`)
 
 **Purpose**: Provides centralized error handling with retry logic and timeouts.
 
@@ -259,7 +237,7 @@ GitHub Webhook → Webhook Controller → Workflow Integration Service
 - `withRetry(operation, context, maxRetries, timeout)`: Executes operation with retry
 - `withTimeout(operation, context, timeout)`: Executes operation with timeout
 - `handleGroqFailure(prData, context, rules, error)`: Handles Groq service failures
-- `handlePineconeFailure(prData, error)`: Handles Pinecone service failures
+
 - `handleGitHubFailure(installationId, repo, prNumber, operation, error)`: Handles GitHub failures
 - `handleDatabaseFailure(operation, fallbackValue, error)`: Handles database failures
 
@@ -271,7 +249,7 @@ GitHub Webhook → Webhook Controller → Workflow Integration Service
 **Dependencies**:
 - Logging Service
 
-### 10. Circuit Breaker Service (`circuit-breaker.service.ts`)
+### 9. Circuit Breaker Service (`circuit-breaker.service.ts`)
 
 **Purpose**: Implements circuit breaker pattern to prevent cascading failures.
 
@@ -290,7 +268,7 @@ GitHub Webhook → Webhook Controller → Workflow Integration Service
 **Dependencies**:
 - Logging Service (for state change logging)
 
-### 11. Health Check Service (`health-check.service.ts`)
+### 10. Health Check Service (`health-check.service.ts`)
 
 **Purpose**: Monitors system health and provides status information.
 
@@ -302,7 +280,7 @@ GitHub Webhook → Webhook Controller → Workflow Integration Service
 - `getServiceHealth(serviceName)`: Gets specific service health
 - `checkDatabase()`: Checks database connectivity
 - `checkGroq()`: Checks Groq AI service
-- `checkPinecone()`: Checks Pinecone service
+
 - `checkGitHub()`: Checks GitHub API
 
 **Used By**:
@@ -314,7 +292,7 @@ GitHub Webhook → Webhook Controller → Workflow Integration Service
 - Circuit Breaker Service
 - Logging Service
 
-### 12. Logging Service (`logging.service.ts`)
+### 11. Logging Service (`logging.service.ts`)
 
 **Purpose**: Provides structured logging with monitoring integration.
 
@@ -340,7 +318,7 @@ GitHub Webhook → Webhook Controller → Workflow Integration Service
 
 
 
-### 14. Error Recovery Service (`error-recovery.service.ts`)
+### 12. Error Recovery Service (`error-recovery.service.ts`)
 
 **Purpose**: Provides automated recovery mechanisms for system failures.
 
@@ -363,13 +341,13 @@ GitHub Webhook → Webhook Controller → Workflow Integration Service
 - Logging Service
 - All core services (for recovery testing)
 
-### 15. Error Handling Integration Service (`error-handling-integration.service.ts`)
+### 13. Error Handling Integration Service (`error-handling-integration.service.ts`)
 
 **Purpose**: Coordinates error handling across all services with fallback mechanisms.
 
 **Key Methods**:
 - `executeAIReviewWithErrorHandling(prData, operation)`: Executes AI review with error handling
-- `executeRAGContextWithErrorHandling(prData, operation)`: Executes RAG context with error handling
+
 - `executeGitHubOperationWithErrorHandling(operationName, installationId, repo, prNumber, operation, fallbackValue)`: Executes GitHub operations with error handling
 - `executeDatabaseOperationWithErrorHandling(operationName, operation, fallbackValue)`: Executes database operations with error handling
 - `initializeCircuitBreakers()`: Initializes circuit breakers
@@ -387,7 +365,7 @@ GitHub Webhook → Webhook Controller → Workflow Integration Service
 - Health Check Service
 - All core services
 
-### 16. Error Handling Init Service (`error-handling-init.service.ts`)
+### 14. Error Handling Init Service (`error-handling-init.service.ts`)
 
 **Purpose**: Initializes and configures all error handling components.
 
@@ -413,7 +391,7 @@ GitHub Webhook → Webhook Controller → Workflow Integration Service
 - Health Check Service
 - Circuit Breaker Service
 
-### 17. Retry Service (`retry.service.ts`)
+### 15. Retry Service (`retry.service.ts`)
 
 **Purpose**: Provides retry logic with exponential backoff for various operations.
 
@@ -423,7 +401,7 @@ GitHub Webhook → Webhook Controller → Workflow Integration Service
 - `calculateDelay(error, attempt, baseDelay, maxDelay)`: Calculates retry delay with exponential backoff
 - `githubRetryConfig()`: Creates retry configuration for GitHub API operations
 - `groqRetryConfig()`: Creates retry configuration for Groq AI operations
-- `pineconeRetryConfig()`: Creates retry configuration for Pinecone operations
+
 - `databaseRetryConfig()`: Creates retry configuration for database operations
 - `withTimeout(operation, operationName, timeoutMs)`: Wraps operation with timeout
 
@@ -436,7 +414,7 @@ GitHub Webhook → Webhook Controller → Workflow Integration Service
 - Circuit Breaker Service
 - Logging Service
 
-### 18. AI Review Comment Service (`ai-review-comment.service.ts`)
+### 16. AI Review Comment Service (`ai-review-comment.service.ts`)
 
 **Purpose**: Manages GitHub PR comment creation, updates, and deletion for AI reviews.
 
@@ -460,7 +438,7 @@ GitHub Webhook → Webhook Controller → Workflow Integration Service
 - Logging Service
 - Database (for comment ID storage)
 
-### 19. Review Comment Integration Service (`review-comment-integration.service.ts`)
+### 17. Review Comment Integration Service (`review-comment-integration.service.ts`)
 
 **Purpose**: Orchestrates the complete review comment workflow with error handling and retry logic.
 
@@ -484,7 +462,7 @@ GitHub Webhook → Webhook Controller → Workflow Integration Service
 - Review Formatter Service
 - Error Handler Service
 
-### 20. Review Formatter Service (`review-formatter.service.ts`)
+### 18. Review Formatter Service (`review-formatter.service.ts`)
 
 **Purpose**: Formats review results into structured GitHub comments with proper markdown formatting.
 
@@ -508,7 +486,7 @@ GitHub Webhook → Webhook Controller → Workflow Integration Service
 **Dependencies**:
 - None (pure formatting service)
 
-### 21. Merge Score Service (`merge-score.service.ts`)
+### 19. Merge Score Service (`merge-score.service.ts`)
 
 **Purpose**: Calculates comprehensive merge scores based on multiple quality factors.
 
@@ -532,7 +510,7 @@ GitHub Webhook → Webhook Controller → Workflow Integration Service
 **Dependencies**:
 - Logging Service (for score tracking)
 
-### 22. Raw Code Changes Extractor Service (`raw-code-changes-extractor.service.ts`)
+### 20. Raw Code Changes Extractor Service (`raw-code-changes-extractor.service.ts`)
 
 **Purpose**: Extracts comprehensive code changes from pull requests for intelligent context analysis.
 
@@ -552,7 +530,7 @@ GitHub Webhook → Webhook Controller → Workflow Integration Service
 - Octokit Service
 - Logging Service
 
-### 23. Repository File Path Service (`repository-file-path.service.ts`)
+### 21. Repository File Path Service (`repository-file-path.service.ts`)
 
 **Purpose**: Analyzes repository structure and provides comprehensive file organization data.
 
@@ -573,7 +551,7 @@ GitHub Webhook → Webhook Controller → Workflow Integration Service
 - Octokit Service
 - Logging Service
 
-### 24. Intelligent Context Analyzer Service (`intelligent-context-analyzer.service.ts`)
+### 22. Intelligent Context Analyzer Service (`intelligent-context-analyzer.service.ts`)
 
 **Purpose**: Uses AI to analyze code changes and determine which files are most relevant for optimal review quality.
 
@@ -596,7 +574,7 @@ GitHub Webhook → Webhook Controller → Workflow Integration Service
 - Logging Service
 - Intelligent Context Config Service
 
-### 25. Intelligent Context Config Service (`intelligent-context-config.service.ts`)
+### 23. Intelligent Context Config Service (`intelligent-context-config.service.ts`)
 
 **Purpose**: Manages configuration and feature flags for intelligent context analysis features.
 
@@ -621,7 +599,7 @@ GitHub Webhook → Webhook Controller → Workflow Integration Service
 - Environment variables
 - Logging Service
 
-### 26. Enhanced Context Builder Service (`enhanced-context-builder.service.ts`)
+### 24. Enhanced Context Builder Service (`enhanced-context-builder.service.ts`)
 
 **Purpose**: Combines multiple context sources to build optimal review context with quality scoring.
 
@@ -643,7 +621,7 @@ GitHub Webhook → Webhook Controller → Workflow Integration Service
 - Logging Service
 - Intelligent Context Config Service
 
-### 27. Selective File Fetcher Service (`selective-file-fetcher.service.ts`)
+### 25. Selective File Fetcher Service (`selective-file-fetcher.service.ts`)
 
 **Purpose**: Efficiently fetches only AI-recommended files instead of all potentially relevant files.
 
@@ -666,7 +644,7 @@ GitHub Webhook → Webhook Controller → Workflow Integration Service
 - Retry Service
 - Logging Service
 
-### 28. Context Analysis DB Service (`context-analysis-db.service.ts`)
+### 26. Context Analysis DB Service (`context-analysis-db.service.ts`)
 
 **Purpose**: Manages database operations for context analysis metrics and performance tracking.
 
@@ -689,7 +667,7 @@ GitHub Webhook → Webhook Controller → Workflow Integration Service
 - Database (Prisma)
 - Logging Service
 
-### 29. Context Analysis Integration Service (`context-analysis-integration.service.ts`)
+### 27. Context Analysis Integration Service (`context-analysis-integration.service.ts`)
 
 **Purpose**: Integrates context analysis results with database storage and provides analytics capabilities.
 
