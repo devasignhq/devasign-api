@@ -101,7 +101,7 @@ describe("Webhook API Integration Tests", () => {
 
         mockWorkflowService.healthCheck.mockResolvedValue({
             healthy: true,
-            services: { groq: true, pinecone: true, github: true }
+            services: { groq: true, github: true }
         });
 
         mockWorkflowService.getWorkflowStatus.mockReturnValue({
@@ -662,7 +662,7 @@ describe("Webhook API Integration Tests", () => {
                 data: {
                     health: {
                         healthy: true,
-                        services: { groq: true, pinecone: true, github: true }
+                        services: { groq: true, github: true }
                     },
                     workflow: {
                         activeJobs: 0,
@@ -677,7 +677,7 @@ describe("Webhook API Integration Tests", () => {
         it("should return unhealthy status when services have issues", async () => {
             mockWorkflowService.healthCheck.mockResolvedValue({
                 healthy: false,
-                services: { groq: false, pinecone: true, github: true },
+                services: { groq: false, github: true },
                 errors: ["Groq API connection failed"]
             });
 
@@ -691,7 +691,7 @@ describe("Webhook API Integration Tests", () => {
                 data: {
                     health: {
                         healthy: false,
-                        services: { groq: false, pinecone: true, github: true }
+                        services: { groq: false, github: true }
                     }
                 }
             });

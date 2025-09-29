@@ -42,10 +42,6 @@ export const testConfig = {
             network: process.env.STELLAR_NETWORK || "testnet",
             masterPublicKey: process.env.STELLAR_MASTER_PUBLIC_KEY || "test-public-key",
             masterSecretKey: process.env.STELLAR_MASTER_SECRET_KEY || "test-secret-key"
-        },
-        pinecone: {
-            apiKey: process.env.PINECONE_API_KEY || "test-pinecone-key",
-            indexName: process.env.PINECONE_INDEX_NAME || "test-index"
         }
     },
 

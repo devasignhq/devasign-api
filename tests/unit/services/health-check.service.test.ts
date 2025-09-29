@@ -21,7 +21,6 @@ jest.mock("../../../api/services/circuit-breaker.service", () => ({
     CircuitBreakerService: {
         getCircuitStatus: jest.fn().mockReturnValue({
             groq: { state: "CLOSED" },
-            pinecone: { state: "CLOSED" },
             github: { state: "CLOSED" },
             database: { state: "CLOSED" }
         })
@@ -50,7 +49,6 @@ describe("HealthCheckService", () => {
         process.env = {
             ...originalEnv,
             GROQ_API_KEY: "test_groq_key",
-            PINECONE_API_KEY: "test_pinecone_key",
             GITHUB_APP_ID: "test_app_id",
             GITHUB_APP_PRIVATE_KEY: "test_private_key",
             NODE_ENV: "test",
@@ -75,7 +73,6 @@ describe("HealthCheckService", () => {
             expect(result.status).toBe("healthy");
             expect(result.services).toHaveProperty("database");
             expect(result.services).toHaveProperty("groq");
-            expect(result.services).toHaveProperty("pinecone");
             expect(result.services).toHaveProperty("github");
             expect(result.degradedMode).toBe(false);
             expect(result.circuitBreakers).toBeDefined();
@@ -180,29 +177,6 @@ describe("HealthCheckService", () => {
             // Assert
             expect(result.services.groq.status).toBe("unhealthy");
             expect(result.services.groq.message).toContain("GROQ_API_KEY not configured");
-        });
-    });
-
-    describe("Pinecone Service Health Check", () => {
-        it("should report Pinecone as healthy when API key is configured", async () => {
-            // Act
-            const result = await HealthCheckService.performHealthCheck();
-
-            // Assert
-            expect(result.services.pinecone.status).toBe("healthy");
-            expect(result.services.pinecone.message).toBe("Pinecone service configuration valid");
-        });
-
-        it("should report Pinecone as unhealthy when API key is missing", async () => {
-            // Arrange
-            delete process.env.PINECONE_API_KEY;
-
-            // Act
-            const result = await HealthCheckService.performHealthCheck();
-
-            // Assert
-            expect(result.services.pinecone.status).toBe("unhealthy");
-            expect(result.services.pinecone.message).toContain("PINECONE_API_KEY not configured");
         });
     });
 

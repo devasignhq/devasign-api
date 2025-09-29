@@ -1,5 +1,5 @@
 import { GroqAIService } from "../../../api/services/groq-ai.service";
-import { PullRequestData, RelevantContext, AIReview, CodeAnalysis, RuleEvaluation } from "../../../api/models/ai-review.model";
+import { PullRequestData, AIReview, CodeAnalysis, RuleEvaluation } from "../../../api/models/ai-review.model";
 import { GroqServiceError, GroqRateLimitError, GroqContextLimitError } from "../../../api/models/ai-review.errors";
 import { GroqAITestHelpers } from "../../mocks/groq-ai.service.mock";
 import { RuleSeverity } from "@/generated/client";
@@ -30,7 +30,6 @@ const originalEnv = process.env;
 describe("GroqAIService", () => {
     let groqService: GroqAIService;
     let mockPRData: PullRequestData;
-    let mockContext: RelevantContext;
 
     beforeEach(() => {
         // Set up environment variables
@@ -53,7 +52,6 @@ describe("GroqAIService", () => {
 
         // Set up test data
         mockPRData = GroqAITestHelpers.createMockPRData();
-        mockContext = GroqAITestHelpers.createMockContext();
     });
 
     afterEach(() => {
@@ -79,6 +77,7 @@ describe("GroqAIService", () => {
             expect(() => new GroqAIService()).not.toThrow();
         });
     });
+    
     describe("generateReview", () => {
         it("should generate a comprehensive AI review successfully", async () => {
             // Arrange
@@ -113,7 +112,7 @@ describe("GroqAIService", () => {
             mockGroqClient.chat.completions.create.mockResolvedValue(mockResponse);
 
             // Act
-            const result = await groqService.generateReview(mockPRData, mockContext);
+            const result = await groqService.generateReview(mockPRData);
 
             // Assert
             expect(result).toBeDefined();
@@ -137,7 +136,7 @@ describe("GroqAIService", () => {
             mockGroqClient.chat.completions.create.mockResolvedValue(mockResponse);
 
             // Act
-            const result = await groqService.generateReview(mockPRData, mockContext);
+            const result = await groqService.generateReview(mockPRData);
 
             // Assert
             expect(result).toBeDefined();
@@ -159,7 +158,7 @@ describe("GroqAIService", () => {
             mockGroqClient.chat.completions.create.mockResolvedValue(mockResponse);
 
             // Act & Assert
-            await expect(groqService.generateReview(mockPRData, mockContext))
+            await expect(groqService.generateReview(mockPRData))
                 .rejects.toThrow(GroqServiceError);
         });
 
@@ -186,7 +185,7 @@ describe("GroqAIService", () => {
                 });
 
             // Act
-            const result = await groqService.generateReview(mockPRData, mockContext);
+            const result = await groqService.generateReview(mockPRData);
 
             // Assert
             expect(result).toBeDefined();
@@ -202,7 +201,7 @@ describe("GroqAIService", () => {
             mockGroqClient.chat.completions.create.mockRejectedValue(contextError);
 
             // Act & Assert
-            await expect(groqService.generateReview(mockPRData, mockContext))
+            await expect(groqService.generateReview(mockPRData))
                 .rejects.toThrow(GroqContextLimitError);
         });
 
@@ -225,10 +224,11 @@ describe("GroqAIService", () => {
             mockGroqClient.chat.completions.create.mockResolvedValue(invalidResponse);
 
             // Act & Assert
-            await expect(groqService.generateReview(mockPRData, mockContext))
+            await expect(groqService.generateReview(mockPRData))
                 .rejects.toThrow(GroqServiceError);
         });
     });
+    
     describe("calculateMergeScore", () => {
         it("should calculate merge score using MergeScoreService", async () => {
             // Arrange
@@ -353,7 +353,7 @@ describe("GroqAIService", () => {
             mockGroqClient.chat.completions.create.mockResolvedValue(mockResponse);
 
             // Act
-            const result = await groqService.generateSuggestions(mockPRData, mockContext);
+            const result = await groqService.generateSuggestions(mockPRData);
 
             // Assert
             expect(result).toHaveLength(2);
@@ -369,7 +369,7 @@ describe("GroqAIService", () => {
             mockGroqClient.chat.completions.create.mockRejectedValue(new Error("API Error"));
 
             // Act
-            const result = await groqService.generateSuggestions(mockPRData, mockContext);
+            const result = await groqService.generateSuggestions(mockPRData);
 
             // Assert
             expect(result).toEqual([]);
@@ -388,7 +388,7 @@ describe("GroqAIService", () => {
             mockGroqClient.chat.completions.create.mockResolvedValue(mockResponse);
 
             // Act
-            const result = await groqService.generateSuggestions(mockPRData, mockContext);
+            const result = await groqService.generateSuggestions(mockPRData);
 
             // Assert
             expect(result).toEqual([]);
@@ -571,7 +571,7 @@ describe("GroqAIService", () => {
             mockGroqClient.chat.completions.create.mockRejectedValue(new Error("Connection failed"));
 
             // Act & Assert
-            await expect(groqService.generateReview(mockPRData, mockContext))
+            await expect(groqService.generateReview(mockPRData))
                 .rejects.toThrow();
         });
 
@@ -582,7 +582,7 @@ describe("GroqAIService", () => {
             });
 
             // Act & Assert
-            await expect(groqService.generateReview(mockPRData, mockContext))
+            await expect(groqService.generateReview(mockPRData))
                 .rejects.toThrow(GroqServiceError);
         });
 
@@ -599,7 +599,7 @@ describe("GroqAIService", () => {
             mockGroqClient.chat.completions.create.mockResolvedValue(mockResponse);
 
             // Act
-            const result = await groqService.generateReview(mockPRData, mockContext);
+            const result = await groqService.generateReview(mockPRData);
 
             // Assert
             expect(result).toBeDefined();
@@ -638,7 +638,7 @@ describe("GroqAIService", () => {
             mockGroqClient.chat.completions.create.mockResolvedValue(mockResponse);
 
             // Act
-            const result = await groqService.generateReview(largePRData, mockContext);
+            const result = await groqService.generateReview(largePRData);
 
             // Assert
             expect(result).toBeDefined();
@@ -681,7 +681,7 @@ describe("GroqAIService", () => {
 
             // Act & Assert
             expect(async () => {
-                await groqService.generateReview(largePRData, mockContext);
+                await groqService.generateReview(largePRData);
             }).not.toThrow();
         });
     });

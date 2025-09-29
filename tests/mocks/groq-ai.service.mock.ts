@@ -1,6 +1,5 @@
 import {
     PullRequestData,
-    RelevantContext,
     AIReview,
     CodeAnalysis,
     RuleEvaluation,
@@ -142,7 +141,7 @@ export class MockGroqAIService {
     /**
      * Mock generateReview method
      */
-    static async generateReview(prData: PullRequestData, context: RelevantContext): Promise<AIReview> {
+    static async generateReview(prData: PullRequestData): Promise<AIReview> {
         // Simulate API delay
         await new Promise(resolve => setTimeout(resolve, 100));
 
@@ -158,7 +157,7 @@ export class MockGroqAIService {
         }
 
         // Return default response based on PR characteristics
-        return this.generateRealisticResponse(prData, context);
+        return this.generateRealisticResponse(prData);
     }
 
     /**
@@ -176,7 +175,7 @@ export class MockGroqAIService {
     /**
      * Mock generateSuggestions method
      */
-    static async generateSuggestions(prData: PullRequestData, _context: RelevantContext): Promise<CodeSuggestion[]> {
+    static async generateSuggestions(prData: PullRequestData): Promise<CodeSuggestion[]> {
         await new Promise(resolve => setTimeout(resolve, 50));
 
         if (this.shouldSimulateError) {
@@ -254,7 +253,7 @@ export class MockGroqAIService {
         return `${prData.repositoryName}_${prData.prNumber}`;
     }
 
-    private static generateRealisticResponse(prData: PullRequestData, _context: RelevantContext): AIReview {
+    private static generateRealisticResponse(prData: PullRequestData): AIReview {
         // Analyze PR characteristics to determine response type
         const hasTests = prData.changedFiles.some(file =>
             file.filename.includes("test") || file.filename.includes("spec")
@@ -349,75 +348,7 @@ export const GroqAITestHelpers = {
         ...overrides
     }),
 
-    /**
-     * Creates mock relevant context for testing
-     */
-    createMockContext: (_overrides: Partial<RelevantContext> = {}): RelevantContext => ({
-        similarPRs: [
-            {
-                prNumber: 123,
-                title: "Fix bug in login feature",
-                description: "Resolve issue with user authentication",
-                linkedIssues: ["issue-123"],
-                outcome: "merged",
-                reviewComments: ["LGTM", "Needs more testing"],
-                similarity: 0.8
-            },
-            {
-                prNumber: 456,
-                title: "Improve performance of dashboard",
-                description: "Optimize queries for faster load times",
-                linkedIssues: ["issue-456"],
-                outcome: "closed",
-                reviewComments: ["Needs more info"],
-                similarity: 0.6
-            }
-        ],
-        relevantFiles: [
-            {
-                filename: "login.ts",
-                content: "console.log('login feature');",
-                language: "typescript",
-                similarity: 0.9,
-                lastModified: "2022-01-01T12:00:00.000Z"
-            },
-            {
-                filename: "dashboard.js",
-                content: "console.log('dashboard feature');",
-                language: "javascript",
-                similarity: 0.7,
-                lastModified: "2022-01-02T12:00:00.000Z"
-            }
-        ],
-        codePatterns: [
-            {
-                pattern: "console.log",
-                description: "Logging statement",
-                examples: ["console.log('hello world');"],
-                frequency: 10
-            },
-            {
-                pattern: "try-catch",
-                description: "Error handling block",
-                examples: ["try { ... } catch (error) { ... }"],
-                frequency: 5
-            }
-        ],
-        projectStandards: [
-            {
-                category: "Best Practices",
-                rule: "Use semicolons",
-                description: "Consistently use semicolons to end statements",
-                examples: ["const x = 5;"]
-            },
-            {
-                category: "Security",
-                rule: "Validate user input",
-                description: "Always validate user input to prevent security vulnerabilities",
-                examples: ["if (userInput === 'expectedValue') { ... }"]
-            }
-        ]
-    }),
+
 
     /**
      * Sets up GroqAI mocks with realistic responses

@@ -140,7 +140,6 @@ All external services are mocked by default:
 - GitHub API (Octokit)
 - AI Services (Groq, OpenAI, Hugging Face)
 - Stellar SDK
-- Pinecone Vector Database
 
 ## Best Practices
 
