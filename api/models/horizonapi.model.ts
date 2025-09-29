@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-empty-object-type */
+/* eslint-disable @typescript-eslint/no-namespace */
 import { AssetType, MemoType } from "@stellar/stellar-base";
 export declare namespace HorizonApi {
     interface ResponseLink {
@@ -96,7 +98,13 @@ export declare namespace HorizonApi {
         is_clawback_enabled: boolean;
         sponsor?: string;
     }
-    type BalanceLine<T extends AssetType = AssetType> = T extends AssetType.native ? BalanceLineNative : T extends AssetType.credit4 | AssetType.credit12 ? BalanceLineAsset<T> : T extends AssetType.liquidityPoolShares ? BalanceLineLiquidityPool : BalanceLineNative | BalanceLineAsset | BalanceLineLiquidityPool;
+    type BalanceLine<T extends AssetType = AssetType> = T extends AssetType.native 
+        ? BalanceLineNative 
+        : T extends AssetType.credit4 | AssetType.credit12 
+            ? BalanceLineAsset<T> 
+            : T extends AssetType.liquidityPoolShares 
+                ? BalanceLineLiquidityPool 
+                : BalanceLineNative | BalanceLineAsset | BalanceLineLiquidityPool;
     interface AssetAccounts {
         authorized: number;
         authorized_to_maintain_liabilities: number;

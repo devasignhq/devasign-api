@@ -1,5 +1,5 @@
-import { Pinecone } from '@pinecone-database/pinecone';
-import { InferenceClient } from '@huggingface/inference';
+import { Pinecone, RecordMetadataValue } from "@pinecone-database/pinecone";
+import { InferenceClient } from "@huggingface/inference";
 import {
     PullRequestData,
     RelevantContext,
@@ -8,15 +8,13 @@ import {
     CodePattern,
     ProjectStandard,
     EmbeddingDocument,
-    EmbeddingMetadata,
     ReviewResult
-} from '../models/ai-review.model';
-import { OctokitService } from './octokit.service';
+} from "../models/ai-review.model";
+import { OctokitService } from "./octokit.service";
 
 /**
  * RAG Context Service Implementation
  * Handles embedding generation and context retrieval using Pinecone and llama-text-embed-v2
- * Requirements: 5.1, 5.2, 5.3, 8.1
  */
 export class RAGContextServiceImpl {
     private pinecone: Pinecone;
@@ -26,7 +24,7 @@ export class RAGContextServiceImpl {
     constructor() {
         // Initialize Pinecone client
         this.pinecone = new Pinecone({
-            apiKey: process.env.PINECONE_API_KEY!,
+            apiKey: process.env.PINECONE_API_KEY!
         });
 
         // Initialize HuggingFace inference client for embeddings
@@ -34,13 +32,11 @@ export class RAGContextServiceImpl {
         this.inferenceClient = new InferenceClient(process.env.HUGGINGFACE_API_KEY || process.env.OPENAI_API_KEY);
 
         // Get index name from environment
-        this.indexName = process.env.PINECONE_INDEX_NAME || 'code-review-context-llama';
+        this.indexName = process.env.PINECONE_INDEX_NAME || "code-review-context-llama";
     }
 
     /**
      * Retrieves relevant context for PR analysis
-     * Requirement 5.1: System shall retrieve relevant files from codebase using RAG
-     * Requirement 5.2: System shall consider similar closed PRs
      */
     async getRelevantContext(prData: PullRequestData): Promise<RelevantContext> {
         try {
@@ -58,7 +54,7 @@ export class RAGContextServiceImpl {
             ]);
 
             // Extract code patterns and project standards from context
-            const codePatterns = this.extractCodePatterns(relevantFiles, similarPRs);
+            const codePatterns = this.extractCodePatterns(relevantFiles);
             const projectStandards = this.extractProjectStandards(relevantFiles, similarPRs);
 
             return {
@@ -68,7 +64,7 @@ export class RAGContextServiceImpl {
                 projectStandards
             };
         } catch (error) {
-            console.error('Error getting relevant context:', error);
+            console.error("Error getting relevant context:", error);
             // Return empty context on error to allow graceful degradation
             return {
                 similarPRs: [],
@@ -81,7 +77,6 @@ export class RAGContextServiceImpl {
 
     /**
      * Generates embeddings for content using llama-text-embed-v2
-     * Requirement 5.3: System shall use llama-text-embed-v2 model for consistency
      */
     async generateEmbeddings(content: string): Promise<number[]> {
         try {
@@ -92,7 +87,7 @@ export class RAGContextServiceImpl {
             if (process.env.HUGGINGFACE_API_KEY) {
                 try {
                     const response = await this.inferenceClient.featureExtraction({
-                        model: 'sentence-transformers/all-MiniLM-L6-v2', // Using a reliable alternative
+                        model: "sentence-transformers/all-MiniLM-L6-v2", // Using a reliable alternative
                         inputs: cleanContent
                     });
 
@@ -109,14 +104,14 @@ export class RAGContextServiceImpl {
                         return this.adjustEmbeddingDimensions(embeddings, 1024);
                     }
                 } catch (hfError) {
-                    console.warn('HuggingFace API failed, falling back to local embeddings:', hfError);
+                    console.warn("HuggingFace API failed, falling back to local embeddings:", hfError);
                 }
             }
 
             // Fallback to simple text-based embedding generation
             return this.generateSimpleEmbeddings(cleanContent);
         } catch (error) {
-            console.error('Error generating embeddings:', error);
+            console.error("Error generating embeddings:", error);
             // Return simple hash-based embedding as final fallback
             return this.generateSimpleEmbeddings(content);
         }
@@ -131,7 +126,7 @@ export class RAGContextServiceImpl {
 
         // Simple text-based features
         const words = content.toLowerCase().split(/\s+/);
-        const chars = content.split('');
+        const chars = content.split("");
 
         // Character frequency features (first 256 dimensions)
         for (let i = 0; i < chars.length && i < 256; i++) {
@@ -155,8 +150,8 @@ export class RAGContextServiceImpl {
             hasSpecialChars: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(content) ? 1 : 0,
             hasUpperCase: /[A-Z]/.test(content) ? 1 : 0,
             hasLowerCase: /[a-z]/.test(content) ? 1 : 0,
-            lineCount: Math.min(content.split('\n').length / 100, 1),
-            avgLineLength: content.split('\n').length > 0 ? Math.min(content.split('\n').reduce((sum, line) => sum + line.length, 0) / content.split('\n').length / 100, 1) : 0
+            lineCount: Math.min(content.split("\n").length / 100, 1),
+            avgLineLength: content.split("\n").length > 0 ? Math.min(content.split("\n").reduce((sum, line) => sum + line.length, 0) / content.split("\n").length / 100, 1) : 0
         };
 
         // Fill word-based features (256-511)
@@ -246,7 +241,6 @@ export class RAGContextServiceImpl {
 
     /**
      * Searches for similar PRs in vector database
-     * Requirement 5.2: System shall consider similar closed PRs that resolved related issues
      */
     async searchSimilarPRs(query: string, installationId: string, limit: number = 10): Promise<HistoricalPR[]> {
         try {
@@ -258,8 +252,8 @@ export class RAGContextServiceImpl {
             const searchResults = await index.query({
                 vector: queryEmbedding,
                 filter: {
-                    installationId: installationId,
-                    type: 'pr'
+                    installationId,
+                    type: "pr"
                 },
                 topK: limit,
                 includeMetadata: true
@@ -270,14 +264,14 @@ export class RAGContextServiceImpl {
 
             for (const match of searchResults.matches || []) {
                 if (match.metadata && match.score && match.score > 0.7) { // Similarity threshold
-                    const metadata = match.metadata as any;
+                    const metadata = match.metadata;
                     historicalPRs.push({
-                        prNumber: metadata.prNumber || 0,
-                        title: metadata.title || '',
-                        description: metadata.content || '',
-                        linkedIssues: metadata.linkedIssues ? JSON.parse(metadata.linkedIssues) : [],
-                        outcome: metadata.outcome || 'closed',
-                        reviewComments: metadata.reviewComments ? JSON.parse(metadata.reviewComments) : [],
+                        prNumber: (metadata.prNumber || 0) as number,
+                        title: (metadata.title || "") as string,
+                        description: (metadata.content || "") as string,
+                        linkedIssues: metadata.linkedIssues ? JSON.parse(metadata.linkedIssues as string) : [],
+                        outcome: (metadata.outcome || "closed") as "closed" | "merged",
+                        reviewComments: metadata.reviewComments ? JSON.parse(metadata.reviewComments as string) : [],
                         similarity: match.score
                     });
                 }
@@ -285,14 +279,13 @@ export class RAGContextServiceImpl {
 
             return historicalPRs;
         } catch (error) {
-            console.error('Error searching similar PRs:', error);
+            console.error("Error searching similar PRs:", error);
             return [];
         }
     }
 
     /**
      * Gets relevant files based on changed files
-     * Requirement 5.1: System shall retrieve relevant files from current codebase
      */
     async getRelevantFiles(changedFiles: string[], repositoryName: string, installationId: string): Promise<RelevantFile[]> {
         try {
@@ -309,9 +302,9 @@ export class RAGContextServiceImpl {
                 const searchResults = await index.query({
                     vector: queryEmbedding,
                     filter: {
-                        installationId: installationId,
-                        repositoryName: repositoryName,
-                        type: 'file'
+                        installationId,
+                        repositoryName,
+                        type: "file"
                     },
                     topK: 3,
                     includeMetadata: true
@@ -320,22 +313,22 @@ export class RAGContextServiceImpl {
                 // Process search results
                 for (const match of searchResults.matches || []) {
                     if (match.metadata && match.score && match.score > 0.6) {
-                        const metadata = match.metadata as any;
+                        const metadata = match.metadata;
 
                         // Fetch actual file content from GitHub
                         try {
                             const fileContent = await OctokitService.getFileContent(
                                 installationId,
                                 repositoryName,
-                                metadata.filename
+                                metadata.filename as string
                             );
 
                             relevantFiles.push({
-                                filename: metadata.filename,
+                                filename: metadata.filename as string,
                                 content: fileContent,
-                                language: metadata.language || this.detectLanguage(metadata.filename),
+                                language: (metadata.language as string) || this.detectLanguage(metadata.filename as string),
                                 similarity: match.score,
-                                lastModified: metadata.timestamp || new Date().toISOString()
+                                lastModified: (metadata.timestamp as string) || new Date().toISOString()
                             });
                         } catch (fileError) {
                             console.warn(`Could not fetch content for file ${metadata.filename}:`, fileError);
@@ -346,14 +339,13 @@ export class RAGContextServiceImpl {
 
             return relevantFiles;
         } catch (error) {
-            console.error('Error getting relevant files:', error);
+            console.error("Error getting relevant files:", error);
             return [];
         }
     }
 
     /**
      * Stores PR data as embeddings for future context
-     * Requirement 8.1: System shall use existing Pinecone database index
      */
     async storePRContext(prData: PullRequestData, reviewResult: ReviewResult): Promise<void> {
         try {
@@ -368,7 +360,7 @@ export class RAGContextServiceImpl {
                 values: prEmbedding,
                 metadata: {
                     installationId: prData.installationId,
-                    type: 'pr',
+                    type: "pr",
                     repositoryName: prData.repositoryName,
                     prNumber: prData.prNumber,
                     content: prContent,
@@ -376,7 +368,7 @@ export class RAGContextServiceImpl {
                     title: prData.title,
                     linkedIssues: JSON.stringify(prData.linkedIssues.map(i => i.number)),
                     reviewComments: JSON.stringify(reviewResult.suggestions.map(s => s.description)),
-                    outcome: 'open' // Will be updated when PR is closed/merged
+                    outcome: "open" // Will be updated when PR is closed/merged
                 }
             });
 
@@ -391,7 +383,7 @@ export class RAGContextServiceImpl {
                         values: fileEmbedding,
                         metadata: {
                             installationId: prData.installationId,
-                            type: 'file',
+                            type: "file",
                             repositoryName: prData.repositoryName,
                             filename: file.filename,
                             content: fileContent,
@@ -410,21 +402,20 @@ export class RAGContextServiceImpl {
                 const pineconeRecords = documents.map(doc => ({
                     id: doc.id,
                     values: doc.values,
-                    metadata: doc.metadata as Record<string, any>
+                    metadata: doc.metadata as Record<string, RecordMetadataValue>
                 }));
                 await index.upsert(pineconeRecords);
             }
         } catch (error) {
-            console.error('Error storing PR context:', error);
+            console.error("Error storing PR context:", error);
             // Don't throw error to avoid breaking the main workflow
         }
     }
 
     /**
      * Updates embeddings when PR is merged or closed
-     * Requirement 8.1: System shall optimize vector searches for performance
      */
-    async updatePROutcome(installationId: string, prNumber: number, outcome: 'merged' | 'closed'): Promise<void> {
+    async updatePROutcome(installationId: string, prNumber: number, outcome: "merged" | "closed"): Promise<void> {
         try {
             const index = this.pinecone.index(this.indexName);
             const prId = `${installationId}:pr:${prNumber}`;
@@ -437,7 +428,7 @@ export class RAGContextServiceImpl {
                 // Update metadata with outcome
                 const updatedMetadata = {
                     ...existingRecord.metadata,
-                    outcome: outcome,
+                    outcome,
                     updatedAt: new Date().toISOString()
                 };
 
@@ -449,7 +440,7 @@ export class RAGContextServiceImpl {
                 }]);
             }
         } catch (error) {
-            console.error('Error updating PR outcome:', error);
+            console.error("Error updating PR outcome:", error);
             // Don't throw error to avoid breaking the main workflow
         }
     }
@@ -465,21 +456,21 @@ export class RAGContextServiceImpl {
         const components = [
             prData.title,
             prData.body?.substring(0, 500), // Limit body length
-            prData.changedFiles.map(f => f.filename).join(' '),
-            prData.linkedIssues.map(i => i.title).join(' ')
+            prData.changedFiles.map(f => f.filename).join(" "),
+            prData.linkedIssues.map(i => i.title).join(" ")
         ].filter(Boolean);
 
-        return components.join(' ').trim();
+        return components.join(" ").trim();
     }
 
     /**
      * Builds file-specific search query
      */
     private buildFileQuery(filename: string): string {
-        const parts = filename.split('/');
+        const parts = filename.split("/");
         const fileName = parts[parts.length - 1];
-        const directory = parts.slice(0, -1).join('/');
-        const extension = fileName.split('.').pop() || '';
+        const directory = parts.slice(0, -1).join("/");
+        const extension = fileName.split(".").pop() || "";
 
         return `${fileName} ${directory} ${extension} file`;
     }
@@ -489,8 +480,8 @@ export class RAGContextServiceImpl {
      */
     private preprocessContent(content: string): string {
         return content
-            .replace(/\r\n/g, '\n') // Normalize line endings
-            .replace(/\s+/g, ' ') // Normalize whitespace
+            .replace(/\r\n/g, "\n") // Normalize line endings
+            .replace(/\s+/g, " ") // Normalize whitespace
             .trim()
             .substring(0, 8000); // Limit content length for embedding model
     }
@@ -499,47 +490,47 @@ export class RAGContextServiceImpl {
      * Detects programming language from filename
      */
     private detectLanguage(filename: string): string {
-        const extension = filename.split('.').pop()?.toLowerCase();
+        const extension = filename.split(".").pop()?.toLowerCase();
         const languageMap: Record<string, string> = {
-            'js': 'javascript',
-            'ts': 'typescript',
-            'jsx': 'javascript',
-            'tsx': 'typescript',
-            'py': 'python',
-            'java': 'java',
-            'cpp': 'cpp',
-            'c': 'c',
-            'cs': 'csharp',
-            'php': 'php',
-            'rb': 'ruby',
-            'go': 'go',
-            'rs': 'rust',
-            'swift': 'swift',
-            'kt': 'kotlin',
-            'scala': 'scala',
-            'html': 'html',
-            'css': 'css',
-            'scss': 'scss',
-            'less': 'less',
-            'json': 'json',
-            'xml': 'xml',
-            'yaml': 'yaml',
-            'yml': 'yaml',
-            'md': 'markdown',
-            'sql': 'sql'
+            "js": "javascript",
+            "ts": "typescript",
+            "jsx": "javascript",
+            "tsx": "typescript",
+            "py": "python",
+            "java": "java",
+            "cpp": "cpp",
+            "c": "c",
+            "cs": "csharp",
+            "php": "php",
+            "rb": "ruby",
+            "go": "go",
+            "rs": "rust",
+            "swift": "swift",
+            "kt": "kotlin",
+            "scala": "scala",
+            "html": "html",
+            "css": "css",
+            "scss": "scss",
+            "less": "less",
+            "json": "json",
+            "xml": "xml",
+            "yaml": "yaml",
+            "yml": "yaml",
+            "md": "markdown",
+            "sql": "sql"
         };
 
-        return languageMap[extension || ''] || 'text';
+        return languageMap[extension || ""] || "text";
     }
 
     /**
      * Extracts code patterns from relevant files and similar PRs
      */
-    private extractCodePatterns(relevantFiles: RelevantFile[], similarPRs: HistoricalPR[]): CodePattern[] {
+    private extractCodePatterns(relevantFiles: RelevantFile[]): CodePattern[] {
         const patterns: CodePattern[] = [];
 
         // Extract patterns from file names and types
-        const fileExtensions = relevantFiles.map(f => f.filename.split('.').pop()).filter(Boolean);
+        const fileExtensions = relevantFiles.map(f => f.filename.split(".").pop()).filter(Boolean);
         const extensionCounts = fileExtensions.reduce((acc, ext) => {
             acc[ext!] = (acc[ext!] || 0) + 1;
             return acc;
@@ -567,14 +558,14 @@ export class RAGContextServiceImpl {
         const standards: ProjectStandard[] = [];
 
         // Extract standards from file structure
-        const directories = relevantFiles.map(f => f.filename.split('/').slice(0, -1).join('/')).filter(Boolean);
+        const directories = relevantFiles.map(f => f.filename.split("/").slice(0, -1).join("/")).filter(Boolean);
         const uniqueDirectories = [...new Set(directories)];
 
         if (uniqueDirectories.length > 0) {
             standards.push({
-                category: 'File Organization',
-                rule: 'Consistent directory structure',
-                description: 'Files are organized in consistent directory patterns',
+                category: "File Organization",
+                rule: "Consistent directory structure",
+                description: "Files are organized in consistent directory patterns",
                 examples: uniqueDirectories.slice(0, 3)
             });
         }
@@ -586,9 +577,9 @@ export class RAGContextServiceImpl {
 
         if (commonReviewComments.length > 0) {
             standards.push({
-                category: 'Code Review',
-                rule: 'Common review patterns',
-                description: 'Patterns identified from previous code reviews',
+                category: "Code Review",
+                rule: "Common review patterns",
+                description: "Patterns identified from previous code reviews",
                 examples: commonReviewComments.slice(0, 3)
             });
         }

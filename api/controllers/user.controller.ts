@@ -1,7 +1,6 @@
 import { NextFunction, Request, Response } from "express";
 import { prisma } from "../config/database.config";
 import { InputJsonValue } from "@prisma/client/runtime/library";
-import { usdcAssetId, xlmAssetId } from "../config/stellar.config";
 import { stellarService } from "../services/stellar.service";
 import { encrypt } from "../helper";
 import { AddressBook, ErrorClass, NotFoundErrorClass } from "../models/general.model";
@@ -42,7 +41,7 @@ export const getUser = async (req: Request, res: Response, next: NextFunction) =
 
         let user = await prisma.user.findUnique({
             where: { userId },
-            select: selectObject,
+            select: selectObject
         });
     
         if (!user) {
@@ -61,9 +60,9 @@ export const getUser = async (req: Request, res: Response, next: NextFunction) =
                     where: { userId },
                     data: {
                         walletAddress: userWallet.publicKey,
-                        walletSecret: encryptedUserSecret,
+                        walletSecret: encryptedUserSecret
                     },
-                    select: selectObject,
+                    select: selectObject
                 });
                 
                 user = updatedUser;
@@ -124,7 +123,7 @@ export const createUser = async (req: Request, res: Response, next: NextFunction
             walletAddress: true,
             contributionSummary: true,
             createdAt: true,
-            updatedAt: true,
+            updatedAt: true
         };
 
         if (skipWallet === "true") {
@@ -135,10 +134,10 @@ export const createUser = async (req: Request, res: Response, next: NextFunction
                     walletAddress: "",
                     walletSecret: "",
                     contributionSummary: {
-                        create: {},
-                    },
+                        create: {}
+                    }
                 },
-                select,
+                select
             });
         
             return res.status(201).json(user);
@@ -158,7 +157,7 @@ export const createUser = async (req: Request, res: Response, next: NextFunction
                     create: {}
                 }
             },
-            select,
+            select
         });
 
         try {
@@ -168,7 +167,7 @@ export const createUser = async (req: Request, res: Response, next: NextFunction
             );
             
             res.status(201).json(user);
-        } catch (error: any) {
+        } catch (error) {
             res.status(202).json({ 
                 error, 
                 user, 
@@ -178,7 +177,7 @@ export const createUser = async (req: Request, res: Response, next: NextFunction
     } catch (error) {
         next(error);
     }
-}
+};
 
 export const updateUsername = async (req: Request, res: Response, next: NextFunction) => {
     const { userId, githubUsername } = req.body;
@@ -206,7 +205,7 @@ export const updateUsername = async (req: Request, res: Response, next: NextFunc
     } catch (error) {
         next(error);
     }
-}
+};
 
 export const updateAddressBook = async (req: Request, res: Response, next: NextFunction) => {
     const { userId, address, name } = req.body;
@@ -256,4 +255,4 @@ export const updateAddressBook = async (req: Request, res: Response, next: NextF
     } catch (error) {
         next(error);
     }
-}
+};

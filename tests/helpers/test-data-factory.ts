@@ -17,7 +17,7 @@ import {
     RuleType,
     RuleSeverity,
     ReviewStatus
-} from '../../api/generated/client';
+} from "../../api/generated/client";
 
 /**
  * TestDataFactory provides factory methods for creating test data objects
@@ -31,13 +31,13 @@ export class TestDataFactory {
     /**
      * Create a test user with realistic data
      */
-    static user(overrides: Partial<User> = {}): Omit<User, 'createdAt' | 'updatedAt'> {
+    static user(overrides: Partial<User> = {}): Omit<User, "createdAt" | "updatedAt"> {
         const counter = this.userCounter++;
         return {
             userId: `test-user-${counter}`,
             username: `testuser${counter}`,
-            walletAddress: `GTEST${counter.toString().padStart(50, '0')}`,
-            walletSecret: `STEST${counter.toString().padStart(50, '0')}`,
+            walletAddress: `GTEST${counter.toString().padStart(50, "0")}`,
+            walletSecret: `STEST${counter.toString().padStart(50, "0")}`,
             addressBook: [],
             ...overrides
         };
@@ -46,14 +46,14 @@ export class TestDataFactory {
     /**
      * Create multiple test users
      */
-    static users(count: number, overrides: Partial<User> = {}): Array<Omit<User, 'createdAt' | 'updatedAt'>> {
+    static users(count: number, overrides: Partial<User> = {}): Array<Omit<User, "createdAt" | "updatedAt">> {
         return Array.from({ length: count }, () => this.user(overrides));
     }
 
     /**
      * Create a test task with realistic data
      */
-    static task(overrides: Partial<Task> = {}): Omit<Task, 'id' | 'createdAt' | 'updatedAt'> {
+    static task(overrides: Partial<Task> = {}): Omit<Task, "id" | "createdAt" | "updatedAt"> {
         const counter = this.taskCounter++;
         return {
             issue: {
@@ -62,14 +62,14 @@ export class TestDataFactory {
                 title: `Test Issue ${counter}`,
                 body: `This is a test issue description for task ${counter}`,
                 html_url: `https://github.com/test/repo/issues/${counter}`,
-                state: 'open',
+                state: "open",
                 user: {
-                    login: 'testuser',
-                    avatar_url: 'https://github.com/testuser.png'
+                    login: "testuser",
+                    avatar_url: "https://github.com/testuser.png"
                 },
                 labels: [
-                    { name: 'bug', color: 'ff0000' },
-                    { name: 'good first issue', color: '00ff00' }
+                    { name: "bug", color: "ff0000" },
+                    { name: "good first issue", color: "00ff00" }
                 ],
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString()
@@ -91,31 +91,31 @@ export class TestDataFactory {
     /**
      * Create multiple test tasks
      */
-    static tasks(count: number, overrides: Partial<Task> = {}): Array<Omit<Task, 'id' | 'createdAt' | 'updatedAt'>> {
+    static tasks(count: number, overrides: Partial<Task> = {}): Array<Omit<Task, "id" | "createdAt" | "updatedAt">> {
         return Array.from({ length: count }, () => this.task(overrides));
     }
 
     /**
      * Create a test installation with realistic data
      */
-    static installation(overrides: Partial<Installation> = {}): Omit<Installation, 'createdAt' | 'updatedAt'> {
+    static installation(overrides: Partial<Installation> = {}): Omit<Installation, "createdAt" | "updatedAt"> {
         const counter = this.installationCounter++;
         return {
             id: `test-installation-${counter}`,
             htmlUrl: `https://github.com/test/repo${counter}`,
             targetId: counter,
-            targetType: 'Repository',
+            targetType: "Repository",
             account: {
                 login: `testorg${counter}`,
                 nodeId: `MDEwOlJlcG9zaXRvcnk${counter}`,
                 avatarUrl: `https://github.com/testorg${counter}.png`,
                 htmlUrl: `https://github.com/testorg${counter}`
             },
-            walletAddress: `GINSTALL${counter.toString().padStart(45, '0')}`,
-            walletSecret: `SINSTALL${counter.toString().padStart(45, '0')}`,
-            escrowAddress: `GESCROW${counter.toString().padStart(46, '0')}`,
-            escrowSecret: `SESCROW${counter.toString().padStart(46, '0')}`,
-            subscriptionPackageId: 'test-package-id',
+            walletAddress: `GINSTALL${counter.toString().padStart(45, "0")}`,
+            walletSecret: `SINSTALL${counter.toString().padStart(45, "0")}`,
+            escrowAddress: `GESCROW${counter.toString().padStart(46, "0")}`,
+            escrowSecret: `SESCROW${counter.toString().padStart(46, "0")}`,
+            subscriptionPackageId: "test-package-id",
             ...overrides
         };
     }
@@ -123,17 +123,17 @@ export class TestDataFactory {
     /**
      * Create multiple test installations
      */
-    static installations(count: number, overrides: Partial<Installation> = {}): Array<Omit<Installation, 'createdAt' | 'updatedAt'>> {
+    static installations(count: number, overrides: Partial<Installation> = {}): Array<Omit<Installation, "createdAt" | "updatedAt">> {
         return Array.from({ length: count }, () => this.installation(overrides));
     }
 
     /**
      * Create a test subscription package
      */
-    static subscriptionPackage(overrides: Partial<SubscriptionPackage> = {}): Omit<SubscriptionPackage, 'id' | 'createdAt' | 'updatedAt'> {
+    static subscriptionPackage(overrides: Partial<SubscriptionPackage> = {}): Omit<SubscriptionPackage, "id" | "createdAt" | "updatedAt"> {
         return {
-            name: 'Test Package',
-            description: 'A test subscription package',
+            name: "Test Package",
+            description: "A test subscription package",
             maxTasks: 10,
             maxUsers: 5,
             paid: false,
@@ -146,10 +146,10 @@ export class TestDataFactory {
     /**
      * Create a test permission
      */
-    static permission(overrides: Partial<Permission> = {}): Omit<Permission, 'createdAt' | 'updatedAt'> {
+    static permission(overrides: Partial<Permission> = {}): Omit<Permission, "createdAt" | "updatedAt"> {
         return {
-            code: 'TEST_PERMISSION',
-            name: 'Test Permission',
+            code: "TEST_PERMISSION",
+            name: "Test Permission",
             isDefault: false,
             ...overrides
         };
@@ -158,12 +158,12 @@ export class TestDataFactory {
     /**
      * Create a test user installation permission
      */
-    static userInstallationPermission(overrides: Partial<UserInstallationPermission> = {}): Omit<UserInstallationPermission, 'id' | 'assignedAt'> {
+    static userInstallationPermission(overrides: Partial<UserInstallationPermission> = {}): Omit<UserInstallationPermission, "id" | "assignedAt"> {
         return {
-            userId: 'test-user-1',
-            installationId: 'test-installation-1',
-            permissionCodes: ['VIEW_TASKS', 'APPLY_TASKS'],
-            assignedBy: 'test-admin-user',
+            userId: "test-user-1",
+            installationId: "test-installation-1",
+            permissionCodes: ["VIEW_TASKS", "APPLY_TASKS"],
+            assignedBy: "test-admin-user",
             ...overrides
         };
     }
@@ -171,7 +171,7 @@ export class TestDataFactory {
     /**
      * Create a test transaction
      */
-    static transaction(overrides: Partial<Transaction> = {}): Omit<Transaction, 'id' | 'doneAt'> {
+    static transaction(overrides: Partial<Transaction> = {}): Omit<Transaction, "id" | "doneAt"> {
         return {
             txHash: `test-tx-hash-${Date.now()}`,
             category: TransactionCategory.BOUNTY,
@@ -184,8 +184,8 @@ export class TestDataFactory {
             assetTo: null,
             fromAmount: null,
             toAmount: null,
-            installationId: 'test-installation-1',
-            userId: 'test-user-1',
+            installationId: "test-installation-1",
+            userId: "test-user-1",
             ...overrides
         };
     }
@@ -193,12 +193,12 @@ export class TestDataFactory {
     /**
      * Create a test task submission
      */
-    static taskSubmission(overrides: Partial<TaskSubmission> = {}): Omit<TaskSubmission, 'id' | 'createdAt' | 'updatedAt'> {
+    static taskSubmission(overrides: Partial<TaskSubmission> = {}): Omit<TaskSubmission, "id" | "createdAt" | "updatedAt"> {
         return {
-            userId: 'test-user-1',
-            taskId: 'test-task-1',
-            installationId: 'test-installation-1',
-            pullRequest: 'https://github.com/test/repo/pull/1',
+            userId: "test-user-1",
+            taskId: "test-task-1",
+            installationId: "test-installation-1",
+            pullRequest: "https://github.com/test/repo/pull/1",
             attachmentUrl: null,
             ...overrides
         };
@@ -207,11 +207,11 @@ export class TestDataFactory {
     /**
      * Create a test task activity
      */
-    static taskActivity(overrides: Partial<TaskActivity> = {}): Omit<TaskActivity, 'id' | 'createdAt' | 'updatedAt'> {
+    static taskActivity(overrides: Partial<TaskActivity> = {}): Omit<TaskActivity, "id" | "createdAt" | "updatedAt"> {
         return {
-            taskId: 'test-task-1',
+            taskId: "test-task-1",
             viewed: false,
-            userId: 'test-user-1',
+            userId: "test-user-1",
             taskSubmissionId: null,
             ...overrides
         };
@@ -220,18 +220,18 @@ export class TestDataFactory {
     /**
      * Create a test AI review rule
      */
-    static aiReviewRule(overrides: Partial<AIReviewRule> = {}): Omit<AIReviewRule, 'id' | 'createdAt' | 'updatedAt'> {
+    static aiReviewRule(overrides: Partial<AIReviewRule> = {}): Omit<AIReviewRule, "id" | "createdAt" | "updatedAt"> {
         return {
-            installationId: 'test-installation-1',
-            name: 'Test Code Quality Rule',
-            description: 'A test rule for code quality checks',
+            installationId: "test-installation-1",
+            name: "Test Code Quality Rule",
+            description: "A test rule for code quality checks",
             ruleType: RuleType.CODE_QUALITY,
             severity: RuleSeverity.MEDIUM,
-            pattern: '.*TODO.*',
+            pattern: ".*TODO.*",
             config: {
                 enabled: true,
                 threshold: 0.8,
-                excludePatterns: ['test/**', '*.test.ts']
+                excludePatterns: ["test/**", "*.test.ts"]
             },
             active: true,
             ...overrides
@@ -241,35 +241,35 @@ export class TestDataFactory {
     /**
      * Create a test AI review result
      */
-    static aiReviewResult(overrides: Partial<AIReviewResult> = {}): Omit<AIReviewResult, 'id' | 'createdAt' | 'updatedAt'> {
+    static aiReviewResult(overrides: Partial<AIReviewResult> = {}): Omit<AIReviewResult, "id" | "createdAt" | "updatedAt"> {
         return {
-            installationId: 'test-installation-1',
+            installationId: "test-installation-1",
             prNumber: 1,
-            prUrl: 'https://github.com/test/repo/pull/1',
-            repositoryName: 'test/repo',
+            prUrl: "https://github.com/test/repo/pull/1",
+            repositoryName: "test/repo",
             mergeScore: 85,
             rulesViolated: [
                 {
-                    ruleId: 'test-rule-1',
-                    ruleName: 'Code Quality',
-                    severity: 'MEDIUM',
-                    message: 'Found TODO comments in code'
+                    ruleId: "test-rule-1",
+                    ruleName: "Code Quality",
+                    severity: "MEDIUM",
+                    message: "Found TODO comments in code"
                 }
             ],
             rulesPassed: [
                 {
-                    ruleId: 'test-rule-2',
-                    ruleName: 'Security Check',
-                    severity: 'HIGH',
-                    message: 'No security vulnerabilities found'
+                    ruleId: "test-rule-2",
+                    ruleName: "Security Check",
+                    severity: "HIGH",
+                    message: "No security vulnerabilities found"
                 }
             ],
             suggestions: [
                 {
-                    file: 'src/main.ts',
+                    file: "src/main.ts",
                     line: 42,
-                    suggestion: 'Consider removing TODO comment and implementing the feature',
-                    severity: 'MEDIUM'
+                    suggestion: "Consider removing TODO comment and implementing the feature",
+                    severity: "MEDIUM"
                 }
             ],
             reviewStatus: ReviewStatus.COMPLETED,
@@ -291,12 +291,12 @@ export class TestDataFactory {
     /**
      * Create a test contribution summary
      */
-    static contributionSummary(overrides: Partial<ContributionSummary> = {}): Omit<ContributionSummary, 'id'> {
+    static contributionSummary(overrides: Partial<ContributionSummary> = {}): Omit<ContributionSummary, "id"> {
         return {
             tasksCompleted: 5,
             activeTasks: 2,
             totalEarnings: 500.0,
-            userId: 'test-user-1',
+            userId: "test-user-1",
             ...overrides
         };
     }
@@ -340,18 +340,18 @@ export class TestDataFactory {
             id: counter,
             number: counter % 1000,
             title: `Test GitHub Issue ${counter}`,
-            body: `This is a test GitHub issue created for testing purposes.`,
+            body: "This is a test GitHub issue created for testing purposes.",
             html_url: `https://github.com/test/repo/issues/${counter % 1000}`,
-            state: 'open',
+            state: "open",
             user: {
-                login: 'testuser',
+                login: "testuser",
                 id: 12345,
-                avatar_url: 'https://github.com/testuser.png',
-                html_url: 'https://github.com/testuser'
+                avatar_url: "https://github.com/testuser.png",
+                html_url: "https://github.com/testuser"
             },
             labels: [
-                { name: 'bug', color: 'ff0000' },
-                { name: 'enhancement', color: '00ff00' }
+                { name: "bug", color: "ff0000" },
+                { name: "enhancement", color: "00ff00" }
             ],
             assignees: [],
             milestone: null,
@@ -371,31 +371,31 @@ export class TestDataFactory {
             id: counter,
             number: counter % 1000,
             title: `Test Pull Request ${counter}`,
-            body: `This is a test pull request created for testing purposes.`,
+            body: "This is a test pull request created for testing purposes.",
             html_url: `https://github.com/test/repo/pull/${counter % 1000}`,
-            state: 'open',
+            state: "open",
             user: {
-                login: 'testcontributor',
+                login: "testcontributor",
                 id: 67890,
-                avatar_url: 'https://github.com/testcontributor.png',
-                html_url: 'https://github.com/testcontributor'
+                avatar_url: "https://github.com/testcontributor.png",
+                html_url: "https://github.com/testcontributor"
             },
             head: {
-                ref: 'feature-branch',
+                ref: "feature-branch",
                 sha: `abc123${counter}`,
                 repo: {
-                    name: 'test-repo',
-                    full_name: 'test/repo',
-                    html_url: 'https://github.com/test/repo'
+                    name: "test-repo",
+                    full_name: "test/repo",
+                    html_url: "https://github.com/test/repo"
                 }
             },
             base: {
-                ref: 'main',
+                ref: "main",
                 sha: `def456${counter}`,
                 repo: {
-                    name: 'test-repo',
-                    full_name: 'test/repo',
-                    html_url: 'https://github.com/test/repo'
+                    name: "test-repo",
+                    full_name: "test/repo",
+                    html_url: "https://github.com/test/repo"
                 }
             },
             created_at: new Date().toISOString(),
@@ -419,7 +419,7 @@ export class TestDataFactory {
      */
     static completeWorkflowScenario() {
         const subscriptionPackage = this.subscriptionPackage();
-        const installation = this.installation({ subscriptionPackageId: 'test-package-id' });
+        const installation = this.installation({ subscriptionPackageId: "test-package-id" });
         const creator = this.user();
         const contributor = this.user();
         const task = this.task({
@@ -430,12 +430,12 @@ export class TestDataFactory {
         });
         const taskSubmission = this.taskSubmission({
             userId: contributor.userId,
-            taskId: 'test-task-id',
+            taskId: "test-task-id",
             installationId: installation.id
         });
         const transaction = this.transaction({
             category: TransactionCategory.BOUNTY,
-            taskId: 'test-task-id',
+            taskId: "test-task-id",
             userId: contributor.userId,
             installationId: installation.id,
             amount: task.bounty

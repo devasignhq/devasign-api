@@ -1,19 +1,19 @@
-import { Router, Request, Response, NextFunction, RequestHandler } from 'express';
-import { body, query, validationResult } from 'express-validator';
-import createError from 'http-errors';
-import { encrypt, decrypt } from '../../helper';
+import { Router, Request, Response, NextFunction, RequestHandler } from "express";
+import { body, query, validationResult } from "express-validator";
+import createError from "http-errors";
+import { encrypt, decrypt } from "../../helper";
 
 const router = Router();
 
 router.post(
-    '/users/:id',
+    "/users/:id",
     [
-        query('id').notEmpty().withMessage('ID must be present'),
-        body('email').isEmail().withMessage('Email must be valid'),
-        body('password')
+        query("id").notEmpty().withMessage("ID must be present"),
+        body("email").isEmail().withMessage("Email must be valid"),
+        body("password")
             .isLength({ min: 6 })
-            .withMessage('Password must be at least 6 characters long'),
-        body('name').notEmpty().withMessage('Name is required'),
+            .withMessage("Password must be at least 6 characters long"),
+        body("name").notEmpty().withMessage("Name is required")
     ],
     (async (req: Request, res: Response, next: NextFunction) => {
         const errors = validationResult(req);
@@ -21,19 +21,19 @@ router.post(
             return res.status(400).json({ errors: errors.array() });
         }
 
-        const { email, password, name } = req.body;
+        const { email, name } = req.body;
 
-        if (email === 'test@example.com') {
-            return next(createError(409, 'Email already exists'));
+        if (email === "test@example.com") {
+            return next(createError(409, "Email already exists"));
         }
 
-        res.status(201).json({ message: 'User created', data: { email, name } });
+        res.status(201).json({ message: "User created", data: { email, name } });
     }) as RequestHandler
 );
 
-router.post('/encryption',
+router.post("/encryption",
     [
-        body('text').notEmpty().withMessage('Text to encrypt is required'),
+        body("text").notEmpty().withMessage("Text to encrypt is required")
     ],
     (async (req: Request, res: Response, next: NextFunction) => {
         try {
@@ -51,23 +51,23 @@ router.post('/encryption',
             const decrypted = decrypt(encrypted);
 
             res.status(200).json({
-                message: 'Encryption test successful',
+                message: "Encryption test successful",
                 data: {
                     original: text,
-                    encrypted: encrypted,
-                    decrypted: decrypted,
+                    encrypted,
+                    decrypted,
                     verified: text === decrypted
                 }
             });
         } catch (error) {
-            next(createError(500, 'Encryption test failed', { cause: error }));
+            next(createError(500, "Encryption test failed", { cause: error }));
         }
     }) as RequestHandler
 );
 
-router.post('/decryption',
+router.post("/decryption",
     [
-        body('text').notEmpty().withMessage('Text to decrypt is required'),
+        body("text").notEmpty().withMessage("Text to decrypt is required")
     ],
     (async (req: Request, res: Response, next: NextFunction) => {
         try {
@@ -85,23 +85,23 @@ router.post('/decryption',
             const ecrypted = encrypt(decrypted);
 
             res.status(200).json({
-                message: 'Decryption test successful',
+                message: "Decryption test successful",
                 data: {
                     original: text,
-                    decrypted: decrypted,
-                    ecrypted: ecrypted,
+                    decrypted,
+                    ecrypted,
                     verified: text === ecrypted
                 }
             });
         } catch (error) {
-            next(createError(500, 'Decryption test failed', { cause: error }));
+            next(createError(500, "Decryption test failed", { cause: error }));
         }
     }) as RequestHandler
 );
 
-router.get('/select',
+router.get("/select",
     [
-        body('select').isObject().withMessage('Text to encrypt is required'),
+        body("select").isObject().withMessage("Text to encrypt is required")
     ],
     (async (req: Request, res: Response, next: NextFunction) => {
         try {
@@ -113,11 +113,11 @@ router.get('/select',
             const { select } = req.body;
 
             res.status(200).json({
-                message: 'Successful',
+                message: "Successful",
                 data: select
             });
         } catch (error) {
-            next(createError(500, 'Select test failed', { cause: error }));
+            next(createError(500, "Select test failed", { cause: error }));
         }
     }) as RequestHandler
 );

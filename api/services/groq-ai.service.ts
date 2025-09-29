@@ -1,4 +1,4 @@
-import Groq from 'groq-sdk';
+import Groq from "groq-sdk";
 import {
     PullRequestData,
     RelevantContext,
@@ -7,21 +7,23 @@ import {
     RuleEvaluation,
     CodeSuggestion,
     QualityMetrics,
-    ComplexityMetrics
-} from '../models/ai-review.model';
-import { MergeScoreService } from './merge-score.service';
-import { ContextWindow } from '../models/ai-review.types';
+    HistoricalPR,
+    ProjectStandard,
+    RelevantFile
+} from "../models/ai-review.model";
+import { MergeScoreService } from "./merge-score.service";
+import { ContextWindow } from "../models/ai-review.types";
 import {
     GroqServiceError,
     GroqRateLimitError,
     GroqContextLimitError,
     ErrorUtils
-} from '../models/ai-review.errors';
+} from "../models/ai-review.errors";
+import { getFieldFromUnknownObject } from "../helper";
 
 /**
  * Groq AI Integration Service
- * Implements AI-powered code review using Groq's free models
- * Requirements: 7.1, 7.2, 7.3, 4.1
+ * Implements AI-powered code review.
  */
 export class GroqAIService {
     private groqClient: Groq;
@@ -37,27 +39,25 @@ export class GroqAIService {
         // Initialize Groq client with API key
         const apiKey = process.env.GROQ_API_KEY;
         if (!apiKey) {
-            throw new Error('GROQ_API_KEY environment variable is required');
+            throw new Error("GROQ_API_KEY environment variable is required");
         }
 
         this.groqClient = new Groq({
-            apiKey: apiKey,
+            apiKey
         });
 
         // Configuration for Groq models
         this.config = {
-            model: process.env.GROQ_MODEL || 'llama3-8b-8192', // Free model
-            maxTokens: parseInt(process.env.GROQ_MAX_TOKENS || '4096'),
-            temperature: parseFloat(process.env.GROQ_TEMPERATURE || '0.0'), // Lower temperature for more consistent JSON
-            maxRetries: parseInt(process.env.GROQ_MAX_RETRIES || '3'),
-            contextLimit: parseInt(process.env.GROQ_CONTEXT_LIMIT || '8000')
+            model: process.env.GROQ_MODEL || "llama3-8b-8192", // Free model
+            maxTokens: parseInt(process.env.GROQ_MAX_TOKENS || "4096"),
+            temperature: parseFloat(process.env.GROQ_TEMPERATURE || "0.0"), // Lower temperature for more consistent JSON
+            maxRetries: parseInt(process.env.GROQ_MAX_RETRIES || "3"),
+            contextLimit: parseInt(process.env.GROQ_CONTEXT_LIMIT || "8000")
         };
     }
 
     /**
      * Generates comprehensive AI review for a pull request
-     * Requirement 7.1: System shall use Groq's free model endpoints
-     * Requirement 4.1: System shall provide specific, actionable code suggestions
      */
     async generateReview(prData: PullRequestData, context: RelevantContext): Promise<AIReview> {
         try {
@@ -73,7 +73,7 @@ export class GroqAIService {
 
             // Validate the review quality
             if (!this.validateAIResponse(parsedReview)) {
-                throw new GroqServiceError('AI response validation failed', { response: aiResponse });
+                throw new GroqServiceError("AI response validation failed", { response: aiResponse });
             }
 
             return parsedReview;
@@ -81,13 +81,12 @@ export class GroqAIService {
             if (error instanceof GroqServiceError) {
                 throw error;
             }
-            throw ErrorUtils.wrapError(error as Error, 'Failed to generate AI review');
+            throw ErrorUtils.wrapError(error as Error, "Failed to generate AI review");
         }
     }
 
     /**
      * Calculates merge score based on analysis and rule evaluation
-     * Requirement 2.1: System shall generate merge score between 0 and 100
      */
     calculateMergeScore(analysis: CodeAnalysis, ruleEvaluation: RuleEvaluation): number {
         return MergeScoreService.calculateMergeScore(analysis, ruleEvaluation);
@@ -95,7 +94,6 @@ export class GroqAIService {
 
     /**
      * Generates specific code suggestions
-     * Requirement 4.2: System shall include line numbers and file references
      */
     async generateSuggestions(prData: PullRequestData, context: RelevantContext): Promise<CodeSuggestion[]> {
         try {
@@ -107,45 +105,44 @@ export class GroqAIService {
 
             return suggestions;
         } catch (error) {
-            console.error('Error generating suggestions:', error);
+            console.error("Error generating suggestions:", error);
             return []; // Return empty array on error to allow graceful degradation
         }
     }
 
     /**
      * Validates AI response quality
-     * Requirement 7.3: System shall validate AI responses
      */
     validateAIResponse(review: AIReview): boolean {
         try {
             // Check required fields with more lenient validation
-            if (typeof review.mergeScore !== 'number' || review.mergeScore < 0 || review.mergeScore > 100) {
-                console.warn('Invalid merge score:', review.mergeScore);
+            if (typeof review.mergeScore !== "number" || review.mergeScore < 0 || review.mergeScore > 100) {
+                console.warn("Invalid merge score:", review.mergeScore);
                 return false;
             }
 
-            if (!review.summary || typeof review.summary !== 'string' || review.summary.length < 5) {
-                console.warn('Invalid summary:', review.summary);
+            if (!review.summary || typeof review.summary !== "string" || review.summary.length < 5) {
+                console.warn("Invalid summary:", review.summary);
                 return false;
             }
 
-            if (typeof review.confidence !== 'number' || review.confidence < 0 || review.confidence > 1) {
-                console.warn('Invalid confidence:', review.confidence);
+            if (typeof review.confidence !== "number" || review.confidence < 0 || review.confidence > 1) {
+                console.warn("Invalid confidence:", review.confidence);
                 return false;
             }
 
             // Validate quality metrics with more lenient checks
             const metrics = review.codeQuality;
-            if (!metrics || typeof metrics !== 'object') {
-                console.warn('Invalid code quality metrics:', metrics);
+            if (!metrics || typeof metrics !== "object") {
+                console.warn("Invalid code quality metrics:", metrics);
                 return false;
             }
 
-            const requiredMetrics = ['codeStyle', 'testCoverage', 'documentation', 'security', 'performance', 'maintainability'];
+            const requiredMetrics = ["codeStyle", "testCoverage", "documentation", "security", "performance", "maintainability"];
 
             for (const metric of requiredMetrics) {
                 const value = metrics[metric as keyof QualityMetrics];
-                if (typeof value !== 'number' || value < 0 || value > 100) {
+                if (typeof value !== "number" || value < 0 || value > 100) {
                     console.warn(`Invalid metric ${metric}:`, value);
                     return false;
                 }
@@ -153,33 +150,32 @@ export class GroqAIService {
 
             // Validate suggestions format (more lenient)
             if (!Array.isArray(review.suggestions)) {
-                console.warn('Invalid suggestions array:', review.suggestions);
+                console.warn("Invalid suggestions array:", review.suggestions);
                 return false;
             }
 
             for (const suggestion of review.suggestions) {
-                if (!suggestion || typeof suggestion !== 'object') {
-                    console.warn('Invalid suggestion object:', suggestion);
+                if (!suggestion || typeof suggestion !== "object") {
+                    console.warn("Invalid suggestion object:", suggestion);
                     return false;
                 }
                 if (!suggestion.file || !suggestion.description || !suggestion.type || !suggestion.severity) {
-                    console.warn('Missing required suggestion fields:', suggestion);
+                    console.warn("Missing required suggestion fields:", suggestion);
                     return false;
                 }
             }
 
             return true;
         } catch (error) {
-            console.error('Error validating AI response:', error);
+            console.error("Error validating AI response:", error);
             return false;
         }
     }
 
     /**
      * Handles rate limiting with exponential backoff
-     * Requirement 7.2: System shall handle rate limiting gracefully
      */
-    async handleRateLimit(operation: () => Promise<any>, maxRetries: number = this.config.maxRetries): Promise<any> {
+    async handleRateLimit<T>(operation: () => Promise<T>, maxRetries: number = this.config.maxRetries): Promise<T> {
         let lastError: Error;
 
         for (let attempt = 0; attempt < maxRetries; attempt++) {
@@ -228,7 +224,7 @@ export class GroqAIService {
         const prContent = this.formatPRData(prData);
         const prTokens = this.estimateTokens(prContent);
         contextWindow.priority.push({
-            type: 'pr_data',
+            type: "pr_data",
             content: prContent,
             tokens: prTokens,
             priority: 1
@@ -242,7 +238,7 @@ export class GroqAIService {
 
             if (contextWindow.currentTokens + similarPRsTokens <= contextWindow.maxTokens) {
                 contextWindow.priority.push({
-                    type: 'similar_prs',
+                    type: "similar_prs",
                     content: similarPRsContent,
                     tokens: similarPRsTokens,
                     priority: 2
@@ -258,7 +254,7 @@ export class GroqAIService {
 
             if (contextWindow.currentTokens + relevantFilesTokens <= contextWindow.maxTokens) {
                 contextWindow.priority.push({
-                    type: 'relevant_files',
+                    type: "relevant_files",
                     content: relevantFilesContent,
                     tokens: relevantFilesTokens,
                     priority: 3
@@ -274,7 +270,7 @@ export class GroqAIService {
 
             if (contextWindow.currentTokens + standardsTokens <= contextWindow.maxTokens) {
                 contextWindow.priority.push({
-                    type: 'rules',
+                    type: "rules",
                     content: standardsContent,
                     tokens: standardsTokens,
                     priority: 4
@@ -293,7 +289,7 @@ export class GroqAIService {
         const contextContent = contextWindow.priority
             .sort((a, b) => a.priority - b.priority)
             .map(item => item.content)
-            .join('\n\n');
+            .join("\n\n");
 
         return `You are an expert code reviewer analyzing a pull request. Provide a comprehensive review with specific, actionable feedback.
 
@@ -354,7 +350,7 @@ IMPORTANT: Respond with ONLY the JSON object. Do not include any text before or 
         const contextContent = contextWindow.priority
             .sort((a, b) => a.priority - b.priority)
             .map(item => item.content)
-            .join('\n\n');
+            .join("\n\n");
 
         return `You are a senior code reviewer focusing on providing specific, actionable code suggestions for this pull request.
 
@@ -395,39 +391,43 @@ IMPORTANT: Adhere to the RESPONSE FORMAT. Do not include any text before or afte
     /**
      * Calls Groq API with error handling and retries
      */
-    private async callGroqAPI(prompt: string): Promise<string> {
+    async callGroqAPI(prompt: string): Promise<string> {
         return this.handleRateLimit(async () => {
             try {
                 const completion = await this.groqClient.chat.completions.create({
                     messages: [
                         {
-                            role: 'system',
-                            content: 'You are a code review assistant. You MUST respond with valid JSON only. No additional text, explanations, or markdown formatting. Your response must be a valid JSON object that can be parsed directly.'
+                            role: "system",
+                            content: "You are a code review assistant. You MUST respond with valid JSON only. No additional text, explanations, or markdown formatting. Your response must be a valid JSON object that can be parsed directly."
                         },
                         {
-                            role: 'user',
+                            role: "user",
                             content: prompt
                         }
                     ],
                     model: this.config.model,
                     max_tokens: this.config.maxTokens,
-                    temperature: this.config.temperature,
+                    temperature: this.config.temperature
                 });
 
                 const content = completion.choices[0]?.message?.content;
                 if (!content) {
-                    throw new GroqServiceError('Empty response from Groq API');
+                    throw new GroqServiceError("Empty response from Groq API");
                 }
 
                 return content;
-            } catch (error: any) {
+            } catch (error) {
+                const errorStatus = getFieldFromUnknownObject<number>(error, "status");
+                const errorMessage = getFieldFromUnknownObject<string>(error, "message");
+                const errorHeaders = getFieldFromUnknownObject<Record<string, unknown>>(error, "headers");
+
                 // Handle specific Groq API errors
-                if (error.status === 429) {
-                    const retryAfter = error.headers?.['retry-after'] ? parseInt(error.headers['retry-after']) : undefined;
-                    throw new GroqRateLimitError('Groq API rate limit exceeded', retryAfter, error);
+                if (errorStatus === 429) {
+                    const retryAfter = errorHeaders?.["retry-after"] ? parseInt(errorHeaders["retry-after"] as string) : undefined;
+                    throw new GroqRateLimitError("Groq API rate limit exceeded", retryAfter, error);
                 }
 
-                if (error.status === 413 || error.message?.includes('context_length_exceeded')) {
+                if (errorStatus === 413 || errorMessage?.includes("context_length_exceeded")) {
                     throw new GroqContextLimitError(
                         this.estimateTokens(prompt),
                         this.config.contextLimit,
@@ -435,7 +435,7 @@ IMPORTANT: Adhere to the RESPONSE FORMAT. Do not include any text before or afte
                     );
                 }
 
-                throw new GroqServiceError(`Groq API error: ${error.message}`, error);
+                throw new GroqServiceError(`Groq API error: ${errorMessage}`, error);
             }
         });
     }
@@ -451,10 +451,10 @@ IMPORTANT: Adhere to the RESPONSE FORMAT. Do not include any text before or afte
             let cleanResponse = response.trim();
 
             // Remove markdown code blocks if present
-            cleanResponse = cleanResponse.replace(/```json\s*/g, '').replace(/```\s*/g, '');
+            cleanResponse = cleanResponse.replace(/```json\s*/g, "").replace(/```\s*/g, "");
 
             // Try multiple JSON extraction strategies
-            let jsonString = '';
+            let jsonString = "";
 
             // Strategy 1: Try to parse the entire response as JSON
             try {
@@ -467,30 +467,30 @@ IMPORTANT: Adhere to the RESPONSE FORMAT. Do not include any text before or afte
                     jsonString = jsonMatch[0];
                 } else {
                     // Strategy 3: Look for JSON between specific markers or at the end
-                    const lines = cleanResponse.split('\n');
+                    const lines = cleanResponse.split("\n");
                     const jsonLines = [];
                     let inJson = false;
 
                     for (const line of lines) {
-                        if (line.trim().startsWith('{')) {
+                        if (line.trim().startsWith("{")) {
                             inJson = true;
                         }
                         if (inJson) {
                             jsonLines.push(line);
                         }
-                        if (line.trim().endsWith('}') && inJson) {
+                        if (line.trim().endsWith("}") && inJson) {
                             break;
                         }
                     }
 
                     if (jsonLines.length > 0) {
-                        jsonString = jsonLines.join('\n');
+                        jsonString = jsonLines.join("\n");
                     }
                 }
             }
 
             if (!jsonString) {
-                throw new Error('No JSON found in response');
+                throw new Error("No JSON found in response");
             }
 
             const parsed = JSON.parse(jsonString);
@@ -507,12 +507,12 @@ IMPORTANT: Adhere to the RESPONSE FORMAT. Do not include any text before or afte
                     maintainability: this.validateNumber(parsed.codeQuality?.maintainability, 0, 100, 50)
                 },
                 suggestions: Array.isArray(parsed.suggestions) ? parsed.suggestions.map(this.validateSuggestion) : [],
-                summary: typeof parsed.summary === 'string' ? parsed.summary : 'AI review completed',
+                summary: typeof parsed.summary === "string" ? parsed.summary : "AI review completed",
                 confidence: this.validateNumber(parsed.confidence, 0, 1, 0.5)
             };
         } catch (error) {
-            console.error('Error parsing AI response:', error);
-            console.error('Raw response:', response);
+            console.error("Error parsing AI response:", error);
+            console.error("Raw response:", response);
 
             // Try to extract meaningful information from the text response as fallback
             const fallbackReview = this.extractFallbackReview(response);
@@ -523,8 +523,8 @@ IMPORTANT: Adhere to the RESPONSE FORMAT. Do not include any text before or afte
     /**
      * Validates and clamps a number within a range
      */
-    private validateNumber(value: any, min: number, max: number, defaultValue: number): number {
-        if (typeof value === 'number' && !isNaN(value)) {
+    private validateNumber(value: unknown, min: number, max: number, defaultValue: number): number {
+        if (typeof value === "number" && !isNaN(value)) {
             return Math.max(min, Math.min(max, value));
         }
         return defaultValue;
@@ -533,15 +533,15 @@ IMPORTANT: Adhere to the RESPONSE FORMAT. Do not include any text before or afte
     /**
      * Validates a suggestion object
      */
-    private validateSuggestion(suggestion: any): CodeSuggestion {
+    private validateSuggestion(suggestion: CodeSuggestion): CodeSuggestion {
         return {
-            file: typeof suggestion.file === 'string' ? suggestion.file : 'unknown',
-            lineNumber: typeof suggestion.lineNumber === 'number' ? suggestion.lineNumber : undefined,
-            type: ['improvement', 'fix', 'optimization', 'style'].includes(suggestion.type) ? suggestion.type : 'improvement',
-            severity: ['low', 'medium', 'high'].includes(suggestion.severity) ? suggestion.severity : 'medium',
-            description: typeof suggestion.description === 'string' ? suggestion.description : 'No description provided',
-            suggestedCode: typeof suggestion.suggestedCode === 'string' ? suggestion.suggestedCode : undefined,
-            reasoning: typeof suggestion.reasoning === 'string' ? suggestion.reasoning : 'No reasoning provided'
+            file: typeof suggestion.file === "string" ? suggestion.file : "unknown",
+            lineNumber: typeof suggestion.lineNumber === "number" ? suggestion.lineNumber : undefined,
+            type: ["improvement", "fix", "optimization", "style"].includes(suggestion.type) ? suggestion.type : "improvement",
+            severity: ["low", "medium", "high"].includes(suggestion.severity) ? suggestion.severity : "medium",
+            description: typeof suggestion.description === "string" ? suggestion.description : "No description provided",
+            suggestedCode: typeof suggestion.suggestedCode === "string" ? suggestion.suggestedCode : undefined,
+            reasoning: typeof suggestion.reasoning === "string" ? suggestion.reasoning : "No reasoning provided"
         };
     }
 
@@ -558,13 +558,13 @@ IMPORTANT: Adhere to the RESPONSE FORMAT. Do not include any text before or afte
         const suggestionMatches = response.match(/(?:suggestion|fix|improvement)[:\s]*([^\n]+)/gi);
 
         if (suggestionMatches) {
-            suggestionMatches.slice(0, 3).forEach((match, index) => {
+            suggestionMatches.slice(0, 3).forEach((match) => {
                 suggestions.push({
-                    file: 'extracted_from_text',
-                    type: 'improvement',
-                    severity: 'medium',
-                    description: match.replace(/(?:suggestion|fix|improvement)[:\s]*/i, '').trim(),
-                    reasoning: 'Extracted from AI text response'
+                    file: "extracted_from_text",
+                    type: "improvement",
+                    severity: "medium",
+                    description: match.replace(/(?:suggestion|fix|improvement)[:\s]*/i, "").trim(),
+                    reasoning: "Extracted from AI text response"
                 });
             });
         }
@@ -580,7 +580,7 @@ IMPORTANT: Adhere to the RESPONSE FORMAT. Do not include any text before or afte
                 maintainability: 50
             },
             suggestions,
-            summary: response.length > 200 ? response.substring(0, 200) + '...' : response,
+            summary: response.length > 200 ? `${response.substring(0, 200)  }...` : response,
             confidence: 0.3 // Lower confidence for fallback parsing
         };
     }
@@ -598,7 +598,7 @@ IMPORTANT: Adhere to the RESPONSE FORMAT. Do not include any text before or afte
             const parsed = JSON.parse(jsonMatch[0]);
             return Array.isArray(parsed) ? parsed : [];
         } catch (error) {
-            console.error('Error parsing suggestions:', error);
+            console.error("Error parsing suggestions:", error);
             return [];
         }
     }
@@ -611,11 +611,11 @@ IMPORTANT: Adhere to the RESPONSE FORMAT. Do not include any text before or afte
     private formatPRData(prData: PullRequestData): string {
         const changedFilesInfo = prData.changedFiles.map(file =>
             `- ${file.filename} (${file.status}, +${file.additions}/-${file.deletions})`
-        ).join('\n');
+        ).join("\n");
 
         const linkedIssuesInfo = prData.linkedIssues.map(issue =>
             `- #${issue.number}: ${issue.title} (${issue.linkType})`
-        ).join('\n');
+        ).join("\n");
 
         return `PULL REQUEST ANALYSIS:
 Title: ${prData.title}
@@ -624,7 +624,7 @@ Repository: ${prData.repositoryName}
 PR Number: #${prData.prNumber}
 
 Description:
-${prData.body || 'No description provided'}
+${prData.body || "No description provided"}
 
 Changed Files:
 ${changedFilesInfo}
@@ -634,43 +634,43 @@ ${linkedIssuesInfo}
 
 File Changes Details:
 ${prData.changedFiles.map(file =>
-            `\n--- ${file.filename} ---\n${file.patch?.substring(0, 1000) || 'No patch available'}`
-        ).join('\n')}`;
+        `\n--- ${file.filename} ---\n${file.patch?.substring(0, 1000) || "No patch available"}`
+    ).join("\n")}`;
     }
 
     /**
      * Formats similar PRs for context
      */
-    private formatSimilarPRs(similarPRs: any[]): string {
+    private formatSimilarPRs(similarPRs: HistoricalPR[]): string {
         return `SIMILAR PULL REQUESTS (for context):
 ${similarPRs.map(pr =>
-            `- PR #${pr.prNumber}: ${pr.title} (${pr.outcome}, similarity: ${(pr.similarity * 100).toFixed(1)}%)
+        `- PR #${pr.prNumber}: ${pr.title} (${pr.outcome}, similarity: ${(pr.similarity * 100).toFixed(1)}%)
   Description: ${pr.description.substring(0, 200)}...
-  Review feedback: ${pr.reviewComments.slice(0, 2).join('; ')}`
-        ).join('\n\n')}`;
+  Review feedback: ${pr.reviewComments.slice(0, 2).join("; ")}`
+    ).join("\n\n")}`;
     }
 
     /**
      * Formats relevant files for context
      */
-    private formatRelevantFiles(relevantFiles: any[]): string {
+    private formatRelevantFiles(relevantFiles: RelevantFile[]): string {
         return `RELEVANT CODEBASE FILES:
 ${relevantFiles.map(file =>
-            `--- ${file.filename} (${file.language}, similarity: ${(file.similarity * 100).toFixed(1)}%) ---
+        `--- ${file.filename} (${file.language}, similarity: ${(file.similarity * 100).toFixed(1)}%) ---
 ${file.content.substring(0, 800)}...`
-        ).join('\n\n')}`;
+    ).join("\n\n")}`;
     }
 
     /**
      * Formats project standards for context
      */
-    private formatProjectStandards(standards: any[]): string {
+    private formatProjectStandards(standards: ProjectStandard[]): string {
         return `PROJECT STANDARDS:
 ${standards.map(standard =>
-            `${standard.category}: ${standard.rule}
+        `${standard.category}: ${standard.rule}
 Description: ${standard.description}
-Examples: ${standard.examples.slice(0, 2).join(', ')}`
-        ).join('\n\n')}`;
+Examples: ${standard.examples.slice(0, 2).join(", ")}`
+    ).join("\n\n")}`;
     }
 
     /**
@@ -684,10 +684,12 @@ Examples: ${standard.examples.slice(0, 2).join(', ')}`
     /**
      * Checks if error is a rate limit error
      */
-    private isRateLimitError(error: any): boolean {
+    private isRateLimitError(error: unknown): boolean {
+        const errorStatus = getFieldFromUnknownObject<number>(error, "status");
+        const errorMessage = getFieldFromUnknownObject<string>(error, "message");
         return error instanceof GroqRateLimitError ||
-            (error.status === 429) ||
-            (error.message && error.message.includes('rate limit'));
+            (errorStatus === 429) ||
+            Boolean(errorMessage && errorMessage.includes("rate limit"));
     }
 
     /**
@@ -712,9 +714,9 @@ export class GroqClientImpl {
     /**
      * Generates chat completion using Groq API
      */
-    async generateCompletion(messages: any[], model?: string): Promise<any> {
-        const prompt = messages.map(msg => `${msg.role}: ${msg.content}`).join('\n\n');
-        return this.groqService['callGroqAPI'](prompt);
+    async generateCompletion(messages: Record<string, string>[]) {
+        const prompt = messages.map(msg => `${msg.role}: ${msg.content}`).join("\n\n");
+        return this.groqService["callGroqAPI"](prompt);
     }
 
     /**
@@ -723,9 +725,9 @@ export class GroqClientImpl {
     async checkStatus(): Promise<{ available: boolean; rateLimitRemaining: number }> {
         try {
             // Simple test call to check if API is available
-            await this.generateCompletion([{ role: 'user', content: 'test' }]);
+            await this.generateCompletion([{ role: "user", content: "test" }]);
             return { available: true, rateLimitRemaining: 100 }; // Placeholder values
-        } catch (error) {
+        } catch {
             return { available: false, rateLimitRemaining: 0 };
         }
     }

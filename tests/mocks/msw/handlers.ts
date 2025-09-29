@@ -1,9 +1,8 @@
-import { http, HttpResponse } from 'msw';
+import { http, HttpResponse } from "msw";
 
 /**
  * MSW (Mock Service Worker) handlers for external API endpoints
  * Provides HTTP request mocking for integration tests
- * Requirements: 3.2, 4.4
  */
 
 /**
@@ -11,7 +10,7 @@ import { http, HttpResponse } from 'msw';
  */
 export const githubHandlers = [
     // GitHub App Installation endpoints
-    http.get('https://api.github.com/app/installations/:installationId', ({ params }) => {
+    http.get("https://api.github.com/app/installations/:installationId", ({ params }) => {
         const { installationId } = params;
 
         return HttpResponse.json({
@@ -32,12 +31,12 @@ export const githubHandlers = [
     }),
 
     // GitHub GraphQL API
-    http.post('https://api.github.com/graphql', async ({ request }) => {
+    http.post("https://api.github.com/graphql", async ({ request }) => {
         const body = await request.json() as any;
         const query = body.query;
 
         // Mock repository query
-        if (query.includes('GetRepoDetails')) {
+        if (query.includes("GetRepoDetails")) {
             return HttpResponse.json({
                 data: {
                     repository: {
@@ -60,7 +59,7 @@ export const githubHandlers = [
         }
 
         // Mock issues search
-        if (query.includes('search')) {
+        if (query.includes("search")) {
             return HttpResponse.json({
                 data: {
                     search: {
@@ -94,7 +93,7 @@ export const githubHandlers = [
         }
 
         // Mock labels and milestones query
-        if (query.includes('GetRepoLabelsAndMilestones')) {
+        if (query.includes("GetRepoLabelsAndMilestones")) {
             return HttpResponse.json({
                 data: {
                     repository: {
@@ -133,8 +132,8 @@ export const githubHandlers = [
     }),
 
     // GitHub REST API - Pull Requests
-    http.get('https://api.github.com/repos/:owner/:repo/pulls/:prNumber', ({ params }) => {
-        const { owner, repo, prNumber } = params;
+    http.get("https://api.github.com/repos/:owner/:repo/pulls/:prNumber", ({ params }) => {
+        const { _owner, _repo, prNumber } = params;
 
         return HttpResponse.json({
             id: parseInt(prNumber as string),
@@ -158,7 +157,7 @@ export const githubHandlers = [
     }),
 
     // GitHub REST API - Pull Request Files
-    http.get('https://api.github.com/repos/:owner/:repo/pulls/:prNumber/files', ({ params }) => {
+    http.get("https://api.github.com/repos/:owner/:repo/pulls/:prNumber/files", () => {
         return HttpResponse.json([
             {
                 filename: "src/components/Button.tsx",
@@ -180,24 +179,24 @@ export const githubHandlers = [
     }),
 
     // GitHub REST API - File Content
-    http.get('https://api.github.com/repos/:owner/:repo/contents/:path*', ({ params }) => {
+    http.get("https://api.github.com/repos/:owner/:repo/contents/:path*", ({ params }) => {
         const { path } = params;
         const content = `// Mock content for ${path}\nexport default function() {\n  return 'Hello World';\n}`;
 
         return HttpResponse.json({
-            content: Buffer.from(content).toString('base64'),
-            encoding: 'base64',
-            name: (path as string).split('/').pop(),
-            path: path,
+            content: Buffer.from(content).toString("base64"),
+            encoding: "base64",
+            name: (path as string).split("/").pop(),
+            path,
             sha: "mock_sha_123"
         });
     }),
 
     // GitHub REST API - User lookup
-    http.get('https://api.github.com/users/:username', ({ params }) => {
+    http.get("https://api.github.com/users/:username", ({ params }) => {
         const { username } = params;
 
-        if (username === 'nonexistent-user') {
+        if (username === "nonexistent-user") {
             return new HttpResponse(null, { status: 404 });
         }
 
@@ -215,16 +214,16 @@ export const githubHandlers = [
  */
 export const groqHandlers = [
     // Groq Chat Completions
-    http.post('https://api.groq.com/openai/v1/chat/completions', async ({ request }) => {
+    http.post("https://api.groq.com/openai/v1/chat/completions", async ({ request }) => {
         const body = await request.json() as any;
         const messages = body.messages;
 
         // Simulate different responses based on request content
-        const userMessage = messages.find((m: any) => m.role === 'user')?.content || '';
+        const userMessage = messages.find((m: any) => m.role === "user")?.content || "";
 
         let mockResponse;
 
-        if (userMessage.includes('security') || userMessage.includes('vulnerability')) {
+        if (userMessage.includes("security") || userMessage.includes("vulnerability")) {
             // Security-focused response
             mockResponse = {
                 mergeScore: 25,
@@ -250,7 +249,7 @@ export const groqHandlers = [
                 summary: "Critical security vulnerabilities found. Do not merge until security issues are resolved.",
                 confidence: 0.95
             };
-        } else if (userMessage.includes('test') || userMessage.includes('coverage')) {
+        } else if (userMessage.includes("test") || userMessage.includes("coverage")) {
             // Test-focused response
             mockResponse = {
                 mergeScore: 85,
@@ -320,12 +319,12 @@ export const groqHandlers = [
     }),
 
     // Groq Rate Limit Error
-    http.post('https://api.groq.com/openai/v1/chat/completions', ({ request }) => {
+    http.post("https://api.groq.com/openai/v1/chat/completions", () => {
         // This handler can be activated for testing rate limits
         return new HttpResponse(null, {
             status: 429,
             headers: {
-                'retry-after': '60'
+                "retry-after": "60"
             }
         });
     }, { once: false })
@@ -336,7 +335,7 @@ export const groqHandlers = [
  */
 export const stellarHandlers = [
     // Stellar Horizon - Account Info
-    http.get('https://horizon-testnet.stellar.org/accounts/:accountId', ({ params }) => {
+    http.get("https://horizon-testnet.stellar.org/accounts/:accountId", ({ params }) => {
         const { accountId } = params;
 
         return HttpResponse.json({
@@ -358,7 +357,7 @@ export const stellarHandlers = [
     }),
 
     // Stellar Horizon - Payments
-    http.get('https://horizon-testnet.stellar.org/accounts/:accountId/payments', ({ params }) => {
+    http.get("https://horizon-testnet.stellar.org/accounts/:accountId/payments", ({ params }) => {
         const { accountId } = params;
 
         return HttpResponse.json({
@@ -385,9 +384,9 @@ export const stellarHandlers = [
     }),
 
     // Stellar Horizon - Submit Transaction
-    http.post('https://horizon-testnet.stellar.org/transactions', async ({ request }) => {
+    http.post("https://horizon-testnet.stellar.org/transactions", async ({ request }) => {
         const formData = await request.formData();
-        const tx = formData.get('tx');
+        const tx = formData.get("tx");
 
         return HttpResponse.json({
             hash: `mock_tx_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
@@ -399,9 +398,9 @@ export const stellarHandlers = [
     }),
 
     // Stellar Friendbot - Fund Account
-    http.get('https://friendbot.stellar.org', ({ request }) => {
+    http.get("https://friendbot.stellar.org", ({ request }) => {
         const url = new URL(request.url);
-        const addr = url.searchParams.get('addr');
+        const addr = url.searchParams.get("addr");
 
         if (!addr) {
             return new HttpResponse(null, { status: 400 });
@@ -421,11 +420,11 @@ export const stellarHandlers = [
  */
 export const firebaseHandlers = [
     // Firebase Auth - Token Verification
-    http.post('https://identitytoolkit.googleapis.com/v1/accounts:lookup', async ({ request }) => {
+    http.post("https://identitytoolkit.googleapis.com/v1/accounts:lookup", async ({ request }) => {
         const body = await request.json() as any;
         const idToken = body.idToken;
 
-        if (!idToken || idToken === 'invalid_token') {
+        if (!idToken || idToken === "invalid_token") {
             return new HttpResponse(null, { status: 400 });
         }
 
@@ -448,25 +447,25 @@ export const firebaseHandlers = [
  */
 export const errorHandlers = [
     // Network timeout simulation
-    http.get('https://api.github.com/timeout-test', () => {
+    http.get("https://api.github.com/timeout-test", () => {
         return new Promise(() => {
             // Never resolves - simulates timeout
         });
     }),
 
     // Rate limit simulation
-    http.get('https://api.github.com/rate-limit-test', () => {
+    http.get("https://api.github.com/rate-limit-test", () => {
         return new HttpResponse(null, {
             status: 429,
             headers: {
-                'x-ratelimit-remaining': '0',
-                'x-ratelimit-reset': String(Math.floor(Date.now() / 1000) + 3600)
+                "x-ratelimit-remaining": "0",
+                "x-ratelimit-reset": String(Math.floor(Date.now() / 1000) + 3600)
             }
         });
     }),
 
     // Server error simulation
-    http.get('https://api.github.com/server-error-test', () => {
+    http.get("https://api.github.com/server-error-test", () => {
         return new HttpResponse(null, { status: 500 });
     })
 ];

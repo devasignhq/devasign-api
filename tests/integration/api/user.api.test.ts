@@ -1,15 +1,15 @@
-import request from 'supertest';
-import express, { RequestHandler } from 'express';
-import { TestDataFactory } from '../../helpers/test-data-factory';
-import { userRoutes } from '../../../api/routes/user.route';
-import { execSync } from 'child_process';
-import { errorHandler } from '../../../api/middlewares/error.middleware';
-import { DatabaseTestHelper } from '@tests/helpers';
-import { ErrorClass, NotFoundErrorClass } from '@/models/general.model';
-import { validateUser } from '@/middlewares/auth.middleware';
+import request from "supertest";
+import express, { RequestHandler } from "express";
+import { TestDataFactory } from "../../helpers/test-data-factory";
+import { userRoutes } from "../../../api/routes/user.route";
+import { execSync } from "child_process";
+import { errorHandler } from "../../../api/middlewares/error.middleware";
+import { validateUser } from "../../../api/middlewares/auth.middleware";
+import { NotFoundErrorClass, ErrorClass } from "../../../api/models/general.model";
+import { DatabaseTestHelper } from "../../helpers";
 
 // Mock Firebase admin for authentication
-jest.mock('../../../api/config/firebase.config', () => ({
+jest.mock("../../../api/config/firebase.config", () => ({
     firebaseAdmin: {
         auth: () => ({
             verifyIdToken: jest.fn()
@@ -18,7 +18,7 @@ jest.mock('../../../api/config/firebase.config', () => ({
 }));
 
 // Mock Stellar service for wallet operations
-jest.mock('../../../api/services/stellar.service', () => ({
+jest.mock("../../../api/services/stellar.service", () => ({
     stellarService: {
         createWallet: jest.fn(),
         addTrustLineViaSponsor: jest.fn()
@@ -26,11 +26,11 @@ jest.mock('../../../api/services/stellar.service', () => ({
 }));
 
 // Mock encryption helper
-jest.mock('../../../api/helper', () => ({
+jest.mock("../../../api/helper", () => ({
     encrypt: jest.fn((secret: string) => `encrypted_${secret}`)
 }));
 
-describe('User API Integration Tests', () => {
+describe("User API Integration Tests", () => {
     let app: express.Application;
     let prisma: any;
     let mockFirebaseAuth: jest.Mock;
@@ -45,31 +45,25 @@ describe('User API Integration Tests', () => {
         app.use(express.json());
         
         // Mock authentication middleware for testing
-        app.use('/users', (req, res, next) => {
+        app.use("/users", (req, res, next) => {
             // Add mock user data to request for authenticated endpoints
             req.body = {
                 ...req.body,
                 currentUser: {
-                    uid: req.headers['x-test-user-id'] || 'test-user-1',
-                    admin: req.headers['x-test-admin'] === 'true'
+                    uid: req.headers["x-test-user-id"] || "test-user-1",
+                    admin: req.headers["x-test-admin"] === "true"
                 },
-                userId: req.headers['x-test-user-id'] || 'test-user-1'
+                userId: req.headers["x-test-user-id"] || "test-user-1"
             };
             next();
         });
         
-        app.use('/users', userRoutes);
+        app.use("/users", userRoutes);
         app.use(errorHandler);
 
         // Setup mocks
-        const { firebaseAdmin } = require('../../../api/config/firebase.config');
-        mockFirebaseAuth = firebaseAdmin.auth().verifyIdToken;
-        
-        const { stellarService } = require('../../../api/services/stellar.service');
+        const { stellarService } = await import("../../../api/services/stellar.service");
         mockStellarService = stellarService;
-        
-        const { encrypt } = require('../../../api/helper');
-        mockEncrypt = encrypt;
     });
 
     beforeEach(async () => {
@@ -85,7 +79,7 @@ describe('User API Integration Tests', () => {
             await prisma.user.deleteMany();
             await prisma.permission.deleteMany();
             await prisma.subscriptionPackage.deleteMany();
-        } catch (error) {
+        } catch {
             // Ignore errors during cleanup
         }
         
@@ -93,9 +87,9 @@ describe('User API Integration Tests', () => {
         try {
             await prisma.subscriptionPackage.create({
                 data: {
-                    id: 'test-package-id',
-                    name: 'Test Package',
-                    description: 'Test subscription package',
+                    id: "test-package-id",
+                    name: "Test Package",
+                    description: "Test subscription package",
                     maxTasks: 10,
                     maxUsers: 5,
                     paid: false,
@@ -103,7 +97,7 @@ describe('User API Integration Tests', () => {
                     active: true
                 }
             });
-        } catch (error) {
+        } catch {
             // Package might already exist
         }
         
@@ -112,13 +106,13 @@ describe('User API Integration Tests', () => {
         
         // Setup default mock implementations
         mockFirebaseAuth.mockResolvedValue({
-            uid: 'test-user-1',
+            uid: "test-user-1",
             admin: false
         });
         
         mockStellarService.createWallet.mockResolvedValue({
-            publicKey: 'GTEST1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12',
-            secretKey: 'STEST1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12'
+            publicKey: "GTEST1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12",
+            secretKey: "STEST1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12"
         });
         
         mockStellarService.addTrustLineViaSponsor.mockResolvedValue(true);
@@ -134,28 +128,28 @@ describe('User API Integration Tests', () => {
         
         // Clean up Docker container
         try {
-            execSync('docker stop test-postgres');
+            execSync("docker stop test-postgres");
             // execSync('docker stop test-postgres && docker rm test-postgres');
         } catch (error) {
-            console.log('Error cleaning up test container:', error);
+            console.log("Error cleaning up test container:", error);
         }
     });
 
-    describe('POST /users - Create User', () => {
-        it('should create a new user with wallet successfully', async () => {
+    describe("POST /users - Create User", () => {
+        it("should create a new user with wallet successfully", async () => {
             const userData = {
-                gitHubUsername: 'testuser123'
+                gitHubUsername: "testuser123"
             };
 
             const response = await request(app)
-                .post('/users')
-                .set('x-test-user-id', 'new-user-123')
+                .post("/users")
+                .set("x-test-user-id", "new-user-123")
                 .send(userData)
                 .expect(201);
 
             expect(response.body).toMatchObject({
-                userId: 'new-user-123',
-                username: 'testuser123',
+                userId: "new-user-123",
+                username: "testuser123",
                 walletAddress: expect.stringMatching(/^G[A-Z0-9]{54}$/),
                 contributionSummary: expect.objectContaining({
                     tasksCompleted: 0,
@@ -166,12 +160,12 @@ describe('User API Integration Tests', () => {
 
             // Verify user was created in database
             const createdUser = await prisma.user.findUnique({
-                where: { userId: 'new-user-123' },
+                where: { userId: "new-user-123" },
                 include: { contributionSummary: true }
             });
 
             expect(createdUser).toBeTruthy();
-            expect(createdUser?.username).toBe('testuser123');
+            expect(createdUser?.username).toBe("testuser123");
             expect(createdUser?.walletAddress).toBeTruthy();
             expect(createdUser?.contributionSummary).toBeTruthy();
 
@@ -180,21 +174,21 @@ describe('User API Integration Tests', () => {
             expect(mockStellarService.addTrustLineViaSponsor).toHaveBeenCalledTimes(1);
         });
 
-        it('should create a user without wallet when skipWallet=true', async () => {
+        it("should create a user without wallet when skipWallet=true", async () => {
             const userData = {
-                gitHubUsername: 'testuser456'
+                gitHubUsername: "testuser456"
             };
 
             const response = await request(app)
-                .post('/users?skipWallet=true')
-                .set('x-test-user-id', 'new-user-456')
+                .post("/users?skipWallet=true")
+                .set("x-test-user-id", "new-user-456")
                 .send(userData)
                 .expect(201);
 
             expect(response.body).toMatchObject({
-                userId: 'new-user-456',
-                username: 'testuser456',
-                walletAddress: '',
+                userId: "new-user-456",
+                username: "testuser456",
+                walletAddress: "",
                 contributionSummary: expect.objectContaining({
                     tasksCompleted: 0,
                     activeTasks: 0,
@@ -207,9 +201,9 @@ describe('User API Integration Tests', () => {
             expect(mockStellarService.addTrustLineViaSponsor).not.toHaveBeenCalled();
         });
 
-        it('should return error when user already exists', async () => {
+        it("should return error when user already exists", async () => {
             // Create user first
-            const existingUser = TestDataFactory.user({ userId: 'existing-user' });
+            const existingUser = TestDataFactory.user({ userId: "existing-user" });
             await prisma.user.create({
                 data: {
                     ...existingUser,
@@ -219,82 +213,82 @@ describe('User API Integration Tests', () => {
             });
 
             const userData = {
-                gitHubUsername: 'testuser789'
+                gitHubUsername: "testuser789"
             };
 
             await request(app)
-                .post('/users')
-                .set('x-test-user-id', 'existing-user')
+                .post("/users")
+                .set("x-test-user-id", "existing-user")
                 .send(userData)
                 .expect(420);
         });
 
-        it('should handle wallet creation failure gracefully', async () => {
-            mockStellarService.createWallet.mockRejectedValue(new Error('Stellar network error'));
+        it("should handle wallet creation failure gracefully", async () => {
+            mockStellarService.createWallet.mockRejectedValue(new Error("Stellar network error"));
 
             const userData = {
-                gitHubUsername: 'testuser999'
+                gitHubUsername: "testuser999"
             };
 
             await request(app)
-                .post('/users')
-                .set('x-test-user-id', 'new-user-999')
+                .post("/users")
+                .set("x-test-user-id", "new-user-999")
                 .send(userData)
                 .expect(500);
         });
 
-        it('should handle trustline creation failure gracefully', async () => {
-            mockStellarService.addTrustLineViaSponsor.mockRejectedValue(new Error('Trustline creation failed'));
+        it("should handle trustline creation failure gracefully", async () => {
+            mockStellarService.addTrustLineViaSponsor.mockRejectedValue(new Error("Trustline creation failed"));
 
             const userData = {
-                gitHubUsername: 'testuser888'
+                gitHubUsername: "testuser888"
             };
 
             const response = await request(app)
-                .post('/users')
-                .set('x-test-user-id', 'new-user-888')
+                .post("/users")
+                .set("x-test-user-id", "new-user-888")
                 .send(userData)
                 .expect(202);
 
             expect(response.body).toMatchObject({
                 user: expect.objectContaining({
-                    userId: 'new-user-888',
-                    username: 'testuser888'
+                    userId: "new-user-888",
+                    username: "testuser888"
                 }),
                 error: expect.any(Object),
-                message: expect.stringContaining('Failed to add USDC trustline')
+                message: expect.stringContaining("Failed to add USDC trustline")
             });
 
             // Verify user was still created
             const createdUser = await prisma.user.findUnique({
-                where: { userId: 'new-user-888' }
+                where: { userId: "new-user-888" }
             });
             expect(createdUser).toBeTruthy();
         });
 
-        it('should validate required fields', async () => {
+        it("should validate await importd fields", async () => {
             const response = await request(app)
-                .post('/users')
-                .set('x-test-user-id', 'new-user-validation')
+                .post("/users")
+                .set("x-test-user-id", "new-user-validation")
                 .send({})
                 .expect(400);
 
             expect(response.body).toMatchObject({
                 errors: expect.arrayContaining([
                     expect.objectContaining({
-                        msg: expect.stringContaining('Github username is required')
+                        msg: expect.stringContaining("Github username is await importd")
                     })
                 ])
             });
         });
     });
 
-    describe('GET /users - Get User', () => {
+    describe("GET /users - Get User", () => {
         let testUser: any;
 
         beforeEach(async () => {
             // Create test user with contribution summary
-            testUser = TestDataFactory.user({ userId: 'test-get-user' });
+            testUser = TestDataFactory.user({ userId: "test-get-user" });
             await prisma.user.create({
                 data: {
                     ...testUser,
@@ -309,14 +303,14 @@ describe('User API Integration Tests', () => {
             });
         });
 
-        it('should get user with basic view by default', async () => {
+        it("should get user with basic view by default", async () => {
             const response = await request(app)
-                .get('/users')
-                .set('x-test-user-id', 'test-get-user')
+                .get("/users")
+                .set("x-test-user-id", "test-get-user")
                 .expect(200);
 
             expect(response.body).toMatchObject({
-                userId: 'test-get-user',
+                userId: "test-get-user",
                 username: testUser.username,
                 walletAddress: testUser.walletAddress,
                 addressBook: testUser.addressBook,
@@ -329,14 +323,14 @@ describe('User API Integration Tests', () => {
             expect(response.body.contributionSummary).toBeUndefined();
         });
 
-        it('should get user with full view when requested', async () => {
+        it("should get user with full view when requested", async () => {
             const response = await request(app)
-                .get('/users?view=full')
-                .set('x-test-user-id', 'test-get-user')
+                .get("/users?view=full")
+                .set("x-test-user-id", "test-get-user")
                 .expect(200);
 
             expect(response.body).toMatchObject({
-                userId: 'test-get-user',
+                userId: "test-get-user",
                 username: testUser.username,
                 walletAddress: testUser.walletAddress,
                 contributionSummary: {
@@ -350,12 +344,12 @@ describe('User API Integration Tests', () => {
             });
         });
 
-        it('should create wallet when setWallet=true and user has no wallet', async () => {
+        it("should create wallet when setWallet=true and user has no wallet", async () => {
             // Create user without wallet
             const userWithoutWallet = TestDataFactory.user({ 
-                userId: 'user-no-wallet',
-                walletAddress: '',
-                walletSecret: ''
+                userId: "user-no-wallet",
+                walletAddress: "",
+                walletSecret: ""
             });
             await prisma.user.create({
                 data: {
@@ -366,22 +360,22 @@ describe('User API Integration Tests', () => {
             });
 
             await request(app)
-                .get('/users?setWallet=true')
-                .set('x-test-user-id', 'user-no-wallet')
+                .get("/users?setWallet=true")
+                .set("x-test-user-id", "user-no-wallet")
                 .expect(200);
 
             // Verify wallet was added to database
             const updatedUser = await prisma.user.findUnique({
-                where: { userId: 'user-no-wallet' }
+                where: { userId: "user-no-wallet" }
             });
             expect(updatedUser?.walletAddress).toBeTruthy();
-            expect(updatedUser?.walletAddress).not.toBe('');
+            expect(updatedUser?.walletAddress).not.toBe("");
         });
 
-        it('should return 420 when user does not exist', async () => {
+        it("should return 420 when user does not exist", async () => {
             const response = await request(app)
-                .get('/users')
-                .set('x-test-user-id', 'non-existent-user')
+                .get("/users")
+                .set("x-test-user-id", "non-existent-user")
                 .expect(420);
 
             expect(response.body).toMatchObject({
@@ -390,11 +384,11 @@ describe('User API Integration Tests', () => {
         });
     });
 
-    describe('PATCH /users/username - Update Username', () => {
+    describe("PATCH /users/username - Update Username", () => {
         let testUser: any;
 
         beforeEach(async () => {
-            testUser = TestDataFactory.user({ userId: 'test-update-user' });
+            testUser = TestDataFactory.user({ userId: "test-update-user" });
             await prisma.user.create({
                 data: {
                     ...testUser,
@@ -403,38 +397,38 @@ describe('User API Integration Tests', () => {
             });
         });
 
-        it('should update username successfully', async () => {
+        it("should update username successfully", async () => {
             const updateData = {
-                githubUsername: 'newusername123'
+                githubUsername: "newusername123"
             };
 
             const response = await request(app)
-                .patch('/users/username')
-                .set('x-test-user-id', 'test-update-user')
+                .patch("/users/username")
+                .set("x-test-user-id", "test-update-user")
                 .send(updateData)
                 .expect(200);
 
             expect(response.body).toMatchObject({
-                userId: 'test-update-user',
-                username: 'newusername123',
+                userId: "test-update-user",
+                username: "newusername123",
                 updatedAt: expect.any(String)
             });
 
             // Verify username was updated in database
             const updatedUser = await prisma.user.findUnique({
-                where: { userId: 'test-update-user' }
+                where: { userId: "test-update-user" }
             });
-            expect(updatedUser?.username).toBe('newusername123');
+            expect(updatedUser?.username).toBe("newusername123");
         });
 
-        it('should return 420 when user does not exist', async () => {
+        it("should return 420 when user does not exist", async () => {
             const updateData = {
-                githubUsername: 'newusername456'
+                githubUsername: "newusername456"
             };
 
             const response = await request(app)
-                .patch('/users/username')
-                .set('x-test-user-id', 'non-existent-user')
+                .patch("/users/username")
+                .set("x-test-user-id", "non-existent-user")
                 .send(updateData)
                 .expect(420);
 
@@ -443,31 +437,31 @@ describe('User API Integration Tests', () => {
             });
         });
 
-        it('should validate required fields', async () => {
+        it("should validate await importd fields", async () => {
             const response = await request(app)
-                .patch('/users/username')
-                .set('x-test-user-id', 'test-update-user')
+                .patch("/users/username")
+                .set("x-test-user-id", "test-update-user")
                 .send({})
                 .expect(400);
 
             expect(response.body).toMatchObject({
                 errors: expect.arrayContaining([
                     expect.objectContaining({
-                        msg: expect.stringContaining('Github username is required')
+                        msg: expect.stringContaining("Github username is await importd")
                     })
                 ])
             });
         });
     });
 
-    describe('PATCH /users/address-book - Update Address Book', () => {
+    describe("PATCH /users/address-book - Update Address Book", () => {
         let testUser: any;
 
         beforeEach(async () => {
             testUser = TestDataFactory.user({ 
-                userId: 'test-addressbook-user',
+                userId: "test-addressbook-user",
                 addressBook: [
-                    { address: 'GEXISTING1234567890ABCDEF1234567890ABCDEF1234567890ABC', name: 'Existing Contact' }
+                    { address: "GEXISTING1234567890ABCDEF1234567890ABCDEF1234567890ABC", name: "Existing Contact" }
                 ]
             });
             await prisma.user.create({
@@ -478,43 +472,43 @@ describe('User API Integration Tests', () => {
             });
         });
 
-        it('should add new address to address book successfully', async () => {
+        it("should add new address to address book successfully", async () => {
             const newAddress = {
-                address: 'GNEWADDRESS1234567890ABCDEF1234567890ABCDEF1234567890A',
-                name: 'New Contact'
+                address: "GNEWADDRESS1234567890ABCDEF1234567890ABCDEF1234567890A",
+                name: "New Contact"
             };
 
             const response = await request(app)
-                .patch('/users/address-book')
-                .set('x-test-user-id', 'test-addressbook-user')
+                .patch("/users/address-book")
+                .set("x-test-user-id", "test-addressbook-user")
                 .send(newAddress)
                 .expect(200);
 
             expect(response.body).toMatchObject({
-                userId: 'test-addressbook-user',
+                userId: "test-addressbook-user",
                 addressBook: expect.arrayContaining([
-                    { address: 'GEXISTING1234567890ABCDEF1234567890ABCDEF1234567890ABC', name: 'Existing Contact' },
-                    { address: 'GNEWADDRESS1234567890ABCDEF1234567890ABCDEF1234567890A', name: 'New Contact' }
+                    { address: "GEXISTING1234567890ABCDEF1234567890ABCDEF1234567890ABC", name: "Existing Contact" },
+                    { address: "GNEWADDRESS1234567890ABCDEF1234567890ABCDEF1234567890A", name: "New Contact" }
                 ]),
                 updatedAt: expect.any(String)
             });
 
             // Verify address book was updated in database
             const updatedUser = await prisma.user.findUnique({
-                where: { userId: 'test-addressbook-user' }
+                where: { userId: "test-addressbook-user" }
             });
             expect(updatedUser?.addressBook).toHaveLength(2);
         });
 
-        it('should return error when address already exists', async () => {
+        it("should return error when address already exists", async () => {
             const duplicateAddress = {
-                address: 'GEXISTING1234567890ABCDEF1234567890ABCDEF1234567890ABC',
-                name: 'Duplicate Contact'
+                address: "GEXISTING1234567890ABCDEF1234567890ABCDEF1234567890ABC",
+                name: "Duplicate Contact"
             };
 
             const response = await request(app)
-                .patch('/users/address-book')
-                .set('x-test-user-id', 'test-addressbook-user')
+                .patch("/users/address-book")
+                .set("x-test-user-id", "test-addressbook-user")
                 .send(duplicateAddress)
                 .expect(420);
 
@@ -523,15 +517,15 @@ describe('User API Integration Tests', () => {
             });
         });
 
-        it('should return error when address book limit is reached', async () => {
+        it("should return error when address book limit is reached", async () => {
             // Create user with maximum addresses (20)
             const maxAddresses = Array.from({ length: 20 }, (_, i) => ({
-                address: `GMAX${i.toString().padStart(52, '0')}`,
+                address: `GMAX${i.toString().padStart(52, "0")}`,
                 name: `Contact ${i}`
             }));
 
             const userWithMaxAddresses = TestDataFactory.user({
-                userId: 'user-max-addresses',
+                userId: "user-max-addresses",
                 addressBook: maxAddresses
             });
 
@@ -543,13 +537,13 @@ describe('User API Integration Tests', () => {
             });
 
             const newAddress = {
-                address: 'GNEWADDRESS1234567890ABCDEF1234567890ABCDEF1234567890A',
-                name: 'Overflow Contact'
+                address: "GNEWADDRESS1234567890ABCDEF1234567890ABCDEF1234567890A",
+                name: "Overflow Contact"
             };
 
             const response = await request(app)
-                .patch('/users/address-book')
-                .set('x-test-user-id', 'user-max-addresses')
+                .patch("/users/address-book")
+                .set("x-test-user-id", "user-max-addresses")
                 .send(newAddress)
                 .expect(420);
 
@@ -558,15 +552,15 @@ describe('User API Integration Tests', () => {
             });
         });
 
-        it('should return 420 when user does not exist', async () => {
+        it("should return 420 when user does not exist", async () => {
             const newAddress = {
-                address: 'GNEWADDRESS1234567890ABCDEF1234567890ABCDEF1234567890A',
-                name: 'New Contact'
+                address: "GNEWADDRESS1234567890ABCDEF1234567890ABCDEF1234567890A",
+                name: "New Contact"
             };
 
             const response = await request(app)
-                .patch('/users/address-book')
-                .set('x-test-user-id', 'non-existent-user')
+                .patch("/users/address-book")
+                .set("x-test-user-id", "non-existent-user")
                 .send(newAddress)
                 .expect(420);
 
@@ -596,62 +590,62 @@ describe('User API Integration Tests', () => {
         //     });
         // });
 
-        it('should validate required fields', async () => {
+        it("should validate await importd fields", async () => {
             const response = await request(app)
-                .patch('/users/address-book')
-                .set('x-test-user-id', 'test-addressbook-user')
+                .patch("/users/address-book")
+                .set("x-test-user-id", "test-addressbook-user")
                 .send({})
                 .expect(400);
 
             expect(response.body).toMatchObject({
                 errors: expect.arrayContaining([
                     expect.objectContaining({
-                        msg: expect.stringContaining('Address is required')
+                        msg: expect.stringContaining("Address is await importd")
                     }),
                     expect.objectContaining({
-                        msg: expect.stringContaining('Name is required')
+                        msg: expect.stringContaining("Name is await importd")
                     })
                 ])
             });
         });
     });
 
-    describe('Authentication and Authorization', () => {
-        it('should require authentication for all endpoints', async () => {
+    describe("Authentication and Authorization", () => {
+        it("should await import authentication for all endpoints", async () => {
             // Test without authentication headers
             const appWithoutAuth = express();
             appWithoutAuth.use(express.json());
-            appWithoutAuth.use('/users', validateUser as RequestHandler, userRoutes);
+            appWithoutAuth.use("/users", validateUser as RequestHandler, userRoutes);
             appWithoutAuth.use(errorHandler);
 
             await request(appWithoutAuth)
-                .get('/users')
+                .get("/users")
                 .expect(401);
 
             await request(appWithoutAuth)
-                .post('/users')
-                .send({ gitHubUsername: 'test' })
+                .post("/users")
+                .send({ gitHubUsername: "test" })
                 .expect(401);
 
             await request(appWithoutAuth)
-                .patch('/users/username')
-                .send({ githubUsername: 'test' })
+                .patch("/users/username")
+                .send({ githubUsername: "test" })
                 .expect(401);
 
             await request(appWithoutAuth)
-                .patch('/users/address-book')
-                .send({ address: 'GTEST1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12', name: 'Test' })
+                .patch("/users/address-book")
+                .send({ address: "GTEST1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12", name: "Test" })
                 .expect(401);
         });
     });
 
-    describe('Database Persistence and Consistency', () => {
-        it('should maintain data consistency across operations', async () => {
+    describe("Database Persistence and Consistency", () => {
+        it("should maintain data consistency across operations", async () => {
             // Create user
-            const userData = { gitHubUsername: 'consistencytest' };
+            const userData = { gitHubUsername: "consistencytest" };
             const createResponse = await request(app)
-                .post('/users')
-                .set('x-test-user-id', 'consistency-user')
+                .post("/users")
+                .set("x-test-user-id", "consistency-user")
                 .send(userData)
                 .expect(201);
 
@@ -659,41 +653,41 @@ describe('User API Integration Tests', () => {
 
             // Get user to verify creation
             const getResponse = await request(app)
-                .get('/users?view=full')
-                .set('x-test-user-id', userId)
+                .get("/users?view=full")
+                .set("x-test-user-id", userId)
                 .expect(200);
 
             expect(getResponse.body.userId).toBe(userId);
-            expect(getResponse.body.username).toBe('consistencytest');
+            expect(getResponse.body.username).toBe("consistencytest");
 
             // Update username
             await request(app)
-                .patch('/users/username')
-                .set('x-test-user-id', userId)
-                .send({ githubUsername: 'updatedname' })
+                .patch("/users/username")
+                .set("x-test-user-id", userId)
+                .send({ githubUsername: "updatedname" })
                 .expect(200);
 
             // Add address to address book
             await request(app)
-                .patch('/users/address-book')
-                .set('x-test-user-id', userId)
+                .patch("/users/address-book")
+                .set("x-test-user-id", userId)
                 .send({
-                    address: 'GTEST1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12',
-                    name: 'Test Contact'
+                    address: "GTEST1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12",
+                    name: "Test Contact"
                 })
                 .expect(200);
 
             // Verify all changes persisted
             const finalGetResponse = await request(app)
-                .get('/users?view=full')
-                .set('x-test-user-id', userId)
+                .get("/users?view=full")
+                .set("x-test-user-id", userId)
                 .expect(200);
 
             expect(finalGetResponse.body).toMatchObject({
-                userId: userId,
-                username: 'updatedname',
+                userId,
+                username: "updatedname",
                 addressBook: expect.arrayContaining([
-                    { address: 'GTEST1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12', name: 'Test Contact' }
+                    { address: "GTEST1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12", name: "Test Contact" }
                 ]),
                 contributionSummary: expect.objectContaining({
                     tasksCompleted: 0,
@@ -703,26 +697,26 @@ describe('User API Integration Tests', () => {
             });
         });
 
-        it('should handle concurrent operations safely', async () => {
+        it("should handle concurrent operations safely", async () => {
             // Create user first
-            const userData = { gitHubUsername: 'concurrenttest' };
+            const userData = { gitHubUsername: "concurrenttest" };
             await request(app)
-                .post('/users')
-                .set('x-test-user-id', 'concurrent-user')
+                .post("/users")
+                .set("x-test-user-id", "concurrent-user")
                 .send(userData)
                 .expect(201);
 
             // Perform multiple concurrent address book updates
             const addresses = [
-                { address: 'GADDR1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF1', name: 'Contact 1' },
-                { address: 'GADDR1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF2', name: 'Contact 2' },
-                { address: 'GADDR1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF3', name: 'Contact 3' }
+                { address: "GADDR1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF1", name: "Contact 1" },
+                { address: "GADDR1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF2", name: "Contact 2" },
+                { address: "GADDR1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF3", name: "Contact 3" }
             ];
 
             const promises = addresses.map(address =>
                 request(app)
-                    .patch('/users/address-book')
-                    .set('x-test-user-id', 'concurrent-user')
+                    .patch("/users/address-book")
+                    .set("x-test-user-id", "concurrent-user")
                     .send(address)
             );
 
@@ -730,14 +724,14 @@ describe('User API Integration Tests', () => {
             
             // At least one should succeed (due to race conditions, some might fail)
             const successfulResults = results.filter(result => 
-                result.status === 'fulfilled' && result.value.status === 200
+                result.status === "fulfilled" && result.value.status === 200
             );
             
             expect(successfulResults.length).toBeGreaterThan(0);
 
             // Verify final state
             const finalUser = await prisma.user.findUnique({
-                where: { userId: 'concurrent-user' }
+                where: { userId: "concurrent-user" }
             });
             
             expect(finalUser?.addressBook).toBeDefined();

@@ -1,8 +1,8 @@
-import { Router, Request, Response, NextFunction, RequestHandler } from 'express';
-import { body, validationResult } from 'express-validator';
-import createError from 'http-errors';
-import { RAGContextServiceImpl } from '../../services/rag-context.service';
-import { GroqAIService } from '../../services/groq-ai.service';
+import { Router, Request, Response, NextFunction, RequestHandler } from "express";
+import { body, validationResult } from "express-validator";
+import createError from "http-errors";
+import { RAGContextServiceImpl } from "../../services/rag-context.service";
+import { GroqAIService } from "../../services/groq-ai.service";
 
 const router = Router();
 const ragService = new RAGContextServiceImpl();
@@ -13,11 +13,11 @@ const groqService = new GroqAIService();
 // ============================================================================
 
 // Store demo data in Pinecone
-router.post('/pinecone/store-demo',
+router.post("/pinecone/store-demo",
     [
-        body('text').notEmpty().withMessage('Text content is required'),
-        body('type').isIn(['pr', 'file', 'issue', 'text']).withMessage('Type must be pr, file, or issue'),
-        body('metadata').optional().isObject().withMessage('Metadata must be an object'),
+        body("text").notEmpty().withMessage("Text content is required"),
+        body("type").isIn(["pr", "file", "issue", "text"]).withMessage("Type must be pr, file, or issue"),
+        body("metadata").optional().isObject().withMessage("Metadata must be an object")
     ],
     (async (req: Request, res: Response, next: NextFunction) => {
         try {
@@ -34,11 +34,11 @@ router.post('/pinecone/store-demo',
             // Create demo document with metadata
             const demoId = `demo:${type}:${Date.now()}`;
             const demoMetadata = {
-                installationId: 'demo-installation',
-                type: type,
+                installationId: "demo-installation",
+                type,
                 text,
                 timestamp: new Date().toISOString(),
-                repositoryName: 'demo-repo',
+                repositoryName: "demo-repo",
                 ...metadata
             };
 
@@ -54,7 +54,7 @@ router.post('/pinecone/store-demo',
             }]);
 
             res.status(201).json({
-                message: 'Demo data stored successfully in Pinecone',
+                message: "Demo data stored successfully in Pinecone",
                 data: {
                     id: demoId,
                     embeddingDimensions: embeddings.length,
@@ -69,7 +69,7 @@ router.post('/pinecone/store-demo',
 );
 
 // Retrieve specific data from Pinecone
-router.get('/pinecone/retrieve/:id',
+router.get("/pinecone/retrieve/:id",
     (async (req: Request, res: Response, next: NextFunction) => {
         try {
             const { id } = req.params;
@@ -84,32 +84,32 @@ router.get('/pinecone/retrieve/:id',
 
             if (!record) {
                 return res.status(404).json({
-                    message: 'Record not found',
-                    id: id
+                    message: "Record not found",
+                    id
                 });
             }
 
             res.status(200).json({
-                message: 'Data retrieved successfully from Pinecone',
+                message: "Data retrieved successfully from Pinecone",
                 data: {
-                    id: id,
+                    id,
                     metadata: record.metadata,
                     embeddingDimensions: record.values?.length || 0,
                     hasEmbedding: !!record.values
                 }
             });
         } catch (error) {
-            next(createError(500, 'Failed to retrieve data from Pinecone', { cause: error }));
+            next(createError(500, "Failed to retrieve data from Pinecone", { cause: error }));
         }
     }) as RequestHandler
 );
 
 // Search for topK similar data in Pinecone
-router.post('/pinecone/search',
+router.post("/pinecone/search",
     [
-        body('query').notEmpty().withMessage('Search query is required'),
-        body('topK').optional().isInt({ min: 1, max: 20 }).withMessage('topK must be between 1 and 20'),
-        body('filter').optional().isObject().withMessage('Filter must be an object'),
+        body("query").notEmpty().withMessage("Search query is required"),
+        body("topK").optional().isInt({ min: 1, max: 20 }).withMessage("topK must be between 1 and 20"),
+        body("filter").optional().isObject().withMessage("Filter must be an object")
     ],
     (async (req: Request, res: Response, next: NextFunction) => {
         try {
@@ -130,8 +130,8 @@ router.post('/pinecone/search',
 
             const searchResults = await index.query({
                 vector: queryEmbeddings,
-                filter: filter,
-                topK: topK,
+                filter,
+                topK,
                 includeMetadata: true
             });
 
@@ -142,16 +142,16 @@ router.post('/pinecone/search',
             })) || [];
 
             res.status(200).json({
-                message: 'Search completed successfully',
+                message: "Search completed successfully",
                 data: {
-                    query: query,
-                    topK: topK,
+                    query,
+                    topK,
                     resultsCount: results.length,
-                    results: results
-                },
+                    results
+                }
             });
         } catch (error) {
-            next(createError(500, 'Failed to search in Pinecone', { cause: error }));
+            next(createError(500, "Failed to search in Pinecone", { cause: error }));
         }
     }) as RequestHandler
 );
@@ -161,11 +161,10 @@ router.post('/pinecone/search',
 // ============================================================================
 
 // Simple chat with Groq AI
-router.post('/groq/chat',
+router.post("/groq/chat",
     [
-        body('message').notEmpty().withMessage('Message is required'),
-        body('model').optional().isString().withMessage('Model must be a string'),
-        body('temperature').optional().isFloat({ min: 0, max: 2 }).withMessage('Temperature must be between 0 and 2'),
+        body("message").notEmpty().withMessage("Message is required"),
+        body("model").optional().isString().withMessage("Model must be a string")
     ],
     (async (req: Request, res: Response, next: NextFunction) => {
         try {
@@ -174,7 +173,7 @@ router.post('/groq/chat',
                 return res.status(400).json({ errors: errors.array() });
             }
 
-            const { message, model, temperature } = req.body;
+            const { message, model } = req.body;
 
             // Create a simple chat prompt
             const chatPrompt = `You are a helpful AI assistant. Please respond to the following message in a conversational way:
@@ -186,26 +185,26 @@ ssistant: Please provide a helpful and informative response.`;
             const response = await (groqService as any).callGroqAPI(chatPrompt);
 
             res.status(200).json({
-                message: 'Chat response generated successfully',
+                message: "Chat response generated successfully",
                 data: {
                     userMessage: message,
                     aiResponse: response,
-                    model: model || 'llama3-8b-8192',
+                    model: model || "llama3-8b-8192",
                     timestamp: new Date().toISOString()
                 }
             });
         } catch (error) {
-            next(createError(500, 'Failed to generate chat response', { cause: error }));
+            next(createError(500, "Failed to generate chat response", { cause: error }));
         }
     }) as RequestHandler
 );
 
 // Code review simulation with Groq AI
-router.post('/groq/code-review',
+router.post("/groq/code-review",
     [
-        body('code').notEmpty().withMessage('Code content is required'),
-        body('language').optional().isString().withMessage('Language must be a string'),
-        body('filename').optional().isString().withMessage('Filename must be a string'),
+        body("code").notEmpty().withMessage("Code content is required"),
+        body("language").optional().isString().withMessage("Language must be a string"),
+        body("filename").optional().isString().withMessage("Filename must be a string")
     ],
     (async (req: Request, res: Response, next: NextFunction) => {
         try {
@@ -214,7 +213,7 @@ router.post('/groq/code-review',
                 return res.status(400).json({ errors: errors.array() });
             }
 
-            const { code, language = 'javascript', filename = 'example.js' } = req.body;
+            const { code, language = "javascript", filename = "example.js" } = req.body;
 
             // Create a code review prompt
             const reviewPrompt = `You are an expert code reviewer. Please analyze the following ${language} code and provide feedback:
@@ -249,26 +248,26 @@ Format your response as JSON:
             const response = await (groqService as any).callGroqAPI(reviewPrompt);
 
             res.status(200).json({
-                message: 'Code review completed successfully',
+                message: "Code review completed successfully",
                 data: {
-                    filename: filename,
-                    language: language,
+                    filename,
+                    language,
                     codeLength: code.length,
                     review: response,
                     timestamp: new Date().toISOString()
                 }
             });
         } catch (error) {
-            next(createError(500, 'Failed to generate code review', { cause: error }));
+            next(createError(500, "Failed to generate code review", { cause: error }));
         }
     }) as RequestHandler
 );
 
 // Test Groq AI with different models and parameters
-router.post('/groq/test-models',
+router.post("/groq/test-models",
     [
-        body('prompt').notEmpty().withMessage('Prompt is required'),
-        body('models').optional().isArray().withMessage('Models must be an array'),
+        body("prompt").notEmpty().withMessage("Prompt is required"),
+        body("models").optional().isArray().withMessage("Models must be an array")
     ],
     (async (req: Request, res: Response, next: NextFunction) => {
         try {
@@ -277,7 +276,7 @@ router.post('/groq/test-models',
                 return res.status(400).json({ errors: errors.array() });
             }
 
-            const { prompt, models = ['llama3-8b-8192', 'mixtral-8x7b-32768'] } = req.body;
+            const { prompt, models = ["llama3-8b-8192", "mixtral-8x7b-32768"] } = req.body;
 
             const results = [];
 
@@ -289,25 +288,25 @@ router.post('/groq/test-models',
                     // Create Groq client with specific model
                     const groqClient = (groqService as any).groqClient;
                     const completion = await groqClient.chat.completions.create({
-                        messages: [{ role: 'user', content: prompt }],
-                        model: model,
+                        messages: [{ role: "user", content: prompt }],
+                        model,
                         max_tokens: 1000,
-                        temperature: 0.1,
+                        temperature: 0.1
                     });
 
                     const endTime = Date.now();
-                    const response = completion.choices[0]?.message?.content || 'No response';
+                    const response = completion.choices[0]?.message?.content || "No response";
 
                     results.push({
-                        model: model,
-                        response: response,
+                        model,
+                        response,
                         responseTime: endTime - startTime,
                         success: true,
                         tokens: completion.usage?.total_tokens || 0
                     });
                 } catch (modelError: any) {
                     results.push({
-                        model: model,
+                        model,
                         error: modelError.message,
                         success: false,
                         responseTime: 0
@@ -316,23 +315,23 @@ router.post('/groq/test-models',
             }
 
             res.status(200).json({
-                message: 'Model testing completed',
+                message: "Model testing completed",
                 data: {
-                    prompt: prompt,
-                    results: results,
+                    prompt,
+                    results,
                     timestamp: new Date().toISOString()
                 }
             });
         } catch (error) {
-            next(createError(500, 'Failed to test models', { cause: error }));
+            next(createError(500, "Failed to test models", { cause: error }));
         }
     }) as RequestHandler
 );
 
 // Test Groq AI JSON parsing
-router.post('/groq/test-json',
+router.post("/groq/test-json",
     [
-        body('testPrompt').optional().isString().withMessage('Test prompt must be a string'),
+        body("testPrompt").optional().isString().withMessage("Test prompt must be a string")
     ],
     (async (req: Request, res: Response, next: NextFunction) => {
         try {
@@ -341,7 +340,7 @@ router.post('/groq/test-json',
                 return res.status(400).json({ errors: errors.array() });
             }
 
-            const { testPrompt = 'Analyze this simple code: function add(a, b) { return a + b; }' } = req.body;
+            const { testPrompt = "Analyze this simple code: function add(a, b) { return a + b; }" } = req.body;
 
             // Create a simple test prompt that should return JSON
             const prompt = `You are a code reviewer. Analyze this code and respond with ONLY valid JSON in this exact format:
@@ -388,17 +387,17 @@ Respond with ONLY the JSON object above, modified for the actual code analysis.`
             }
 
             res.status(200).json({
-                message: 'Groq AI JSON test completed',
+                message: "Groq AI JSON test completed",
                 data: {
                     rawResponse: response,
-                    parsedResponse: parsedResponse,
-                    parseError: parseError,
+                    parsedResponse,
+                    parseError,
                     isValidJSON: !parseError,
                     timestamp: new Date().toISOString()
                 }
             });
         } catch (error) {
-            next(createError(500, 'Failed to test Groq AI JSON parsing', { cause: error }));
+            next(createError(500, "Failed to test Groq AI JSON parsing", { cause: error }));
         }
     }) as RequestHandler
 );

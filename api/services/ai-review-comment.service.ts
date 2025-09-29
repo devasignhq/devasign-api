@@ -1,20 +1,19 @@
-import { ReviewResult, FormattedReview } from '../models/ai-review.model';
-import { GitHubAPIError } from '../models/ai-review.errors';
-import { ReviewFormatterService } from './review-formatter.service';
-import { OctokitService } from './octokit.service';
-import { prisma } from '../config/database.config';
+import { ReviewResult } from "../models/ai-review.model";
+import { GitHubAPIError } from "../models/ai-review.errors";
+import { ReviewFormatterService } from "./review-formatter.service";
+import { OctokitService } from "./octokit.service";
+import { prisma } from "../config/database.config";
+import { getFieldFromUnknownObject } from "../helper";
+import { InstallationOctokit } from "../models/github.model";
 
 /**
  * GitHub Comment Service
  * Handles posting and updating PR comments with AI review results
- * Requirements: 6.1, 6.2, 6.3
  */
 export class AIReviewCommentService {
 
     /**
      * Posts or updates an AI review comment on a PR
-     * Requirement 6.1: System SHALL post comprehensive comment on PR
-     * Requirement 6.3: System SHALL update existing comment rather than creating new one
      */
     public static async postOrUpdateReview(result: ReviewResult): Promise<string> {
         try {
@@ -57,7 +56,7 @@ export class AIReviewCommentService {
             return commentId;
 
         } catch (error) {
-            console.error('Error posting/updating review comment:', error);
+            console.error("Error posting/updating review comment:", error);
 
             // Try to post an error comment instead
             try {
@@ -65,7 +64,7 @@ export class AIReviewCommentService {
                     result.installationId,
                     result.prNumber,
                     result.repositoryName,
-                    error instanceof Error ? error.message : 'Unknown error occurred'
+                    error instanceof Error ? error.message : "Unknown error occurred"
                 );
 
                 const errorCommentId = await this.createComment(
@@ -79,7 +78,7 @@ export class AIReviewCommentService {
                 return errorCommentId;
 
             } catch (errorCommentError) {
-                console.error('Failed to post error comment:', errorCommentError);
+                console.error("Failed to post error comment:", errorCommentError);
                 throw error; // Throw original error
             }
         }
@@ -87,7 +86,6 @@ export class AIReviewCommentService {
 
     /**
      * Creates a new comment on a PR
-     * Requirement 6.1: System SHALL post comprehensive comment on PR
      */
     public static async createComment(
         installationId: string,
@@ -101,7 +99,7 @@ export class AIReviewCommentService {
             // If not, we'll need to extend it or use the GitHub API directly
 
             const comment = await this.callGitHubAPI(installationId, async (octokit) => {
-                const [owner, repo] = repositoryName.split('/');
+                const [owner, repo] = repositoryName.split("/");
 
                 const response = await octokit.rest.issues.createComment({
                     owner,
@@ -115,18 +113,18 @@ export class AIReviewCommentService {
 
             return comment.id.toString();
 
-        } catch (error: any) {
+        } catch (error) {
             throw new GitHubAPIError(
                 `Failed to create comment on PR #${prNumber} in ${repositoryName}`,
-                error.status || 500,
-                error.rateLimitRemaining || 0,
+                getFieldFromUnknownObject<number>(error, "status") || 500,
+                getFieldFromUnknownObject<number>(error, "rateLimitRemaining") || 0,
                 {
                     installationId,
                     repositoryName,
                     prNumber,
                     bodyLength: body.length,
-                    originalError: error.message,
-                    operation: 'createComment'
+                    originalError: getFieldFromUnknownObject<string>(error, "message"),
+                    operation: "createComment"
                 }
             );
         }
@@ -134,7 +132,6 @@ export class AIReviewCommentService {
 
     /**
      * Updates an existing comment on a PR
-     * Requirement 6.3: System SHALL update existing comment rather than creating new one
      */
     private static async updateComment(
         installationId: string,
@@ -144,7 +141,7 @@ export class AIReviewCommentService {
     ): Promise<void> {
         try {
             await this.callGitHubAPI(installationId, async (octokit) => {
-                const [owner, repo] = repositoryName.split('/');
+                const [owner, repo] = repositoryName.split("/");
 
                 await octokit.rest.issues.updateComment({
                     owner,
@@ -154,18 +151,18 @@ export class AIReviewCommentService {
                 });
             });
 
-        } catch (error: any) {
+        } catch (error) {
             throw new GitHubAPIError(
                 `Failed to update comment ${commentId} in ${repositoryName}`,
-                error.status || 500,
-                error.rateLimitRemaining || 0,
+                getFieldFromUnknownObject<number>(error, "status") || 500,
+                getFieldFromUnknownObject<number>(error, "rateLimitRemaining") || 0,
                 {
                     installationId,
                     repositoryName,
                     commentId,
                     bodyLength: body.length,
-                    originalError: error.message,
-                    operation: 'updateComment'
+                    originalError: getFieldFromUnknownObject<string>(error, "message"),
+                    operation: "updateComment"
                 }
             );
         }
@@ -173,7 +170,6 @@ export class AIReviewCommentService {
 
     /**
      * Finds existing AI review comment on a PR
-     * Requirement 6.3: System SHALL update existing comment rather than creating new one
      */
     private static async findExistingReviewComment(
         installationId: string,
@@ -208,7 +204,7 @@ export class AIReviewCommentService {
 
             // If no stored comment ID or comment doesn't exist, search through PR comments
             const comments = await this.callGitHubAPI(installationId, async (octokit) => {
-                const [owner, repo] = repositoryName.split('/');
+                const [owner, repo] = repositoryName.split("/");
 
                 const response = await octokit.rest.issues.listComments({
                     owner,
@@ -222,8 +218,8 @@ export class AIReviewCommentService {
 
             // Look for AI review comment by checking for the marker
             for (const comment of comments) {
-                if (ReviewFormatterService.isAIReviewComment(comment.body || '')) {
-                    const marker = ReviewFormatterService.extractReviewMarker(comment.body || '');
+                if (ReviewFormatterService.isAIReviewComment(comment.body || "")) {
+                    const marker = ReviewFormatterService.extractReviewMarker(comment.body || "");
                     if (marker && marker.installationId === installationId && marker.prNumber === prNumber) {
                         return comment.id.toString();
                     }
@@ -233,7 +229,7 @@ export class AIReviewCommentService {
             return null;
 
         } catch (error) {
-            console.error('Error finding existing review comment:', error);
+            console.error("Error finding existing review comment:", error);
             return null; // Return null to create a new comment instead
         }
     }
@@ -248,7 +244,7 @@ export class AIReviewCommentService {
     ): Promise<boolean> {
         try {
             await this.callGitHubAPI(installationId, async (octokit) => {
-                const [owner, repo] = repositoryName.split('/');
+                const [owner, repo] = repositoryName.split("/");
 
                 await octokit.rest.issues.getComment({
                     owner,
@@ -259,8 +255,9 @@ export class AIReviewCommentService {
 
             return true;
 
-        } catch (error: any) {
-            if (error.status === 404) {
+        } catch (error) {
+            const errorStatus = getFieldFromUnknownObject<number>(error, "status");
+            if (errorStatus === 404) {
                 return false; // Comment doesn't exist
             }
             throw error; // Other errors should be propagated
@@ -284,7 +281,7 @@ export class AIReviewCommentService {
                 }
             });
         } catch (error) {
-            console.error('Failed to store comment ID:', error);
+            console.error("Failed to store comment ID:", error);
             // Don't throw error to avoid breaking the main workflow
         }
     }
@@ -296,19 +293,19 @@ export class AIReviewCommentService {
         installationId: string,
         repositoryName: string,
         prNumber: number,
-        status: 'started' | 'completed' | 'failed',
+        status: "started" | "completed" | "failed",
         details?: string
     ): Promise<string> {
         const statusEmojis = {
-            started: '🔄',
-            completed: '✅',
-            failed: '❌'
+            started: "🔄",
+            completed: "✅",
+            failed: "❌"
         };
 
         const statusMessages = {
-            started: 'AI review analysis has started...',
-            completed: 'AI review analysis completed successfully!',
-            failed: 'AI review analysis failed.'
+            started: "AI review analysis has started...",
+            completed: "AI review analysis completed successfully!",
+            failed: "AI review analysis failed."
         };
 
         const emoji = statusEmojis[status];
@@ -347,7 +344,7 @@ ${message}`;
     ): Promise<void> {
         try {
             await this.callGitHubAPI(installationId, async (octokit) => {
-                const [owner, repo] = repositoryName.split('/');
+                const [owner, repo] = repositoryName.split("/");
 
                 await octokit.rest.issues.deleteComment({
                     owner,
@@ -358,22 +355,23 @@ ${message}`;
 
             console.log(`Deleted AI review comment ${commentId} from ${repositoryName}`);
 
-        } catch (error: any) {
-            if (error.status === 404) {
+        } catch (error) {
+            const errorStatus = getFieldFromUnknownObject<number>(error, "status");
+            if (errorStatus === 404) {
                 console.log(`Comment ${commentId} already deleted or doesn't exist`);
                 return; // Comment already deleted, no error
             }
 
             throw new GitHubAPIError(
                 `Failed to delete comment ${commentId} in ${repositoryName}`,
-                error.status || 500,
-                error.rateLimitRemaining || 0,
+                errorStatus || 500,
+                getFieldFromUnknownObject<number>(error, "rateLimitRemaining") || 0,
                 {
                     installationId,
                     repositoryName,
                     commentId,
-                    originalError: error.message,
-                    operation: 'deleteComment'
+                    originalError: getFieldFromUnknownObject<string>(error, "message"),
+                    operation: "deleteComment"
                 }
             );
         }
@@ -389,7 +387,7 @@ ${message}`;
     ): Promise<Array<{ id: string; body: string; createdAt: string; updatedAt: string }>> {
         try {
             const comments = await this.callGitHubAPI(installationId, async (octokit) => {
-                const [owner, repo] = repositoryName.split('/');
+                const [owner, repo] = repositoryName.split("/");
 
                 const response = await octokit.rest.issues.listComments({
                     owner,
@@ -403,25 +401,25 @@ ${message}`;
 
             // Filter for AI review comments
             return comments
-                .filter((comment: any) => ReviewFormatterService.isAIReviewComment(comment.body || ''))
-                .map((comment: any) => ({
+                .filter((comment) => ReviewFormatterService.isAIReviewComment(comment.body || ""))
+                .map((comment) => ({
                     id: comment.id.toString(),
-                    body: comment.body || '',
+                    body: comment.body || "",
                     createdAt: comment.created_at,
                     updatedAt: comment.updated_at
                 }));
 
-        } catch (error: any) {
+        } catch (error) {
             throw new GitHubAPIError(
                 `Failed to get AI review comments for PR #${prNumber} in ${repositoryName}`,
-                error.status || 500,
-                error.rateLimitRemaining || 0,
+                getFieldFromUnknownObject<number>(error, "status") || 500,
+                getFieldFromUnknownObject<number>(error, "rateLimitRemaining") || 0,
                 {
                     installationId,
                     repositoryName,
                     prNumber,
-                    originalError: error.message,
-                    operation: 'getAIReviewComments'
+                    originalError: getFieldFromUnknownObject<string>(error, "message"),
+                    operation: "getAIReviewComments"
                 }
             );
         }
@@ -432,16 +430,16 @@ ${message}`;
      */
     private static async callGitHubAPI<T>(
         installationId: string,
-        operation: (octokit: any) => Promise<T>
+        operation: (octokit: InstallationOctokit) => Promise<T>
     ): Promise<T> {
         try {
             // Get Octokit instance for the installation using the private method pattern
-            const octokit = await (OctokitService as any).getOctokit(installationId);
+            const octokit = await OctokitService.getOctokit(installationId);
 
             // Execute the operation with rate limiting
             return await this.withRateLimit(operation, octokit);
 
-        } catch (error: any) {
+        } catch (error) {
             // Enhance error with installation context
             if (error instanceof GitHubAPIError) {
                 throw error;
@@ -449,12 +447,12 @@ ${message}`;
 
             throw new GitHubAPIError(
                 `GitHub API call failed for installation ${installationId}`,
-                error.status || 500,
-                error.rateLimitRemaining || 0,
+                getFieldFromUnknownObject<number>(error, "status") || 500,
+                getFieldFromUnknownObject<number>(error, "rateLimitRemaining") || 0,
                 {
                     installationId,
-                    originalError: error.message,
-                    operation: 'callGitHubAPI'
+                    originalError: getFieldFromUnknownObject<string>(error, "message"),
+                    operation: "callGitHubAPI"
                 }
             );
         }
@@ -464,19 +462,20 @@ ${message}`;
      * Handles GitHub API rate limiting with exponential backoff
      */
     private static async withRateLimit<T>(
-        operation: (octokit: any) => Promise<T>,
-        octokit: any,
+        operation: (octokit: InstallationOctokit) => Promise<T>,
+        octokit: InstallationOctokit,
         maxRetries: number = 3
     ): Promise<T> {
-        let lastError: Error;
+        let lastError: unknown;
 
         for (let attempt = 0; attempt < maxRetries; attempt++) {
             try {
                 return await operation(octokit);
-            } catch (error: any) {
+            } catch (error) {
                 lastError = error;
+                const errorStatus = getFieldFromUnknownObject<number>(error, "status");
 
-                if (error.status === 429 || error.status === 403) {
+                if (errorStatus === 429 || errorStatus === 403) {
                     // Rate limited, wait and retry
                     const delay = Math.pow(2, attempt) * 1000; // Exponential backoff
                     console.log(`GitHub API rate limited, waiting ${delay}ms before retry ${attempt + 1}/${maxRetries}`);
@@ -502,7 +501,7 @@ ${message}`;
         try {
             // Try to get repository information to validate access
             await this.callGitHubAPI(installationId, async (octokit) => {
-                const [owner, repo] = repositoryName.split('/');
+                const [owner, repo] = repositoryName.split("/");
 
                 await octokit.rest.repos.get({
                     owner,
@@ -512,7 +511,7 @@ ${message}`;
 
             return true;
 
-        } catch (error: any) {
+        } catch (error) {
             console.error(`Failed to validate comment permissions for ${repositoryName}:`, error);
             return false;
         }

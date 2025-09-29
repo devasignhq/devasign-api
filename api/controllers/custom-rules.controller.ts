@@ -1,7 +1,7 @@
 import { NextFunction, Request, Response } from "express";
 import { prisma } from "../config/database.config";
 import { ErrorClass, NotFoundErrorClass } from "../models/general.model";
-import { RuleType, RuleSeverity } from "../generated/client";
+import { RuleType, RuleSeverity, Prisma } from "../generated/client";
 import { RuleEngineService } from "../services/rule-engine.service";
 
 // Get all custom rules for an installation
@@ -26,12 +26,12 @@ export const getCustomRules = async (req: Request, res: Response, next: NextFunc
         }
 
         // Build where clause based on filters
-        const where: any = {
-            installationId: installationId,
+        const where: Prisma.AIReviewRuleWhereInput = {
+            installationId
         };
 
         if (active !== undefined) {
-            where.active = active === 'true';
+            where.active = active === "true";
         }
 
         if (ruleType) {
@@ -45,9 +45,9 @@ export const getCustomRules = async (req: Request, res: Response, next: NextFunc
         const rules = await prisma.aIReviewRule.findMany({
             where,
             orderBy: [
-                { active: 'desc' },
-                { severity: 'desc' },
-                { createdAt: 'desc' }
+                { active: "desc" },
+                { severity: "desc" },
+                { createdAt: "desc" }
             ]
         });
 
@@ -84,7 +84,7 @@ export const getCustomRule = async (req: Request, res: Response, next: NextFunct
         const rule = await prisma.aIReviewRule.findFirst({
             where: {
                 id: ruleId,
-                installationId: installationId
+                installationId
             }
         });
 
@@ -125,8 +125,8 @@ export const createCustomRule = async (req: Request, res: Response, next: NextFu
         // Check if rule name already exists for this installation
         const existingRule = await prisma.aIReviewRule.findFirst({
             where: {
-                installationId: installationId,
-                name: name
+                installationId,
+                name
             }
         });
 
@@ -190,7 +190,7 @@ export const updateCustomRule = async (req: Request, res: Response, next: NextFu
         const existingRule = await prisma.aIReviewRule.findFirst({
             where: {
                 id: ruleId,
-                installationId: installationId
+                installationId
             }
         });
 
@@ -202,8 +202,8 @@ export const updateCustomRule = async (req: Request, res: Response, next: NextFu
         if (name && name !== existingRule.name) {
             const nameConflict = await prisma.aIReviewRule.findFirst({
                 where: {
-                    installationId: installationId,
-                    name: name,
+                    installationId,
+                    name,
                     id: { not: ruleId }
                 }
             });
@@ -232,7 +232,7 @@ export const updateCustomRule = async (req: Request, res: Response, next: NextFu
         }
 
         // Build update data
-        const updateData: any = {};
+        const updateData: Prisma.AIReviewRuleUpdateInput = {};
         if (name !== undefined) updateData.name = name;
         if (description !== undefined) updateData.description = description;
         if (ruleType !== undefined) updateData.ruleType = ruleType as RuleType;
@@ -280,7 +280,7 @@ export const deleteCustomRule = async (req: Request, res: Response, next: NextFu
         const existingRule = await prisma.aIReviewRule.findFirst({
             where: {
                 id: ruleId,
-                installationId: installationId
+                installationId
             }
         });
 

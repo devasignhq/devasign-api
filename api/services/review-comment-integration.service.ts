@@ -1,19 +1,17 @@
-import { ReviewResult } from '../models/ai-review.model';
-import { ReviewFormatterService } from './review-formatter.service';
-import { AIReviewCommentService } from './ai-review-comment.service';
-import { GitHubAPIError } from '../models/ai-review.errors';
+import { ReviewResult } from "../models/ai-review.model";
+import { ReviewFormatterService } from "./review-formatter.service";
+import { AIReviewCommentService } from "./ai-review-comment.service";
+import { GitHubAPIError } from "../models/ai-review.errors";
 
 /**
  * Review Comment Integration Service
  * Integrates review formatting and GitHub comment posting
- * Requirements: 6.1, 6.2, 6.3
  */
 export class ReviewCommentIntegrationService {
 
     /**
      * Posts or updates a complete AI review comment on a PR
      * This is the main entry point for posting review results
-     * Requirements: 6.1, 6.2, 6.3
      */
     public static async postReviewComment(result: ReviewResult): Promise<{
         success: boolean;
@@ -25,7 +23,7 @@ export class ReviewCommentIntegrationService {
             if (!this.validateReviewResult(result)) {
                 return {
                     success: false,
-                    error: 'Invalid review result data'
+                    error: "Invalid review result data"
                 };
             }
 
@@ -38,7 +36,7 @@ export class ReviewCommentIntegrationService {
             if (!hasPermission) {
                 return {
                     success: false,
-                    error: 'No permission to post comments on this repository'
+                    error: "No permission to post comments on this repository"
                 };
             }
 
@@ -51,24 +49,23 @@ export class ReviewCommentIntegrationService {
             };
 
         } catch (error) {
-            console.error('Error posting review comment:', error);
+            console.error("Error posting review comment:", error);
 
             return {
                 success: false,
-                error: error instanceof Error ? error.message : 'Unknown error occurred'
+                error: error instanceof Error ? error.message : "Unknown error occurred"
             };
         }
     }
 
     /**
      * Posts a status update comment (analysis started, completed, failed)
-     * Requirements: 6.1
      */
     public static async postStatusUpdate(
         installationId: string,
         repositoryName: string,
         prNumber: number,
-        status: 'started' | 'completed' | 'failed',
+        status: "started" | "completed" | "failed",
         details?: string
     ): Promise<{
         success: boolean;
@@ -90,11 +87,11 @@ export class ReviewCommentIntegrationService {
             };
 
         } catch (error) {
-            console.error('Error posting status update:', error);
+            console.error("Error posting status update:", error);
 
             return {
                 success: false,
-                error: error instanceof Error ? error.message : 'Unknown error occurred'
+                error: error instanceof Error ? error.message : "Unknown error occurred"
             };
         }
     }
@@ -113,7 +110,7 @@ export class ReviewCommentIntegrationService {
             if (!this.validateReviewResult(result)) {
                 return {
                     success: false,
-                    error: 'Invalid review result data'
+                    error: "Invalid review result data"
                 };
             }
 
@@ -127,11 +124,11 @@ export class ReviewCommentIntegrationService {
             };
 
         } catch (error) {
-            console.error('Error generating review preview:', error);
+            console.error("Error generating review preview:", error);
 
             return {
                 success: false,
-                error: error instanceof Error ? error.message : 'Unknown error occurred'
+                error: error instanceof Error ? error.message : "Unknown error occurred"
             };
         }
     }
@@ -159,11 +156,11 @@ export class ReviewCommentIntegrationService {
             };
 
         } catch (error) {
-            console.error('Error deleting review comment:', error);
+            console.error("Error deleting review comment:", error);
 
             return {
                 success: false,
-                error: error instanceof Error ? error.message : 'Unknown error occurred'
+                error: error instanceof Error ? error.message : "Unknown error occurred"
             };
         }
     }
@@ -193,11 +190,11 @@ export class ReviewCommentIntegrationService {
             };
 
         } catch (error) {
-            console.error('Error getting review comments:', error);
+            console.error("Error getting review comments:", error);
 
             return {
                 success: false,
-                error: error instanceof Error ? error.message : 'Unknown error occurred'
+                error: error instanceof Error ? error.message : "Unknown error occurred"
             };
         }
     }
@@ -231,10 +228,10 @@ export class ReviewCommentIntegrationService {
                         attempts
                     };
                 } else {
-                    lastError = new Error(response.error || 'Unknown error');
+                    lastError = new Error(response.error || "Unknown error");
 
                     // Don't retry if it's a permission error
-                    if (response.error?.includes('permission')) {
+                    if (response.error?.includes("permission")) {
                         break;
                     }
                 }
@@ -260,7 +257,7 @@ export class ReviewCommentIntegrationService {
 
         return {
             success: false,
-            error: lastError?.message || 'Unknown error occurred',
+            error: lastError?.message || "Unknown error occurred",
             attempts
         };
     }
@@ -270,15 +267,15 @@ export class ReviewCommentIntegrationService {
      */
     private static validateReviewResult(result: ReviewResult): boolean {
         if (!result) {
-            console.error('Review result is null or undefined');
+            console.error("Review result is null or undefined");
             return false;
         }
 
         const requiredFields = [
-            'installationId',
-            'repositoryName',
-            'prNumber',
-            'mergeScore'
+            "installationId",
+            "repositoryName",
+            "prNumber",
+            "mergeScore"
         ];
 
         for (const field of requiredFields) {
@@ -289,24 +286,24 @@ export class ReviewCommentIntegrationService {
         }
 
         // Validate merge score is within valid range
-        if (typeof result.mergeScore !== 'number' || result.mergeScore < 0 || result.mergeScore > 100) {
+        if (typeof result.mergeScore !== "number" || result.mergeScore < 0 || result.mergeScore > 100) {
             console.error(`Invalid merge score: ${result.mergeScore}`);
             return false;
         }
 
         // Validate arrays exist (even if empty)
         if (!Array.isArray(result.rulesViolated)) {
-            console.error('rulesViolated is not an array');
+            console.error("rulesViolated is not an array");
             return false;
         }
 
         if (!Array.isArray(result.rulesPassed)) {
-            console.error('rulesPassed is not an array');
+            console.error("rulesPassed is not an array");
             return false;
         }
 
         if (!Array.isArray(result.suggestions)) {
-            console.error('suggestions is not an array');
+            console.error("suggestions is not an array");
             return false;
         }
 
@@ -328,48 +325,48 @@ export class ReviewCommentIntegrationService {
             mergeScore: 75,
             rulesViolated: [
                 {
-                    ruleId: 'test-rule-1',
-                    ruleName: 'Code Style Violation',
-                    severity: 'MEDIUM' as any,
-                    description: 'Missing semicolons detected in JavaScript files',
-                    details: 'Found 3 instances of missing semicolons',
-                    affectedFiles: ['src/main.js', 'src/utils.js']
+                    ruleId: "test-rule-1",
+                    ruleName: "Code Style Violation",
+                    severity: "MEDIUM",
+                    description: "Missing semicolons detected in JavaScript files",
+                    details: "Found 3 instances of missing semicolons",
+                    affectedFiles: ["src/main.js", "src/utils.js"]
                 }
             ],
             rulesPassed: [
                 {
-                    ruleId: 'test-rule-2',
-                    ruleName: 'Security Check',
-                    severity: 'HIGH' as any,
-                    description: 'No security vulnerabilities detected'
+                    ruleId: "test-rule-2",
+                    ruleName: "Security Check",
+                    severity: "HIGH",
+                    description: "No security vulnerabilities detected"
                 },
                 {
-                    ruleId: 'test-rule-3',
-                    ruleName: 'Documentation',
-                    severity: 'LOW' as any,
-                    description: 'All public functions have documentation'
+                    ruleId: "test-rule-3",
+                    ruleName: "Documentation",
+                    severity: "LOW",
+                    description: "All public functions have documentation"
                 }
             ],
             suggestions: [
                 {
-                    file: 'src/main.js',
+                    file: "src/main.js",
                     lineNumber: 42,
-                    type: 'fix',
-                    severity: 'medium',
-                    description: 'Add semicolon at end of statement',
-                    suggestedCode: 'const result = calculateValue();',
-                    reasoning: 'Consistent code style improves readability and prevents potential issues'
+                    type: "fix",
+                    severity: "medium",
+                    description: "Add semicolon at end of statement",
+                    suggestedCode: "const result = calculateValue();",
+                    reasoning: "Consistent code style improves readability and prevents potential issues"
                 },
                 {
-                    file: 'src/utils.js',
-                    type: 'improvement',
-                    severity: 'low',
-                    description: 'Consider using const instead of let for immutable variables',
-                    reasoning: 'Using const makes the code more predictable and prevents accidental reassignment'
+                    file: "src/utils.js",
+                    type: "improvement",
+                    severity: "low",
+                    description: "Consider using const instead of let for immutable variables",
+                    reasoning: "Using const makes the code more predictable and prevents accidental reassignment"
                 }
             ],
-            reviewStatus: 'COMPLETED' as any,
-            summary: 'This PR shows good overall quality with minor style issues that should be addressed.',
+            reviewStatus: "COMPLETED",
+            summary: "This PR shows good overall quality with minor style issues that should be addressed.",
             confidence: 0.85,
             processingTime: 15000,
             createdAt: new Date()
@@ -410,11 +407,11 @@ export class ReviewCommentIntegrationService {
             };
 
         } catch (postError) {
-            console.error('Error posting analysis error comment:', postError);
+            console.error("Error posting analysis error comment:", postError);
 
             return {
                 success: false,
-                error: postError instanceof Error ? postError.message : 'Unknown error occurred'
+                error: postError instanceof Error ? postError.message : "Unknown error occurred"
             };
         }
     }

@@ -1,9 +1,10 @@
+ 
 import { TimelineType } from "../generated/client";
 import { IssueDto, IssueLabel } from "./github.model";
 
 export enum MessageType {
-    GENERAL = 'GENERAL',
-    TIMELINE_MODIFICATION = 'TIMELINE_MODIFICATION'
+    GENERAL = "GENERAL",
+    TIMELINE_MODIFICATION = "TIMELINE_MODIFICATION"
 }
 
 export type AddressBook = {
@@ -60,9 +61,9 @@ export type Message = {
 export class ErrorClass {
     public readonly name: string;
     public readonly message: string;
-    public readonly details?: any;
+    public readonly details?: unknown;
 
-    constructor(name: string, details: any, message: string) {
+    constructor(name: string, details: unknown, message: string) {
         this.name = name;
         this.message = message;
         this.details = details;

@@ -10,14 +10,13 @@ import {
     FetchedFile,
     EnhancedReviewContext,
     ContextMetrics,
-    ProcessingTimes,
     isValidRawCodeChanges,
     isValidRepositoryStructure,
     isValidContextAnalysisResponse,
     isValidFetchedFile
-} from '../models/intelligent-context.model';
-import { RelevantContext } from '../models/ai-review.model';
-import { LoggingService } from './logging.service';
+} from "../models/intelligent-context.model";
+import { RelevantContext } from "../models/ai-review.model";
+import { LoggingService } from "./logging.service";
 
 export class EnhancedContextBuilderService {
 
@@ -52,9 +51,9 @@ export class EnhancedContextBuilderService {
                 
                 // Add intelligent context data
                 rawCodeChanges: codeChanges,
-                repositoryStructure: repositoryStructure,
-                contextAnalysis: contextAnalysis,
-                fetchedFiles: fetchedFiles,
+                repositoryStructure,
+                contextAnalysis,
+                fetchedFiles,
                 contextMetrics: {
                     ...contextMetrics,
                     processingTime: {
@@ -67,7 +66,7 @@ export class EnhancedContextBuilderService {
             // Perform context quality assessment and optimization
             const optimizedContext = await this.optimizeContext(enhancedContext);
 
-            LoggingService.logInfo('enhanced_context_built', 'Enhanced context built successfully', {
+            LoggingService.logInfo("enhanced_context_built", "Enhanced context built successfully", {
                 prNumber: codeChanges.prNumber,
                 repositoryName: codeChanges.repositoryName,
                 totalFiles: repositoryStructure.totalFiles,
@@ -80,7 +79,7 @@ export class EnhancedContextBuilderService {
             return optimizedContext;
 
         } catch (error) {
-            LoggingService.logError('enhanced_context_build_failed', error instanceof Error ? error : new Error(String(error)), {
+            LoggingService.logError("enhanced_context_build_failed", error instanceof Error ? error : new Error(String(error)), {
                 prNumber: codeChanges.prNumber,
                 repositoryName: codeChanges.repositoryName
             });
@@ -127,23 +126,23 @@ export class EnhancedContextBuilderService {
         existingContext: RelevantContext
     ): void {
         if (!isValidRawCodeChanges(codeChanges)) {
-            throw new Error('Invalid raw code changes provided');
+            throw new Error("Invalid raw code changes provided");
         }
 
         if (!isValidRepositoryStructure(repositoryStructure)) {
-            throw new Error('Invalid repository structure provided');
+            throw new Error("Invalid repository structure provided");
         }
 
         if (!isValidContextAnalysisResponse(contextAnalysis)) {
-            throw new Error('Invalid context analysis response provided');
+            throw new Error("Invalid context analysis response provided");
         }
 
         if (!Array.isArray(fetchedFiles) || !fetchedFiles.every(isValidFetchedFile)) {
-            throw new Error('Invalid fetched files array provided');
+            throw new Error("Invalid fetched files array provided");
         }
 
-        if (!existingContext || typeof existingContext !== 'object') {
-            throw new Error('Invalid existing context provided');
+        if (!existingContext || typeof existingContext !== "object") {
+            throw new Error("Invalid existing context provided");
         }
 
         // Validate that fetched files correspond to AI recommendations
@@ -152,7 +151,7 @@ export class EnhancedContextBuilderService {
         
         const unexpectedFiles = [...fetchedPaths].filter(path => !recommendedPaths.has(path));
         if (unexpectedFiles.length > 0) {
-            LoggingService.logWarning('unexpected_fetched_files', 'Fetched files contain paths not recommended by AI', {
+            LoggingService.logWarning("unexpected_fetched_files", "Fetched files contain paths not recommended by AI", {
                 unexpectedFiles,
                 prNumber: codeChanges.prNumber
             });
@@ -190,7 +189,7 @@ export class EnhancedContextBuilderService {
                 }
             };
 
-            LoggingService.logDebug('context_optimization_completed', 'Context optimization completed', {
+            LoggingService.logDebug("context_optimization_completed", "Context optimization completed", {
                 prNumber: context.rawCodeChanges.prNumber,
                 originalRelevantFiles: context.relevantFiles.length,
                 optimizedRelevantFiles: optimizedRelevantFiles.length,
@@ -201,7 +200,7 @@ export class EnhancedContextBuilderService {
             return optimizedContext;
 
         } catch (error) {
-            LoggingService.logError('context_optimization_failed', error instanceof Error ? error : new Error(String(error)), {
+            LoggingService.logError("context_optimization_failed", error instanceof Error ? error : new Error(String(error)), {
                 prNumber: context.rawCodeChanges.prNumber
             });
             return context;
@@ -214,9 +213,6 @@ export class EnhancedContextBuilderService {
     private optimizeRelevantFiles(context: EnhancedReviewContext) {
         const existingFiles = context.relevantFiles || [];
         const fetchedFiles = context.fetchedFiles || [];
-        
-        // Create a map of existing files for quick lookup
-        const existingFileMap = new Map(existingFiles.map(file => [file.filename, file]));
         
         // Merge fetched files with existing files, prioritizing successfully fetched ones
         const mergedFiles = [...existingFiles];
@@ -261,8 +257,8 @@ export class EnhancedContextBuilderService {
         const enhancedStandards = [
             ...(context.projectStandards || []),
             {
-                category: 'AI Analysis',
-                rule: 'Context Relevance',
+                category: "AI Analysis",
+                rule: "Context Relevance",
                 description: `AI analysis determined ${contextAnalysis.analysisType} context approach with ${Math.round(contextAnalysis.confidence * 100)}% confidence`,
                 examples: contextAnalysis.relevantFiles.map(f => `${f.filePath}: ${f.reason}`)
             }
@@ -272,7 +268,7 @@ export class EnhancedContextBuilderService {
         const enhancedPatterns = [
             ...(context.codePatterns || []),
             {
-                pattern: 'File Change Distribution',
+                pattern: "File Change Distribution",
                 description: `PR modifies ${rawCodeChanges.fileChanges.length} files with ${rawCodeChanges.totalChanges.additions} additions and ${rawCodeChanges.totalChanges.deletions} deletions`,
                 examples: rawCodeChanges.fileChanges.map(f => `${f.filename} (${f.status}): +${f.additions}/-${f.deletions}`),
                 frequency: rawCodeChanges.fileChanges.length
@@ -330,13 +326,13 @@ export class EnhancedContextBuilderService {
      * Optimize content for token efficiency while maintaining quality
      */
     private async optimizeContent(context: EnhancedReviewContext): Promise<Partial<EnhancedReviewContext>> {
-        // For now, return as-is. In the future, this could implement:
+        // In the future, this could implement:
         // - Content truncation for large files
         // - Summarization of less relevant content
         // - Token counting and optimization
         // - Compression of repetitive patterns
         
-        return {};
+        return context;
     }
 
     /**
@@ -352,8 +348,8 @@ export class EnhancedContextBuilderService {
             `AI Analysis: ${analysis.analysisType} (${Math.round(analysis.confidence * 100)}% confidence)`,
             `Files: ${metrics.filesRecommended} recommended, ${metrics.filesFetched} fetched (${Math.round(metrics.fetchSuccessRate * 100)}% success)`,
             `Processing: ${metrics.processingTime.total}ms total`,
-            `Quality Score: ${metrics.contextQualityScore || 'N/A'}/100`
-        ].join(' | ');
+            `Quality Score: ${metrics.contextQualityScore || "N/A"}/100`
+        ].join(" | ");
     }
 
     /**
@@ -363,11 +359,11 @@ export class EnhancedContextBuilderService {
         const issues: string[] = [];
 
         // Check required fields
-        if (!context.rawCodeChanges) issues.push('Missing raw code changes');
-        if (!context.repositoryStructure) issues.push('Missing repository structure');
-        if (!context.contextAnalysis) issues.push('Missing context analysis');
-        if (!context.fetchedFiles) issues.push('Missing fetched files');
-        if (!context.contextMetrics) issues.push('Missing context metrics');
+        if (!context.rawCodeChanges) issues.push("Missing raw code changes");
+        if (!context.repositoryStructure) issues.push("Missing repository structure");
+        if (!context.contextAnalysis) issues.push("Missing context analysis");
+        if (!context.fetchedFiles) issues.push("Missing fetched files");
+        if (!context.contextMetrics) issues.push("Missing context metrics");
 
         // Check data consistency
         if (context.contextAnalysis && context.fetchedFiles) {
@@ -383,10 +379,10 @@ export class EnhancedContextBuilderService {
         if (context.contextMetrics) {
             const metrics = context.contextMetrics;
             if (metrics.fetchSuccessRate < 0 || metrics.fetchSuccessRate > 1) {
-                issues.push('Invalid fetch success rate');
+                issues.push("Invalid fetch success rate");
             }
             if (metrics.totalFilesInRepo < 0) {
-                issues.push('Invalid total files count');
+                issues.push("Invalid total files count");
             }
         }
 

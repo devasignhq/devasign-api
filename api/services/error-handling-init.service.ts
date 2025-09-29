@@ -1,12 +1,11 @@
-import { ErrorHandlingIntegrationService } from './error-handling-integration.service';
-import { LoggingService } from './logging.service';
-import { HealthCheckService } from './health-check.service';
-import { CircuitBreakerService } from './circuit-breaker.service';
+import { ErrorHandlingIntegrationService } from "./error-handling-integration.service";
+import { LoggingService } from "./logging.service";
+import { HealthCheckService } from "./health-check.service";
+import { CircuitBreakerService } from "./circuit-breaker.service";
 
 /**
  * Error Handling Initialization Service
  * Sets up and configures all error handling components for the AI Review System
- * Requirements: 7.4, 6.4
  */
 export class ErrorHandlingInitService {
     private static initialized = false;
@@ -18,16 +17,16 @@ export class ErrorHandlingInitService {
     static async initialize(): Promise<void> {
         if (ErrorHandlingInitService.initialized) {
             LoggingService.logWarning(
-                'error_handling_already_initialized',
-                'Error handling components are already initialized'
+                "error_handling_already_initialized",
+                "Error handling components are already initialized"
             );
             return;
         }
 
         try {
             LoggingService.logInfo(
-                'error_handling_init_start',
-                'Starting error handling initialization'
+                "error_handling_init_start",
+                "Starting error handling initialization"
             );
 
             // Initialize circuit breakers
@@ -48,8 +47,8 @@ export class ErrorHandlingInitService {
             ErrorHandlingInitService.initialized = true;
 
             LoggingService.logInfo(
-                'error_handling_init_complete',
-                'Error handling initialization completed successfully',
+                "error_handling_init_complete",
+                "Error handling initialization completed successfully",
                 {
                     circuitBreakers: Object.keys(CircuitBreakerService.getCircuitStatus()),
                     monitoringActive: true,
@@ -59,9 +58,9 @@ export class ErrorHandlingInitService {
 
         } catch (error) {
             LoggingService.logError(
-                'error_handling_init_failed',
+                "error_handling_init_failed",
                 error as Error,
-                { phase: 'initialization' }
+                { phase: "initialization" }
             );
             throw error;
         }
@@ -76,8 +75,8 @@ export class ErrorHandlingInitService {
         }
 
         LoggingService.logInfo(
-            'error_handling_shutdown_start',
-            'Starting graceful shutdown of error handling components'
+            "error_handling_shutdown_start",
+            "Starting graceful shutdown of error handling components"
         );
 
         try {
@@ -88,7 +87,7 @@ export class ErrorHandlingInitService {
                     await handler();
                 } catch (error) {
                     LoggingService.logError(
-                        'shutdown_handler_failed',
+                        "shutdown_handler_failed",
                         error as Error
                     );
                 }
@@ -100,13 +99,13 @@ export class ErrorHandlingInitService {
             ErrorHandlingInitService.initialized = false;
 
             LoggingService.logInfo(
-                'error_handling_shutdown_complete',
-                'Error handling shutdown completed'
+                "error_handling_shutdown_complete",
+                "Error handling shutdown completed"
             );
 
         } catch (error) {
             LoggingService.logError(
-                'error_handling_shutdown_failed',
+                "error_handling_shutdown_failed",
                 error as Error
             );
         }
@@ -120,7 +119,7 @@ export class ErrorHandlingInitService {
             const healthResult = await HealthCheckService.performHealthCheck(true);
 
             LoggingService.logInfo(
-                'initial_health_check',
+                "initial_health_check",
                 `Initial health check completed: ${healthResult.status}`,
                 {
                     status: healthResult.status,
@@ -131,9 +130,9 @@ export class ErrorHandlingInitService {
 
             // Log warnings for unhealthy services
             Object.entries(healthResult.services).forEach(([serviceName, health]) => {
-                if (health.status !== 'healthy') {
+                if (health.status !== "healthy") {
                     LoggingService.logWarning(
-                        'service_not_healthy_on_startup',
+                        "service_not_healthy_on_startup",
                         `Service ${serviceName} is not healthy on startup: ${health.message}`,
                         { serviceName, health }
                     );
@@ -141,17 +140,17 @@ export class ErrorHandlingInitService {
             });
 
             // If system is completely unhealthy, log critical error but don't fail startup
-            if (healthResult.status === 'unhealthy') {
+            if (healthResult.status === "unhealthy") {
                 LoggingService.logError(
-                    'system_unhealthy_on_startup',
-                    new Error('System is unhealthy on startup'),
+                    "system_unhealthy_on_startup",
+                    new Error("System is unhealthy on startup"),
                     { healthResult }
                 );
             }
 
         } catch (error) {
             LoggingService.logError(
-                'initial_health_check_failed',
+                "initial_health_check_failed",
                 error as Error
             );
             // Don't fail initialization due to health check failure
@@ -165,7 +164,7 @@ export class ErrorHandlingInitService {
         // Handle graceful shutdown
         const gracefulShutdown = async (signal: string) => {
             LoggingService.logInfo(
-                'graceful_shutdown_initiated',
+                "graceful_shutdown_initiated",
                 `Graceful shutdown initiated by ${signal}`
             );
 
@@ -174,9 +173,9 @@ export class ErrorHandlingInitService {
         };
 
         // Handle uncaught exceptions
-        process.on('uncaughtException', (error: Error) => {
+        process.on("uncaughtException", (error: Error) => {
             LoggingService.logError(
-                'uncaught_exception',
+                "uncaught_exception",
                 error,
                 { fatal: true }
             );
@@ -188,30 +187,30 @@ export class ErrorHandlingInitService {
         });
 
         // Handle unhandled promise rejections
-        process.on('unhandledRejection', (reason: any, promise: Promise<any>) => {
+        process.on("unhandledRejection", (reason: unknown, promise: Promise<unknown>) => {
             LoggingService.logError(
-                'unhandled_rejection',
+                "unhandled_rejection",
                 reason instanceof Error ? reason : new Error(String(reason)),
                 { promise: promise.toString() }
             );
         });
 
         // Handle shutdown signals
-        process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
-        process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+        process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+        process.on("SIGINT", () => gracefulShutdown("SIGINT"));
 
         // Handle warnings
-        process.on('warning', (warning: Error) => {
+        process.on("warning", (warning: Error) => {
             LoggingService.logWarning(
-                'process_warning',
+                "process_warning",
                 warning.message,
                 { warning: warning.stack }
             );
         });
 
         LoggingService.logInfo(
-            'process_handlers_setup',
-            'Process event handlers have been set up'
+            "process_handlers_setup",
+            "Process event handlers have been set up"
         );
     }
 
@@ -225,9 +224,9 @@ export class ErrorHandlingInitService {
                 const healthResult = await HealthCheckService.performHealthCheck(false);
 
                 // Only log if status changed or if there are issues
-                if (healthResult.status !== 'healthy') {
+                if (healthResult.status !== "healthy") {
                     LoggingService.logWarning(
-                        'periodic_health_check',
+                        "periodic_health_check",
                         `Periodic health check: ${healthResult.status}`,
                         {
                             status: healthResult.status,
@@ -238,7 +237,7 @@ export class ErrorHandlingInitService {
                 }
             } catch (error) {
                 LoggingService.logError(
-                    'periodic_health_check_failed',
+                    "periodic_health_check_failed",
                     error as Error
                 );
             }
@@ -250,8 +249,8 @@ export class ErrorHandlingInitService {
         });
 
         LoggingService.logInfo(
-            'periodic_health_checks_setup',
-            'Periodic health checks have been set up'
+            "periodic_health_checks_setup",
+            "Periodic health checks have been set up"
         );
     }
 
@@ -264,29 +263,29 @@ export class ErrorHandlingInitService {
 
         // Check for required service configurations
         if (!process.env.GROQ_API_KEY) {
-            warnings.push('GROQ_API_KEY not configured - Groq service will be unavailable');
+            warnings.push("GROQ_API_KEY not configured - Groq service will be unavailable");
         }
 
         if (!process.env.PINECONE_API_KEY) {
-            warnings.push('PINECONE_API_KEY not configured - Pinecone service will be unavailable');
+            warnings.push("PINECONE_API_KEY not configured - Pinecone service will be unavailable");
         }
 
         if (!process.env.GITHUB_APP_ID || !process.env.GITHUB_APP_PRIVATE_KEY) {
-            errors.push('GitHub app credentials not configured - GitHub integration will fail');
+            errors.push("GitHub app credentials not configured - GitHub integration will fail");
         }
 
         if (!process.env.DATABASE_URL) {
-            errors.push('DATABASE_URL not configured - database operations will fail');
+            errors.push("DATABASE_URL not configured - database operations will fail");
         }
 
         if (!process.env.GITHUB_WEBHOOK_SECRET) {
-            warnings.push('GITHUB_WEBHOOK_SECRET not configured - pull request review disabled');
+            warnings.push("GITHUB_WEBHOOK_SECRET not configured - pull request review disabled");
         }
 
         // Log warnings
         warnings.forEach(warning => {
             LoggingService.logWarning(
-                'config_validation_warning',
+                "config_validation_warning",
                 warning
             );
         });
@@ -294,14 +293,14 @@ export class ErrorHandlingInitService {
         // Log errors
         errors.forEach(error => {
             LoggingService.logError(
-                'config_validation_error',
+                "config_validation_error",
                 new Error(error)
             );
         });
 
         LoggingService.logInfo(
-            'environment_validation_complete',
-            'Environment configuration validation completed',
+            "environment_validation_complete",
+            "Environment configuration validation completed",
             {
                 warnings: warnings.length,
                 errors: errors.length,
@@ -314,15 +313,11 @@ export class ErrorHandlingInitService {
     /**
      * Gets initialization status
      */
-    static getInitializationStatus(): {
-        initialized: boolean;
-        healthStatus: any;
-        circuitBreakers: any;
-    } {
+    static getInitializationStatus() {
         return {
             initialized: ErrorHandlingInitService.initialized,
             healthStatus: HealthCheckService.getCachedHealthStatus(),
-            circuitBreakers: CircuitBreakerService.getCircuitStatus(),
+            circuitBreakers: CircuitBreakerService.getCircuitStatus()
         };
     }
 
@@ -338,8 +333,8 @@ export class ErrorHandlingInitService {
      */
     static async forceReinitialize(): Promise<void> {
         LoggingService.logWarning(
-            'force_reinitialize',
-            'Forcing reinitialization of error handling components'
+            "force_reinitialize",
+            "Forcing reinitialization of error handling components"
         );
 
         await ErrorHandlingInitService.shutdown();

@@ -41,16 +41,16 @@ import {
 export const taskRoutes = Router();
 
 // Task queries
-taskRoutes.get('/', getTasksValidator, getTasks as RequestHandler);
-taskRoutes.get('/installation/:installationId', getInstallationTasksValidator, getInstallationTasks as RequestHandler);
-taskRoutes.get('/contributor', getContributorTasksValidator, getContributorTasks as RequestHandler);
+taskRoutes.get("/", getTasksValidator, getTasks as RequestHandler);
+taskRoutes.get("/installation/:installationId", getInstallationTasksValidator, getInstallationTasks as RequestHandler);
+taskRoutes.get("/contributor", getContributorTasksValidator, getContributorTasks as RequestHandler);
 
-taskRoutes.get('/:id', getTask as RequestHandler);
-taskRoutes.get('/installation/:installationId/:taskId', getInstallationTask as RequestHandler);
-taskRoutes.get('/contributor/:id', getContributorTask as RequestHandler);
+taskRoutes.get("/:id", getTask as RequestHandler);
+taskRoutes.get("/installation/:installationId/:taskId", getInstallationTask as RequestHandler);
+taskRoutes.get("/contributor/:id", getContributorTask as RequestHandler);
 
-taskRoutes.get('/activities/:id', getTaskActivitiesValidator, getTaskActivities as RequestHandler);
-taskRoutes.patch('/activities/:taskActivityId/viewed', markActivityAsViewed as RequestHandler);
+taskRoutes.get("/activities/:id", getTaskActivitiesValidator, getTaskActivities as RequestHandler);
+taskRoutes.patch("/activities/:taskActivityId/viewed", markActivityAsViewed as RequestHandler);
 
 // Task management
 taskRoutes.post("/", createTaskValidator, createTask as RequestHandler);

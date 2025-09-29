@@ -3,7 +3,8 @@ import {
     Keypair,
     StellarAssetId,
     NativeAssetId,
-    IssuedAssetId
+    IssuedAssetId,
+    SponsoringBuilder
 } from "@stellar/typescript-wallet-sdk";
 import { 
     StellarServiceError,
@@ -32,12 +33,13 @@ export class StellarService {
     }
 
     // TODO: Refactor this. It's currently giving errors.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     async submitTransaction(account: AccountKeypair, buildingFunction: (tx: any) => any) {
         await stellar.submitWithFeeIncrease({
             sourceAddress: account,
             timeout: 30,
             baseFeeIncrease: 100,
-            buildingFunction,
+            buildingFunction
         });
     }
 
@@ -59,7 +61,7 @@ export class StellarService {
             const accountKeyPair = account.createKeypair();
         
             const txBuilder = await stellar.transaction({
-                sourceAddress: this.masterAccount,
+                sourceAddress: this.masterAccount
             });
             const txCreateAccount = txBuilder.createAccount(accountKeyPair).build();
             txCreateAccount.sign(this.masterAccount.keypair);
@@ -68,8 +70,9 @@ export class StellarService {
             return {
                 publicKey: accountKeyPair.publicKey,
                 secretKey: accountKeyPair.secretKey,
-                txHash: txCreateAccount.hash().toString('hex')
+                txHash: txCreateAccount.hash().toString("hex")
             };
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } catch (error: any) {
             if (error.response?.status === 400) {
                 const errorData = error.response?.data;
@@ -95,10 +98,10 @@ export class StellarService {
             const accountKeyPair = account.createKeypair();
 
             const txBuilder = await stellar.transaction({
-                sourceAddress: new AccountKeypair(sponsorKeyPair),
+                sourceAddress: new AccountKeypair(sponsorKeyPair)
             });
 
-            const buildingFunction = (bldr: any) => bldr.createAccount(accountKeyPair);
+            const buildingFunction = (bldr: SponsoringBuilder) => bldr.createAccount(accountKeyPair);
             const txCreateAccount = txBuilder
                 .sponsoring(new AccountKeypair(sponsorKeyPair), buildingFunction, accountKeyPair)
                 .build();
@@ -111,8 +114,9 @@ export class StellarService {
             return {
                 publicKey: accountKeyPair.publicKey,
                 secretKey: accountKeyPair.secretKey,
-                txHash: txCreateAccount.hash().toString('hex')
+                txHash: txCreateAccount.hash().toString("hex")
             };
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } catch (error: any) {
             if (error.response?.status === 400) {
                 const errorData = error.response?.data;
@@ -146,13 +150,14 @@ export class StellarService {
             const sourceKeypair = Keypair.fromSecret(sourceSecret);
     
             const assetTxBuilder = await stellar.transaction({
-                sourceAddress: new AccountKeypair(sourceKeypair),
+                sourceAddress: new AccountKeypair(sourceKeypair)
             });
             const txAddAssetSupport = assetTxBuilder.addAssetSupport(assetId).build();
             txAddAssetSupport.sign(sourceKeypair);
             await stellar.submitTransaction(txAddAssetSupport);
 
-            return { txHash: txAddAssetSupport.hash().toString('hex') };
+            return { txHash: txAddAssetSupport.hash().toString("hex") };
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } catch (error: any) {
             if (error.response?.status === 400) {
                 const errorData = error.response?.data;
@@ -182,10 +187,10 @@ export class StellarService {
             const accountKeyPair = Keypair.fromSecret(accountSecret);
 
             const txBuilder = await stellar.transaction({
-                sourceAddress: new AccountKeypair(sponsorKeyPair),
+                sourceAddress: new AccountKeypair(sponsorKeyPair)
             });
 
-            const buildingFunction = (bldr: any) => bldr.addAssetSupport(assetId);
+            const buildingFunction = (bldr: SponsoringBuilder) => bldr.addAssetSupport(assetId);
             const txAddAssetSupport = txBuilder
                 .sponsoring(
                     new AccountKeypair(sponsorKeyPair), 
@@ -199,7 +204,8 @@ export class StellarService {
             
             await stellar.submitTransaction(txAddAssetSupport);
 
-            return { txHash: txAddAssetSupport.hash().toString('hex') };
+            return { txHash: txAddAssetSupport.hash().toString("hex") };
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } catch (error: any) {
             if (error.response?.status === 400) {
                 const errorData = error.response?.data;
@@ -230,7 +236,7 @@ export class StellarService {
             const sourceKeypair = Keypair.fromSecret(sourceSecret);
     
             const txBuilder = await stellar.transaction({
-                sourceAddress: new AccountKeypair(sourceKeypair),
+                sourceAddress: new AccountKeypair(sourceKeypair)
             });
 
             let transaction;
@@ -241,17 +247,17 @@ export class StellarService {
                     .transfer(
                         destinationAddress,
                         sendAssetId,
-                        amount,
+                        amount
                     )
                     .build();
             } else {
                 // Use path payment for asset conversion
                 transaction = txBuilder
                     .pathPay({
-                        destinationAddress: destinationAddress,
+                        destinationAddress,
                         sendAsset: sendAssetId,
                         destAsset: destAssetId,
-                        sendAmount: amount,
+                        sendAmount: amount
                     })
                     .build();
             }
@@ -259,7 +265,8 @@ export class StellarService {
             transaction.sign(sourceKeypair);
             await stellar.submitTransaction(transaction);
 
-            return { txHash: transaction.hash().toString('hex') };
+            return { txHash: transaction.hash().toString("hex") };
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } catch (error: any) {
             if (error.response?.status === 400) {
                 const errorData = error.response?.data;
@@ -292,7 +299,7 @@ export class StellarService {
             const accountKeyPair = Keypair.fromSecret(accountSecret);
 
             const txBuilder = await stellar.transaction({
-                sourceAddress: new AccountKeypair(accountKeyPair),
+                sourceAddress: new AccountKeypair(accountKeyPair)
             });
             
             let transaction;
@@ -303,17 +310,17 @@ export class StellarService {
                     .transfer(
                         destinationAddress,
                         sendAssetId,
-                        amount,
+                        amount
                     )
                     .build();
             } else {
                 // Use path payment for asset conversion
                 transaction = txBuilder
                     .pathPay({
-                        destinationAddress: destinationAddress,
+                        destinationAddress,
                         sendAsset: sendAssetId,
                         destAsset: destAssetId,
-                        sendAmount: amount,
+                        sendAmount: amount
                     })
                     .build();
             }
@@ -322,7 +329,7 @@ export class StellarService {
 
             const feeBump = stellar.makeFeeBump({
                 feeAddress: new AccountKeypair(sponsorKeyPair),
-                transaction: transaction,
+                transaction
             });
 
             feeBump.sign(sponsorKeyPair);
@@ -330,9 +337,10 @@ export class StellarService {
             await stellar.submitTransaction(feeBump);
 
             return { 
-                txHash: transaction.hash().toString('hex'),
-                sponsorTxHash: feeBump.hash().toString('hex'),
+                txHash: transaction.hash().toString("hex"),
+                sponsorTxHash: feeBump.hash().toString("hex")
             };
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } catch (error: any) {
             if (error.response?.status === 400) {
                 const errorData = error.response?.data;
@@ -356,13 +364,13 @@ export class StellarService {
         sourceSecret: string, 
         amount: string,
         fromAssetId: StellarAssetId = xlmAssetId,
-        toAssetId: StellarAssetId = usdcAssetId,
+        toAssetId: StellarAssetId = usdcAssetId
     ) {
         try {
             const sourceKeypair = Keypair.fromSecret(sourceSecret);
     
             const txBuilder = await stellar.transaction({
-                sourceAddress: new AccountKeypair(sourceKeypair),
+                sourceAddress: new AccountKeypair(sourceKeypair)
             });
             
             const txSwap = txBuilder.swap(fromAssetId, toAssetId, amount).build();
@@ -370,7 +378,8 @@ export class StellarService {
             txSwap.sign(sourceKeypair);
             await stellar.submitTransaction(txSwap);
 
-            return { txHash: txSwap.hash().toString('hex') };
+            return { txHash: txSwap.hash().toString("hex") };
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } catch (error: any) {
             if (error.response?.status === 400) {
                 const errorData = error.response?.data;
@@ -394,6 +403,7 @@ export class StellarService {
         try {
             const accountInfo = await account.getInfo({ accountAddress: publicKey });
             return accountInfo;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } catch (error: any) {
             if (error.response?.status === 400) {
                 const errorData = error.response?.data;
@@ -416,20 +426,20 @@ export class StellarService {
     async getTopUpTransactions(publicKey: string) {
         const allPayments = await stellar.server.payments()
             .forAccount(publicKey)
-            .order('desc')
+            .order("desc")
             .limit(100)
             .call();
 
         const incomingFunds = allPayments.records.filter(payment => {
             switch(payment.type as HorizonApi.OperationResponseType) {
-                case "payment":
-                    return (payment as HorizonApi.PaymentOperationResponse).to === publicKey;
+            case "payment":
+                return (payment as HorizonApi.PaymentOperationResponse).to === publicKey;
                 
-                case "path_payment_strict_receive":
-                    return (payment as HorizonApi.PathPaymentOperationResponse).to === publicKey;
+            case "path_payment_strict_receive":
+                return (payment as HorizonApi.PathPaymentOperationResponse).to === publicKey;
                 
-                default:
-                    return false;
+            default:
+                return false;
             }
         });
 
@@ -441,9 +451,9 @@ export class StellarService {
             .payments()
             .forAccount(publicKey)
             .cursor("now")
-            .stream
+            .stream;
         
-        return stream
+        return stream;
     }
 }
 

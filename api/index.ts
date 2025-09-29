@@ -4,8 +4,7 @@ dotenv.config();
 import express, {
     Request,
     Response,
-    NextFunction,
-    RequestHandler,
+    RequestHandler
 } from "express";
 import helmet from "helmet";
 import cors from "cors";
@@ -35,7 +34,7 @@ const PORT = process.env.NODE_ENV === "development"
 app.use(helmet());
 app.use(
     cors({
-        origin: function (origin, callback) {
+        origin (origin, callback) {
             // Allow requests with no origin (like mobile apps or curl requests)
             if (!origin) return callback(null, true);
 
@@ -51,13 +50,13 @@ app.use(
 
             // Reject other origins
             callback(new Error("Not allowed by CORS"));
-        },
+        }
     })
 );
 app.use(morgan("dev"));
 
 // Raw body parser for webhook signature validation
-app.use('/webhook', express.raw({ type: 'application/json' }));
+app.use("/webhook", express.raw({ type: "application/json" }));
 
 // JSON parser for all other routes
 app.use(express.json());
@@ -71,7 +70,7 @@ app.get("/health", (req: Request, res: Response) => {
     res.status(200).json({
         status: "healthy",
         timestamp: new Date().toISOString(),
-        uptime: process.uptime(),
+        uptime: process.uptime()
     });
 });
 
@@ -81,8 +80,8 @@ app.get("/health/detailed", async (req: Request, res: Response) => {
         const { HealthCheckService } = await import("./services/health-check.service");
         const healthResult = await HealthCheckService.performHealthCheck(true);
 
-        const statusCode = healthResult.status === 'healthy' ? 200 :
-            healthResult.status === 'degraded' ? 206 : 503;
+        const statusCode = healthResult.status === "healthy" ? 200 :
+            healthResult.status === "degraded" ? 206 : 503;
 
         res.status(statusCode).json(healthResult);
     } catch (error) {
@@ -104,8 +103,8 @@ app.get("/health/status", (async (req: Request, res: Response) => {
         if (!cached) {
             // Perform quick health check if no cached result
             const healthResult = await HealthCheckService.performHealthCheck(false);
-            const statusCode = healthResult.status === 'healthy' ? 200 :
-                healthResult.status === 'degraded' ? 206 : 503;
+            const statusCode = healthResult.status === "healthy" ? 200 :
+                healthResult.status === "degraded" ? 206 : 503;
             return res.status(statusCode).json({
                 status: healthResult.status,
                 degradedMode: healthResult.degradedMode,
@@ -113,8 +112,8 @@ app.get("/health/status", (async (req: Request, res: Response) => {
             });
         }
 
-        const statusCode = cached.status === 'healthy' ? 200 :
-            cached.status === 'degraded' ? 206 : 503;
+        const statusCode = cached.status === "healthy" ? 200 :
+            cached.status === "degraded" ? 206 : 503;
 
         res.status(statusCode).json({
             status: cached.status,
@@ -122,7 +121,7 @@ app.get("/health/status", (async (req: Request, res: Response) => {
             timestamp: cached.timestamp,
             cached: true
         });
-    } catch (error) {
+    } catch {
         res.status(503).json({
             status: "unhealthy",
             timestamp: new Date().toISOString(),
@@ -143,7 +142,7 @@ app.get("/health/error-handling", async (req: Request, res: Response) => {
         res.status(200).json({
             timestamp: new Date().toISOString(),
             errorHandling: status,
-            recovery: recoveryStatus,
+            recovery: recoveryStatus
         });
     } catch (error) {
         res.status(500).json({
@@ -162,12 +161,12 @@ app.post("/health/recover", validateUser as RequestHandler, (async (req: Request
 
         if (!currentUser?.admin && !currentUser?.custom_claims?.admin) {
             return res.status(403).json({
-                error: "Access denied. Admin privileges required.",
+                error: "Access denied. Admin privileges required."
             });
         }
 
         const { ErrorRecoveryService } = await import("./services/error-recovery.service");
-        const { type = 'complete', context } = req.body;
+        const { type = "complete", context } = req.body;
 
         const recoveryResult = await ErrorRecoveryService.attemptSystemRecovery(type, context);
 
@@ -188,14 +187,14 @@ app.post("/health/recover", validateUser as RequestHandler, (async (req: Request
 app.post(
     "/clear-db",
     validateUser as RequestHandler,
-    (async (req: Request, res: Response, next: NextFunction) => {
+    (async (req: Request, res: Response) => {
         try {
             // Check if user has admin privileges
             const { currentUser } = req.body;
 
             if (!currentUser?.admin && !currentUser?.custom_claims?.admin) {
                 return res.status(403).json({
-                    error: "Access denied. Admin privileges required.",
+                    error: "Access denied. Admin privileges required."
                 });
             }
 
@@ -222,13 +221,13 @@ app.post(
     }) as RequestHandler
 );
 
-app.get("/get-packages", validateUser as RequestHandler, async (req, res) => {
+app.get("/get-packages", validateUser as RequestHandler, async (_, res) => {
     try {
         const packages = await prisma.subscriptionPackage.findMany();
 
         res.status(201).json(packages);
     } catch (error) {
-        res.status(500).json({ error: "Failed to fetch subscription packages" });
+        res.status(500).json({ error, message: "Failed to fetch subscription packages" });
     }
 });
 
@@ -286,41 +285,24 @@ prisma.$connect();
 if (process.env.GROQ_API_KEY && process.env.GITHUB_APP_ID && process.env.GITHUB_APP_PRIVATE_KEY) {
     // Initialize error handling system
     ErrorHandlingInitService.initialize().catch(error => {
-        console.error('Failed to initialize error handling system:', error);
+        console.error("Failed to initialize error handling system:", error);
         // Continue startup even if error handling initialization fails
     });
 
     // Initialize workflow integration service with intelligent context
     (async () => {
         try {
-            const { WorkflowIntegrationService } = await import('./services/workflow-integration.service');
+            const { WorkflowIntegrationService } = await import("./services/workflow-integration.service");
             const workflowService = WorkflowIntegrationService.getInstance();
             await workflowService.initialize();
-            console.log('Workflow Integration Service initialized successfully');
-
-            // Log intelligent context configuration
-            const { PRAnalysisService } = await import('./services/pr-analysis.service');
-            const intelligentContextConfig = PRAnalysisService.getIntelligentContextConfig();
-            console.log('Intelligent Context Configuration:', {
-                enabled: intelligentContextConfig.enabled,
-                maxProcessingTime: intelligentContextConfig.maxProcessingTime + 'ms',
-                fallbackOnError: intelligentContextConfig.fallbackOnError,
-                enableMetrics: intelligentContextConfig.enableMetrics
-            });
-
-            if (intelligentContextConfig.enabled) {
-                console.log('✅ Intelligent Context Fetching is ENABLED');
-            } else {
-                console.log('⚠️  Intelligent Context Fetching is DISABLED - using standard analysis only');
-            }
-
+            console.log("Workflow Integration Service initialized successfully");
         } catch (error) {
-            console.error('Failed to initialize Workflow Integration Service:', error);
+            console.error("Failed to initialize Workflow Integration Service:", error);
             // Continue startup even if workflow initialization fails
         }
     })();
 } else {
-    console.log('AI Review system disabled - missing required environment variables (GROQ_API_KEY, GITHUB_APP_ID, GITHUB_APP_PRIVATE_KEY)');
+    console.log("AI Review system disabled - missing required environment variables (GROQ_API_KEY, GITHUB_APP_ID, GITHUB_APP_PRIVATE_KEY)");
 }
 
 const server = app.listen(PORT, "0.0.0.0", () => {
@@ -328,54 +310,54 @@ const server = app.listen(PORT, "0.0.0.0", () => {
 });
 
 // Graceful shutdown handling
-process.on('SIGTERM', async () => {
-    console.log('SIGTERM received, starting graceful shutdown...');
+process.on("SIGTERM", async () => {
+    console.log("SIGTERM received, starting graceful shutdown...");
 
     try {
         // Stop accepting new connections
         server.close(() => {
-            console.log('HTTP server closed');
+            console.log("HTTP server closed");
         });
 
         // Shutdown workflow integration service
-        const { WorkflowIntegrationService } = await import('./services/workflow-integration.service');
+        const { WorkflowIntegrationService } = await import("./services/workflow-integration.service");
         const workflowService = WorkflowIntegrationService.getInstance();
         await workflowService.shutdown();
 
         // Close database connection
         await prisma.$disconnect();
-        console.log('Database connection closed');
+        console.log("Database connection closed");
 
-        console.log('Graceful shutdown completed');
+        console.log("Graceful shutdown completed");
         process.exit(0);
     } catch (error) {
-        console.error('Error during graceful shutdown:', error);
+        console.error("Error during graceful shutdown:", error);
         process.exit(1);
     }
 });
 
-process.on('SIGINT', async () => {
-    console.log('SIGINT received, starting graceful shutdown...');
+process.on("SIGINT", async () => {
+    console.log("SIGINT received, starting graceful shutdown...");
 
     try {
         // Stop accepting new connections
         server.close(() => {
-            console.log('HTTP server closed');
+            console.log("HTTP server closed");
         });
 
         // Shutdown workflow integration service
-        const { WorkflowIntegrationService } = await import('./services/workflow-integration.service');
+        const { WorkflowIntegrationService } = await import("./services/workflow-integration.service");
         const workflowService = WorkflowIntegrationService.getInstance();
         await workflowService.shutdown();
 
         // Close database connection
         await prisma.$disconnect();
-        console.log('Database connection closed');
+        console.log("Database connection closed");
 
-        console.log('Graceful shutdown completed');
+        console.log("Graceful shutdown completed");
         process.exit(0);
     } catch (error) {
-        console.error('Error during graceful shutdown:', error);
+        console.error("Error during graceful shutdown:", error);
         process.exit(1);
     }
 });

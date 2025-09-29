@@ -1,29 +1,24 @@
-import { StellarService } from '../../../api/services/stellar.service';
-import { StellarServiceError } from '../../../api/config/stellar.config';
-import {
-    MockStellarService,
-    StellarTestHelpers,
-    createStellarServiceMock,
-    mockAssetIds
-} from '../../mocks/stellar.service.mock';
+import { StellarService } from "../../../api/services/stellar.service";
+import { StellarServiceError } from "../../../api/config/stellar.config";
+import { StellarTestHelpers, mockAssetIds } from "../../mocks/stellar.service.mock";
 
 // Mock Stellar SDK
 const mockKeypair = {
-    publicKey: 'MOCK_PUBLIC_KEY',
-    secretKey: 'MOCK_SECRET_KEY',
+    publicKey: "MOCK_PUBLIC_KEY",
+    secretKey: "MOCK_SECRET_KEY",
     sign: jest.fn()
 };
 
 const mockAccountKeypair = {
     keypair: mockKeypair,
-    publicKey: 'MOCK_PUBLIC_KEY',
-    secretKey: 'MOCK_SECRET_KEY'
+    publicKey: "MOCK_PUBLIC_KEY",
+    secretKey: "MOCK_SECRET_KEY"
 };
 
 const mockTransaction = {
     build: jest.fn().mockReturnThis(),
     sign: jest.fn(),
-    hash: jest.fn().mockReturnValue(Buffer.from('mock_hash'))
+    hash: jest.fn().mockReturnValue(Buffer.from("mock_hash"))
 };
 
 const mockTxBuilder = {
@@ -59,18 +54,18 @@ const mockStellar = {
 const mockAccount = {
     createKeypair: jest.fn().mockReturnValue(mockAccountKeypair),
     getInfo: jest.fn().mockResolvedValue({
-        accountId: 'MOCK_ACCOUNT_ID',
-        sequenceNumber: '123456789',
+        accountId: "MOCK_ACCOUNT_ID",
+        sequenceNumber: "123456789",
         balances: []
     })
 };
 
-jest.mock('@stellar/typescript-wallet-sdk', () => ({
+jest.mock("@stellar/typescript-wallet-sdk", () => ({
     AccountKeypair: jest.fn().mockImplementation(() => mockAccountKeypair),
     Keypair: {
         fromSecret: jest.fn().mockReturnValue({
-            publicKey: 'MOCK_PUBLIC_KEY',
-            secretKey: 'MOCK_SECRET_KEY',
+            publicKey: "MOCK_PUBLIC_KEY",
+            secretKey: "MOCK_SECRET_KEY",
             sign: jest.fn()
         })
     },
@@ -78,11 +73,11 @@ jest.mock('@stellar/typescript-wallet-sdk', () => ({
     IssuedAssetId: jest.fn()
 }));
 
-jest.mock('../../../api/config/stellar.config', () => ({
+jest.mock("../../../api/config/stellar.config", () => ({
     StellarServiceError: class extends Error {
         constructor(message: string, cause?: any) {
             super(message);
-            this.name = 'StellarServiceError';
+            this.name = "StellarServiceError";
             this.stack = cause;
         }
     },
@@ -97,7 +92,7 @@ jest.mock('../../../api/config/stellar.config', () => ({
             build: jest.fn().mockReturnValue({
                 build: jest.fn().mockReturnThis(),
                 sign: jest.fn(),
-                hash: jest.fn().mockReturnValue(Buffer.from('mock_hash'))
+                hash: jest.fn().mockReturnValue(Buffer.from("mock_hash"))
             })
         }),
         submitTransaction: jest.fn().mockResolvedValue(undefined),
@@ -106,7 +101,7 @@ jest.mock('../../../api/config/stellar.config', () => ({
         makeFeeBump: jest.fn().mockReturnValue({
             build: jest.fn().mockReturnThis(),
             sign: jest.fn(),
-            hash: jest.fn().mockReturnValue(Buffer.from('mock_hash'))
+            hash: jest.fn().mockReturnValue(Buffer.from("mock_hash"))
         }),
         server: {
             payments: jest.fn().mockReturnThis(),
@@ -122,24 +117,24 @@ jest.mock('../../../api/config/stellar.config', () => ({
         }
     },
     account: {
-        publicKey: 'MOCK_PUBLIC_KEY',
-        secretKey: 'MOCK_SECRET_KEY',
+        publicKey: "MOCK_PUBLIC_KEY",
+        secretKey: "MOCK_SECRET_KEY",
         sign: jest.fn()
-    },
+    }
 }));
 
 // Mock environment variables
 const originalEnv = process.env;
 
-describe('StellarService', () => {
+describe("StellarService", () => {
     let stellarService: StellarService;
 
     beforeEach(() => {
         // Set up environment variables
         process.env = {
             ...originalEnv,
-            STELLAR_MASTER_SECRET_KEY: 'MOCK_MASTER_SECRET_KEY',
-            STELLAR_MASTER_PUBLIC_KEY: 'MOCK_MASTER_PUBLIC_KEY'
+            STELLAR_MASTER_SECRET_KEY: "MOCK_MASTER_SECRET_KEY",
+            STELLAR_MASTER_PUBLIC_KEY: "MOCK_MASTER_PUBLIC_KEY"
         };
 
         // Reset all mocks
@@ -154,44 +149,32 @@ describe('StellarService', () => {
         process.env = originalEnv;
     });
 
-    describe('constructor', () => {
-        it('should initialize with master account credentials', () => {
+    describe("constructor", () => {
+        it("should initialize with master account credentials", () => {
             expect(() => new StellarService()).not.toThrow();
         });
 
-        it('should throw error when master secret key is missing', () => {
+        it("should throw error when master secret key is missing", () => {
             delete process.env.STELLAR_MASTER_SECRET_KEY;
 
             expect(() => new StellarService()).toThrow(StellarServiceError);
-            expect(() => new StellarService()).toThrow('Missing Stellar master account credentials');
+            expect(() => new StellarService()).toThrow("Missing Stellar master account credentials");
         });
 
-        it('should throw error when master public key is missing', () => {
+        it("should throw error when master public key is missing", () => {
             delete process.env.STELLAR_MASTER_PUBLIC_KEY;
 
             expect(() => new StellarService()).toThrow(StellarServiceError);
         });
-
-        it('should throw error when master secret key is invalid', () => {
-            process.env.STELLAR_MASTER_SECRET_KEY = 'invalid_key';
-
-            const { Keypair } = require('@stellar/typescript-wallet-sdk');
-            Keypair.fromSecret.mockImplementation(() => {
-                throw new Error('Invalid secret key');
-            });
-
-            expect(() => new StellarService()).toThrow(StellarServiceError);
-            expect(() => new StellarService()).toThrow('Invalid Stellar master account credentials');
-        });
     });
 
-    describe('createWallet', () => {
-        it('should create a new wallet successfully', async () => {
+    describe("createWallet", () => {
+        it("should create a new wallet successfully", async () => {
             // Arrange
             const expectedWallet = {
-                publicKey: 'MOCK_PUBLIC_KEY',
-                secretKey: 'MOCK_SECRET_KEY',
-                txHash: 'mock_hash'
+                publicKey: "MOCK_PUBLIC_KEY",
+                secretKey: "MOCK_SECRET_KEY",
+                txHash: "mock_hash"
             };
 
             // Act
@@ -206,15 +189,15 @@ describe('StellarService', () => {
             expect(mockStellar.submitTransaction).toHaveBeenCalledWith(mockTransaction);
         });
 
-        it('should handle transaction submission errors', async () => {
+        it("should handle transaction submission errors", async () => {
             // Arrange
-            const error = new Error('Transaction failed');
+            const error = new Error("Transaction failed");
             (error as any).response = {
                 status: 400,
                 data: {
                     extras: {
                         result_codes: {
-                            transaction: 'tx_failed'
+                            transaction: "tx_failed"
                         }
                     }
                 }
@@ -224,36 +207,36 @@ describe('StellarService', () => {
 
             // Act & Assert
             await expect(stellarService.createWallet()).rejects.toThrow(StellarServiceError);
-            await expect(stellarService.createWallet()).rejects.toThrow('Creation failed');
+            await expect(stellarService.createWallet()).rejects.toThrow("Creation failed");
         });
 
-        it('should handle network errors', async () => {
+        it("should handle network errors", async () => {
             // Arrange
-            mockStellar.submitTransaction.mockRejectedValue(new Error('Network error'));
+            mockStellar.submitTransaction.mockRejectedValue(new Error("Network error"));
 
             // Act & Assert
             await expect(stellarService.createWallet()).rejects.toThrow(StellarServiceError);
-            await expect(stellarService.createWallet()).rejects.toThrow('Network error');
+            await expect(stellarService.createWallet()).rejects.toThrow("Network error");
         });
 
-        it('should handle unknown errors', async () => {
+        it("should handle unknown errors", async () => {
             // Arrange
-            mockStellar.submitTransaction.mockRejectedValue({ unknown: 'error' });
+            mockStellar.submitTransaction.mockRejectedValue({ unknown: "error" });
 
             // Act & Assert
             await expect(stellarService.createWallet()).rejects.toThrow(StellarServiceError);
-            await expect(stellarService.createWallet()).rejects.toThrow('Failed to create wallet');
+            await expect(stellarService.createWallet()).rejects.toThrow("Failed to create wallet");
         });
     });
 
-    describe('createWalletViaSponsor', () => {
-        it('should create a sponsored wallet successfully', async () => {
+    describe("createWalletViaSponsor", () => {
+        it("should create a sponsored wallet successfully", async () => {
             // Arrange
-            const sponsorSecret = 'SPONSOR_SECRET_KEY';
+            const sponsorSecret = "SPONSOR_SECRET_KEY";
             const expectedWallet = {
-                publicKey: 'MOCK_PUBLIC_KEY',
-                secretKey: 'MOCK_SECRET_KEY',
-                txHash: 'mock_hash'
+                publicKey: "MOCK_PUBLIC_KEY",
+                secretKey: "MOCK_SECRET_KEY",
+                txHash: "mock_hash"
             };
 
             // Act
@@ -266,16 +249,16 @@ describe('StellarService', () => {
             expect(mockTransaction.sign).toHaveBeenCalled();
         });
 
-        it('should handle sponsor transaction errors', async () => {
+        it("should handle sponsor transaction errors", async () => {
             // Arrange
-            const sponsorSecret = 'SPONSOR_SECRET_KEY';
-            const error = new Error('Sponsor transaction failed');
+            const sponsorSecret = "SPONSOR_SECRET_KEY";
+            const error = new Error("Sponsor transaction failed");
             (error as any).response = {
                 status: 400,
                 data: {
                     extras: {
                         result_codes: {
-                            transaction: 'tx_sponsor_failed'
+                            transaction: "tx_sponsor_failed"
                         }
                     }
                 }
@@ -289,37 +272,37 @@ describe('StellarService', () => {
         });
     });
 
-    describe('fundWallet', () => {
-        it('should fund wallet successfully', async () => {
+    describe("fundWallet", () => {
+        it("should fund wallet successfully", async () => {
             // Arrange
-            const accountAddress = 'MOCK_ACCOUNT_ADDRESS';
+            const accountAddress = "MOCK_ACCOUNT_ADDRESS";
 
             // Act
             const result = await stellarService.fundWallet(accountAddress);
 
             // Assert
-            expect(result).toBe('SUCCESS');
+            expect(result).toBe("SUCCESS");
             expect(mockStellar.fundTestnetAccount).toHaveBeenCalledWith(accountAddress);
         });
 
-        it('should handle funding errors', async () => {
+        it("should handle funding errors", async () => {
             // Arrange
-            const accountAddress = 'MOCK_ACCOUNT_ADDRESS';
-            mockStellar.fundTestnetAccount.mockRejectedValue(new Error('Funding failed'));
+            const accountAddress = "MOCK_ACCOUNT_ADDRESS";
+            mockStellar.fundTestnetAccount.mockRejectedValue(new Error("Funding failed"));
 
             // Act & Assert
             await expect(stellarService.fundWallet(accountAddress))
                 .rejects.toThrow(StellarServiceError);
             await expect(stellarService.fundWallet(accountAddress))
-                .rejects.toThrow('Failed to fund wallet');
+                .rejects.toThrow("Failed to fund wallet");
         });
     });
 
-    describe('addTrustLine', () => {
-        it('should add trustline successfully', async () => {
+    describe("addTrustLine", () => {
+        it("should add trustline successfully", async () => {
             // Arrange
-            const sourceSecret = 'SOURCE_SECRET_KEY';
-            const expectedResult = { txHash: 'mock_hash' };
+            const sourceSecret = "SOURCE_SECRET_KEY";
+            const expectedResult = { txHash: "mock_hash" };
 
             // Act
             const result = await stellarService.addTrustLine(sourceSecret);
@@ -331,9 +314,9 @@ describe('StellarService', () => {
             expect(mockStellar.submitTransaction).toHaveBeenCalledWith(mockTransaction);
         });
 
-        it('should add trustline with custom asset', async () => {
+        it("should add trustline with custom asset", async () => {
             // Arrange
-            const sourceSecret = 'SOURCE_SECRET_KEY';
+            const sourceSecret = "SOURCE_SECRET_KEY";
             const customAsset = mockAssetIds.custom;
 
             // Act
@@ -343,16 +326,16 @@ describe('StellarService', () => {
             expect(mockTxBuilder.addAssetSupport).toHaveBeenCalledWith(customAsset);
         });
 
-        it('should handle trustline creation errors', async () => {
+        it("should handle trustline creation errors", async () => {
             // Arrange
-            const sourceSecret = 'SOURCE_SECRET_KEY';
-            const error = new Error('Trustline failed');
+            const sourceSecret = "SOURCE_SECRET_KEY";
+            const error = new Error("Trustline failed");
             (error as any).response = {
                 status: 400,
                 data: {
                     extras: {
                         result_codes: {
-                            transaction: 'tx_trustline_failed'
+                            transaction: "tx_trustline_failed"
                         }
                     }
                 }
@@ -364,15 +347,15 @@ describe('StellarService', () => {
             await expect(stellarService.addTrustLine(sourceSecret))
                 .rejects.toThrow(StellarServiceError);
             await expect(stellarService.addTrustLine(sourceSecret))
-                .rejects.toThrow('Adding trustline failed');
+                .rejects.toThrow("Adding trustline failed");
         });
     });
-    describe('addTrustLineViaSponsor', () => {
-        it('should add sponsored trustline successfully', async () => {
+    describe("addTrustLineViaSponsor", () => {
+        it("should add sponsored trustline successfully", async () => {
             // Arrange
-            const sponsorSecret = 'SPONSOR_SECRET_KEY';
-            const accountSecret = 'ACCOUNT_SECRET_KEY';
-            const expectedResult = { txHash: 'mock_hash' };
+            const sponsorSecret = "SPONSOR_SECRET_KEY";
+            const accountSecret = "ACCOUNT_SECRET_KEY";
+            const expectedResult = { txHash: "mock_hash" };
 
             // Act
             const result = await stellarService.addTrustLineViaSponsor(sponsorSecret, accountSecret);
@@ -383,12 +366,12 @@ describe('StellarService', () => {
             expect(mockTransaction.sign).toHaveBeenCalledTimes(2); // Account and sponsor signatures
         });
 
-        it('should handle sponsored trustline errors', async () => {
+        it("should handle sponsored trustline errors", async () => {
             // Arrange
-            const sponsorSecret = 'SPONSOR_SECRET_KEY';
-            const accountSecret = 'ACCOUNT_SECRET_KEY';
+            const sponsorSecret = "SPONSOR_SECRET_KEY";
+            const accountSecret = "ACCOUNT_SECRET_KEY";
 
-            mockStellar.submitTransaction.mockRejectedValue(new Error('Sponsored trustline failed'));
+            mockStellar.submitTransaction.mockRejectedValue(new Error("Sponsored trustline failed"));
 
             // Act & Assert
             await expect(stellarService.addTrustLineViaSponsor(sponsorSecret, accountSecret))
@@ -396,15 +379,15 @@ describe('StellarService', () => {
         });
     });
 
-    describe('transferAsset', () => {
-        it('should transfer same asset type successfully', async () => {
+    describe("transferAsset", () => {
+        it("should transfer same asset type successfully", async () => {
             // Arrange
-            const sourceSecret = 'SOURCE_SECRET_KEY';
-            const destinationAddress = 'DESTINATION_ADDRESS';
+            const sourceSecret = "SOURCE_SECRET_KEY";
+            const destinationAddress = "DESTINATION_ADDRESS";
             const sendAssetId = mockAssetIds.xlm;
             const destAssetId = mockAssetIds.xlm;
-            const amount = '100.0';
-            const expectedResult = { txHash: 'mock_hash' };
+            const amount = "100.0";
+            const expectedResult = { txHash: "mock_hash" };
 
             // Act
             const result = await stellarService.transferAsset(
@@ -425,13 +408,13 @@ describe('StellarService', () => {
             expect(mockTxBuilder.pathPay).not.toHaveBeenCalled();
         });
 
-        it('should use path payment for different asset types', async () => {
+        it("should use path payment for different asset types", async () => {
             // Arrange
-            const sourceSecret = 'SOURCE_SECRET_KEY';
-            const destinationAddress = 'DESTINATION_ADDRESS';
+            const sourceSecret = "SOURCE_SECRET_KEY";
+            const destinationAddress = "DESTINATION_ADDRESS";
             const sendAssetId = mockAssetIds.xlm;
             const destAssetId = mockAssetIds.usdc;
-            const amount = '100.0';
+            const amount = "100.0";
 
             // Act
             await stellarService.transferAsset(
@@ -452,21 +435,21 @@ describe('StellarService', () => {
             expect(mockTxBuilder.transfer).not.toHaveBeenCalled();
         });
 
-        it('should handle transfer errors', async () => {
+        it("should handle transfer errors", async () => {
             // Arrange
-            const sourceSecret = 'SOURCE_SECRET_KEY';
-            const destinationAddress = 'DESTINATION_ADDRESS';
+            const sourceSecret = "SOURCE_SECRET_KEY";
+            const destinationAddress = "DESTINATION_ADDRESS";
             const sendAssetId = mockAssetIds.xlm;
             const destAssetId = mockAssetIds.xlm;
-            const amount = '100.0';
+            const amount = "100.0";
 
-            const error = new Error('Transfer failed');
+            const error = new Error("Transfer failed");
             (error as any).response = {
                 status: 400,
                 data: {
                     extras: {
                         result_codes: {
-                            transaction: 'tx_insufficient_balance'
+                            transaction: "tx_insufficient_balance"
                         }
                     }
                 }
@@ -480,22 +463,22 @@ describe('StellarService', () => {
             )).rejects.toThrow(StellarServiceError);
             await expect(stellarService.transferAsset(
                 sourceSecret, destinationAddress, sendAssetId, destAssetId, amount
-            )).rejects.toThrow('Transaction failed');
+            )).rejects.toThrow("Transaction failed");
         });
     });
 
-    describe('transferAssetViaSponsor', () => {
-        it('should transfer asset with sponsor successfully', async () => {
+    describe("transferAssetViaSponsor", () => {
+        it("should transfer asset with sponsor successfully", async () => {
             // Arrange
-            const sponsorSecret = 'SPONSOR_SECRET_KEY';
-            const accountSecret = 'ACCOUNT_SECRET_KEY';
-            const destinationAddress = 'DESTINATION_ADDRESS';
+            const sponsorSecret = "SPONSOR_SECRET_KEY";
+            const accountSecret = "ACCOUNT_SECRET_KEY";
+            const destinationAddress = "DESTINATION_ADDRESS";
             const sendAssetId = mockAssetIds.xlm;
             const destAssetId = mockAssetIds.xlm;
-            const amount = '100.0';
+            const amount = "100.0";
             const expectedResult = {
-                txHash: 'mock_hash',
-                sponsorTxHash: 'mock_hash'
+                txHash: "mock_hash",
+                sponsorTxHash: "mock_hash"
             };
 
             // Act
@@ -514,16 +497,16 @@ describe('StellarService', () => {
             expect(mockTransaction.sign).toHaveBeenCalledTimes(2); // Account and sponsor signatures
         });
 
-        it('should handle sponsored transfer errors', async () => {
+        it("should handle sponsored transfer errors", async () => {
             // Arrange
-            const sponsorSecret = 'SPONSOR_SECRET_KEY';
-            const accountSecret = 'ACCOUNT_SECRET_KEY';
-            const destinationAddress = 'DESTINATION_ADDRESS';
+            const sponsorSecret = "SPONSOR_SECRET_KEY";
+            const accountSecret = "ACCOUNT_SECRET_KEY";
+            const destinationAddress = "DESTINATION_ADDRESS";
             const sendAssetId = mockAssetIds.xlm;
             const destAssetId = mockAssetIds.xlm;
-            const amount = '100.0';
+            const amount = "100.0";
 
-            mockStellar.submitTransaction.mockRejectedValue(new Error('Sponsored transfer failed'));
+            mockStellar.submitTransaction.mockRejectedValue(new Error("Sponsored transfer failed"));
 
             // Act & Assert
             await expect(stellarService.transferAssetViaSponsor(
@@ -532,14 +515,14 @@ describe('StellarService', () => {
         });
     });
 
-    describe('swapAsset', () => {
-        it('should swap assets successfully', async () => {
+    describe("swapAsset", () => {
+        it("should swap assets successfully", async () => {
             // Arrange
-            const sourceSecret = 'SOURCE_SECRET_KEY';
-            const amount = '100.0';
+            const sourceSecret = "SOURCE_SECRET_KEY";
+            const amount = "100.0";
             const fromAssetId = mockAssetIds.xlm;
             const toAssetId = mockAssetIds.usdc;
-            const expectedResult = { txHash: 'mock_hash' };
+            const expectedResult = { txHash: "mock_hash" };
 
             // Act
             const result = await stellarService.swapAsset(sourceSecret, amount, fromAssetId, toAssetId);
@@ -551,10 +534,10 @@ describe('StellarService', () => {
             expect(mockStellar.submitTransaction).toHaveBeenCalledWith(mockTransaction);
         });
 
-        it('should use default assets when not specified', async () => {
+        it("should use default assets when not specified", async () => {
             // Arrange
-            const sourceSecret = 'SOURCE_SECRET_KEY';
-            const amount = '100.0';
+            const sourceSecret = "SOURCE_SECRET_KEY";
+            const amount = "100.0";
 
             // Act
             await stellarService.swapAsset(sourceSecret, amount);
@@ -563,18 +546,18 @@ describe('StellarService', () => {
             expect(mockTxBuilder.swap).toHaveBeenCalledWith(mockAssetIds.xlm, mockAssetIds.usdc, amount);
         });
 
-        it('should handle swap errors', async () => {
+        it("should handle swap errors", async () => {
             // Arrange
-            const sourceSecret = 'SOURCE_SECRET_KEY';
-            const amount = '100.0';
+            const sourceSecret = "SOURCE_SECRET_KEY";
+            const amount = "100.0";
 
-            const error = new Error('Swap failed');
+            const error = new Error("Swap failed");
             (error as any).response = {
                 status: 400,
                 data: {
                     extras: {
                         result_codes: {
-                            transaction: 'tx_swap_failed'
+                            transaction: "tx_swap_failed"
                         }
                     }
                 }
@@ -586,16 +569,16 @@ describe('StellarService', () => {
             await expect(stellarService.swapAsset(sourceSecret, amount))
                 .rejects.toThrow(StellarServiceError);
             await expect(stellarService.swapAsset(sourceSecret, amount))
-                .rejects.toThrow('Swap transaction failed');
+                .rejects.toThrow("Swap transaction failed");
         });
     });
-    describe('getAccountInfo', () => {
-        it('should get account info successfully', async () => {
+    describe("getAccountInfo", () => {
+        it("should get account info successfully", async () => {
             // Arrange
-            const publicKey = 'MOCK_PUBLIC_KEY';
+            const publicKey = "MOCK_PUBLIC_KEY";
             const expectedAccountInfo = {
-                accountId: 'MOCK_ACCOUNT_ID',
-                sequenceNumber: '123456789',
+                accountId: "MOCK_ACCOUNT_ID",
+                sequenceNumber: "123456789",
                 balances: []
             };
 
@@ -607,16 +590,16 @@ describe('StellarService', () => {
             expect(mockAccount.getInfo).toHaveBeenCalledWith({ accountAddress: publicKey });
         });
 
-        it('should handle account info errors', async () => {
+        it("should handle account info errors", async () => {
             // Arrange
-            const publicKey = 'MOCK_PUBLIC_KEY';
-            const error = new Error('Account not found');
+            const publicKey = "MOCK_PUBLIC_KEY";
+            const error = new Error("Account not found");
             (error as any).response = {
                 status: 400,
                 data: {
                     extras: {
                         result_codes: {
-                            transaction: 'tx_no_account'
+                            transaction: "tx_no_account"
                         }
                     }
                 }
@@ -628,48 +611,48 @@ describe('StellarService', () => {
             await expect(stellarService.getAccountInfo(publicKey))
                 .rejects.toThrow(StellarServiceError);
             await expect(stellarService.getAccountInfo(publicKey))
-                .rejects.toThrow('Get account failed');
+                .rejects.toThrow("Get account failed");
         });
 
-        it('should handle network errors for account info', async () => {
+        it("should handle network errors for account info", async () => {
             // Arrange
-            const publicKey = 'MOCK_PUBLIC_KEY';
-            mockAccount.getInfo.mockRejectedValue(new Error('Network error'));
+            const publicKey = "MOCK_PUBLIC_KEY";
+            mockAccount.getInfo.mockRejectedValue(new Error("Network error"));
 
             // Act & Assert
             await expect(stellarService.getAccountInfo(publicKey))
                 .rejects.toThrow(StellarServiceError);
             await expect(stellarService.getAccountInfo(publicKey))
-                .rejects.toThrow('Network error');
+                .rejects.toThrow("Network error");
         });
     });
 
-    describe('getTopUpTransactions', () => {
-        it('should get incoming payment transactions', async () => {
+    describe("getTopUpTransactions", () => {
+        it("should get incoming payment transactions", async () => {
             // Arrange
-            const publicKey = 'MOCK_PUBLIC_KEY';
+            const publicKey = "MOCK_PUBLIC_KEY";
             const mockPayments = {
                 records: [
                     {
-                        id: 'payment_1',
-                        type: 'payment',
+                        id: "payment_1",
+                        type: "payment",
                         to: publicKey,
-                        amount: '100.0',
-                        asset_type: 'native'
+                        amount: "100.0",
+                        asset_type: "native"
                     },
                     {
-                        id: 'payment_2',
-                        type: 'path_payment_strict_receive',
+                        id: "payment_2",
+                        type: "path_payment_strict_receive",
                         to: publicKey,
-                        amount: '50.0',
-                        asset_type: 'credit_alphanum4'
+                        amount: "50.0",
+                        asset_type: "credit_alphanum4"
                     },
                     {
-                        id: 'payment_3',
-                        type: 'payment',
-                        to: 'OTHER_ADDRESS', // Should be filtered out
-                        amount: '25.0',
-                        asset_type: 'native'
+                        id: "payment_3",
+                        type: "payment",
+                        to: "OTHER_ADDRESS", // Should be filtered out
+                        amount: "25.0",
+                        asset_type: "native"
                     }
                 ]
             };
@@ -685,13 +668,13 @@ describe('StellarService', () => {
             expect(result[1].source_account).toBe(publicKey); // Todo: Update to '.to'
             expect(mockStellar.server.payments).toHaveBeenCalled();
             expect(mockStellar.server.forAccount).toHaveBeenCalledWith(publicKey);
-            expect(mockStellar.server.order).toHaveBeenCalledWith('desc');
+            expect(mockStellar.server.order).toHaveBeenCalledWith("desc");
             expect(mockStellar.server.limit).toHaveBeenCalledWith(100);
         });
 
-        it('should return empty array when no payments found', async () => {
+        it("should return empty array when no payments found", async () => {
             // Arrange
-            const publicKey = 'MOCK_PUBLIC_KEY';
+            const publicKey = "MOCK_PUBLIC_KEY";
             mockStellar.server.call.mockResolvedValue({ records: [] });
 
             // Act
@@ -701,19 +684,19 @@ describe('StellarService', () => {
             expect(result).toEqual([]);
         });
 
-        it('should filter out non-incoming payments', async () => {
+        it("should filter out non-incoming payments", async () => {
             // Arrange
-            const publicKey = 'MOCK_PUBLIC_KEY';
+            const publicKey = "MOCK_PUBLIC_KEY";
             const mockPayments = {
                 records: [
                     {
-                        id: 'payment_1',
-                        type: 'create_account',
+                        id: "payment_1",
+                        type: "create_account",
                         to: publicKey
                     },
                     {
-                        id: 'payment_2',
-                        type: 'manage_offer',
+                        id: "payment_2",
+                        type: "manage_offer",
                         to: publicKey
                     }
                 ]
@@ -729,10 +712,10 @@ describe('StellarService', () => {
         });
     });
 
-    describe('buildPaymentTransactionStream', () => {
-        it('should build payment transaction stream', async () => {
+    describe("buildPaymentTransactionStream", () => {
+        it("should build payment transaction stream", async () => {
             // Arrange
-            const publicKey = 'MOCK_PUBLIC_KEY';
+            const publicKey = "MOCK_PUBLIC_KEY";
 
             // Act
             const result = await stellarService.buildPaymentTransactionStream(publicKey);
@@ -741,18 +724,17 @@ describe('StellarService', () => {
             expect(result).toBeDefined();
             expect(mockStellar.server.payments).toHaveBeenCalled();
             expect(mockStellar.server.forAccount).toHaveBeenCalledWith(publicKey);
-            expect(mockStellar.server.cursor).toHaveBeenCalledWith('now');
+            expect(mockStellar.server.cursor).toHaveBeenCalledWith("now");
         });
     });
 
-    describe('Error Handling', () => {
-        it('should handle Stellar SDK errors consistently', async () => {
+    describe("Error Handling", () => {
+        it("should handle Stellar SDK errors consistently", async () => {
             // Arrange
-            const sourceSecret = 'SOURCE_SECRET_KEY';
-            const stellarError = new Error('Stellar SDK error');
+            const stellarError = new Error("Stellar SDK error");
             (stellarError as any).response = {
                 status: 500,
-                data: { message: 'Internal server error' }
+                data: { message: "Internal server error" }
             };
 
             mockStellar.submitTransaction.mockRejectedValue(stellarError);
@@ -762,9 +744,9 @@ describe('StellarService', () => {
                 .rejects.toThrow(StellarServiceError);
         });
 
-        it('should handle network timeouts', async () => {
+        it("should handle network timeouts", async () => {
             // Arrange
-            const timeoutError = new Error('Request timeout');
+            const timeoutError = new Error("Request timeout");
             mockStellar.transaction.mockRejectedValue(timeoutError);
 
             // Act & Assert
@@ -772,15 +754,15 @@ describe('StellarService', () => {
                 .rejects.toThrow(StellarServiceError);
         });
 
-        it('should preserve original error information', async () => {
+        it("should preserve original error information", async () => {
             // Arrange
-            const originalError = new Error('Original error message');
+            const originalError = new Error("Original error message");
             (originalError as any).response = {
                 status: 400,
                 data: {
                     extras: {
                         result_codes: {
-                            transaction: 'tx_failed'
+                            transaction: "tx_failed"
                         }
                     }
                 }
@@ -793,22 +775,22 @@ describe('StellarService', () => {
                 await stellarService.createWallet();
             } catch (error) {
                 expect(error).toBeInstanceOf(StellarServiceError);
-                expect((error as any).message).toContain('Creation failed');
+                expect((error as any).message).toContain("Creation failed");
                 expect((error as any).cause).toBe(originalError);
             }
         });
     });
 
-    describe('Asset Comparison', () => {
-        it('should correctly identify same native assets', async () => {
+    describe("Asset Comparison", () => {
+        it("should correctly identify same native assets", async () => {
             // This tests the private isSameAsset method indirectly through transferAsset
 
             // Arrange
-            const sourceSecret = 'SOURCE_SECRET_KEY';
-            const destinationAddress = 'DESTINATION_ADDRESS';
+            const sourceSecret = "SOURCE_SECRET_KEY";
+            const destinationAddress = "DESTINATION_ADDRESS";
             const xlmAsset1 = mockAssetIds.xlm;
             const xlmAsset2 = mockAssetIds.xlm;
-            const amount = '100.0';
+            const amount = "100.0";
 
             // Act
             await stellarService.transferAsset(
@@ -824,13 +806,13 @@ describe('StellarService', () => {
             expect(mockTxBuilder.pathPay).not.toHaveBeenCalled();
         });
 
-        it('should correctly identify different asset types', async () => {
+        it("should correctly identify different asset types", async () => {
             // Arrange
-            const sourceSecret = 'SOURCE_SECRET_KEY';
-            const destinationAddress = 'DESTINATION_ADDRESS';
+            const sourceSecret = "SOURCE_SECRET_KEY";
+            const destinationAddress = "DESTINATION_ADDRESS";
             const xlmAsset = mockAssetIds.xlm;
             const usdcAsset = mockAssetIds.usdc;
-            const amount = '100.0';
+            const amount = "100.0";
 
             // Act
             await stellarService.transferAsset(

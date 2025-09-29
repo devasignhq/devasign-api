@@ -3,17 +3,17 @@ import {
     GitHubWebhookPayload,
     ReviewResult,
     ManualTriggerRequest
-} from '../models/ai-review.model';
-import { JobQueueService } from './job-queue.service';
-import { AIReviewOrchestrationService } from './ai-review-orchestration.service';
-import { PRAnalysisService } from './pr-analysis.service';
-import { LoggingService } from './logging.service';
-import { ErrorHandlingIntegrationService } from './error-handling-integration.service';
+} from "../models/ai-review.model";
+import { JobQueueService } from "./job-queue.service";
+import { AIReviewOrchestrationService } from "./ai-review-orchestration.service";
+import { PRAnalysisService } from "./pr-analysis.service";
+import { LoggingService } from "./logging.service";
+import { ErrorHandlingIntegrationService } from "./error-handling-integration.service";
+import { getFieldFromUnknownObject } from "../helper";
 
 /**
  * Workflow Integration Service
  * Coordinates the complete end-to-end PR analysis workflow
- * Requirements: 1.1, 2.1, 4.1, 6.1
  * 
  * This service provides the main integration points for:
  * - Webhook processing workflow
@@ -47,7 +47,7 @@ export class WorkflowIntegrationService {
         if (this.initialized) return;
 
         try {
-            LoggingService.logInfo("initialize", 'Initializing Workflow Integration Service');
+            LoggingService.logInfo("initialize", "Initializing Workflow Integration Service");
 
             // Set up job queue event listeners for monitoring
             this.setupJobQueueEventListeners();
@@ -57,17 +57,16 @@ export class WorkflowIntegrationService {
 
             this.initialized = true;
 
-            LoggingService.logInfo("initialize", 'Workflow Integration Service initialized successfully');
+            LoggingService.logInfo("initialize", "Workflow Integration Service initialized successfully");
 
         } catch (error) {
-            LoggingService.logError('Failed to initialize Workflow Integration Service', { error });
+            LoggingService.logError("Failed to initialize Workflow Integration Service", { error });
             throw error;
         }
     }
 
     /**
      * Complete webhook processing workflow
-     * Requirement 1.1: System SHALL trigger AI review process for qualifying PRs
      * 
      * End-to-end workflow:
      * 1. Validate and extract PR data from webhook
@@ -87,7 +86,7 @@ export class WorkflowIntegrationService {
         const startTime = Date.now();
 
         try {
-            LoggingService.logInfo("processWebhookWorkflow", 'Starting webhook workflow', {
+            LoggingService.logInfo("processWebhookWorkflow", "Starting webhook workflow", {
                 action: payload.action,
                 prNumber: payload.pull_request.number,
                 repository: payload.repository.full_name
@@ -97,17 +96,17 @@ export class WorkflowIntegrationService {
             let prData: PullRequestData;
             try {
                 prData = await PRAnalysisService.createCompletePRData(payload);
-            } catch (error: any) {
-                if (error.name === 'PRNotEligibleError') {
-                    LoggingService.logInfo("processWebhookWorkflow", 'PR not eligible for analysis', {
-                        prNumber: error.prNumber,
-                        repositoryName: error.repositoryName,
-                        reason: error.reason
+            } catch (error) {
+                if (getFieldFromUnknownObject<string>(error, "name") === "PRNotEligibleError") {
+                    LoggingService.logInfo("processWebhookWorkflow", "PR not eligible for analysis", {
+                        prNumber: getFieldFromUnknownObject<number>(error, "prNumber"),
+                        repositoryName: getFieldFromUnknownObject<string>(error, "repositoryName"),
+                        reason: getFieldFromUnknownObject<string>(error, "reason")
                     });
 
                     return {
                         success: true,
-                        reason: error.reason
+                        reason: getFieldFromUnknownObject<string>(error, "reason")
                     };
                 }
                 throw error;
@@ -119,7 +118,7 @@ export class WorkflowIntegrationService {
             // Step 3: Queue for background analysis
             const jobId = await this.jobQueue.addPRAnalysisJob(prData);
 
-            LoggingService.logInfo("processWebhookWorkflow", 'Webhook workflow completed successfully', {
+            LoggingService.logInfo("processWebhookWorkflow", "Webhook workflow completed successfully", {
                 jobId,
                 prNumber: prData.prNumber,
                 repositoryName: prData.repositoryName,
@@ -136,7 +135,7 @@ export class WorkflowIntegrationService {
             const processingTime = Date.now() - startTime;
             const errorMessage = error instanceof Error ? error.message : String(error);
 
-            LoggingService.logError('Webhook workflow failed', {
+            LoggingService.logError("Webhook workflow failed", {
                 error: errorMessage,
                 processingTime
             });
@@ -150,7 +149,6 @@ export class WorkflowIntegrationService {
 
     /**
      * Manual analysis workflow
-     * Requirement 1.4: System SHALL provide manual trigger capability
      * 
      * Workflow:
      * 1. Validate manual trigger request
@@ -166,7 +164,7 @@ export class WorkflowIntegrationService {
         const startTime = Date.now();
 
         try {
-            LoggingService.logInfo("processManualAnalysisWorkflow", 'Starting manual analysis workflow', {
+            LoggingService.logInfo("processManualAnalysisWorkflow", "Starting manual analysis workflow", {
                 installationId: request.installationId,
                 repositoryName: request.repositoryName,
                 prNumber: request.prNumber,
@@ -179,8 +177,8 @@ export class WorkflowIntegrationService {
                 repositoryName: request.repositoryName,
                 prNumber: request.prNumber,
                 prUrl: `https://github.com/${request.repositoryName}/pull/${request.prNumber}`,
-                title: 'Manual Analysis Request',
-                body: request.reason || 'Manually triggered analysis',
+                title: "Manual Analysis Request",
+                body: request.reason || "Manually triggered analysis",
                 changedFiles: [], // Would be fetched from GitHub API in full implementation
                 linkedIssues: [], // Would be extracted from PR body
                 author: request.userId,
@@ -192,7 +190,7 @@ export class WorkflowIntegrationService {
 
             // Step 3: Update monitoring - manual analysis triggered
 
-            LoggingService.logInfo("processManualAnalysisWorkflow", 'Manual analysis workflow completed', {
+            LoggingService.logInfo("processManualAnalysisWorkflow", "Manual analysis workflow completed", {
                 jobId,
                 processingTime: Date.now() - startTime
             });
@@ -206,7 +204,7 @@ export class WorkflowIntegrationService {
             const processingTime = Date.now() - startTime;
             const errorMessage = error instanceof Error ? error.message : String(error);
 
-            LoggingService.logError('Manual analysis workflow failed', {
+            LoggingService.logError("Manual analysis workflow failed", {
                 error: errorMessage,
                 processingTime
             });
@@ -231,7 +229,7 @@ export class WorkflowIntegrationService {
         const startTime = Date.now();
 
         try {
-            LoggingService.logInfo("processDirectAnalysisWorkflow", 'Starting direct analysis workflow', {
+            LoggingService.logInfo("processDirectAnalysisWorkflow", "Starting direct analysis workflow", {
                 prNumber: prData.prNumber,
                 repositoryName: prData.repositoryName
             });
@@ -240,7 +238,7 @@ export class WorkflowIntegrationService {
             const result = await this.orchestrationService.analyzeWithIntelligentContext(prData);
 
             // Direct analysis completed successfully
-            LoggingService.logInfo("processDirectAnalysisWorkflow", 'Direct analysis workflow completed', {
+            LoggingService.logInfo("processDirectAnalysisWorkflow", "Direct analysis workflow completed", {
                 prNumber: prData.prNumber,
                 mergeScore: result.mergeScore,
                 processingTime: Date.now() - startTime
@@ -251,7 +249,7 @@ export class WorkflowIntegrationService {
         } catch (error) {
             const processingTime = Date.now() - startTime;
 
-            LoggingService.logError('Direct analysis workflow failed', {
+            LoggingService.logError("Direct analysis workflow failed", {
                 prNumber: prData.prNumber,
                 repositoryName: prData.repositoryName,
                 error: error instanceof Error ? error.message : String(error),
@@ -266,18 +264,7 @@ export class WorkflowIntegrationService {
      * Status monitoring workflow
      * Provides comprehensive status information
      */
-    public getWorkflowStatus(): {
-        initialized: boolean;
-        jobQueue: {
-            stats: any;
-            activeJobs: number;
-        };
-        services: {
-            orchestration: boolean;
-            jobQueue: boolean;
-            errorHandling: boolean;
-        };
-    } {
+    public getWorkflowStatus() {
         try {
             const queueStats = this.jobQueue.getQueueStats();
             const activeJobs = this.jobQueue.getActiveJobsCount();
@@ -296,7 +283,7 @@ export class WorkflowIntegrationService {
             };
 
         } catch (error) {
-            LoggingService.logError('Error getting workflow status', { error });
+            LoggingService.logError("Error getting workflow status", { error });
             return {
                 initialized: this.initialized,
                 jobQueue: {
@@ -318,7 +305,7 @@ export class WorkflowIntegrationService {
      */
     public async shutdown(): Promise<void> {
         try {
-            LoggingService.logInfo("shutdown", 'Starting workflow shutdown');
+            LoggingService.logInfo("shutdown", "Starting workflow shutdown");
 
             // Stop accepting new jobs
             this.jobQueue.stop();
@@ -328,7 +315,7 @@ export class WorkflowIntegrationService {
             const startTime = Date.now();
 
             while (this.jobQueue.getActiveJobsCount() > 0 && (Date.now() - startTime) < shutdownTimeout) {
-                LoggingService.logInfo("shutdown", 'Waiting for active jobs to complete', {
+                LoggingService.logInfo("shutdown", "Waiting for active jobs to complete", {
                     activeJobs: this.jobQueue.getActiveJobsCount(),
                     waitTime: Date.now() - startTime
                 });
@@ -338,16 +325,16 @@ export class WorkflowIntegrationService {
 
             const remainingJobs = this.jobQueue.getActiveJobsCount();
             if (remainingJobs > 0) {
-                LoggingService.logInfo("shutdown", 'Shutdown timeout reached with active jobs remaining', {
+                LoggingService.logInfo("shutdown", "Shutdown timeout reached with active jobs remaining", {
                     remainingJobs
                 });
             }
 
             this.initialized = false;
-            LoggingService.logInfo("shutdown", 'Workflow shutdown completed');
+            LoggingService.logInfo("shutdown", "Workflow shutdown completed");
 
         } catch (error) {
-            LoggingService.logError('Error during workflow shutdown', { error });
+            LoggingService.logError("Error during workflow shutdown", { error });
         }
     }
 
@@ -355,8 +342,8 @@ export class WorkflowIntegrationService {
      * Sets up event listeners for job queue monitoring
      */
     private setupJobQueueEventListeners(): void {
-        this.jobQueue.on('jobAdded', (job) => {
-            LoggingService.logInfo("setupJobQueueEventListeners", 'Job added to queue', {
+        this.jobQueue.on("jobAdded", (job) => {
+            LoggingService.logInfo("setupJobQueueEventListeners", "Job added to queue", {
                 jobId: job.id,
                 prNumber: job.data.prNumber,
                 repositoryName: job.data.repositoryName
@@ -364,8 +351,8 @@ export class WorkflowIntegrationService {
             // Job added to queue - tracked by job queue service
         });
 
-        this.jobQueue.on('jobStarted', (job) => {
-            LoggingService.logInfo("setupJobQueueEventListeners", 'Job processing started', {
+        this.jobQueue.on("jobStarted", (job) => {
+            LoggingService.logInfo("setupJobQueueEventListeners", "Job processing started", {
                 jobId: job.id,
                 prNumber: job.data.prNumber,
                 repositoryName: job.data.repositoryName
@@ -373,8 +360,8 @@ export class WorkflowIntegrationService {
             // Job started - tracked by job queue service
         });
 
-        this.jobQueue.on('jobCompleted', (job) => {
-            LoggingService.logInfo("setupJobQueueEventListeners", 'Job completed successfully', {
+        this.jobQueue.on("jobCompleted", (job) => {
+            LoggingService.logInfo("setupJobQueueEventListeners", "Job completed successfully", {
                 jobId: job.id,
                 prNumber: job.data.prNumber,
                 repositoryName: job.data.repositoryName,
@@ -383,8 +370,8 @@ export class WorkflowIntegrationService {
             // Job completed - tracked by job queue service
         });
 
-        this.jobQueue.on('jobFailed', (job) => {
-            LoggingService.logError("setupJobQueueEventListeners", 'Job failed permanently', {
+        this.jobQueue.on("jobFailed", (job) => {
+            LoggingService.logError("setupJobQueueEventListeners", "Job failed permanently", {
                 jobId: job.id,
                 prNumber: job.data.prNumber,
                 repositoryName: job.data.repositoryName,
@@ -405,11 +392,7 @@ export class WorkflowIntegrationService {
     /**
      * Health check for the workflow integration
      */
-    public async healthCheck(): Promise<{
-        healthy: boolean;
-        services: Record<string, boolean>;
-        details?: any;
-    }> {
+    public async healthCheck() {
         try {
             const services = {
                 initialized: this.initialized,
@@ -430,7 +413,7 @@ export class WorkflowIntegrationService {
             };
 
         } catch (error) {
-            LoggingService.logError('Workflow health check failed', { error });
+            LoggingService.logError("Workflow health check failed", { error });
             return {
                 healthy: false,
                 services: {

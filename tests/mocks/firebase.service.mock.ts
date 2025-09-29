@@ -1,11 +1,9 @@
 import { Timestamp } from "firebase-admin/firestore";
 import { Message, MessageType } from "../../api/models/general.model";
-import { TaskStatus } from "../../api/generated/client";
 
 /**
  * Mock Firebase Service for testing
  * Provides comprehensive mocks for FirebaseService methods
- * Requirements: 1.2, 5.4
  */
 
 // Mock data storage
@@ -94,7 +92,7 @@ export class MockFirebaseService {
         const messageIndex = mockMessages.findIndex(m => m.id === messageId);
 
         if (messageIndex === -1) {
-            throw new Error('Message not found');
+            throw new Error("Message not found");
         }
 
         const updateData = {
@@ -164,7 +162,7 @@ export class MockFirebaseService {
         const taskIndex = mockTasks.findIndex(t => t.id === taskId);
 
         if (taskIndex === -1) {
-            throw new Error('Task not found in Firebase');
+            throw new Error("Task not found in Firebase");
         }
 
         const updateData = {
@@ -230,21 +228,21 @@ export const createFirebaseServiceMock = () => {
 export const mockFirestoreDB = {
     collection: jest.fn((collectionName: string) => {
         switch (collectionName) {
-            case 'messages':
-                return mockMessagesCollection;
-            case 'tasks':
-                return mockTasksCollection;
-            default:
-                return {
-                    doc: jest.fn(() => ({
-                        get: jest.fn().mockResolvedValue({ exists: false }),
-                        set: jest.fn().mockResolvedValue(undefined),
-                        update: jest.fn().mockResolvedValue(undefined)
-                    })),
-                    where: jest.fn().mockReturnThis(),
-                    orderBy: jest.fn().mockReturnThis(),
-                    get: jest.fn().mockResolvedValue({ docs: [] })
-                };
+        case "messages":
+            return mockMessagesCollection;
+        case "tasks":
+            return mockTasksCollection;
+        default:
+            return {
+                doc: jest.fn(() => ({
+                    get: jest.fn().mockResolvedValue({ exists: false }),
+                    set: jest.fn().mockResolvedValue(undefined),
+                    update: jest.fn().mockResolvedValue(undefined)
+                })),
+                where: jest.fn().mockReturnThis(),
+                orderBy: jest.fn().mockReturnThis(),
+                get: jest.fn().mockResolvedValue({ docs: [] })
+            };
         }
     })
 };
@@ -276,10 +274,10 @@ export const FirebaseTestHelpers = {
      * Creates a realistic message object for testing
      */
     createMockMessage: (overrides: Partial<Message> = {}): Message => ({
-        userId: 'test_user_123',
-        taskId: 'test_task_456',
+        userId: "test_user_123",
+        taskId: "test_task_456",
         type: MessageType.GENERAL,
-        body: 'Test message body',
+        body: "Test message body",
         attachments: [],
         ...overrides
     }),
@@ -288,10 +286,10 @@ export const FirebaseTestHelpers = {
      * Creates a realistic task object for testing
      */
     createMockTask: (overrides: any = {}) => ({
-        id: 'test_task_123',
-        creatorId: 'creator_456',
-        contributorId: 'contributor_789',
-        conversationStatus: 'OPEN',
+        id: "test_task_123",
+        creatorId: "creator_456",
+        contributorId: "contributor_789",
+        conversationStatus: "OPEN",
         createdAt: mockTimestamp.now(),
         updatedAt: mockTimestamp.now(),
         ...overrides
@@ -302,12 +300,12 @@ export const FirebaseTestHelpers = {
      */
     setupFirebaseMocks: () => {
         // Mock Firebase Admin SDK
-        jest.mock('firebase-admin/firestore', () => ({
+        jest.mock("firebase-admin/firestore", () => ({
             Timestamp: mockTimestamp
         }));
 
         // Mock Firebase config
-        jest.mock('../../api/config/firebase.config', () => ({
+        jest.mock("../../api/config/firebase.config", () => ({
             firestoreDB: mockFirestoreDB
         }));
 

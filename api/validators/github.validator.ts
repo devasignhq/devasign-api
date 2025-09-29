@@ -1,21 +1,21 @@
-import { param, query, body } from 'express-validator';
+import { param, query, body } from "express-validator";
 
 export const validateInstallationBasics = [
-    param('installationId')
+    param("installationId")
         .trim()
         .notEmpty()
-        .withMessage('Installation ID is required')
+        .withMessage("Installation ID is required")
         .isString()
-        .withMessage('Installation ID must be a string')
+        .withMessage("Installation ID must be a string")
         .isLength({ min: 1 })
-        .withMessage('Installation ID cannot be empty'),
-    query('repoUrl')
+        .withMessage("Installation ID cannot be empty"),
+    query("repoUrl")
         .notEmpty()
-        .withMessage('Repository URL is required')
+        .withMessage("Repository URL is required")
         .isString()
-        .withMessage('Repository URL must be a string')
+        .withMessage("Repository URL must be a string")
         .matches(/^https:\/\/github\.com\/[\w\-\.]+\/[\w\-\.]+$/)
-        .withMessage('Repository URL must be a valid GitHub repository URL'),
+        .withMessage("Repository URL must be a valid GitHub repository URL")
 ];
 
 export const getInstallationRepositoriesValidator = [
@@ -25,68 +25,68 @@ export const getInstallationRepositoriesValidator = [
 export const getRepositoryIssuesValidator = [
     ...validateInstallationBasics,
 
-    query('labels')
+    query("labels")
         .optional()
         .trim()
         .notEmpty()
         .isString()
-        .withMessage('Labels must be a comma-separated string'),
-    query('milestone')
+        .withMessage("Labels must be a comma-separated string"),
+    query("milestone")
         .optional()
         .trim()
         .notEmpty()
         .isString()
-        .withMessage('Milestone must be a string'),
-    query('page')
+        .withMessage("Milestone must be a string"),
+    query("page")
         .optional()
         .trim()
         .notEmpty()
         .toInt() 
         .isInt({ min: 1 })
-        .withMessage('Page must be a positive integer'),
-    query('perPage')
+        .withMessage("Page must be a positive integer"),
+    query("perPage")
         .optional()
         .trim()
         .notEmpty()
         .toInt() 
         .isInt({ min: 1, max: 100 })
-        .withMessage('Per page must be between 1 and 100')
+        .withMessage("Per page must be between 1 and 100")
 ];
 
 export const getRepositoryResourcesValidator = validateInstallationBasics;
 
 export const getOrCreateBountyLabelValidator = [
-    param('repositoryId')
+    param("repositoryId")
         .trim()
         .notEmpty()
-        .withMessage('Repository ID is required')
+        .withMessage("Repository ID is required")
         .isString()
-        .withMessage('Repository ID must be a string')
+        .withMessage("Repository ID must be a string")
         .isLength({ min: 1 })
-        .withMessage('Repository ID cannot be empty'),
+        .withMessage("Repository ID cannot be empty")
 ];
 
 export const triggerManualPRAnalysisValidator = [
-    param('installationId')
+    param("installationId")
         .trim()
         .notEmpty()
-        .withMessage('Installation ID is required')
+        .withMessage("Installation ID is required")
         .isString()
-        .withMessage('Installation ID must be a string')
+        .withMessage("Installation ID must be a string")
         .isLength({ min: 1 })
-        .withMessage('Installation ID cannot be empty'),
-    body('repositoryName')
+        .withMessage("Installation ID cannot be empty"),
+    body("repositoryName")
         .trim()
         .notEmpty()
-        .withMessage('Repository name is required')
+        .withMessage("Repository name is required")
         .isString()
-        .withMessage('Repository name must be a string')
+        .withMessage("Repository name must be a string")
         .matches(/^[\w\-\.]+\/[\w\-\.]+$/)
         .withMessage('Repository name must be in format "owner/repo"'),
-    body('prNumber')
+    body("prNumber")
         .notEmpty()
-        .withMessage('PR number is required')
+        .withMessage("PR number is required")
         .isInt({ min: 1 })
-        .withMessage('PR number must be a positive integer')
+        .withMessage("PR number must be a positive integer")
         .toInt()
 ];

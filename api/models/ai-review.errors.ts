@@ -8,14 +8,14 @@
  */
 export abstract class AIReviewError extends Error {
     public code: string;
-    public readonly details?: any;
+    public readonly details?: unknown;
     public readonly timestamp: Date;
     public readonly retryable: boolean;
 
     constructor(
         message: string,
         code: string,
-        details?: any,
+        details?: unknown,
         retryable: boolean = false
     ) {
         super(message);
@@ -55,8 +55,8 @@ export abstract class AIReviewError extends Error {
  * Groq AI service related errors
  */
 export class GroqServiceError extends AIReviewError {
-    constructor(message: string, details?: any, retryable: boolean = true) {
-        super(message, 'GROQ_SERVICE_ERROR', details, retryable);
+    constructor(message: string, details?: unknown, retryable: boolean = true) {
+        super(message, "GROQ_SERVICE_ERROR", details, retryable);
     }
 }
 
@@ -66,9 +66,9 @@ export class GroqServiceError extends AIReviewError {
 export class GroqRateLimitError extends GroqServiceError {
     public readonly retryAfter?: number;
 
-    constructor(message: string, retryAfter?: number, details?: any) {
+    constructor(message: string, retryAfter?: number, details?: unknown) {
         super(message, details, true);
-        this.code = 'GROQ_RATE_LIMIT';
+        this.code = "GROQ_RATE_LIMIT";
         this.retryAfter = retryAfter;
     }
 }
@@ -80,13 +80,13 @@ export class GroqContextLimitError extends GroqServiceError {
     public readonly tokenCount: number;
     public readonly maxTokens: number;
 
-    constructor(tokenCount: number, maxTokens: number, details?: any) {
+    constructor(tokenCount: number, maxTokens: number, details?: unknown) {
         super(
             `Context limit exceeded: ${tokenCount} tokens (max: ${maxTokens})`,
             details,
             false
         );
-        this.code = 'GROQ_CONTEXT_LIMIT';
+        this.code = "GROQ_CONTEXT_LIMIT";
         this.tokenCount = tokenCount;
         this.maxTokens = maxTokens;
     }
@@ -96,8 +96,8 @@ export class GroqContextLimitError extends GroqServiceError {
  * Pinecone vector database errors
  */
 export class PineconeServiceError extends AIReviewError {
-    constructor(message: string, details?: any, retryable: boolean = true) {
-        super(message, 'PINECONE_SERVICE_ERROR', details, retryable);
+    constructor(message: string, details?: unknown, retryable: boolean = true) {
+        super(message, "PINECONE_SERVICE_ERROR", details, retryable);
     }
 }
 
@@ -107,9 +107,9 @@ export class PineconeServiceError extends AIReviewError {
 export class PineconeIndexError extends PineconeServiceError {
     public readonly indexName: string;
 
-    constructor(indexName: string, message: string, details?: any) {
+    constructor(indexName: string, message: string, details?: unknown) {
         super(message, details, false);
-        this.code = 'PINECONE_INDEX_ERROR';
+        this.code = "PINECONE_INDEX_ERROR";
         this.indexName = indexName;
     }
 }
@@ -125,10 +125,10 @@ export class GitHubAPIError extends AIReviewError {
         message: string,
         statusCode?: number,
         rateLimitRemaining?: number,
-        details?: any
+        details?: unknown
     ) {
         const retryable = statusCode ? statusCode >= 500 || statusCode === 429 : true;
-        super(message, 'GITHUB_API_ERROR', details, retryable);
+        super(message, "GITHUB_API_ERROR", details, retryable);
         this.statusCode = statusCode;
         this.rateLimitRemaining = rateLimitRemaining;
     }
@@ -138,8 +138,8 @@ export class GitHubAPIError extends AIReviewError {
  * GitHub webhook validation errors
  */
 export class GitHubWebhookError extends AIReviewError {
-    constructor(message: string, details?: any) {
-        super(message, 'GITHUB_WEBHOOK_ERROR', details, false);
+    constructor(message: string, details?: unknown) {
+        super(message, "GITHUB_WEBHOOK_ERROR", details, false);
     }
 }
 
@@ -149,9 +149,9 @@ export class GitHubWebhookError extends AIReviewError {
 export class GitHubInstallationError extends GitHubAPIError {
     public readonly installationId: string;
 
-    constructor(installationId: string, message: string, details?: any) {
+    constructor(installationId: string, message: string, details?: unknown) {
         super(message, 404, undefined, details);
-        this.code = 'GITHUB_INSTALLATION_ERROR';
+        this.code = "GITHUB_INSTALLATION_ERROR";
         this.installationId = installationId;
     }
 }
@@ -171,10 +171,10 @@ export class PRAnalysisError extends AIReviewError {
         prNumber: number,
         repositoryName: string,
         message: string,
-        details?: any,
+        details?: unknown,
         retryable: boolean = true
     ) {
-        super(message, 'PR_ANALYSIS_ERROR', details, retryable);
+        super(message, "PR_ANALYSIS_ERROR", details, retryable);
         this.prNumber = prNumber;
         this.repositoryName = repositoryName;
     }
@@ -190,7 +190,7 @@ export class PRNotEligibleError extends PRAnalysisError {
         prNumber: number,
         repositoryName: string,
         reason: string,
-        details?: any
+        details?: unknown
     ) {
         super(
             prNumber,
@@ -199,7 +199,7 @@ export class PRNotEligibleError extends PRAnalysisError {
             details,
             false
         );
-        this.code = 'PR_NOT_ELIGIBLE';
+        this.code = "PR_NOT_ELIGIBLE";
         this.reason = reason;
     }
 }
@@ -211,8 +211,8 @@ export class RuleEvaluationError extends AIReviewError {
     public readonly ruleId: string;
     public readonly ruleName: string;
 
-    constructor(ruleId: string, ruleName: string, message: string, details?: any) {
-        super(message, 'RULE_EVALUATION_ERROR', details, true);
+    constructor(ruleId: string, ruleName: string, message: string, details?: unknown) {
+        super(message, "RULE_EVALUATION_ERROR", details, true);
         this.ruleId = ruleId;
         this.ruleName = ruleName;
     }
@@ -224,10 +224,10 @@ export class RuleEvaluationError extends AIReviewError {
 export class RuleValidationError extends AIReviewError {
     public readonly validationErrors: string[];
 
-    constructor(validationErrors: string[], details?: any) {
+    constructor(validationErrors: string[], details?: unknown) {
         super(
-            `Rule validation failed: ${validationErrors.join(', ')}`,
-            'RULE_VALIDATION_ERROR',
+            `Rule validation failed: ${validationErrors.join(", ")}`,
+            "RULE_VALIDATION_ERROR",
             details,
             false
         );
@@ -241,8 +241,8 @@ export class RuleValidationError extends AIReviewError {
 export class ContextRetrievalError extends AIReviewError {
     public readonly contextType: string;
 
-    constructor(contextType: string, message: string, details?: any) {
-        super(message, 'CONTEXT_RETRIEVAL_ERROR', details, true);
+    constructor(contextType: string, message: string, details?: unknown) {
+        super(message, "CONTEXT_RETRIEVAL_ERROR", details, true);
         this.contextType = contextType;
     }
 }
@@ -253,8 +253,8 @@ export class ContextRetrievalError extends AIReviewError {
 export class EmbeddingGenerationError extends AIReviewError {
     public readonly contentLength: number;
 
-    constructor(contentLength: number, message: string, details?: any) {
-        super(message, 'EMBEDDING_GENERATION_ERROR', details, true);
+    constructor(contentLength: number, message: string, details?: unknown) {
+        super(message, "EMBEDDING_GENERATION_ERROR", details, true);
         this.contentLength = contentLength;
     }
 }
@@ -270,8 +270,8 @@ export class DatabaseError extends AIReviewError {
     public readonly operation: string;
     public readonly table?: string;
 
-    constructor(operation: string, message: string, table?: string, details?: any) {
-        super(message, 'DATABASE_ERROR', details, true);
+    constructor(operation: string, message: string, table?: string, details?: unknown) {
+        super(message, "DATABASE_ERROR", details, true);
         this.operation = operation;
         this.table = table;
     }
@@ -288,7 +288,7 @@ export class ReviewResultNotFoundError extends AIReviewError {
     constructor(installationId: string, prNumber: number, repositoryName: string) {
         super(
             `Review result not found for PR #${prNumber} in ${repositoryName}`,
-            'REVIEW_RESULT_NOT_FOUND',
+            "REVIEW_RESULT_NOT_FOUND",
             { installationId, prNumber, repositoryName },
             false
         );
@@ -307,7 +307,7 @@ export class CustomRuleNotFoundError extends AIReviewError {
     constructor(ruleId: string) {
         super(
             `Custom rule not found: ${ruleId}`,
-            'CUSTOM_RULE_NOT_FOUND',
+            "CUSTOM_RULE_NOT_FOUND",
             { ruleId },
             false
         );
@@ -325,8 +325,8 @@ export class CustomRuleNotFoundError extends AIReviewError {
 export class ConfigurationError extends AIReviewError {
     public readonly configKey: string;
 
-    constructor(configKey: string, message: string, details?: any) {
-        super(message, 'CONFIGURATION_ERROR', details, false);
+    constructor(configKey: string, message: string, details?: unknown) {
+        super(message, "CONFIGURATION_ERROR", details, false);
         this.configKey = configKey;
     }
 }
@@ -339,11 +339,11 @@ export class MissingEnvironmentError extends ConfigurationError {
 
     constructor(requiredVars: string[]) {
         super(
-            'environment',
-            `Missing required environment variables: ${requiredVars.join(', ')}`,
+            "environment",
+            `Missing required environment variables: ${requiredVars.join(", ")}`,
             { requiredVars }
         );
-        this.code = 'MISSING_ENVIRONMENT';
+        this.code = "MISSING_ENVIRONMENT";
         this.requiredVars = requiredVars;
     }
 }
@@ -354,8 +354,8 @@ export class MissingEnvironmentError extends ConfigurationError {
 export class ServiceInitializationError extends AIReviewError {
     public readonly serviceName: string;
 
-    constructor(serviceName: string, message: string, details?: any) {
-        super(message, 'SERVICE_INITIALIZATION_ERROR', details, false);
+    constructor(serviceName: string, message: string, details?: unknown) {
+        super(message, "SERVICE_INITIALIZATION_ERROR", details, false);
         this.serviceName = serviceName;
     }
 }
@@ -368,8 +368,8 @@ export class ServiceInitializationError extends AIReviewError {
  * Authentication errors
  */
 export class AuthenticationError extends AIReviewError {
-    constructor(message: string, details?: any) {
-        super(message, 'AUTHENTICATION_ERROR', details, false);
+    constructor(message: string, details?: unknown) {
+        super(message, "AUTHENTICATION_ERROR", details, false);
     }
 }
 
@@ -380,10 +380,10 @@ export class AuthorizationError extends AIReviewError {
     public readonly requiredPermission: string;
     public readonly userId?: string;
 
-    constructor(requiredPermission: string, userId?: string, details?: any) {
+    constructor(requiredPermission: string, userId?: string, details?: unknown) {
         super(
             `Insufficient permissions: ${requiredPermission} required`,
-            'AUTHORIZATION_ERROR',
+            "AUTHORIZATION_ERROR",
             details,
             false
         );
@@ -403,10 +403,10 @@ export class TimeoutError extends AIReviewError {
     public readonly timeoutMs: number;
     public readonly operation: string;
 
-    constructor(operation: string, timeoutMs: number, details?: any) {
+    constructor(operation: string, timeoutMs: number, details?: unknown) {
         super(
             `Operation '${operation}' timed out after ${timeoutMs}ms`,
-            'TIMEOUT_ERROR',
+            "TIMEOUT_ERROR",
             details,
             true
         );
@@ -423,10 +423,10 @@ export class ResourceLimitError extends AIReviewError {
     public readonly limit: number;
     public readonly current: number;
 
-    constructor(resource: string, current: number, limit: number, details?: any) {
+    constructor(resource: string, current: number, limit: number, details?: unknown) {
         super(
             `Resource limit exceeded for ${resource}: ${current}/${limit}`,
-            'RESOURCE_LIMIT_ERROR',
+            "RESOURCE_LIMIT_ERROR",
             details,
             false
         );
@@ -446,8 +446,8 @@ export class ResourceLimitError extends AIReviewError {
 export class WrappedError extends AIReviewError {
     public readonly originalError: string;
 
-    constructor(context: string, originalError: Error, details?: any, retryable: boolean = false) {
-        super(`${context}: ${originalError.message}`, 'WRAPPED_ERROR', details, retryable);
+    constructor(context: string, originalError: Error, details?: unknown, retryable: boolean = false) {
+        super(`${context}: ${originalError.message}`, "WRAPPED_ERROR", details, retryable);
         this.originalError = originalError.message;
     }
 }
@@ -469,9 +469,9 @@ export class ErrorUtils {
         }
 
         // Default retry logic for non-AIReviewError instances
-        if (error.message.includes('timeout') ||
-            error.message.includes('network') ||
-            error.message.includes('connection')) {
+        if (error.message.includes("timeout") ||
+            error.message.includes("network") ||
+            error.message.includes("connection")) {
             return true;
         }
 
@@ -499,7 +499,7 @@ export class ErrorUtils {
     /**
      * Wraps an error with additional context
      */
-    static wrapError(originalError: Error, context: string, details?: any): AIReviewError {
+    static wrapError(originalError: Error, context: string, details?: unknown): AIReviewError {
         if (originalError instanceof AIReviewError) {
             return originalError;
         }
@@ -507,7 +507,7 @@ export class ErrorUtils {
         return new WrappedError(
             context,
             originalError,
-            { ...details },
+            details,
             ErrorUtils.isRetryable(originalError)
         );
     }

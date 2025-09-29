@@ -1,15 +1,16 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Octokit } from "@octokit/core";
 
 export type InstallationOctokit = Octokit & {
     paginate: import("@octokit/plugin-paginate-rest").PaginateInterface;
 } & {
-    graphql: import("@octokit/graphql/dist-types/types").graphql & {
-        paginate: (<ResponseType extends object = any>(query: string, initialParameters?: Record<string, any>) => Promise<ResponseType>) & {
-            iterator: <ResponseType = any>(query: string, initialParameters?: Record<string, any>) => {
+    graphql: import("@octokit/graphql/dist-types/types.js").graphql & {
+        paginate: (<ResponseType_1 extends object = any>(query: string, initialParameters?: Record<string, any>) => Promise<ResponseType_1>) & {
+            iterator: <ResponseType_2 = any>(query: string, initialParameters?: Record<string, any>) => {
                 [Symbol.asyncIterator]: () => {
                     next(): Promise<{
                         done: boolean;
-                        value: ResponseType;
+                        value: ResponseType_2;
                     }>;
                 };
             };
@@ -60,6 +61,14 @@ export type IssueMilestone = {
     title: string;
 }
 
+export type GitHubComment = {
+    id: string;
+    body: string;
+    createdAt: string;
+    updatedAt?: string;
+    author: Partial<GitHubUser>;
+}
+
 export type GitHubUser = {
     login: string;
     id: string;
@@ -69,7 +78,7 @@ export type GitHubUser = {
 
 export type GitHubFile = {
     filename: string;
-    status: 'added' | 'modified' | 'removed' | 'renamed' | 'copied' | 'changed' | 'unchanged';
+    status: "added" | "modified" | "removed" | "renamed" | "copied" | "changed" | "unchanged";
     additions: number;
     deletions: number;
     changes: number;

@@ -1,30 +1,19 @@
-import { Request, Response, NextFunction } from 'express';
+import { Request, Response, NextFunction } from "express";
 import {
     GitHubWebhookPayload,
-    PullRequestData,
     APIResponse,
-} from '../models/ai-review.model';
-import {
-    GitHubWebhookError,
-    PRNotEligibleError,
-    PRAnalysisError
-} from '../models/ai-review.errors';
-import { PRAnalysisService } from '../services/pr-analysis.service';
-import { JobQueueService } from '../services/job-queue.service';
-import { WorkflowIntegrationService } from '../services/workflow-integration.service';
-import { LoggingService } from '../services/logging.service';
-import { OctokitService } from '../services/octokit.service';
-
-/**
- * Controller for handling GitHub webhook events for PR analysis
- * Requirements: 1.1, 1.2, 1.3, 1.4
- */
+    GitHubInstallation,
+    GitHubPullRequest
+} from "../models/ai-review.model";
+import { GitHubWebhookError, PRAnalysisError } from "../models/ai-review.errors";
+import { PRAnalysisService } from "../services/pr-analysis.service";
+import { JobQueueService } from "../services/job-queue.service";
+import { WorkflowIntegrationService } from "../services/workflow-integration.service";
+import { LoggingService } from "../services/logging.service";
+import { OctokitService } from "../services/octokit.service";
 
 /**
  * Handles GitHub PR webhook events
- * Requirement 1.1: System SHALL trigger AI review process for qualifying PRs
- * Requirement 1.2: System SHALL have access to monitor pull requests
- * Requirement 1.3: System SHALL skip review for PRs that don't link to issues
  * 
  * Complete end-to-end workflow implementation:
  * 1. Validates webhook payload and extracts PR data
@@ -65,7 +54,7 @@ export const handlePRWebhook = async (req: Request, res: Response, next: NextFun
         // Return success response with job information
         res.status(202).json({
             success: true,
-            message: 'PR webhook processed successfully - analysis queued',
+            message: "PR webhook processed successfully - analysis queued",
             data: {
                 jobId: result.jobId,
                 installationId: result.prData?.installationId,
@@ -75,13 +64,13 @@ export const handlePRWebhook = async (req: Request, res: Response, next: NextFun
                 linkedIssuesCount: result.prData?.linkedIssues.length || 0,
                 changedFilesCount: result.prData?.changedFiles.length || 0,
                 eligibleForAnalysis: true,
-                status: 'queued'
+                status: "queued"
             },
             timestamp: new Date().toISOString()
         } as APIResponse);
 
     } catch (error) {
-        LoggingService.logError('PR webhook processing failed', {
+        LoggingService.logError("PR webhook processing failed", {
             error: error instanceof Error ? error.message : String(error)
         });
 
@@ -125,29 +114,28 @@ export const webhookHealthCheck = async (req: Request, res: Response) => {
 
         res.status(statusCode).json({
             success: healthCheck.healthy,
-            message: healthCheck.healthy ? 'Webhook service is healthy' : 'Webhook service has issues',
+            message: healthCheck.healthy ? "Webhook service is healthy" : "Webhook service has issues",
             data: {
                 health: healthCheck,
                 workflow: workflowStatus
             },
             timestamp: new Date().toISOString(),
-            service: 'ai-pr-review-webhook'
+            service: "ai-pr-review-webhook"
         } as APIResponse);
 
     } catch (error) {
         res.status(503).json({
             success: false,
-            message: 'Health check failed',
+            message: "Health check failed",
             error: error instanceof Error ? error.message : String(error),
             timestamp: new Date().toISOString(),
-            service: 'ai-pr-review-webhook'
+            service: "ai-pr-review-webhook"
         } as APIResponse);
     }
 };
 
 /**
  * Gets job status for a specific job ID
- * Requirement 6.1: System SHALL provide status updates for analysis jobs
  */
 export const getJobStatus = (req: Request, res: Response) => {
     try {
@@ -156,7 +144,7 @@ export const getJobStatus = (req: Request, res: Response) => {
         if (!jobId) {
             return res.status(400).json({
                 success: false,
-                error: 'Job ID is required'
+                error: "Job ID is required"
             });
         }
 
@@ -166,7 +154,7 @@ export const getJobStatus = (req: Request, res: Response) => {
         if (!job) {
             return res.status(404).json({
                 success: false,
-                error: 'Job not found'
+                error: "Job not found"
             });
         }
 
@@ -195,17 +183,16 @@ export const getJobStatus = (req: Request, res: Response) => {
         } as APIResponse);
 
     } catch (error) {
-        LoggingService.logError('Error getting job status', { error });
+        LoggingService.logError("Error getting job status", { error });
         res.status(500).json({
             success: false,
-            error: 'Internal server error'
+            error: "Internal server error"
         });
     }
 };
 
 /**
  * Gets queue statistics
- * Requirement 6.1: System SHALL provide queue monitoring capabilities
  */
 export const getQueueStats = (req: Request, res: Response) => {
     try {
@@ -222,17 +209,16 @@ export const getQueueStats = (req: Request, res: Response) => {
         } as APIResponse);
 
     } catch (error) {
-        LoggingService.logError('Error getting queue stats', { error });
+        LoggingService.logError("Error getting queue stats", { error });
         res.status(500).json({
             success: false,
-            error: 'Internal server error'
+            error: "Internal server error"
         });
     }
 };
 
 /**
  * Gets comprehensive workflow status
- * Requirement 6.1: System SHALL provide comprehensive workflow monitoring
  */
 export const getWorkflowStatus = (req: Request, res: Response) => {
     try {
@@ -246,10 +232,10 @@ export const getWorkflowStatus = (req: Request, res: Response) => {
         } as APIResponse);
 
     } catch (error) {
-        LoggingService.logError('Error getting workflow status', { error });
+        LoggingService.logError("Error getting workflow status", { error });
         res.status(500).json({
             success: false,
-            error: 'Internal server error',
+            error: "Internal server error",
             timestamp: new Date().toISOString()
         });
     }
@@ -257,16 +243,15 @@ export const getWorkflowStatus = (req: Request, res: Response) => {
 
 /**
  * Manually triggers PR analysis
- * Requirement 1.4: System SHALL provide manual trigger capability
  */
 export const triggerManualAnalysis = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const { installationId, repositoryName, prNumber, reason, userId } = req.body;
+        const { installationId, repositoryName, prNumber, reason } = req.body;
 
         if (!installationId || !repositoryName || !prNumber) {
             return res.status(400).json({
                 success: false,
-                error: 'Missing required fields: installationId, repositoryName, prNumber'
+                error: "Missing required fields: installationId, repositoryName, prNumber"
             });
         }
 
@@ -285,7 +270,7 @@ export const triggerManualAnalysis = async (req: Request, res: Response, next: N
         );
 
         const { data: repository } = await octokit.request(
-            'GET /repos/{owner}/{repo}', 
+            "GET /repos/{owner}/{repo}", 
             { owner, repo }
         );
 
@@ -294,9 +279,9 @@ export const triggerManualAnalysis = async (req: Request, res: Response, next: N
         const result = await workflowService.processWebhookWorkflow({
             action: "opened",
             number: prNumber,
-            pull_request: pull_request as any,
-            repository: repository as any,
-            installation: installation as any,
+            pull_request: pull_request as GitHubPullRequest,
+            repository,
+            installation: installation as GitHubInstallation
         });
         
         if (!result.success) {
@@ -309,27 +294,26 @@ export const triggerManualAnalysis = async (req: Request, res: Response, next: N
 
         res.status(202).json({
             success: true,
-            message: 'Manual analysis queued successfully',
+            message: "Manual analysis queued successfully",
             data: {
                 jobId: result.jobId,
                 installationId,
                 repositoryName,
                 prNumber,
-                status: 'queued',
-                reason: reason || 'Manual trigger'
+                status: "queued",
+                reason: reason || "Manual trigger"
             },
             timestamp: new Date().toISOString()
         } as APIResponse);
 
     } catch (error) {
-        LoggingService.logError('Error in manual analysis trigger', { error });
+        LoggingService.logError("Error in manual analysis trigger", { error });
         next(error);
     }
 };
 
 /**
  * Gets intelligent context configuration
- * Requirement 6.1: System SHALL provide configuration management for intelligent context features
  */
 export const getIntelligentContextConfig = (req: Request, res: Response) => {
     try {
@@ -355,10 +339,10 @@ export const getIntelligentContextConfig = (req: Request, res: Response) => {
         } as APIResponse);
 
     } catch (error) {
-        LoggingService.logError('Error getting intelligent context config', { error });
+        LoggingService.logError("Error getting intelligent context config", { error });
         res.status(500).json({
             success: false,
-            error: 'Internal server error',
+            error: "Internal server error",
             timestamp: new Date().toISOString()
         });
     }
@@ -366,7 +350,6 @@ export const getIntelligentContextConfig = (req: Request, res: Response) => {
 
 /**
  * Updates intelligent context configuration
- * Requirement 6.1: System SHALL provide configuration management for intelligent context features
  */
 export const updateIntelligentContextConfig = (req: Request, res: Response) => {
     try {
@@ -375,7 +358,7 @@ export const updateIntelligentContextConfig = (req: Request, res: Response) => {
         if (!configuration && !featureFlags) {
             return res.status(400).json({
                 success: false,
-                error: 'Either configuration or featureFlags must be provided',
+                error: "Either configuration or featureFlags must be provided",
                 timestamp: new Date().toISOString()
             });
         }
@@ -392,7 +375,7 @@ export const updateIntelligentContextConfig = (req: Request, res: Response) => {
             if (!validation.valid) {
                 return res.status(400).json({
                     success: false,
-                    error: 'Invalid configuration',
+                    error: "Invalid configuration",
                     details: validation.errors,
                     timestamp: new Date().toISOString()
                 });
@@ -409,14 +392,14 @@ export const updateIntelligentContextConfig = (req: Request, res: Response) => {
         const updatedFeatureFlags = configService.getFeatureFlags();
         const configSummary = configService.getConfigSummary();
 
-        LoggingService.logInfo('updateIntelligentContextConfig', 'Intelligent context configuration updated', {
+        LoggingService.logInfo("updateIntelligentContextConfig", "Intelligent context configuration updated", {
             configuration: updatedConfig,
             featureFlags: updatedFeatureFlags
         });
 
         res.status(200).json({
             success: true,
-            message: 'Configuration updated successfully',
+            message: "Configuration updated successfully",
             data: {
                 configuration: updatedConfig,
                 featureFlags: updatedFeatureFlags,
@@ -426,10 +409,10 @@ export const updateIntelligentContextConfig = (req: Request, res: Response) => {
         } as APIResponse);
 
     } catch (error) {
-        LoggingService.logError('Error updating intelligent context config', { error });
+        LoggingService.logError("Error updating intelligent context config", { error });
         res.status(500).json({
             success: false,
-            error: 'Internal server error',
+            error: "Internal server error",
             timestamp: new Date().toISOString()
         });
     }

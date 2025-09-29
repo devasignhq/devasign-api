@@ -1,4 +1,4 @@
-import { Request, Response } from 'express';
+import { Request, Response } from "express";
 
 /**
  * Creates a mock Express request object for testing
@@ -9,10 +9,10 @@ export function createMockRequest(overrides: Partial<Request> = {}): Partial<Req
         params: {},
         query: {},
         headers: {},
-        method: 'GET',
-        url: '/',
-        path: '/',
-        ...overrides,
+        method: "GET",
+        url: "/",
+        path: "/",
+        ...overrides
     };
 }
 
@@ -27,7 +27,7 @@ export function createMockResponse(): Partial<Response> {
         end: jest.fn().mockReturnThis(),
         setHeader: jest.fn().mockReturnThis(),
         cookie: jest.fn().mockReturnThis(),
-        clearCookie: jest.fn().mockReturnThis(),
+        clearCookie: jest.fn().mockReturnThis()
     };
     return res;
 }
@@ -50,8 +50,8 @@ export function wait(ms: number): Promise<void> {
  * Generates a random string for testing
  */
 export function generateRandomString(length: number = 10): string {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    let result = '';
+    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+    let result = "";
     for (let i = 0; i < length; i++) {
         result += chars.charAt(Math.floor(Math.random() * chars.length));
     }
@@ -69,9 +69,9 @@ export function generateRandomEmail(): string {
  * Generates a random UUID for testing
  */
 export function generateRandomUUID(): string {
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+    return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
         const r = Math.random() * 16 | 0;
-        const v = c === 'x' ? r : (r & 0x3 | 0x8);
+        const v = c === "x" ? r : (r & 0x3 | 0x8);
         return v.toString(16);
     });
 }
@@ -92,10 +92,10 @@ export async function expectToThrow(
 ): Promise<void> {
     try {
         await fn();
-        throw new Error('Expected function to throw an error');
+        throw new Error("Expected function to throw an error");
     } catch (error) {
         if (expectedError && error instanceof Error) {
-            if (typeof expectedError === 'string') {
+            if (typeof expectedError === "string") {
                 expect(error.message).toContain(expectedError);
             } else {
                 expect(error.message).toMatch(expectedError);
@@ -108,7 +108,7 @@ export async function expectToThrow(
  * Validates that an object has the expected structure
  */
 export function validateObjectStructure(obj: any, expectedKeys: string[]): boolean {
-    if (!obj || typeof obj !== 'object') {
+    if (!obj || typeof obj !== "object") {
         return false;
     }
 
@@ -141,7 +141,7 @@ export function suppressConsole(): { restore: () => void } {
         log: console.log,
         error: console.error,
         warn: console.warn,
-        info: console.info,
+        info: console.info
     };
 
     console.log = jest.fn();
@@ -155,6 +155,6 @@ export function suppressConsole(): { restore: () => void } {
             console.error = originalConsole.error;
             console.warn = originalConsole.warn;
             console.info = originalConsole.info;
-        },
+        }
     };
 }

@@ -21,8 +21,8 @@ import {
 
 export const installationRoutes = Router();
 
-installationRoutes.get('/', getInstallationsValidator, getInstallations as RequestHandler);
-installationRoutes.get('/:id', getInstallation as RequestHandler);
+installationRoutes.get("/", getInstallationsValidator, getInstallations as RequestHandler);
+installationRoutes.get("/:id", getInstallation as RequestHandler);
 
 installationRoutes.post("/", createInstallationValidator, createInstallation as RequestHandler);
 installationRoutes.patch("/:id", updateInstallationValidator, updateInstallation as RequestHandler);

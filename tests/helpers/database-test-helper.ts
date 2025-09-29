@@ -1,5 +1,5 @@
-import { PrismaClient } from '@/generated/client';
-import { execSync } from 'child_process';
+import { execSync } from "child_process";
+import { PrismaClient } from "../../api/generated/client";
 
 /**
  * DatabaseTestHelper provides utilities for managing test databases
@@ -22,7 +22,7 @@ export class DatabaseTestHelper {
 
         // Configure PostgreSQL database URL for unit tests
         const unitTestDbUrl = process.env.DATABASE_URL ||
-            'postgresql://test_user:test_password@localhost:5433/test_db';
+            "postgresql://test_user:test_password@localhost:5433/test_db";
 
         // Set the environment variable
         process.env.DATABASE_URL = unitTestDbUrl;
@@ -34,17 +34,17 @@ export class DatabaseTestHelper {
                     url: unitTestDbUrl
                 }
             },
-            log: process.env.NODE_ENV === 'test' ? [] : ['query', 'info', 'warn', 'error']
+            log: process.env.NODE_ENV === "test" ? [] : ["query", "info", "warn", "error"]
         });
 
         try {
             // Connect to database
             await this.testClient.$connect();
 
-            console.log('✅ Unit test database (PostgreSQL) setup completed');
+            console.log("✅ Unit test database (PostgreSQL) setup completed");
             return this.testClient;
         } catch (error) {
-            console.error('❌ Failed to setup unit test database:', error);
+            console.error("❌ Failed to setup unit test database:", error);
             throw error;
         }
     }
@@ -58,21 +58,21 @@ export class DatabaseTestHelper {
         }
 
         try {
-            execSync('docker start test-postgres');
+            execSync("docker start test-postgres");
             await new Promise(resolve => setTimeout(resolve, 7000));
             this.isDockerRunning = true;
         } catch (error) {
-            console.log('Error starting test container:', error);
+            console.log("Error starting test container:", error);
             
             try {
                 // Start new PostgreSQL container
-                console.log('🐳 Starting Docker PostgreSQL container...');
-                execSync('docker run --name test-postgres -e POSTGRES_USER=test_user -e POSTGRES_PASSWORD=test_password -e POSTGRES_DB=test_db -p 5433:5432 -d postgres');
+                console.log("🐳 Starting Docker PostgreSQL container...");
+                execSync("docker run --name test-postgres -e POSTGRES_USER=test_user -e POSTGRES_PASSWORD=test_password -e POSTGRES_DB=test_db -p 5433:5432 -d postgres");
                 
                 // Wait for container to start
                 await new Promise(resolve => setTimeout(resolve, 5000));
 
-                execSync('npx prisma migrate deploy');
+                execSync("npx prisma migrate deploy");
                 
                 // Wait for migration to be completed
                 await new Promise(resolve => setTimeout(resolve, 5000));
@@ -83,8 +83,8 @@ export class DatabaseTestHelper {
 
                 this.isDockerRunning = true;
             } catch (error) {
-                console.error('❌ Failed to start Docker PostgreSQL:', error);
-                throw new Error('Docker PostgreSQL setup failed. Make sure Docker is installed and running.');
+                console.error("❌ Failed to start Docker PostgreSQL:", error);
+                throw new Error("Docker PostgreSQL setup failed. Make sure Docker is installed and running.");
             }
         }
     }
@@ -97,7 +97,7 @@ export class DatabaseTestHelper {
             try {
                 await client.$queryRaw`SELECT 1`;
                 return;
-            } catch (error) {
+            } catch {
                 if (i === maxRetries - 1) {
                     throw new Error(`Database not ready after ${maxRetries} attempts`);
                 }
@@ -112,13 +112,13 @@ export class DatabaseTestHelper {
     private static async runMigrations(): Promise<void> {
         try {
             // For PostgreSQL, use db push for tests to avoid migration files
-            execSync('npx prisma db push --force-reset', {
-                stdio: 'pipe',
+            execSync("npx prisma db push --force-reset", {
+                stdio: "pipe",
                 env: { ...process.env, DATABASE_URL: process.env.DATABASE_URL }
             });
-            console.log(`✅ Database schema pushed`);
+            console.log("✅ Database schema pushed");
         } catch (error) {
-            console.error(`❌ Failed to push schema:`, error);
+            console.error("❌ Failed to push schema:", error);
             throw error;
         }
     }
@@ -131,21 +131,21 @@ export class DatabaseTestHelper {
             try {
                 await this.testClient.$disconnect();
                 this.testClient = null;
-                console.log('✅ Integration test database cleanup completed');
+                console.log("✅ Integration test database cleanup completed");
             } catch (error) {
-                console.error('❌ Failed to cleanup integration test database:', error);
+                console.error("❌ Failed to cleanup integration test database:", error);
             }
         }
 
         // Stop Docker container
         if (this.isDockerRunning) {
             try {
-                execSync('docker stop test-postgres', { stdio: 'pipe' });
-                execSync('docker rm test-postgres', { stdio: 'pipe' });
+                execSync("docker stop test-postgres", { stdio: "pipe" });
+                execSync("docker rm test-postgres", { stdio: "pipe" });
                 this.isDockerRunning = false;
-                console.log('✅ Docker PostgreSQL container stopped');
+                console.log("✅ Docker PostgreSQL container stopped");
             } catch (error) {
-                console.error('❌ Failed to stop Docker container:', error);
+                console.error("❌ Failed to stop Docker container:", error);
             }
         }
     }
@@ -164,34 +164,34 @@ export class DatabaseTestHelper {
             await client.$executeRaw`SET session_replication_role = replica;`;
 
             for (const table of tables) {
-                if (table.tablename !== '_prisma_migrations') {
+                if (table.tablename !== "_prisma_migrations") {
                     await client.$executeRawUnsafe(`TRUNCATE TABLE "${table.tablename}" CASCADE;`);
                 }
             }
 
             await client.$executeRaw`SET session_replication_role = DEFAULT;`;
 
-            console.log('✅ Database reset completed');
-        } catch (error) {
+            console.log("✅ Database reset completed");
+        } catch {
             // Fallback for SQLite or if the above doesn't work
             try {
                 await client.$executeRaw`PRAGMA foreign_keys = OFF;`;
 
                 // For SQLite, delete from tables in reverse dependency order
                 const deleteOrder = [
-                    'TaskActivity',
-                    'TaskSubmission',
-                    'Transaction',
-                    'AIReviewResult',
-                    'AIReviewRule',
-                    'ContextAnalysisMetrics',
-                    'UserInstallationPermission',
-                    'Task',
-                    'ContributionSummary',
-                    'User',
-                    'Installation',
-                    'SubscriptionPackage',
-                    'Permission'
+                    "TaskActivity",
+                    "TaskSubmission",
+                    "Transaction",
+                    "AIReviewResult",
+                    "AIReviewRule",
+                    "ContextAnalysisMetrics",
+                    "UserInstallationPermission",
+                    "Task",
+                    "ContributionSummary",
+                    "User",
+                    "Installation",
+                    "SubscriptionPackage",
+                    "Permission"
                 ];
 
                 for (const table of deleteOrder) {
@@ -199,9 +199,9 @@ export class DatabaseTestHelper {
                 }
 
                 await client.$executeRaw`PRAGMA foreign_keys = ON;`;
-                console.log('✅ Database reset completed (SQLite fallback)');
+                console.log("✅ Database reset completed (SQLite fallback)");
             } catch (fallbackError) {
-                console.error('❌ Failed to reset database:', fallbackError);
+                console.error("❌ Failed to reset database:", fallbackError);
                 throw fallbackError;
             }
         }
@@ -215,9 +215,9 @@ export class DatabaseTestHelper {
             // Create default subscription package
             await client.subscriptionPackage.create({
                 data: {
-                    id: 'test-package-id',
-                    name: 'Test Package',
-                    description: 'Test subscription package',
+                    id: "test-package-id",
+                    name: "Test Package",
+                    description: "Test subscription package",
                     maxTasks: 10,
                     maxUsers: 5,
                     paid: false,
@@ -228,19 +228,19 @@ export class DatabaseTestHelper {
 
             // Create default permissions
             const permissions = [
-                { code: 'ADMIN', name: 'Administrator', isDefault: false },
-                { code: 'MANAGE_TASKS', name: 'Manage Tasks', isDefault: true },
-                { code: 'VIEW_TASKS', name: 'View Tasks', isDefault: true },
-                { code: 'APPLY_TASKS', name: 'Apply to Tasks', isDefault: true }
+                { code: "ADMIN", name: "Administrator", isDefault: false },
+                { code: "MANAGE_TASKS", name: "Manage Tasks", isDefault: true },
+                { code: "VIEW_TASKS", name: "View Tasks", isDefault: true },
+                { code: "APPLY_TASKS", name: "Apply to Tasks", isDefault: true }
             ];
 
             for (const permission of permissions) {
                 await client.permission.create({ data: permission });
             }
 
-            console.log('✅ Database seeding completed');
+            console.log("✅ Database seeding completed");
         } catch (error) {
-            console.error('❌ Failed to seed database:', error);
+            console.error("❌ Failed to seed database:", error);
             throw error;
         }
     }
@@ -259,10 +259,10 @@ export class DatabaseTestHelper {
             await client.$transaction(async (tx) => {
                 result = await fn(tx);
                 // Force rollback by throwing an error
-                throw new Error('ROLLBACK_TRANSACTION');
+                throw new Error("ROLLBACK_TRANSACTION");
             });
         } catch (error: any) {
-            if (error.message === 'ROLLBACK_TRANSACTION') {
+            if (error.message === "ROLLBACK_TRANSACTION") {
                 // This is expected for test isolation
                 return result!;
             }

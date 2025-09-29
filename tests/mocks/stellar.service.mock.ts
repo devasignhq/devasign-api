@@ -7,7 +7,6 @@ import {
 /**
  * Mock Stellar Service for testing
  * Provides comprehensive mocks for blockchain operations
- * Requirements: 1.2, 3.2, 5.4
  */
 
 /**
@@ -48,7 +47,7 @@ export class MockStellarService {
     private static mockWallets = new Map<string, MockWallet>();
     private static mockTransactions: MockTransaction[] = [];
     private static shouldSimulateError = false;
-    private static errorType: 'network' | 'insufficient_funds' | 'invalid_account' | 'rate_limit' | null = null;
+    private static errorType: "network" | "insufficient_funds" | "invalid_account" | "rate_limit" | null = null;
     private static transactionCounter = 1;
 
     /**
@@ -86,8 +85,8 @@ export class MockStellarService {
         }
 
         // Validate sponsor secret format
-        if (!sponsorSecret.startsWith('MOCK_SECRET_')) {
-            throw new Error('Invalid sponsor secret key format');
+        if (!sponsorSecret.startsWith("MOCK_SECRET_")) {
+            throw new Error("Invalid sponsor secret key format");
         }
 
         const publicKey = `SPONSORED_PUBLIC_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -115,7 +114,7 @@ export class MockStellarService {
         }
 
         if (!this.mockWallets.has(accountAddress)) {
-            throw new Error('Account not found');
+            throw new Error("Account not found");
         }
 
         return "SUCCESS";
@@ -124,15 +123,15 @@ export class MockStellarService {
     /**
      * Mock addTrustLine method
      */
-    static async addTrustLine(sourceSecret: string, assetId?: StellarAssetId): Promise<MockTransaction> {
+    static async addTrustLine(sourceSecret: string, _assetId?: StellarAssetId): Promise<MockTransaction> {
         await this.simulateNetworkDelay();
 
         if (this.shouldSimulateError) {
             this.throwMockError();
         }
 
-        if (!sourceSecret.startsWith('MOCK_SECRET_') && !sourceSecret.startsWith('SPONSORED_SECRET_')) {
-            throw new Error('Invalid secret key format');
+        if (!sourceSecret.startsWith("MOCK_SECRET_") && !sourceSecret.startsWith("SPONSORED_SECRET_")) {
+            throw new Error("Invalid secret key format");
         }
 
         const txHash = this.generateTxHash();
@@ -146,9 +145,9 @@ export class MockStellarService {
      * Mock addTrustLineViaSponsor method
      */
     static async addTrustLineViaSponsor(
-        sponsorSecret: string,
-        accountSecret: string,
-        assetId?: StellarAssetId
+        _sponsorSecret: string,
+        _accountSecret: string,
+        _assetId?: StellarAssetId
     ): Promise<MockTransaction> {
         await this.simulateNetworkDelay();
 
@@ -182,12 +181,12 @@ export class MockStellarService {
         // Validate amount
         const numAmount = parseFloat(amount);
         if (isNaN(numAmount) || numAmount <= 0) {
-            throw new Error('Invalid amount');
+            throw new Error("Invalid amount");
         }
 
         // Validate destination address
         if (!destinationAddress || destinationAddress.length < 10) {
-            throw new Error('Invalid destination address');
+            throw new Error("Invalid destination address");
         }
 
         const txHash = this.generateTxHash();
@@ -201,12 +200,12 @@ export class MockStellarService {
      * Mock transferAssetViaSponsor method
      */
     static async transferAssetViaSponsor(
-        sponsorSecret: string,
-        accountSecret: string,
-        destinationAddress: string,
-        sendAssetId: StellarAssetId,
-        destAssetId: StellarAssetId,
-        amount: string
+        _sponsorSecret: string,
+        _accountSecret: string,
+        _destinationAddress: string,
+        _sendAssetId: StellarAssetId,
+        _destAssetId: StellarAssetId,
+        _amount: string
     ): Promise<MockTransaction> {
         await this.simulateNetworkDelay();
 
@@ -230,10 +229,10 @@ export class MockStellarService {
      * Mock swapAsset method
      */
     static async swapAsset(
-        sourceSecret: string,
+        _sourceSecret: string,
         amount: string,
-        fromAssetId?: StellarAssetId,
-        toAssetId?: StellarAssetId
+        _fromAssetId?: StellarAssetId,
+        _toAssetId?: StellarAssetId
     ): Promise<MockTransaction> {
         await this.simulateNetworkDelay();
 
@@ -243,7 +242,7 @@ export class MockStellarService {
 
         const numAmount = parseFloat(amount);
         if (isNaN(numAmount) || numAmount <= 0) {
-            throw new Error('Invalid swap amount');
+            throw new Error("Invalid swap amount");
         }
 
         const txHash = this.generateTxHash();
@@ -264,7 +263,7 @@ export class MockStellarService {
         }
 
         if (!this.mockWallets.has(publicKey)) {
-            throw new Error('Account not found');
+            throw new Error("Account not found");
         }
 
         return {
@@ -319,7 +318,7 @@ export class MockStellarService {
     /**
      * Mock buildPaymentTransactionStream method
      */
-    static async buildPaymentTransactionStream(publicKey: string) {
+    static async buildPaymentTransactionStream(_publicKey: string) {
         return {
             stream: {
                 on: jest.fn(),
@@ -331,7 +330,7 @@ export class MockStellarService {
     /**
      * Test utility methods
      */
-    static simulateError(errorType: 'network' | 'insufficient_funds' | 'invalid_account' | 'rate_limit') {
+    static simulateError(errorType: "network" | "insufficient_funds" | "invalid_account" | "rate_limit") {
         this.shouldSimulateError = true;
         this.errorType = errorType;
     }
@@ -373,49 +372,49 @@ export class MockStellarService {
 
     private static throwMockError() {
         switch (this.errorType) {
-            case 'network':
-                throw new Error('Network connection failed');
+        case "network":
+            throw new Error("Network connection failed");
 
-            case 'insufficient_funds':
-                const insufficientFundsError = new Error('Insufficient funds');
-                (insufficientFundsError as any).response = {
-                    status: 400,
-                    data: {
-                        extras: {
-                            result_codes: {
-                                transaction: "tx_insufficient_balance"
-                            }
+        case "insufficient_funds":
+            const insufficientFundsError = new Error("Insufficient funds");
+            (insufficientFundsError as any).response = {
+                status: 400,
+                data: {
+                    extras: {
+                        result_codes: {
+                            transaction: "tx_insufficient_balance"
                         }
                     }
-                };
-                throw insufficientFundsError;
+                }
+            };
+            throw insufficientFundsError;
 
-            case 'invalid_account':
-                const invalidAccountError = new Error('Account does not exist');
-                (invalidAccountError as any).response = {
-                    status: 404,
-                    data: {
-                        extras: {
-                            result_codes: {
-                                transaction: "tx_no_account"
-                            }
+        case "invalid_account":
+            const invalidAccountError = new Error("Account does not exist");
+            (invalidAccountError as any).response = {
+                status: 404,
+                data: {
+                    extras: {
+                        result_codes: {
+                            transaction: "tx_no_account"
                         }
                     }
-                };
-                throw invalidAccountError;
+                }
+            };
+            throw invalidAccountError;
 
-            case 'rate_limit':
-                const rateLimitError = new Error('Rate limit exceeded');
-                (rateLimitError as any).response = {
-                    status: 429,
-                    headers: {
-                        'retry-after': '60'
-                    }
-                };
-                throw rateLimitError;
+        case "rate_limit":
+            const rateLimitError = new Error("Rate limit exceeded");
+            (rateLimitError as any).response = {
+                status: 429,
+                headers: {
+                    "retry-after": "60"
+                }
+            };
+            throw rateLimitError;
 
-            default:
-                throw new Error('Stellar service error');
+        default:
+            throw new Error("Stellar service error");
         }
     }
 }

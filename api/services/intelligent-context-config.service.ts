@@ -1,9 +1,3 @@
-/**
- * Intelligent Context Configuration Service
- * Manages configuration for intelligent context fetching features
- * Requirements: 6.1, 6.4
- */
-
 export interface IntelligentContextConfig {
     enabled: boolean;
     maxProcessingTime: number;
@@ -58,7 +52,7 @@ export class IntelligentContextConfigService {
      */
     public updateConfig(updates: Partial<IntelligentContextConfig>): void {
         this.config = { ...this.config, ...updates };
-        console.log('Intelligent context configuration updated:', this.config);
+        console.log("Intelligent context configuration updated:", this.config);
     }
 
     /**
@@ -66,7 +60,7 @@ export class IntelligentContextConfigService {
      */
     public updateFeatureFlags(updates: Partial<IntelligentContextFeatureFlags>): void {
         this.featureFlags = { ...this.featureFlags, ...updates };
-        console.log('Intelligent context feature flags updated:', this.featureFlags);
+        console.log("Intelligent context feature flags updated:", this.featureFlags);
     }
 
     /**
@@ -102,11 +96,11 @@ export class IntelligentContextConfigService {
         const errors: string[] = [];
 
         if (this.config.maxProcessingTime < 10000) {
-            errors.push('maxProcessingTime should be at least 10 seconds (10000ms)');
+            errors.push("maxProcessingTime should be at least 10 seconds (10000ms)");
         }
 
         if (this.config.maxProcessingTime > 600000) {
-            errors.push('maxProcessingTime should not exceed 10 minutes (600000ms)');
+            errors.push("maxProcessingTime should not exceed 10 minutes (600000ms)");
         }
 
         return {
@@ -121,7 +115,7 @@ export class IntelligentContextConfigService {
     public reloadFromEnvironment(): void {
         this.config = this.loadConfigFromEnvironment();
         this.featureFlags = this.loadFeatureFlagsFromEnvironment();
-        console.log('Intelligent context configuration reloaded from environment');
+        console.log("Intelligent context configuration reloaded from environment");
     }
 
     /**
@@ -145,10 +139,10 @@ export class IntelligentContextConfigService {
      */
     private loadConfigFromEnvironment(): IntelligentContextConfig {
         return {
-            enabled: process.env.INTELLIGENT_CONTEXT_ENABLED !== 'false',
-            maxProcessingTime: parseInt(process.env.MAX_INTELLIGENT_CONTEXT_TIME || '120000'),
-            fallbackOnError: process.env.FALLBACK_ON_INTELLIGENT_CONTEXT_ERROR !== 'false',
-            enableMetrics: process.env.ENABLE_INTELLIGENT_CONTEXT_METRICS !== 'false'
+            enabled: process.env.INTELLIGENT_CONTEXT_ENABLED !== "false",
+            maxProcessingTime: parseInt(process.env.MAX_INTELLIGENT_CONTEXT_TIME || "120000"),
+            fallbackOnError: process.env.FALLBACK_ON_INTELLIGENT_CONTEXT_ERROR !== "false",
+            enableMetrics: process.env.ENABLE_INTELLIGENT_CONTEXT_METRICS !== "false"
         };
     }
 
@@ -157,11 +151,11 @@ export class IntelligentContextConfigService {
      */
     private loadFeatureFlagsFromEnvironment(): IntelligentContextFeatureFlags {
         return {
-            useAIContextAnalysis: process.env.INTELLIGENT_CONTEXT_AI_ANALYSIS !== 'false',
-            enableSelectiveFileFetching: process.env.INTELLIGENT_CONTEXT_SELECTIVE_FETCHING !== 'false',
-            enableRepositoryStructureAnalysis: process.env.INTELLIGENT_CONTEXT_REPO_STRUCTURE !== 'false',
-            enableRawCodeChangesExtraction: process.env.INTELLIGENT_CONTEXT_CODE_EXTRACTION !== 'false',
-            enableEnhancedContextBuilder: process.env.INTELLIGENT_CONTEXT_ENHANCED_BUILDER !== 'false'
+            useAIContextAnalysis: process.env.INTELLIGENT_CONTEXT_AI_ANALYSIS !== "false",
+            enableSelectiveFileFetching: process.env.INTELLIGENT_CONTEXT_SELECTIVE_FETCHING !== "false",
+            enableRepositoryStructureAnalysis: process.env.INTELLIGENT_CONTEXT_REPO_STRUCTURE !== "false",
+            enableRawCodeChangesExtraction: process.env.INTELLIGENT_CONTEXT_CODE_EXTRACTION !== "false",
+            enableEnhancedContextBuilder: process.env.INTELLIGENT_CONTEXT_ENHANCED_BUILDER !== "false"
         };
     }
 }

@@ -12,6 +12,7 @@ import {
     PRAnalysisError,
     GitHubAPIError
 } from "../models/ai-review.errors";
+import { getFieldFromUnknownObject } from "../helper";
 
 export const getInstallationRepositories = async (req: Request, res: Response, next: NextFunction) => {
     const { installationId } = req.params;
@@ -50,7 +51,7 @@ export const getRepositoryIssues = async (req: Request, res: Response, next: Nex
             labels: labels ? labels as string[] : undefined,
             milestone: milestone as string,
             sort: sort as ("created" | "updated" | "comments"),
-            direction: direction as ("asc" | "desc"),
+            direction: direction as ("asc" | "desc")
         };
 
         const result = await OctokitService.getRepoIssuesWithSearch(
@@ -108,7 +109,7 @@ export const getOrCreateBountyLabel = async (req: Request, res: Response, next: 
                 repositoryId as string,
                 installationId
             );
-        } catch { }
+        } catch { /* empty */ }
 
         if (bountyLabel) {
             return res.status(200).json({ valid: true, bountyLabel });
@@ -127,7 +128,6 @@ export const getOrCreateBountyLabel = async (req: Request, res: Response, next: 
 
 /**
  * Manual trigger for PR analysis
- * Requirements: 1.4, 6.4
  * 
  * This endpoint allows authorized users to manually trigger AI analysis for a specific PR
  * - Validates user has access to the installation
@@ -199,10 +199,12 @@ export const triggerManualPRAnalysis = async (req: Request, res: Response, next:
             const extractionTime = Date.now() - startTime;
             PRAnalysisService.logExtractionResult(prData, extractionTime, true);
 
-        } catch (error: any) {
+        } catch (error: unknown) {
             const extractionTime = Date.now() - startTime;
+            const errorStatus = getFieldFromUnknownObject<number>(error, "status");
+            const errorMessage = getFieldFromUnknownObject<string>(error, "message");
 
-            if (error.status === 404) {
+            if (errorStatus === 404) {
                 return res.status(404).json({
                     success: false,
                     error: `PR #${prNumber} not found in repository ${repositoryName}`,
@@ -219,14 +221,14 @@ export const triggerManualPRAnalysis = async (req: Request, res: Response, next:
                 { installationId, repositoryName, prNumber } as PullRequestData,
                 extractionTime,
                 false,
-                error
+                (errorMessage ? (error as Error) : undefined)
             );
 
             throw new GitHubAPIError(
                 `Failed to fetch PR data for PR #${prNumber}`,
-                error.status,
+                errorStatus,
                 undefined,
-                { installationId, repositoryName, prNumber, originalError: error.message }
+                { installationId, repositoryName, prNumber, originalError: errorMessage }
             );
         }
 

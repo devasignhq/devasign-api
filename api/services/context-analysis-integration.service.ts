@@ -1,36 +1,6 @@
-import { PrismaClient } from '../generated/client';
-import { ContextAnalysisDbService, ContextAnalysisData, ContextAnalysisMetricsData } from './context-analysis-db.service';
-
-export interface EnhancedReviewContext {
-    rawCodeChanges: any;
-    repositoryStructure: any;
-    contextAnalysis: any;
-    fetchedFiles: any[];
-    contextMetrics: ContextMetrics;
-}
-
-export interface ContextMetrics {
-    totalFilesInRepo: number;
-    filesAnalyzedByAI: number;
-    filesRecommended: number;
-    filesFetched: number;
-    fetchSuccessRate: number;
-    processingTime: {
-        codeExtraction: number;
-        pathRetrieval: number;
-        aiAnalysis: number;
-        fileFetching: number;
-        total: number;
-    };
-}
-
-export interface ContextAnalysisResponse {
-    relevantFiles: any[];
-    reasoning: string;
-    confidence: number;
-    analysisType: 'comprehensive' | 'focused' | 'minimal';
-    estimatedReviewQuality: number;
-}
+import { PrismaClient } from "../generated/client";
+import { ContextAnalysisResponse, ContextMetrics, EnhancedReviewContext } from "../models/intelligent-context.model";
+import { ContextAnalysisDbService, ContextAnalysisData, ContextAnalysisMetricsData } from "./context-analysis-db.service";
 
 export class ContextAnalysisIntegrationService {
     private contextDbService: ContextAnalysisDbService;
@@ -66,11 +36,11 @@ export class ContextAnalysisIntegrationService {
                     reasoning: contextAnalysis.reasoning,
                     confidence: contextAnalysis.confidence,
                     analysisType: contextAnalysis.analysisType,
-                    estimatedReviewQuality: contextAnalysis.estimatedReviewQuality,
+                    estimatedReviewQuality: contextAnalysis.estimatedReviewQuality
                 },
                 fetchedFilePaths: enhancedContext.fetchedFiles
                     .filter(file => file.fetchSuccess)
-                    .map(file => file.filePath),
+                    .map(file => file.filePath)
             };
 
             // Update AIReviewResult with context data
@@ -87,14 +57,14 @@ export class ContextAnalysisIntegrationService {
                 fetchSuccessRate: enhancedContext.contextMetrics.fetchSuccessRate,
                 processingTimes: enhancedContext.contextMetrics.processingTime,
                 aiConfidence: contextAnalysis.confidence,
-                reviewQualityScore: Math.round(contextAnalysis.estimatedReviewQuality),
+                reviewQualityScore: Math.round(contextAnalysis.estimatedReviewQuality)
             };
 
             await this.contextDbService.createContextAnalysisMetrics(metricsData);
 
             console.log(`Context analysis results stored for PR ${prNumber} in ${repositoryName}`);
         } catch (error) {
-            console.error('Failed to store context analysis results:', error);
+            console.error("Failed to store context analysis results:", error);
             // Don't throw - this is a non-critical operation that shouldn't break the review process
         }
     }
@@ -105,12 +75,12 @@ export class ContextAnalysisIntegrationService {
     async markAsFallback(reviewResultId: string): Promise<void> {
         try {
             const contextData: ContextAnalysisData = {
-                contextAnalysisUsed: false,
+                contextAnalysisUsed: false
             };
 
             await this.contextDbService.updateAIReviewResultWithContext(reviewResultId, contextData);
         } catch (error) {
-            console.error('Failed to mark review as fallback:', error);
+            console.error("Failed to mark review as fallback:", error);
         }
     }
 
@@ -180,7 +150,7 @@ export class ContextAnalysisIntegrationService {
             usage: {
                 totalReviews,
                 contextAnalysisUsed,
-                usagePercentage: totalReviews > 0 ? (contextAnalysisUsed / totalReviews) * 100 : 0,
+                usagePercentage: totalReviews > 0 ? (contextAnalysisUsed / totalReviews) * 100 : 0
             },
             performance: {
                 averageFilesRecommended: repoStats.averageFilesRecommended,
@@ -189,9 +159,9 @@ export class ContextAnalysisIntegrationService {
                 averageProcessingTime: trends.length > 0
                     ? trends.reduce((sum, t) => sum + t.averageProcessingTime, 0) / trends.length
                     : 0,
-                averageQualityScore: repoStats.averageReviewQualityScore,
+                averageQualityScore: repoStats.averageReviewQualityScore
             },
-            trends,
+            trends
         };
     }
 
@@ -214,22 +184,6 @@ export class ContextAnalysisIntegrationService {
             installationId,
             repositoryName,
             limit
-        );
-    }
-
-    /**
-     * Validate context metrics before storing
-     */
-    private validateContextMetrics(metrics: ContextMetrics): boolean {
-        return (
-            typeof metrics.totalFilesInRepo === 'number' &&
-            typeof metrics.filesRecommended === 'number' &&
-            typeof metrics.filesFetched === 'number' &&
-            typeof metrics.fetchSuccessRate === 'number' &&
-            metrics.fetchSuccessRate >= 0 &&
-            metrics.fetchSuccessRate <= 1 &&
-            typeof metrics.processingTime === 'object' &&
-            typeof metrics.processingTime.total === 'number'
         );
     }
 

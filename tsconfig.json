@@ -12,13 +12,9 @@
         "forceConsistentCasingInFileNames": true,
         "moduleResolution": "node",
         "resolveJsonModule": true,
-        "baseUrl": ".",
-        "paths": {
-            "@/*": ["api/*"],
-            "@tests/*": ["tests/*"],
-            "*": ["node_modules/*"]
-        },
-        "types": ["node"],
+        "types": [
+            "node"
+        ],
         "allowSyntheticDefaultImports": true,
         "experimentalDecorators": true,
         "emitDecoratorMetadata": true

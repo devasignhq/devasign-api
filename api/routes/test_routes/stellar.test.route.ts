@@ -1,20 +1,20 @@
-import { Router, Request, Response, NextFunction, RequestHandler } from 'express';
-import { body } from 'express-validator';
-import { encrypt } from '../../helper';
-import { prisma } from '../../config/database.config';
-import { xlmAssetId, usdcAssetId } from '../../config/stellar.config';
-import { stellarService } from '../../services/stellar.service';
+import { Router, Request, Response, NextFunction, RequestHandler } from "express";
+import { body } from "express-validator";
+import { encrypt } from "../../helper";
+import { prisma } from "../../config/database.config";
+import { xlmAssetId, usdcAssetId } from "../../config/stellar.config";
+import { stellarService } from "../../services/stellar.service";
 
 const router = Router();
 
 // Create a new wallet
-router.post('/wallet', async (_req: Request, res: Response, next: NextFunction) => {
+router.post("/wallet", async (_req: Request, res: Response, next: NextFunction) => {
     try {
         const wallet = await stellarService.createWallet();
         const encryptedSecret = encrypt(wallet.secretKey);
 
         res.status(201).json({
-            message: 'Wallet created successfully',
+            message: "Wallet created successfully",
             data: { wallet, encryptedSecret }
         });
     } catch (error) {
@@ -23,16 +23,16 @@ router.post('/wallet', async (_req: Request, res: Response, next: NextFunction) 
 });
 
 // Create a new wallet via sponsor
-router.post('/wallet/sponsor',
+router.post("/wallet/sponsor",
     [
-        body('sponsorSecret').notEmpty().withMessage('Secret key is required'),
+        body("sponsorSecret").notEmpty().withMessage("Secret key is required")
     ],
     async (req: Request, res: Response, next: NextFunction) => {
         try {
             const { sponsorSecret } = req.body;
             const wallet = await stellarService.createWalletViaSponsor(sponsorSecret);
             res.status(201).json({
-                message: 'Wallet created successfully',
+                message: "Wallet created successfully",
                 data: wallet
             });
         } catch (error) {
@@ -42,16 +42,16 @@ router.post('/wallet/sponsor',
 );
 
 // Add trustline for USDC
-router.post('/trustline',
+router.post("/trustline",
     [
-        body('secretKey').notEmpty().withMessage('Secret key is required'),
+        body("secretKey").notEmpty().withMessage("Secret key is required")
     ],
     async (req: Request, res: Response, next: NextFunction) => {
         try {
             const { secretKey } = req.body;
             await stellarService.addTrustLine(secretKey);
             res.status(200).json({
-                message: 'USDC trustline added successfully'
+                message: "USDC trustline added successfully"
             });
         } catch (error) {
             next(error);
@@ -60,17 +60,17 @@ router.post('/trustline',
 );
 
 // Add trustline for USDC via sponsor
-router.post('/trustline/sponsor',
+router.post("/trustline/sponsor",
     [
-        body('sponsorSecret').notEmpty().withMessage('Sponsor key is required'),
-        body('accountSecret').notEmpty().withMessage('Account key is required'),
+        body("sponsorSecret").notEmpty().withMessage("Sponsor key is required"),
+        body("accountSecret").notEmpty().withMessage("Account key is required")
     ],
     async (req: Request, res: Response, next: NextFunction) => {
         try {
             const { sponsorSecret, accountSecret } = req.body;
             await stellarService.addTrustLineViaSponsor(sponsorSecret, accountSecret);
             res.status(200).json({
-                message: 'USDC trustline added successfully'
+                message: "USDC trustline added successfully"
             });
         } catch (error) {
             next(error);
@@ -79,13 +79,13 @@ router.post('/trustline/sponsor',
 );
 
 // Fund a wallet
-router.post('/fund',
-    body('publicKey').notEmpty().withMessage('Public key is required'),
+router.post("/fund",
+    body("publicKey").notEmpty().withMessage("Public key is required"),
     async (req: Request, res: Response, next: NextFunction) => {
         try {
             await stellarService.fundWallet(req.body.publicKey);
             res.status(200).json({
-                message: 'Wallet funded successfully'
+                message: "Wallet funded successfully"
             });
         } catch (error) {
             next(error);
@@ -94,11 +94,11 @@ router.post('/fund',
 );
 
 // Transfer assets
-router.post('/transfer',
+router.post("/transfer",
     [
-        body('sourceSecret').notEmpty().withMessage('Source secret key is required'),
-        body('destinationAddress').notEmpty().withMessage('Destination public key is required'),
-        body('amount').notEmpty().withMessage('Amount is required'),
+        body("sourceSecret").notEmpty().withMessage("Source secret key is required"),
+        body("destinationAddress").notEmpty().withMessage("Destination public key is required"),
+        body("amount").notEmpty().withMessage("Amount is required")
     ],
     async (req: Request, res: Response, next: NextFunction) => {
         try {
@@ -111,22 +111,22 @@ router.post('/transfer',
                 amount
             );
             res.status(200).json({
-                message: 'Asset transferred successfully',
+                message: "Asset transferred successfully",
                 data: result
             });
         } catch (error) {
             next(error);
         }
     }
-)
+);
 
 // Transfer assets via sponsor
-router.post('/transfer/sponsor',
+router.post("/transfer/sponsor",
     [
-        body('sponsorSecret').notEmpty().withMessage('Sponsor key is required'),
-        body('accountSecret').notEmpty().withMessage('Account key is required'),
-        body('destinationAddress').notEmpty().withMessage('Destination public key is required'),
-        body('amount').notEmpty().withMessage('Amount is required'),
+        body("sponsorSecret").notEmpty().withMessage("Sponsor key is required"),
+        body("accountSecret").notEmpty().withMessage("Account key is required"),
+        body("destinationAddress").notEmpty().withMessage("Destination public key is required"),
+        body("amount").notEmpty().withMessage("Amount is required")
     ],
     async (req: Request, res: Response, next: NextFunction) => {
         try {
@@ -140,7 +140,7 @@ router.post('/transfer/sponsor',
                 amount
             );
             res.status(200).json({
-                message: 'Asset transferred successfully',
+                message: "Asset transferred successfully",
                 data: result
             });
         } catch (error) {
@@ -150,17 +150,17 @@ router.post('/transfer/sponsor',
 );
 
 // Swap assets
-router.post('/swap',
+router.post("/swap",
     [
-        body('sourceSecret').notEmpty().withMessage('Source secret key is required'),
-        body('amount').notEmpty().withMessage('Amount is required'),
+        body("sourceSecret").notEmpty().withMessage("Source secret key is required"),
+        body("amount").notEmpty().withMessage("Amount is required")
     ],
     async (req: Request, res: Response, next: NextFunction) => {
         try {
             const { sourceSecret, amount } = req.body;
             const result = await stellarService.swapAsset(sourceSecret, amount);
             res.status(200).json({
-                message: 'Asset swapped successfully',
+                message: "Asset swapped successfully",
                 data: result
             });
         } catch (error) {
@@ -170,11 +170,11 @@ router.post('/swap',
 );
 
 // Get account info
-router.get('/account/:publicKey', async (req: Request, res: Response, next: NextFunction) => {
+router.get("/account/:publicKey", async (req: Request, res: Response, next: NextFunction) => {
     try {
         const accountInfo = await stellarService.getAccountInfo(req.params.publicKey);
         res.status(200).json({
-            message: 'Account info retrieved successfully',
+            message: "Account info retrieved successfully",
             data: accountInfo
         });
     } catch (error) {
@@ -183,45 +183,45 @@ router.get('/account/:publicKey', async (req: Request, res: Response, next: Next
 });
 
 // Stream
-router.get('/stream/:publicKey', async (req: Request, res: Response, next: NextFunction) => {
+router.get("/stream/:publicKey", async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const accountToWatch = "GD6LFE72VUGGPYDAWOEL5I34JODO746PSEFBUCDZECXTVWB6VFLOPFUM"
+        const accountToWatch = "GD6LFE72VUGGPYDAWOEL5I34JODO746PSEFBUCDZECXTVWB6VFLOPFUM";
         const accountInfo = await stellarService.buildPaymentTransactionStream(accountToWatch);
 
-        console.log('--- Transaction Stream ---');
+        console.log("--- Transaction Stream ---");
 
         accountInfo({
             onmessage: (payment: any) => {
                 // The 'payment' object contains details about the payment operation.
                 // We are interested in incoming payments, so we check the 'to' address.
-                if (payment.type === 'payment' && payment.to === accountToWatch) {
+                if (payment.type === "payment" && payment.to === accountToWatch) {
                     // Check if it's a native asset (XLM) or a credit asset
                     const assetType = payment.asset_type;
-                    const assetCode = payment.asset_code || 'XLM'; // Use XLM for native
-                    const assetIssuer = payment.asset_issuer || ''; // Issuer for credit assets
+                    const assetCode = payment.asset_code || "XLM"; // Use XLM for native
+                    const assetIssuer = payment.asset_issuer || ""; // Issuer for credit assets
 
-                    console.log('--- Incoming Payment ---');
+                    console.log("--- Incoming Payment ---");
                     console.log(`Transaction ID: ${payment.transaction_hash}`);
                     console.log(`From: ${payment.from}`);
                     console.log(`To: ${payment.to}`);
                     console.log(`Amount: ${payment.amount} ${assetCode}`);
-                    if (assetType !== 'native') {
+                    if (assetType !== "native") {
                         console.log(`Asset Issuer: ${assetIssuer}`);
                     }
                     console.log(`Timestamp: ${payment.created_at}`);
-                    console.log('------------------------');
+                    console.log("------------------------");
                 }
             },
             onerror: (error: any) => {
-                console.error('Error in stream:', error);
+                console.error("Error in stream:", error);
                 // Implement reconnection logic here if needed
-            },
-        })
+            }
+        });
 
-        console.log('--- Transaction Stream ---222');
+        console.log("--- Transaction Stream ---222");
 
         res.status(200).json({
-            message: 'Transaction stream started successfully',
+            message: "Transaction stream started successfully"
         });
     } catch (error) {
         next(error);
@@ -229,12 +229,12 @@ router.get('/stream/:publicKey', async (req: Request, res: Response, next: NextF
 });
 
 // Top ups
-router.get('/topup/:publicKey', async (req: Request, res: Response, next: NextFunction) => {
+router.get("/topup/:publicKey", async (req: Request, res: Response, next: NextFunction) => {
     try {
         const transactions = await stellarService.getTopUpTransactions(req.params.publicKey);
 
         res.status(200).json({
-            message: 'Top up transactions retrieved successfully',
+            message: "Top up transactions retrieved successfully",
             data: transactions
         });
     } catch (error) {
@@ -243,7 +243,7 @@ router.get('/topup/:publicKey', async (req: Request, res: Response, next: NextFu
 });
 
 // Update all user wallets (for testnet resets)
-router.patch('/wallets/users/update-all',
+router.patch("/wallets/users/update-all",
     (async (req: Request, res: Response, next: NextFunction) => {
         try {
             // Get all users
@@ -251,13 +251,13 @@ router.patch('/wallets/users/update-all',
                 select: { 
                     userId: true, 
                     username: true,
-                    walletAddress: true,
+                    walletAddress: true
                 }
             });
 
             if (allUsers.length === 0) {
                 return res.status(200).json({
-                    message: 'No users found to update',
+                    message: "No users found to update",
                     data: { updated: 0, failed: 0 }
                 });
             }
@@ -290,7 +290,7 @@ router.patch('/wallets/users/update-all',
                     results.push({
                         userId: user.userId,
                         username: user.username,
-                        status: 'success',
+                        status: "success",
                         walletAddress: newWallet.publicKey,
                         txHash: newWallet.txHash
                     });
@@ -299,8 +299,8 @@ router.patch('/wallets/users/update-all',
                     results.push({
                         userId: user.userId,
                         username: user.username,
-                        status: 'failed',
-                        error: error instanceof Error ? error.message : 'Unknown error'
+                        status: "failed",
+                        error: error instanceof Error ? error.message : "Unknown error"
                     });
                     failCount++;
                 }
@@ -322,7 +322,7 @@ router.patch('/wallets/users/update-all',
 );
 
 // Update all installation wallets (for testnet resets)
-router.patch('/wallets/installations/update-all',
+router.patch("/wallets/installations/update-all",
     (async (req: Request, res: Response, next: NextFunction) => {
         try {
             // Get all installations
@@ -337,7 +337,7 @@ router.patch('/wallets/installations/update-all',
         
             if (allInstallations.length === 0) {
                 return res.status(200).json({
-                    message: 'No installations found to update',
+                    message: "No installations found to update",
                     data: { updated: 0, failed: 0 }
                 });
             }
@@ -373,7 +373,7 @@ router.patch('/wallets/installations/update-all',
                     results.push({
                         installationId: installation.id,
                         account: installation.account,
-                        status: 'success',
+                        status: "success",
                         walletAddress: newInstallationWallet.publicKey,
                         escrowAddress: newEscrowWallet.publicKey,
                         installationTxHash: newInstallationWallet.txHash,
@@ -384,8 +384,8 @@ router.patch('/wallets/installations/update-all',
                     results.push({
                         installationId: installation.id,
                         account: installation.account,
-                        status: 'failed',
-                        error: error instanceof Error ? error.message : 'Unknown error'
+                        status: "failed",
+                        error: error instanceof Error ? error.message : "Unknown error"
                     });
                     failCount++;
                 }
