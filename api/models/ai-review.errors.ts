@@ -92,27 +92,9 @@ export class GroqContextLimitError extends GroqServiceError {
     }
 }
 
-/**
- * Pinecone vector database errors
- */
-export class PineconeServiceError extends AIReviewError {
-    constructor(message: string, details?: unknown, retryable: boolean = true) {
-        super(message, "PINECONE_SERVICE_ERROR", details, retryable);
-    }
-}
 
-/**
- * Pinecone index not found or unavailable
- */
-export class PineconeIndexError extends PineconeServiceError {
-    public readonly indexName: string;
 
-    constructor(indexName: string, message: string, details?: unknown) {
-        super(message, details, false);
-        this.code = "PINECONE_INDEX_ERROR";
-        this.indexName = indexName;
-    }
-}
+
 
 /**
  * GitHub API related errors

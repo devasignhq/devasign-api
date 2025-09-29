@@ -3,7 +3,7 @@
 // Data models for AI-powered context determination and selective file fetching
 // ============================================================================
 
-import { RelevantContext, LinkedIssue, ReviewResult } from "./ai-review.model";
+import { LinkedIssue, ReviewResult } from "./ai-review.model";
 
 // ============================================================================
 // Raw Code Changes Extraction Types
@@ -99,7 +99,7 @@ export interface FetchedFile {
 // Enhanced Context Types
 // ============================================================================
 
-export interface EnhancedReviewContext extends RelevantContext {
+export interface EnhancedReviewContext {
     rawCodeChanges: RawCodeChanges;
     repositoryStructure: RepositoryStructure;
     contextAnalysis: ContextAnalysisResponse;

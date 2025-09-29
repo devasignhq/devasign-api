@@ -33,48 +33,7 @@ export interface LinkedIssue {
     linkType: "closes" | "resolves" | "fixes";
 }
 
-// ============================================================================
-// RAG Context Service Types
-// ============================================================================
 
-export interface RelevantContext {
-    similarPRs: HistoricalPR[];
-    relevantFiles: RelevantFile[];
-    codePatterns: CodePattern[];
-    projectStandards: ProjectStandard[];
-}
-
-export interface HistoricalPR {
-    prNumber: number;
-    title: string;
-    description: string;
-    linkedIssues: string[];
-    outcome: "merged" | "closed";
-    reviewComments: string[];
-    similarity: number;
-}
-
-export interface RelevantFile {
-    filename: string;
-    content: string;
-    language: string;
-    similarity: number;
-    lastModified: string;
-}
-
-export interface CodePattern {
-    pattern: string;
-    description: string;
-    examples: string[];
-    frequency: number;
-}
-
-export interface ProjectStandard {
-    category: string;
-    rule: string;
-    description: string;
-    examples: string[];
-}
 
 // ============================================================================
 // AI Review Service Types
@@ -174,36 +133,7 @@ export interface ValidationResult {
     warnings: string[];
 }
 
-// ============================================================================
-// Vector Embeddings Types
-// ============================================================================
 
-export interface EmbeddingDocument {
-    id: string; // Format: {installationId}:{type}:{identifier}
-    values: number[]; // Embedding vector
-    metadata: EmbeddingMetadata;
-}
-
-export interface EmbeddingMetadata {
-    installationId: string;
-    type: "pr" | "issue" | "file" | "rule";
-    repositoryName: string;
-    filename?: string;
-    prNumber?: number;
-    issueNumber?: number;
-    content: string;
-    timestamp: string;
-    language?: string;
-    fileType?: string;
-    // Additional fields for PR metadata
-    title?: string;
-    linkedIssues?: string;
-    reviewComments?: string;
-    outcome?: string;
-    updatedAt?: string;
-    // Index signature to make it compatible with Pinecone RecordMetadata
-    [key: string]: string | number | boolean | undefined;
-}
 
 // ============================================================================
 // Review Result Types
@@ -329,3 +259,5 @@ export interface ManualTriggerRequest extends AnalysisRequest {
     userId: string; // Change to username
     reason?: string;
 }
+
+

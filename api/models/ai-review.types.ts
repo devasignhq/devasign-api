@@ -62,44 +62,6 @@ export type APIResponseWithMeta<T> = {
 };
 
 /**
- * Configuration types for services
- */
-export interface AIReviewConfig {
-    groq: {
-        apiKey: string;
-        model: string;
-        maxTokens: number;
-        temperature: number;
-        maxRetries: number;
-    };
-    pinecone: {
-        apiKey: string;
-        environment: string;
-        indexName: string;
-        dimension: number;
-    };
-    github: {
-        appId: string;
-        privateKey: string;
-        webhookSecret: string;
-    };
-    analysis: {
-        maxFileSize: number;
-        maxFilesPerPR: number;
-        contextLimit: number;
-        scoreThresholds: {
-            excellent: number;
-            good: number;
-            needsWork: number;
-        };
-    };
-    cache: {
-        ttl: number;
-        maxSize: number;
-    };
-}
-
-/**
  * Service health status type
  */
 export interface ServiceHealth {
