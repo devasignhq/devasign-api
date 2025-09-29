@@ -1,4 +1,5 @@
 import { RuleType, RuleSeverity, AIReviewRule } from "../generated/client";
+import { getFieldFromUnknownObject } from "../helper";
 import { PullRequestData } from "../models/ai-review.model";
 
 export interface DefaultRule {
@@ -8,8 +9,7 @@ export interface DefaultRule {
     ruleType: RuleType;
     severity: RuleSeverity;
     pattern?: string;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    config: any;
+    config: Record<string, unknown>;
 }
 
 export interface RuleResult {
@@ -162,7 +162,7 @@ export class RuleEngineService {
             }
 
             // Validate config based on rule type
-            const configValidation = this.validateRuleConfig(rule.ruleType, rule.config);
+            const configValidation = this.validateRuleConfig(rule.ruleType, rule.config as Record<string, unknown>);
             if (!configValidation.isValid) {
                 return configValidation;
             }
@@ -176,8 +176,7 @@ export class RuleEngineService {
     /**
      * Validate rule configuration based on rule type
      */
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    private static validateRuleConfig(ruleType: RuleType, config: any): ValidationResult {
+    private static validateRuleConfig(ruleType: RuleType, config: Record<string, unknown>): ValidationResult {
         try {
             // Basic config validation
             if (!config || typeof config !== "object") {
@@ -415,8 +414,7 @@ export class RuleEngineService {
                 ruleType: rule.ruleType,
                 severity: rule.severity,
                 pattern: rule.pattern || undefined,
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                config: rule.config as Record<string, any>
+                config: rule.config as Record<string, unknown>
             };
 
             return await this.evaluateDefaultRule(defaultRule, prData);
@@ -441,7 +439,7 @@ export class RuleEngineService {
 
             for (const file of prData.changedFiles) {
                 // Skip files based on exclusion patterns
-                if (this.shouldExcludeFile(file.filename, rule.config)) {
+                if (this.shouldExcludeFile(file.filename, rule.config as Record<string, unknown>)) {
                     continue;
                 }
 
@@ -593,9 +591,10 @@ export class RuleEngineService {
 
             for (const func of functions) {
                 const lines = func.split("\n").length;
-                if (lines > thresholds.maxLinesPerFunction) {
+                const maxLinesPerFunction = getFieldFromUnknownObject<number>(thresholds, "maxLinesPerFunction");
+                if (maxLinesPerFunction && lines > maxLinesPerFunction) {
                     affectedFiles.push(file.filename);
-                    violations.push(`Function in ${file.filename} has ${lines} lines (max: ${thresholds.maxLinesPerFunction})`);
+                    violations.push(`Function in ${file.filename} has ${lines} lines (max: ${maxLinesPerFunction})`);
                 }
             }
         }
@@ -611,8 +610,7 @@ export class RuleEngineService {
     /**
      * Check if file should be excluded based on rule config
      */
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    private static shouldExcludeFile(filename: string, config: any): boolean {
+    private static shouldExcludeFile(filename: string, config: Record<string, unknown>): boolean {
         if (!config || !config.excludeFiles) return false;
 
         const excludePatterns = Array.isArray(config.excludeFiles) ? config.excludeFiles : [config.excludeFiles];
