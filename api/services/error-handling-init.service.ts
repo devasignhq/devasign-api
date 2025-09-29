@@ -266,10 +266,6 @@ export class ErrorHandlingInitService {
             warnings.push("GROQ_API_KEY not configured - Groq service will be unavailable");
         }
 
-        if (!process.env.PINECONE_API_KEY) {
-            warnings.push("PINECONE_API_KEY not configured - Pinecone service will be unavailable");
-        }
-
         if (!process.env.GITHUB_APP_ID || !process.env.GITHUB_APP_PRIVATE_KEY) {
             errors.push("GitHub app credentials not configured - GitHub integration will fail");
         }

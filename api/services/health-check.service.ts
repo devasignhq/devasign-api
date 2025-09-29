@@ -58,7 +58,6 @@ export class HealthCheckService {
         // Check core services
         checks.push(HealthCheckService.checkService("database", () => HealthCheckService.checkDatabase()));
         checks.push(HealthCheckService.checkService("groq", () => HealthCheckService.checkGroq()));
-        checks.push(HealthCheckService.checkService("pinecone", () => HealthCheckService.checkPinecone()));
         checks.push(HealthCheckService.checkService("github", () => HealthCheckService.checkGitHub()));
 
         // Wait for all checks with timeout
@@ -180,38 +179,6 @@ export class HealthCheckService {
     }
 
     /**
-     * Checks Pinecone service health
-     */
-    private static async checkPinecone(): Promise<ServiceHealth> {
-        const startTime = Date.now();
-
-        try {
-            if (!process.env.PINECONE_API_KEY) {
-                throw new Error("PINECONE_API_KEY not configured");
-            }
-
-            // Simple health check - in real implementation, this would check index status
-            const responseTime = Date.now() - startTime;
-
-            return {
-                status: "healthy",
-                message: "Pinecone service configuration valid",
-                lastChecked: new Date().toISOString(),
-                responseTime
-            };
-        } catch (error) {
-            const responseTime = Date.now() - startTime;
-            return {
-                status: "unhealthy",
-                message: `Pinecone service check failed: ${error}`,
-                lastChecked: new Date().toISOString(),
-                responseTime,
-                error: String(error)
-            };
-        }
-    }
-
-    /**
      * Checks GitHub API health
      */
     private static async checkGitHub(): Promise<ServiceHealth> {
@@ -273,7 +240,7 @@ export class HealthCheckService {
     private static isDegradedMode(services: Record<string, ServiceHealth>): boolean {
         // System is in degraded mode if AI services are unavailable but core services work
         const coreServicesHealthy = services.database?.status === "healthy";
-        const aiServicesUnhealthy = services.groq?.status !== "healthy" || services.pinecone?.status !== "healthy";
+        const aiServicesUnhealthy = services.groq?.status !== "healthy";
 
         return coreServicesHealthy && aiServicesUnhealthy;
     }

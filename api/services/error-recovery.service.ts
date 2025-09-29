@@ -9,7 +9,6 @@ import { HealthCheckService } from "./health-check.service";
 export class ErrorRecoveryService {
     private static readonly RECOVERY_STRATEGIES = {
         groq: "fallback_ai_analysis",
-        pinecone: "basic_context_retrieval",
         github: "skip_comment_posting",
         database: "in_memory_fallback"
     } as const;
@@ -140,8 +139,6 @@ export class ErrorRecoveryService {
             switch (serviceName) {
             case "groq":
                 return await ErrorRecoveryService.recoverGroqService(context);
-            case "pinecone":
-                return await ErrorRecoveryService.recoverPineconeService(context);
             case "github":
                 return await ErrorRecoveryService.recoverGitHubService(context);
             case "database":
@@ -205,52 +202,6 @@ export class ErrorRecoveryService {
                 success: false,
                 strategy: "fallback_ai_analysis",
                 message: "Groq service still unavailable - using fallback",
-                timestamp: new Date(),
-                error: String(error)
-            };
-        }
-    }
-
-    /**
-     * Recovers Pinecone service
-     */
-    private static async recoverPineconeService(context?: Record<string, unknown>): Promise<RecoveryResult> {
-        LoggingService.logInfo(
-            "pinecone_service_recovery",
-            "Attempting to recover Pinecone service",
-            context
-        );
-
-        // Reset circuit breaker for Pinecone
-        const circuit = CircuitBreakerService.getCircuit("pinecone");
-        circuit.reset();
-
-        // Verify configuration
-        if (!process.env.PINECONE_API_KEY) {
-            return {
-                success: false,
-                strategy: "basic_context_retrieval",
-                message: "Pinecone API key not configured - using basic context",
-                timestamp: new Date()
-            };
-        }
-
-        // Test service connectivity (simplified)
-        try {
-            // In a real implementation, this would check index status
-            await ErrorRecoveryService.sleep(1000); // Simulate test call
-
-            return {
-                success: true,
-                strategy: "service_restart",
-                message: "Pinecone service recovered successfully",
-                timestamp: new Date()
-            };
-        } catch (error) {
-            return {
-                success: false,
-                strategy: "basic_context_retrieval",
-                message: "Pinecone service still unavailable - using basic context",
                 timestamp: new Date(),
                 error: String(error)
             };
@@ -462,7 +413,7 @@ export class ErrorRecoveryService {
             {
                 name: "Verify Service Configurations",
                 action: async () => {
-                    const requiredEnvVars = ["GROQ_API_KEY", "PINECONE_API_KEY", "GITHUB_APP_ID", "GITHUB_APP_PRIVATE_KEY"];
+                    const requiredEnvVars = ["GROQ_API_KEY", "GITHUB_APP_ID", "GITHUB_APP_PRIVATE_KEY"];
                     const missing = requiredEnvVars.filter(key => !process.env[key]);
                     if (missing.length > 0) {
                         throw new Error(`Missing environment variables: ${missing.join(", ")}`);

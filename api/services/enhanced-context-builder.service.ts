@@ -15,7 +15,6 @@ import {
     isValidContextAnalysisResponse,
     isValidFetchedFile
 } from "../models/intelligent-context.model";
-import { RelevantContext } from "../models/ai-review.model";
 import { LoggingService } from "./logging.service";
 
 export class EnhancedContextBuilderService {
@@ -27,14 +26,13 @@ export class EnhancedContextBuilderService {
         codeChanges: RawCodeChanges,
         repositoryStructure: RepositoryStructure,
         contextAnalysis: ContextAnalysisResponse,
-        fetchedFiles: FetchedFile[],
-        existingContext: RelevantContext
+        fetchedFiles: FetchedFile[]
     ): Promise<EnhancedReviewContext> {
         const startTime = Date.now();
 
         try {
             // Validate inputs
-            this.validateInputs(codeChanges, repositoryStructure, contextAnalysis, fetchedFiles, existingContext);
+            this.validateInputs(codeChanges, repositoryStructure, contextAnalysis, fetchedFiles);
 
             // Calculate context metrics
             const contextMetrics = this.calculateContextMetrics(
@@ -46,9 +44,6 @@ export class EnhancedContextBuilderService {
 
             // Build enhanced context object
             const enhancedContext: EnhancedReviewContext = {
-                // Inherit from existing context
-                ...existingContext,
-                
                 // Add intelligent context data
                 rawCodeChanges: codeChanges,
                 repositoryStructure,
@@ -122,8 +117,7 @@ export class EnhancedContextBuilderService {
         codeChanges: RawCodeChanges,
         repositoryStructure: RepositoryStructure,
         contextAnalysis: ContextAnalysisResponse,
-        fetchedFiles: FetchedFile[],
-        existingContext: RelevantContext
+        fetchedFiles: FetchedFile[]
     ): void {
         if (!isValidRawCodeChanges(codeChanges)) {
             throw new Error("Invalid raw code changes provided");
@@ -139,10 +133,6 @@ export class EnhancedContextBuilderService {
 
         if (!Array.isArray(fetchedFiles) || !fetchedFiles.every(isValidFetchedFile)) {
             throw new Error("Invalid fetched files array provided");
-        }
-
-        if (!existingContext || typeof existingContext !== "object") {
-            throw new Error("Invalid existing context provided");
         }
 
         // Validate that fetched files correspond to AI recommendations
@@ -165,22 +155,14 @@ export class EnhancedContextBuilderService {
         const startTime = Date.now();
 
         try {
-            // 1. Prioritize and filter relevant files based on success and relevance
-            const optimizedRelevantFiles = this.optimizeRelevantFiles(context);
-
-            // 2. Enhance existing context with intelligent insights
-            const enhancedExistingContext = this.enhanceExistingContext(context);
-
-            // 3. Calculate context quality score
+            // Calculate context quality score
             const contextQualityScore = this.calculateContextQualityScore(context);
 
-            // 4. Apply content optimization (truncation, summarization if needed)
+            // Apply content optimization (truncation, summarization if needed)
             const optimizedContent = await this.optimizeContent(context);
 
             const optimizedContext: EnhancedReviewContext = {
                 ...context,
-                ...enhancedExistingContext,
-                relevantFiles: optimizedRelevantFiles,
                 ...optimizedContent,
                 contextMetrics: {
                     ...context.contextMetrics,
@@ -191,8 +173,6 @@ export class EnhancedContextBuilderService {
 
             LoggingService.logDebug("context_optimization_completed", "Context optimization completed", {
                 prNumber: context.rawCodeChanges.prNumber,
-                originalRelevantFiles: context.relevantFiles.length,
-                optimizedRelevantFiles: optimizedRelevantFiles.length,
                 contextQualityScore,
                 optimizationTime: Date.now() - startTime
             });
@@ -208,89 +188,15 @@ export class EnhancedContextBuilderService {
     }
 
     /**
-     * Optimize relevant files by combining existing and fetched files intelligently
-     */
-    private optimizeRelevantFiles(context: EnhancedReviewContext) {
-        const existingFiles = context.relevantFiles || [];
-        const fetchedFiles = context.fetchedFiles || [];
-        
-        // Merge fetched files with existing files, prioritizing successfully fetched ones
-        const mergedFiles = [...existingFiles];
-        
-        for (const fetchedFile of fetchedFiles) {
-            if (fetchedFile.fetchSuccess) {
-                const existingIndex = mergedFiles.findIndex(f => f.filename === fetchedFile.filePath);
-                
-                if (existingIndex >= 0) {
-                    // Update existing file with fresh content
-                    mergedFiles[existingIndex] = {
-                        ...mergedFiles[existingIndex],
-                        content: fetchedFile.content,
-                        lastModified: fetchedFile.lastModified,
-                        language: fetchedFile.language,
-                        similarity: 1.0 // AI-recommended files get max similarity
-                    };
-                } else {
-                    // Add new AI-recommended file
-                    mergedFiles.push({
-                        filename: fetchedFile.filePath,
-                        content: fetchedFile.content,
-                        language: fetchedFile.language,
-                        similarity: 1.0, // AI-recommended files get max similarity
-                        lastModified: fetchedFile.lastModified
-                    });
-                }
-            }
-        }
-
-        // Sort by similarity (AI-recommended files first, then by similarity score)
-        return mergedFiles.sort((a, b) => b.similarity - a.similarity);
-    }
-
-    /**
-     * Enhance existing context with insights from intelligent analysis
-     */
-    private enhanceExistingContext(context: EnhancedReviewContext) {
-        const { contextAnalysis, rawCodeChanges } = context;
-        
-        // Enhance project standards with AI insights
-        const enhancedStandards = [
-            ...(context.projectStandards || []),
-            {
-                category: "AI Analysis",
-                rule: "Context Relevance",
-                description: `AI analysis determined ${contextAnalysis.analysisType} context approach with ${Math.round(contextAnalysis.confidence * 100)}% confidence`,
-                examples: contextAnalysis.relevantFiles.map(f => `${f.filePath}: ${f.reason}`)
-            }
-        ];
-
-        // Enhance code patterns with change analysis
-        const enhancedPatterns = [
-            ...(context.codePatterns || []),
-            {
-                pattern: "File Change Distribution",
-                description: `PR modifies ${rawCodeChanges.fileChanges.length} files with ${rawCodeChanges.totalChanges.additions} additions and ${rawCodeChanges.totalChanges.deletions} deletions`,
-                examples: rawCodeChanges.fileChanges.map(f => `${f.filename} (${f.status}): +${f.additions}/-${f.deletions}`),
-                frequency: rawCodeChanges.fileChanges.length
-            }
-        ];
-
-        return {
-            projectStandards: enhancedStandards,
-            codePatterns: enhancedPatterns
-        };
-    }
-
-    /**
      * Calculate context quality score based on various factors
      */
     private calculateContextQualityScore(context: EnhancedReviewContext): number {
         let score = 0;
         let maxScore = 0;
 
-        // Factor 1: AI confidence (0-30 points)
-        score += context.contextAnalysis.confidence * 30;
-        maxScore += 30;
+        // Factor 1: AI confidence (0-40 points)
+        score += context.contextAnalysis.confidence * 40;
+        maxScore += 40;
 
         // Factor 2: Fetch success rate (0-25 points)
         score += context.contextMetrics.fetchSuccessRate * 25;
@@ -307,16 +213,6 @@ export class EnhancedContextBuilderService {
         const repoAnalysisScore = context.repositoryStructure.totalFiles > 0 ? 15 : 0;
         score += repoAnalysisScore;
         maxScore += 15;
-
-        // Factor 5: Existing context richness (0-10 points)
-        const existingContextScore = Math.min(
-            (context.similarPRs?.length || 0) * 2 +
-            (context.relevantFiles?.length || 0) * 1 +
-            (context.codePatterns?.length || 0) * 1,
-            10
-        );
-        score += existingContextScore;
-        maxScore += 10;
 
         // Normalize to 0-100 scale
         return maxScore > 0 ? Math.round((score / maxScore) * 100) : 0;

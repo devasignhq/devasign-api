@@ -1,15 +1,11 @@
 import Groq from "groq-sdk";
 import {
     PullRequestData,
-    RelevantContext,
     AIReview,
     CodeAnalysis,
     RuleEvaluation,
     CodeSuggestion,
-    QualityMetrics,
-    HistoricalPR,
-    ProjectStandard,
-    RelevantFile
+    QualityMetrics
 } from "../models/ai-review.model";
 import { MergeScoreService } from "./merge-score.service";
 import { ContextWindow } from "../models/ai-review.types";
@@ -48,7 +44,7 @@ export class GroqAIService {
 
         // Configuration for Groq models
         this.config = {
-            model: process.env.GROQ_MODEL || "llama3-8b-8192", // Free model
+            model: process.env.GROQ_MODEL || "llama-3.3-70b-versatile",
             maxTokens: parseInt(process.env.GROQ_MAX_TOKENS || "4096"),
             temperature: parseFloat(process.env.GROQ_TEMPERATURE || "0.0"), // Lower temperature for more consistent JSON
             maxRetries: parseInt(process.env.GROQ_MAX_RETRIES || "3"),
@@ -59,10 +55,10 @@ export class GroqAIService {
     /**
      * Generates comprehensive AI review for a pull request
      */
-    async generateReview(prData: PullRequestData, context: RelevantContext): Promise<AIReview> {
+    async generateReview(prData: PullRequestData): Promise<AIReview> {
         try {
             // Build context window with priority-based content
-            const contextWindow = this.buildContextWindow(prData, context);
+            const contextWindow = this.buildContextWindow(prData);
 
             // Generate the review using Groq
             const reviewPrompt = this.buildReviewPrompt(prData, contextWindow);
@@ -95,9 +91,9 @@ export class GroqAIService {
     /**
      * Generates specific code suggestions
      */
-    async generateSuggestions(prData: PullRequestData, context: RelevantContext): Promise<CodeSuggestion[]> {
+    async generateSuggestions(prData: PullRequestData): Promise<CodeSuggestion[]> {
         try {
-            const contextWindow = this.buildContextWindow(prData, context);
+            const contextWindow = this.buildContextWindow(prData);
             const suggestionsPrompt = this.buildSuggestionsPrompt(prData, contextWindow);
 
             const aiResponse = await this.callGroqAPI(suggestionsPrompt);
@@ -213,7 +209,7 @@ export class GroqAIService {
     /**
      * Builds context window with priority-based content selection
      */
-    private buildContextWindow(prData: PullRequestData, context: RelevantContext): ContextWindow {
+    private buildContextWindow(prData: PullRequestData): ContextWindow {
         const contextWindow: ContextWindow = {
             maxTokens: this.config.contextLimit,
             currentTokens: 0,
@@ -230,54 +226,6 @@ export class GroqAIService {
             priority: 1
         });
         contextWindow.currentTokens += prTokens;
-
-        // Priority 2: Similar PRs (high value context)
-        if (context.similarPRs.length > 0) {
-            const similarPRsContent = this.formatSimilarPRs(context.similarPRs.slice(0, 3)); // Limit to top 3
-            const similarPRsTokens = this.estimateTokens(similarPRsContent);
-
-            if (contextWindow.currentTokens + similarPRsTokens <= contextWindow.maxTokens) {
-                contextWindow.priority.push({
-                    type: "similar_prs",
-                    content: similarPRsContent,
-                    tokens: similarPRsTokens,
-                    priority: 2
-                });
-                contextWindow.currentTokens += similarPRsTokens;
-            }
-        }
-
-        // Priority 3: Relevant files (code context)
-        if (context.relevantFiles.length > 0) {
-            const relevantFilesContent = this.formatRelevantFiles(context.relevantFiles.slice(0, 2)); // Limit to top 2
-            const relevantFilesTokens = this.estimateTokens(relevantFilesContent);
-
-            if (contextWindow.currentTokens + relevantFilesTokens <= contextWindow.maxTokens) {
-                contextWindow.priority.push({
-                    type: "relevant_files",
-                    content: relevantFilesContent,
-                    tokens: relevantFilesTokens,
-                    priority: 3
-                });
-                contextWindow.currentTokens += relevantFilesTokens;
-            }
-        }
-
-        // Priority 4: Project standards (lower priority)
-        if (context.projectStandards.length > 0) {
-            const standardsContent = this.formatProjectStandards(context.projectStandards);
-            const standardsTokens = this.estimateTokens(standardsContent);
-
-            if (contextWindow.currentTokens + standardsTokens <= contextWindow.maxTokens) {
-                contextWindow.priority.push({
-                    type: "rules",
-                    content: standardsContent,
-                    tokens: standardsTokens,
-                    priority: 4
-                });
-                contextWindow.currentTokens += standardsTokens;
-            }
-        }
 
         return contextWindow;
     }
@@ -636,41 +584,6 @@ File Changes Details:
 ${prData.changedFiles.map(file =>
         `\n--- ${file.filename} ---\n${file.patch?.substring(0, 1000) || "No patch available"}`
     ).join("\n")}`;
-    }
-
-    /**
-     * Formats similar PRs for context
-     */
-    private formatSimilarPRs(similarPRs: HistoricalPR[]): string {
-        return `SIMILAR PULL REQUESTS (for context):
-${similarPRs.map(pr =>
-        `- PR #${pr.prNumber}: ${pr.title} (${pr.outcome}, similarity: ${(pr.similarity * 100).toFixed(1)}%)
-  Description: ${pr.description.substring(0, 200)}...
-  Review feedback: ${pr.reviewComments.slice(0, 2).join("; ")}`
-    ).join("\n\n")}`;
-    }
-
-    /**
-     * Formats relevant files for context
-     */
-    private formatRelevantFiles(relevantFiles: RelevantFile[]): string {
-        return `RELEVANT CODEBASE FILES:
-${relevantFiles.map(file =>
-        `--- ${file.filename} (${file.language}, similarity: ${(file.similarity * 100).toFixed(1)}%) ---
-${file.content.substring(0, 800)}...`
-    ).join("\n\n")}`;
-    }
-
-    /**
-     * Formats project standards for context
-     */
-    private formatProjectStandards(standards: ProjectStandard[]): string {
-        return `PROJECT STANDARDS:
-${standards.map(standard =>
-        `${standard.category}: ${standard.rule}
-Description: ${standard.description}
-Examples: ${standard.examples.slice(0, 2).join(", ")}`
-    ).join("\n\n")}`;
     }
 
     /**

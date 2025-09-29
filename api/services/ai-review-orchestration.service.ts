@@ -1,6 +1,5 @@
 import {
     PullRequestData,
-    RelevantContext,
     AIReview,
     RuleEvaluation,
     ReviewResult,
@@ -20,7 +19,6 @@ import { prisma } from "../config/database.config";
 
 // Import existing services
 import { PRAnalysisService } from "./pr-analysis.service";
-import { RAGContextServiceImpl } from "./rag-context.service";
 import { GroqAIService } from "./groq-ai.service";
 import { RuleEngineService, RuleResult } from "./rule-engine.service";
 import { MergeScoreService } from "./merge-score.service";
@@ -31,7 +29,6 @@ import { IntelligentContextConfig } from "../models/intelligent-context.model";
  * Main service that coordinates the entire PR analysis workflow
  */
 export class AIReviewOrchestrationService {
-    private ragContextService: RAGContextServiceImpl;
     private groqAIService: GroqAIService;
 
     // Configuration for async processing and retries
@@ -43,7 +40,6 @@ export class AIReviewOrchestrationService {
     };
 
     constructor() {
-        this.ragContextService = new RAGContextServiceImpl();
         this.groqAIService = new GroqAIService();
     }
 
@@ -71,9 +67,6 @@ export class AIReviewOrchestrationService {
             // Post review comment to GitHub
             await this.postReviewComment(finalResult);
 
-            // Store context for future RAG queries
-            await this.storeContextForFutureUse(prData, finalResult);
-
             return finalResult;
 
         } catch (error) {
@@ -96,59 +89,30 @@ export class AIReviewOrchestrationService {
      * Executes the core analysis workflow with proper error handling
      */
     private async executeAnalysisWorkflow(prData: PullRequestData): Promise<{
-        context: RelevantContext;
         ruleEvaluation: RuleEvaluation;
         aiReview: AIReview;
         codeAnalysis: CodeAnalysis;
     }> {
-        // Step 1: Gather context in parallel with rule evaluation
-        const [context, customRules] = await Promise.all([
-            this.gatherContextWithRetry(prData),
-            this.getCustomRulesWithRetry(prData.installationId)
-        ]);
+        // Step 1: Get custom rules
+        const customRules = await this.getCustomRulesWithRetry(prData.installationId);
 
         // Step 2: Evaluate rules
         const ruleEvaluation = await this.evaluateRulesWithRetry(prData, customRules);
 
-        // Step 3: Generate AI review with context
-        const aiReview = await this.generateAIReviewWithRetry(prData, context);
+        // Step 3: Generate AI review without context
+        const aiReview = await this.generateAIReviewWithRetry(prData);
 
         // Step 4: Create comprehensive code analysis
         const codeAnalysis = this.createCodeAnalysis(aiReview, ruleEvaluation);
 
         return {
-            context,
             ruleEvaluation,
             aiReview,
             codeAnalysis
         };
     }
 
-    /**
-     * Gathers relevant context with retry logic
-     */
-    private async gatherContextWithRetry(prData: PullRequestData): Promise<RelevantContext> {
-        return this.executeWithRetry(
-            async () => {
-                try {
-                    return await this.ragContextService.getRelevantContext(prData);
-                } catch (error) {
-                    if (this.config.enableGracefulDegradation) {
-                        console.warn("RAG context service failed, using empty context:", error);
-                        return {
-                            similarPRs: [],
-                            relevantFiles: [],
-                            codePatterns: [],
-                            projectStandards: []
-                        };
-                    }
-                    throw error;
-                }
-            },
-            "Context gathering",
-            this.config.maxRetries
-        );
-    }
+
 
     /**
      * Gets custom rules with retry logic
@@ -204,11 +168,11 @@ export class AIReviewOrchestrationService {
     /**
      * Generates AI review with retry logic
      */
-    private async generateAIReviewWithRetry(prData: PullRequestData, context: RelevantContext): Promise<AIReview> {
+    private async generateAIReviewWithRetry(prData: PullRequestData): Promise<AIReview> {
         return this.executeWithRetry(
             async () => {
                 try {
-                    return await this.groqAIService.generateReview(prData, context);
+                    return await this.groqAIService.generateReview(prData);
                 } catch (error) {
                     if (this.config.enableGracefulDegradation) {
                         console.warn("AI review generation failed, using fallback review:", error);
@@ -270,7 +234,6 @@ export class AIReviewOrchestrationService {
     private async compileResults(
         prData: PullRequestData,
         analysisResult: {
-            context: RelevantContext;
             ruleEvaluation: RuleEvaluation;
             aiReview: AIReview;
             codeAnalysis: CodeAnalysis;
@@ -431,18 +394,6 @@ export class AIReviewOrchestrationService {
             }
         } catch (error) {
             console.error("Error in review comment posting:", error);
-            // Don't throw error to avoid breaking main workflow
-        }
-    }
-
-    /**
-     * Stores context for future RAG queries
-     */
-    private async storeContextForFutureUse(prData: PullRequestData, result: ReviewResult): Promise<void> {
-        try {
-            await this.ragContextService.storePRContext(prData, result);
-        } catch (error) {
-            console.error("Failed to store PR context for future use:", error);
             // Don't throw error to avoid breaking main workflow
         }
     }
@@ -700,9 +651,6 @@ export class AIReviewOrchestrationService {
 
             // Post review comment to GitHub
             await this.postReviewComment(standardResult);
-
-            // Store context for future RAG queries
-            await this.storeContextForFutureUse(prData, standardResult);
 
             // Log intelligent context metrics
             PRAnalysisService.logIntelligentContextMetrics(prData, enhancedResult, true);

@@ -9,7 +9,6 @@ import { HealthCheckService } from "./health-check.service";
 export class ErrorHandlingIntegrationService {
     private static readonly CIRCUIT_BREAKER_CONFIG = {
         groq: { failureThreshold: 3, recoveryTimeout: 120000 }, // 2 minutes
-        pinecone: { failureThreshold: 5, recoveryTimeout: 60000 }, // 1 minute
         github: { failureThreshold: 10, recoveryTimeout: 30000 }, // 30 seconds
         database: { failureThreshold: 3, recoveryTimeout: 60000 } // 1 minute
     };

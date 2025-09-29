@@ -32,7 +32,6 @@ import { EnhancedContextBuilder } from "./enhanced-context-builder.service";
 import { IntelligentContextConfigService } from "./intelligent-context-config.service";
 
 // Import existing services for integration
-import { RAGContextServiceImpl } from "./rag-context.service";
 import { GroqAIService } from "./groq-ai.service";
 import { RuleEngineService } from "./rule-engine.service";
 import { getFieldFromUnknownObject } from "../helper";
@@ -48,7 +47,6 @@ export class PRAnalysisService {
     private static fileFetcher = new SelectiveFileFetcherService();
     
     // Existing services for integration
-    private static ragService = new RAGContextServiceImpl();
     private static groqService = new GroqAIService();
     
     // Configuration service for intelligent context processing
@@ -554,17 +552,15 @@ export class PRAnalysisService {
         processingTimes.fileFetching = Date.now() - fetchStart;
 
         // Step 5: Build enhanced context
-        const existingContext = await this.ragService.getRelevantContext(prData);
         const enhancedContext = await EnhancedContextBuilder.buildEnhancedContext(
             rawCodeChanges,
             repositoryStructure,
             contextAnalysis,
-            fetchedFiles,
-            existingContext
+            fetchedFiles
         );
 
         // Step 6: Generate AI review with enhanced context
-        const aiReview = await this.groqService.generateReview(prData, enhancedContext);
+        const aiReview = await this.groqService.generateReview(prData);
 
         // Step 7: Rule evaluation (using existing service)
         const ruleEvaluation = await RuleEngineService.evaluateRules(prData, []);
@@ -618,11 +614,8 @@ export class PRAnalysisService {
         console.log(`Executing standard analysis for PR #${prData.prNumber}`);
 
         try {
-            // Get existing context using RAG service
-            const existingContext = await this.ragService.getRelevantContext(prData);
-
             // Generate AI review with existing context
-            const aiReview = await this.groqService.generateReview(prData, existingContext);
+            const aiReview = await this.groqService.generateReview(prData);
 
             // Rule evaluation
             const ruleEvaluation = await RuleEngineService.evaluateRules(prData, []);

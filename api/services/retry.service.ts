@@ -288,25 +288,6 @@ export class RetryService {
     }
 
     /**
-     * Creates a retry configuration for Pinecone operations
-     */
-    static pineconeRetryConfig(): RetryOptions {
-        return {
-            maxRetries: 3,
-            baseDelay: 1000,
-            maxDelay: 10000,
-            timeout: 30000,
-            useCircuitBreaker: true,
-            retryCondition: (error: Error, attempt: number) => {
-                if (attempt >= 3) return false;
-
-                // Retry on network errors and timeouts
-                return RetryService.defaultRetryCondition(error, attempt);
-            }
-        };
-    }
-
-    /**
      * Creates a retry configuration for GitHub API operations
      */
     static githubRetryConfig(): RetryOptions {

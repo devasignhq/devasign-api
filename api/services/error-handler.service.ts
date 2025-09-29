@@ -1,18 +1,14 @@
 import {
     GroqServiceError,
-    PineconeServiceError,
     GitHubAPIError,
     TimeoutError,
     ErrorUtils
 } from "../models/ai-review.errors";
 import {
     PullRequestData,
-    RelevantContext,
     AIReview,
     RuleEvaluation,
-    CodeSuggestion,
-    CodePattern,
-    ProjectStandard
+    CodeSuggestion
 } from "../models/ai-review.model";
 
 /**
@@ -96,7 +92,6 @@ export class ErrorHandlerService {
      */
     static async handleGroqFailure(
         prData: PullRequestData,
-        context: RelevantContext,
         ruleEvaluation: RuleEvaluation,
         error: GroqServiceError
     ): Promise<AIReview> {
@@ -108,31 +103,10 @@ export class ErrorHandlerService {
         });
 
         // Generate fallback review based on rule evaluation and basic analysis
-        return ErrorHandlerService.generateFallbackReview(prData, context, ruleEvaluation, error);
+        return ErrorHandlerService.generateFallbackReview(prData, ruleEvaluation, error);
     }
 
-    /**
-     * Handles Pinecone service failures with fallback
-     */
-    static async handlePineconeFailure(
-        prData: PullRequestData,
-        error: PineconeServiceError
-    ): Promise<RelevantContext> {
-        console.warn("Pinecone service failed, using basic context without RAG:", {
-            error: error.message,
-            code: error.code,
-            prNumber: prData.prNumber,
-            repository: prData.repositoryName
-        });
 
-        // Return minimal context without vector search
-        return {
-            similarPRs: [],
-            relevantFiles: [],
-            codePatterns: ErrorHandlerService.extractBasicCodePatterns(prData),
-            projectStandards: ErrorHandlerService.extractBasicProjectStandards(prData)
-        };
-    }
 
     /**
      * Handles GitHub API failures with fallback
@@ -194,7 +168,6 @@ export class ErrorHandlerService {
      */
     private static generateFallbackReview(
         prData: PullRequestData,
-        context: RelevantContext,
         ruleEvaluation: RuleEvaluation,
         error: GroqServiceError
     ): AIReview {
@@ -321,62 +294,7 @@ export class ErrorHandlerService {
         return suggestions.slice(0, 10); // Limit to 10 suggestions
     }
 
-    /**
-     * Extracts basic code patterns without vector analysis
-     */
-    private static extractBasicCodePatterns(prData: PullRequestData) {
-        const patterns: CodePattern[] = [];
 
-        // Extract file extension patterns
-        const extensions = prData.changedFiles.map(f => {
-            const ext = f.filename.split(".").pop();
-            return ext ? `.${ext}` : "";
-        }).filter(Boolean);
-
-        const extensionCounts = extensions.reduce((acc, ext) => {
-            acc[ext] = (acc[ext] || 0) + 1;
-            return acc;
-        }, {} as Record<string, number>);
-
-        Object.entries(extensionCounts).forEach(([ext, count]) => {
-            if (count > 1) {
-                patterns.push({
-                    pattern: `*${ext}`,
-                    description: `${ext} files pattern`,
-                    examples: prData.changedFiles.filter(f => f.filename.endsWith(ext)).map(f => f.filename),
-                    frequency: count
-                });
-            }
-        });
-
-        return patterns;
-    }
-
-    /**
-     * Extracts basic project standards without vector analysis
-     */
-    private static extractBasicProjectStandards(prData: PullRequestData) {
-        const standards: ProjectStandard[] = [];
-
-        // Extract directory structure patterns
-        const directories = prData.changedFiles.map(f => {
-            const parts = f.filename.split("/");
-            return parts.length > 1 ? parts[0] : "";
-        }).filter(Boolean);
-
-        const uniqueDirectories = [...new Set(directories)];
-
-        if (uniqueDirectories.length > 0) {
-            standards.push({
-                category: "File Organization",
-                rule: "Directory structure",
-                description: "Files are organized in specific directories",
-                examples: uniqueDirectories.slice(0, 3)
-            });
-        }
-
-        return standards;
-    }
 
     /**
      * Logs errors to monitoring system

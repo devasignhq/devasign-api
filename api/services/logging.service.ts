@@ -186,7 +186,7 @@ export class LoggingService {
      * Logs external service interactions
      */
     static logExternalServiceCall(
-        serviceName: "groq" | "pinecone" | "github",
+        serviceName: "groq" | "github",
         operation: string,
         status: "success" | "failure" | "timeout",
         durationMs: number,
