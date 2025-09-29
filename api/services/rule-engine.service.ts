@@ -1,6 +1,7 @@
 import { RuleType, RuleSeverity, AIReviewRule } from "../generated/client";
 import { getFieldFromUnknownObject } from "../helper";
 import { PullRequestData } from "../models/ai-review.model";
+import lodash from "lodash";
 
 export interface DefaultRule {
     id: string;
@@ -155,7 +156,8 @@ export class RuleEngineService {
             // Validate pattern if provided
             if (rule.pattern) {
                 try {
-                    new RegExp(rule.pattern);
+                    const safePattern = lodash.escapeRegExp(rule.pattern);
+                    new RegExp(safePattern);
                 } catch {
                     return { isValid: false, error: "Pattern must be a valid regular expression" };
                 }
@@ -622,7 +624,8 @@ export class RuleEngineService {
                 .replace(/\*/g, ".*")
                 .replace(/\?/g, ".");
 
-            return new RegExp(regexPattern).test(filename);
+            const safePattern = lodash.escapeRegExp(regexPattern);
+            return new RegExp(safePattern).test(filename);
         });
     }
 
