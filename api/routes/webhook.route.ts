@@ -1,7 +1,7 @@
 import { Router, RequestHandler } from "express";
-import { 
-    handlePRWebhook, 
-    webhookHealthCheck, 
+import {
+    handlePRWebhook,
+    webhookHealthCheck,
     getJobStatus,
     getQueueStats,
     getWorkflowStatus,
@@ -9,8 +9,8 @@ import {
     getIntelligentContextConfig,
     updateIntelligentContextConfig
 } from "../controllers/webhook.controller";
-import { 
-    validateGitHubWebhook, 
+import {
+    validateGitHubWebhook,
     validatePRWebhookEvent
 } from "../middlewares/webhook.middleware";
 
@@ -30,7 +30,7 @@ webhookRoutes.post(
     "/github/pr-review",
     validateGitHubWebhook,
     validatePRWebhookEvent,
-  handlePRWebhook as RequestHandler
+    handlePRWebhook as RequestHandler
 );
 
 /**
@@ -38,7 +38,7 @@ webhookRoutes.post(
  */
 webhookRoutes.get(
     "/health",
-  webhookHealthCheck as RequestHandler
+    webhookHealthCheck as RequestHandler
 );
 
 /**
@@ -47,7 +47,7 @@ webhookRoutes.get(
  */
 webhookRoutes.get(
     "/jobs/:jobId",
-  getJobStatus as RequestHandler
+    getJobStatus as RequestHandler
 );
 
 /**
@@ -56,7 +56,7 @@ webhookRoutes.get(
  */
 webhookRoutes.get(
     "/queue/stats",
-  getQueueStats as RequestHandler
+    getQueueStats as RequestHandler
 );
 
 /**
@@ -65,7 +65,7 @@ webhookRoutes.get(
  */
 webhookRoutes.get(
     "/workflow/status",
-  getWorkflowStatus as RequestHandler
+    getWorkflowStatus as RequestHandler
 );
 
 /**
@@ -74,7 +74,7 @@ webhookRoutes.get(
  */
 webhookRoutes.post(
     "/github/manual-analysis",
-  triggerManualAnalysis as RequestHandler
+    triggerManualAnalysis as RequestHandler
 );
 
 /**
@@ -83,7 +83,7 @@ webhookRoutes.post(
  */
 webhookRoutes.get(
     "/intelligent-context/config",
-  getIntelligentContextConfig as RequestHandler
+    getIntelligentContextConfig as RequestHandler
 );
 
 /**
@@ -92,5 +92,5 @@ webhookRoutes.get(
  */
 webhookRoutes.post(
     "/intelligent-context/config",
-  updateIntelligentContextConfig as RequestHandler
+    updateIntelligentContextConfig as RequestHandler
 );

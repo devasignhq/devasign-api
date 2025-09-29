@@ -45,7 +45,6 @@ githubRoutes.get(
 );
 
 // Manual trigger for PR analysis
-// Requirements: 1.4, 6.4
 githubRoutes.post(
     "/installations/:installationId/analyze-pr",
     triggerManualPRAnalysisValidator,
