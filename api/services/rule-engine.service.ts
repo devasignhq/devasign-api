@@ -619,7 +619,9 @@ export class RuleEngineService {
 
         return excludePatterns.some((pattern: string) => {
             // Convert glob pattern to regex
+            // Escape backslashes
             const regexPattern = pattern
+                .replace(/\\/g, "\\\\")       // escape backslashes
                 .replace(/\./g, "\\.")
                 .replace(/\*/g, ".*")
                 .replace(/\?/g, ".");
