@@ -1,8 +1,3 @@
-// ============================================================================
-// Base Error Classes for AI Review System
-// Requirement 7.3: System shall handle rate limiting and service failures gracefully
-// ============================================================================
-
 /**
  * Base error class for all AI review related errors
  */
@@ -91,9 +86,6 @@ export class GroqContextLimitError extends GroqServiceError {
         this.maxTokens = maxTokens;
     }
 }
-
-
-
 
 
 /**

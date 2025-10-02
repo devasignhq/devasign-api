@@ -141,7 +141,7 @@ export const triggerManualPRAnalysis = async (req: Request, res: Response, next:
     const { userId } = req.body;
 
     try {
-        // Validate user has access to this installation (Requirement 1.4)
+        // Validate user has access to this installation
         await validateUserInstallation(installationId, userId);
 
         console.log(`Manual PR analysis triggered by user ${userId} for PR #${prNumber} in ${repositoryName}`);

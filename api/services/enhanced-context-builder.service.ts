@@ -1,8 +1,3 @@
-// ============================================================================
-// Enhanced Context Builder Service
-// Combines raw code changes, fetched files, and existing context into enhanced review context
-// ============================================================================
-
 import {
     RawCodeChanges,
     RepositoryStructure,
@@ -17,6 +12,10 @@ import {
 } from "../models/intelligent-context.model";
 import { LoggingService } from "./logging.service";
 
+/**
+ * Enhanced Context Builder Service
+ * Combines raw code changes, fetched files, and existing context into enhanced review context
+ */
 export class EnhancedContextBuilderService {
 
     /**

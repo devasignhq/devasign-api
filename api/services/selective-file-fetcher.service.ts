@@ -1,8 +1,3 @@
-// ============================================================================
-// Selective File Fetcher Service
-// AI-powered selective file fetching with prioritization and batch processing
-// ============================================================================
-
 import { OctokitService } from "./octokit.service";
 import { LoggingService } from "./logging.service";
 import {

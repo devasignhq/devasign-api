@@ -34,7 +34,6 @@ export interface LinkedIssue {
 }
 
 
-
 // ============================================================================
 // AI Review Service Types
 // ============================================================================
@@ -259,5 +258,3 @@ export interface ManualTriggerRequest extends AnalysisRequest {
     userId: string; // Change to username
     reason?: string;
 }
-
-

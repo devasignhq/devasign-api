@@ -22,16 +22,12 @@ import {
     ContextEnhancedResult,
     IntelligentContextConfig
 } from "../models/intelligent-context.model";
-
-// Import intelligent context services
 import { RawCodeChangesExtractor } from "./raw-code-changes-extractor.service";
 import { RepositoryFilePath } from "./repository-file-path.service";
 import { IntelligentContextAnalyzerService } from "./intelligent-context-analyzer.service";
 import { SelectiveFileFetcherService } from "./selective-file-fetcher.service";
 import { EnhancedContextBuilder } from "./enhanced-context-builder.service";
 import { IntelligentContextConfigService } from "./intelligent-context-config.service";
-
-// Import existing services for integration
 import { GroqAIService } from "./groq-ai.service";
 import { RuleEngineService } from "./rule-engine.service";
 import { getFieldFromUnknownObject } from "../helper";
@@ -53,15 +49,15 @@ export class PRAnalysisService {
     private static configService = IntelligentContextConfigService.getInstance();
 
     /**
-     * Determines if a PR should be analyzed based on requirements
+     * Determines if a PR should be analyzed
      */
     public static shouldAnalyzePR(prData: PullRequestData): boolean {
-        // Skip draft PRs (Requirement 1.4)
+        // Skip draft PRs
         if (prData.isDraft) {
             return false;
         }
 
-        // Must link to at least one issue (Requirement 1.1, 1.3)
+        // Must link to at least one issue
         if (prData.linkedIssues.length === 0) {
             return false;
         }

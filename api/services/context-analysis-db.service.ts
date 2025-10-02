@@ -1,6 +1,6 @@
 import { PrismaClient, AIReviewResult, ContextAnalysisMetrics, Prisma } from "../generated/client";
 import { getFieldFromUnknownObject } from "../helper";
-import { ContextAnalysisResponse, ContextMetrics } from "../models/ai-review.types";
+import { ContextAnalysisResponse, ContextMetrics } from "../models/intelligent-context.model";
 
 export interface ContextAnalysisData {
     contextAnalysisUsed: boolean;

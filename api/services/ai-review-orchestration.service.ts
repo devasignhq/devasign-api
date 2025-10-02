@@ -16,8 +16,6 @@ import {
 import { ReviewCommentIntegrationService } from "./review-comment-integration.service";
 import { ReviewStatus, AIReviewRule, Prisma, $Enums } from "../generated/client";
 import { prisma } from "../config/database.config";
-
-// Import existing services
 import { PRAnalysisService } from "./pr-analysis.service";
 import { GroqAIService } from "./groq-ai.service";
 import { RuleEngineService, RuleResult } from "./rule-engine.service";

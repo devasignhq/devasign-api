@@ -1,8 +1,3 @@
-// ============================================================================
-// Raw Code Changes Extractor Service
-// Service for extracting comprehensive code changes from pull requests
-// ============================================================================
-
 import { OctokitService } from "./octokit.service";
 import { RawCodeChanges, FileChange } from "../models/intelligent-context.model";
 import { ErrorClass } from "../models/general.model";

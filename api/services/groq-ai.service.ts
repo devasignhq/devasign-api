@@ -8,7 +8,6 @@ import {
     QualityMetrics
 } from "../models/ai-review.model";
 import { MergeScoreService } from "./merge-score.service";
-import { ContextWindow } from "../models/ai-review.types";
 import {
     GroqServiceError,
     GroqRateLimitError,
@@ -613,43 +612,13 @@ ${prData.changedFiles.map(file =>
     }
 }
 
-/**
- * Groq Client Implementation
- * Provides low-level Groq API access
- */
-export class GroqClientImpl {
-    private groqService: GroqAIService;
-
-    constructor() {
-        this.groqService = new GroqAIService();
-    }
-
-    /**
-     * Generates chat completion using Groq API
-     */
-    async generateCompletion(messages: Record<string, string>[]) {
-        const prompt = messages.map(msg => `${msg.role}: ${msg.content}`).join("\n\n");
-        return this.groqService["callGroqAPI"](prompt);
-    }
-
-    /**
-     * Checks API status and limits
-     */
-    async checkStatus(): Promise<{ available: boolean; rateLimitRemaining: number }> {
-        try {
-            // Simple test call to check if API is available
-            await this.generateCompletion([{ role: "user", content: "test" }]);
-            return { available: true, rateLimitRemaining: 100 }; // Placeholder values
-        } catch {
-            return { available: false, rateLimitRemaining: 0 };
-        }
-    }
-
-    /**
-     * Waits for rate limit to reset
-     */
-    async waitForRateLimit(): Promise<void> {
-        // Wait for 60 seconds by default
-        await new Promise(resolve => setTimeout(resolve, 60000));
-    }
+interface ContextWindow {
+    maxTokens: number;
+    currentTokens: number;
+    priority: Array<{
+        type: "pr_data" | "similar_prs" | "relevant_files" | "rules";
+        content: string;
+        tokens: number;
+        priority: number;
+    }>;
 }
