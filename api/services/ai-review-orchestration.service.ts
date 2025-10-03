@@ -157,17 +157,17 @@ export class AIReviewOrchestrationService {
     }
 
     /**
-     * Analyzes PR with review context
+     * Analyzes PR
      */
-    async analyzeWithReviewContext(prData: PullRequestData): Promise<ReviewResult> {
+    async analyzePullRequest(prData: PullRequestData): Promise<ReviewResult> {
         const startTime = Date.now();
 
         try {
             // Create initial review result record
             await this.createInitialReviewResult(prData);
 
-            // Execute review context analysis
-            const reviewResult = await PRAnalysisService.analyzeWithReviewContext(prData);
+            // Execute analysis
+            const reviewResult = await PRAnalysisService.analyzePullRequest(prData);
 
             // Update the result with processing time
             reviewResult.processingTime = Date.now() - startTime;
@@ -178,10 +178,10 @@ export class AIReviewOrchestrationService {
             // Post review comment to GitHub
             await this.postReviewComment(reviewResult);
 
-            // Log review context metrics
-            PRAnalysisService.logReviewContextMetrics(prData, reviewResult, true);
+            // Log metrics
+            PRAnalysisService.logPullRequestContextMetrics(prData, reviewResult, true);
 
-            console.log(`Review context analysis completed successfully for PR #${prData.prNumber} in ${reviewResult.processingTime}ms`);
+            console.log(`Pull request context analysis completed successfully for PR #${prData.prNumber} in ${reviewResult.processingTime}ms`);
 
             return reviewResult;
 
@@ -215,15 +215,15 @@ export class AIReviewOrchestrationService {
     }
 
     /**
-     * Updates existing review for a PR with review context
+     * Updates existing review for a PR
      */
     async updateExistingReview(prData: PullRequestData): Promise<ReviewResult> {
-        // Use review context analysis for updates as well
+        // Use analysis for updates as well
         try {
-            console.log(`Updating existing review with review context for PR #${prData.prNumber}`);
-            return await this.analyzeWithReviewContext(prData);
+            console.log(`Updating existing review for PR #${prData.prNumber}`);
+            return await this.analyzePullRequest(prData);
         } catch (error) {
-            console.error("Error updating existing review with review context:", error);
+            console.error("Error updating existing review:", error);
             throw ErrorUtils.wrapError(error as Error, "Update existing review");
         }
     }

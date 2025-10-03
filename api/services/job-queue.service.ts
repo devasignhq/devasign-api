@@ -217,9 +217,9 @@ export class JobQueueService extends EventEmitter {
             // Emit event for monitoring
             this.emit("jobStarted", job);
 
-            // Process with timeout using review context analysis
+            // Process with timeout
             const result = await Promise.race([
-                this.orchestrationService.analyzeWithReviewContext(job.data),
+                this.orchestrationService.analyzePullRequest(job.data),
                 this.createTimeoutPromise(job.id)
             ]);
 

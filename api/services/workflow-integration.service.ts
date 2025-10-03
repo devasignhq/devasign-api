@@ -234,8 +234,8 @@ export class WorkflowIntegrationService {
                 repositoryName: prData.repositoryName
             });
 
-            // Execute analysis directly using review context
-            const result = await this.orchestrationService.analyzeWithReviewContext(prData);
+            // Execute analysis directly
+            const result = await this.orchestrationService.analyzePullRequest(prData);
 
             // Direct analysis completed successfully
             LoggingService.logInfo("processDirectAnalysisWorkflow", "Direct analysis workflow completed", {

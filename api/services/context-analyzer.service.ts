@@ -15,10 +15,9 @@ import {
 } from "../models/ai-review.errors";
 
 /**
- * Review Context Analyzer Service
- * Uses AI to determine which files are most relevant for PR review context
+ * Uses AI to determine which files are most relevant for PR
  */
-export class ReviewContextAnalyzerService {
+export class PullRequestContextAnalyzerService {
     private groqService: GroqAIService;
     private readonly config: {
         maxRecommendedFiles: number;
@@ -124,7 +123,7 @@ export class ReviewContextAnalyzerService {
             ? prMetadata.linkedIssues.map(issue => `#${issue.number}: ${issue.title}`).join(", ")
             : "None";
 
-        return `You are an expert code reviewer analyzing a pull request to determine which repository files are most relevant for providing comprehensive review context.
+        return `You are an expert code reviewer analyzing a pull request to determine which repository files are most relevant for providing comprehensive context.
 
 PULL REQUEST CHANGES:
 Repository: ${codeChanges.repositoryName}
@@ -152,7 +151,7 @@ ${filePathsPreview}
 ${hasMoreFiles ? `\n... and ${repositoryStructure.totalFiles - 200} more files` : ""}
 
 TASK:
-Analyze the code changes and determine which files from the repository would be most helpful for providing comprehensive review context. Consider:
+Analyze the code changes and determine which files from the repository would be most helpful for providing comprehensive context. Consider:
 
 1. **Dependencies**: Files that the changed code imports, requires, or depends on
 2. **Interfaces**: Type definitions, interfaces, contracts, or APIs that the changes implement or modify

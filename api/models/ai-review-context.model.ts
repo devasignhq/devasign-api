@@ -91,16 +91,8 @@ export interface FetchedFile {
 }
 
 // ============================================================================
-// Enhanced Context Types
+// Context Types
 // ============================================================================
-
-export interface EnhancedReviewContext {
-    rawCodeChanges: RawCodeChanges;
-    repositoryStructure: RepositoryStructure;
-    contextAnalysis: ContextAnalysisResponse;
-    fetchedFiles: FetchedFile[];
-    contextMetrics: ContextMetrics;
-}
 
 export interface ContextMetrics {
     totalFilesInRepo: number;

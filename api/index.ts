@@ -62,6 +62,7 @@ app.use("/webhook/github/pr-review", express.raw({ type: "application/json" }));
 // JSON parser for all other routes
 app.use(express.json());
 
+// To be removed
 app.post(
     "/clear-db",
     validateUser as RequestHandler,
@@ -169,7 +170,7 @@ if (process.env.GROQ_API_KEY && process.env.GITHUB_APP_ID && process.env.GITHUB_
         // Continue startup even if error handling initialization fails
     });
 
-    // Initialize workflow integration service with review context
+    // Initialize workflow integration service
     (async () => {
         try {
             const { WorkflowIntegrationService } = await import("./services/workflow-integration.service");

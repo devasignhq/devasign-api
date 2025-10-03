@@ -16,7 +16,7 @@ import { GitHubFile } from "../models/github.model";
 import { ContextAnalysisRequest, ProcessingTimes } from "../models/ai-review-context.model";
 import { RawCodeChangesExtractor } from "./raw-code-changes-extractor.service";
 import { RepositoryFilePath } from "./repository-file-path.service";
-import { ReviewContextAnalyzerService } from "./context-analyzer.service";
+import { PullRequestContextAnalyzerService } from "./context-analyzer.service";
 import { SelectiveFileFetcherService } from "./selective-file-fetcher.service";
 import { GroqAIService } from "./groq-ai.service";
 import { getFieldFromUnknownObject } from "../helper";
@@ -25,7 +25,7 @@ import { getFieldFromUnknownObject } from "../helper";
  * Service for analyzing PR events and determining eligibility for AI review
  */
 export class PRAnalysisService {
-    private static contextAnalyzer = new ReviewContextAnalyzerService();
+    private static contextAnalyzer = new PullRequestContextAnalyzerService();
     private static fileFetcher = new SelectiveFileFetcherService();
     private static groqService = new GroqAIService();
 
@@ -323,9 +323,9 @@ export class PRAnalysisService {
     }
 
     /**
-     * Analyzes PR with review context fetching workflow
+     * Analyzes PR with context fetching workflow
      */
-    public static async analyzeWithReviewContext(prData: PullRequestData): Promise<ReviewResult> {
+    public static async analyzePullRequest(prData: PullRequestData): Promise<ReviewResult> {
         const startTime = Date.now();
         const processingTimes: ProcessingTimes = {
             codeExtraction: 0,
@@ -335,24 +335,24 @@ export class PRAnalysisService {
             total: 0
         };
 
-        console.log(`Starting review context analysis for PR #${prData.prNumber} in ${prData.repositoryName}`);
+        console.log(`Starting analysis for PR #${prData.prNumber} in ${prData.repositoryName}`);
 
         try {
-            // Execute review context workflow with timeout
+            // Execute workflow with timeout
             const review = await this.executeWithTimeout(
-                () => this.executeReviewContextWorkflow(prData, processingTimes),
+                () => this.executePullRequestContextWorkflow(prData, processingTimes),
                 150000, // 2(1/2) minutes
-                "Review context analysis"
+                "Pull request context analysis"
             );
 
             processingTimes.total = Date.now() - startTime;
 
-            console.log(`Review context analysis completed in ${processingTimes.total}ms for PR #${prData.prNumber}`);
+            console.log(`Pull request context analysis completed in ${processingTimes.total}ms for PR #${prData.prNumber}`);
 
             return review;
 
         } catch (error) {
-            console.error("Review context analysis failed:", error);
+            console.error("Pull request context analysis failed:", error);
 
             // Track processing time even on failure
             processingTimes.total = Date.now() - startTime;
@@ -362,9 +362,9 @@ export class PRAnalysisService {
     }
 
     /**
-     * Executes the review context workflow
+     * Executes the pull request context workflow
      */
-    private static async executeReviewContextWorkflow(
+    private static async executePullRequestContextWorkflow(
         prData: PullRequestData,
         processingTimes: ProcessingTimes
     ): Promise<ReviewResult> {
@@ -465,9 +465,9 @@ export class PRAnalysisService {
     }
 
     /**
-     * Logs review context analysis metrics
+     * Logs pull request context analysis metrics
      */
-    public static logReviewContextMetrics(
+    public static logPullRequestContextMetrics(
         prData: PullRequestData,
         result: ReviewResult,
         success: boolean = true,
@@ -483,9 +483,9 @@ export class PRAnalysisService {
         };
 
         if (success) {
-            console.log("Review context analysis metrics:", JSON.stringify(logData, null, 2));
+            console.log("Pull request context analysis metrics:", JSON.stringify(logData, null, 2));
         } else {
-            console.error("Review context analysis failed metrics:", JSON.stringify(logData, null, 2));
+            console.error("Pull request context analysis failed metrics:", JSON.stringify(logData, null, 2));
         }
     }
 }
