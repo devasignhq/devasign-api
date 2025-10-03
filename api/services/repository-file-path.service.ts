@@ -1,6 +1,6 @@
 import { getFieldFromUnknownObject } from "../helper";
-import { ErrorClass } from "../models/general.model";
-import { RepositoryStructure, DirectoryNode } from "../models/intelligent-context.model";
+import { ErrorClass } from "../models";
+import { RepositoryStructure, DirectoryNode } from "../models/ai-review-context.model";
 import { OctokitService } from "./octokit.service";
 
 /**

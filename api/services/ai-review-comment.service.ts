@@ -287,54 +287,6 @@ export class AIReviewCommentService {
     }
 
     /**
-     * Posts a simple status comment (for testing or notifications)
-     */
-    public static async postStatusComment(
-        installationId: string,
-        repositoryName: string,
-        prNumber: number,
-        status: "started" | "completed" | "failed",
-        details?: string
-    ): Promise<string> {
-        const statusEmojis = {
-            started: "🔄",
-            completed: "✅",
-            failed: "❌"
-        };
-
-        const statusMessages = {
-            started: "AI review analysis has started...",
-            completed: "AI review analysis completed successfully!",
-            failed: "AI review analysis failed."
-        };
-
-        const emoji = statusEmojis[status];
-        const message = statusMessages[status];
-        const timestamp = new Date().toISOString();
-
-        let body = `${emoji} **AI Review Status Update**
-
-${message}`;
-
-        if (details) {
-            body += `
-
-**Details:** ${details}`;
-        }
-
-        body += `
-
----
-> 🤖 Automated status update from AI Review System
-> 
-> **Time:** ${new Date().toLocaleString()}
-
-<!-- AI-STATUS-MARKER:${installationId}:${prNumber}:${timestamp} -->`;
-
-        return await this.createComment(installationId, repositoryName, prNumber, body);
-    }
-
-    /**
      * Deletes an AI review comment (for cleanup or error recovery)
      */
     public static async deleteReviewComment(
@@ -489,31 +441,5 @@ ${message}`;
         }
 
         throw lastError!;
-    }
-
-    /**
-     * Validates that the service can post comments to a repository
-     */
-    public static async validateCommentPermissions(
-        installationId: string,
-        repositoryName: string
-    ): Promise<boolean> {
-        try {
-            // Try to get repository information to validate access
-            await this.callGitHubAPI(installationId, async (octokit) => {
-                const [owner, repo] = repositoryName.split("/");
-
-                await octokit.rest.repos.get({
-                    owner,
-                    repo
-                });
-            });
-
-            return true;
-
-        } catch (error) {
-            console.error(`Failed to validate comment permissions for ${repositoryName}:`, error);
-            return false;
-        }
     }
 }

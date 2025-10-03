@@ -5,7 +5,7 @@ import {
     FetchedFile,
     BatchProcessingConfig,
     RetryConfig
-} from "../models/intelligent-context.model";
+} from "../models/ai-review-context.model";
 
 /**
  * Service for selectively fetching files based on AI recommendations
@@ -58,10 +58,10 @@ export class SelectiveFileFetcherService {
         );
 
         try {
-            // Step 1: Prioritize files based on AI recommendations
+            // Prioritize files based on AI recommendations
             const prioritizedFiles = this.prioritizeFiles(recommendations);
             
-            // Step 2: Process files in batches with concurrency control
+            // Process files in batches with concurrency control
             const fetchedFiles = await this.processBatchesWithConcurrency(
                 installationId,
                 repositoryName,
@@ -69,7 +69,7 @@ export class SelectiveFileFetcherService {
                 branch
             );
 
-            // Step 3: Handle any fetch errors and compile results
+            // Handle any fetch errors and compile results
             const processedFiles = this.handleFetchErrors(fetchedFiles);
 
             const processingTime = Date.now() - startTime;

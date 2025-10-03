@@ -4,7 +4,6 @@ import {
     ChangedFile,
     GitHubWebhookPayload,
     AIReview,
-    RuleEvaluation,
     ReviewResult
 } from "../models/ai-review.model";
 import {
@@ -14,39 +13,21 @@ import {
 } from "../models/ai-review.errors";
 import { OctokitService } from "./octokit.service";
 import { GitHubFile } from "../models/github.model";
-import {
-    ContextAnalysisRequest,
-    EnhancedReviewContext,
-    ContextMetrics,
-    ProcessingTimes,
-    ContextEnhancedResult,
-    IntelligentContextConfig
-} from "../models/intelligent-context.model";
+import { ContextAnalysisRequest, ProcessingTimes } from "../models/ai-review-context.model";
 import { RawCodeChangesExtractor } from "./raw-code-changes-extractor.service";
 import { RepositoryFilePath } from "./repository-file-path.service";
-import { IntelligentContextAnalyzerService } from "./intelligent-context-analyzer.service";
+import { ReviewContextAnalyzerService } from "./context-analyzer.service";
 import { SelectiveFileFetcherService } from "./selective-file-fetcher.service";
-import { EnhancedContextBuilder } from "./enhanced-context-builder.service";
-import { IntelligentContextConfigService } from "./intelligent-context-config.service";
 import { GroqAIService } from "./groq-ai.service";
-import { RuleEngineService } from "./rule-engine.service";
 import { getFieldFromUnknownObject } from "../helper";
 
 /**
  * Service for analyzing PR events and determining eligibility for AI review
- * Enhanced with intelligent context fetching capabilities
  */
 export class PRAnalysisService {
-    
-    // Intelligent context services
-    private static contextAnalyzer = new IntelligentContextAnalyzerService();
+    private static contextAnalyzer = new ReviewContextAnalyzerService();
     private static fileFetcher = new SelectiveFileFetcherService();
-    
-    // Existing services for integration
     private static groqService = new GroqAIService();
-    
-    // Configuration service for intelligent context processing
-    private static configService = IntelligentContextConfigService.getInstance();
 
     /**
      * Determines if a PR should be analyzed
@@ -115,9 +96,7 @@ export class PRAnalysisService {
             // "closes #123", "fixes #456"
             /(?:closes|resolves|fixes|close|resolve|fix)\s+#(\d+)/gi,
             // "closes https://github.com/owner/repo/issues/123"
-            /(?:closes|resolves|fixes|close|resolve|fix)\s+https:\/\/github\.com\/([^\/]+)\/([^\/]+)\/issues\/(\d+)/gi,
-            // "closes owner/repo#123"
-            /(?:closes|resolves|fixes|close|resolve|fix)\s+([^\/\s]+)\/([^\/\s#]+)#(\d+)/gi
+            /(?:closes|resolves|fixes|close|resolve|fix)\s+https:\/\/github\.com\/([^\/]+)\/([^\/]+)\/issues\/(\d+)/gi
         ];
 
         for (const pattern of patterns) {
@@ -156,9 +135,10 @@ export class PRAnalysisService {
 
                 // Avoid duplicates
                 if (!linkedIssues.some(issue => issue.number === issueNumber && issue.url === issueUrl)) {
+                    // TODO: Fetch issue title, body, and comments
                     linkedIssues.push({
                         number: issueNumber,
-                        title: "", // Will be populated by fetchIssueDetails if needed
+                        title: "",
                         body: "",
                         url: issueUrl,
                         linkType: normalizedLinkType
@@ -201,52 +181,11 @@ export class PRAnalysisService {
     }
 
     /**
-     * Validates PR data completeness
-     * Ensures all required data is present for analysis
-     */
-    public static validatePRData(prData: PullRequestData): void {
-        const requiredFields = [
-            "installationId",
-            "repositoryName",
-            "prNumber",
-            "prUrl",
-            "title",
-            "author"
-        ];
-
-        const missingFields = requiredFields.filter(field =>
-            !prData[field as keyof PullRequestData]
-        );
-
-        if (missingFields.length > 0) {
-            throw new PRAnalysisError(
-                prData.prNumber,
-                prData.repositoryName,
-                `Missing required PR data fields: ${missingFields.join(", ")}`,
-                { missingFields },
-                false
-            );
-        }
-
-        if (prData.linkedIssues.length === 0) {
-            throw new PRNotEligibleError(
-                prData.prNumber,
-                prData.repositoryName,
-                "No linked issues found",
-                { prBody: prData.body }
-            );
-        }
-    }
-
-    /**
      * Creates a complete PR data object with all required information
      * Combines webhook data with additional API calls
      */
     public static async createCompletePRData(payload: GitHubWebhookPayload): Promise<PullRequestData> {
         const prData = this.extractPRDataFromWebhook(payload);
-
-        // Validate basic data
-        this.validatePRData(prData);
 
         // Check if PR should be analyzed
         if (!this.shouldAnalyzePR(prData)) {
@@ -289,33 +228,6 @@ export class PRAnalysisService {
     }
 
     /**
-     * Fetches additional PR details from GitHub API
-     */
-    public static async fetchPRDetails(
-        installationId: string,
-        repositoryName: string,
-        prNumber: number
-    ): Promise<Partial<PullRequestData>> {
-        try {
-            // This can be extended to fetch additional PR details like:
-            // - PR reviews and review comments
-            // - PR timeline events
-            // - Commit details and messages
-            // - Branch comparison data
-
-            // For now, return empty object as the basic webhook data is sufficient
-            return {};
-        } catch (error) {
-            throw new GitHubAPIError(
-                `Failed to fetch PR details for PR #${prNumber}`,
-                getFieldFromUnknownObject<number>(error, "status"),
-                undefined,
-                { installationId, repositoryName, prNumber, originalError: getFieldFromUnknownObject<string>(error, "message") }
-            );
-        }
-    }
-
-    /**
      * Normalizes GitHub file status to our expected format
      */
     private static normalizeFileStatus(status: string): "added" | "modified" | "removed" {
@@ -348,34 +260,6 @@ export class PRAnalysisService {
         });
 
         return Array.from(extensions);
-    }
-
-    /**
-     * Calculates PR complexity metrics based on changed files
-     */
-    public static calculatePRComplexity(changedFiles: ChangedFile[]): {
-        totalFiles: number;
-        totalAdditions: number;
-        totalDeletions: number;
-        totalChanges: number;
-        averageChangesPerFile: number;
-        fileTypes: string[];
-    } {
-        const totalFiles = changedFiles.length;
-        const totalAdditions = changedFiles.reduce((sum, file) => sum + file.additions, 0);
-        const totalDeletions = changedFiles.reduce((sum, file) => sum + file.deletions, 0);
-        const totalChanges = totalAdditions + totalDeletions;
-        const averageChangesPerFile = totalFiles > 0 ? totalChanges / totalFiles : 0;
-        const fileTypes = this.getFileExtensions(changedFiles);
-
-        return {
-            totalFiles,
-            totalAdditions,
-            totalDeletions,
-            totalChanges,
-            averageChangesPerFile: Math.round(averageChangesPerFile * 100) / 100,
-            fileTypes
-        };
     }
 
     /**
@@ -438,14 +322,10 @@ export class PRAnalysisService {
         }
     }
 
-    // ============================================================================
-    // Intelligent Context Fetching Methods
-    // ============================================================================
-
     /**
-     * Analyzes PR with intelligent context fetching workflow
+     * Analyzes PR with review context fetching workflow
      */
-    public static async analyzeWithIntelligentContext(prData: PullRequestData): Promise<ContextEnhancedResult> {
+    public static async analyzeWithReviewContext(prData: PullRequestData): Promise<ReviewResult> {
         const startTime = Date.now();
         const processingTimes: ProcessingTimes = {
             codeExtraction: 0,
@@ -455,57 +335,40 @@ export class PRAnalysisService {
             total: 0
         };
 
-        console.log(`Starting intelligent context analysis for PR #${prData.prNumber} in ${prData.repositoryName}`);
+        console.log(`Starting review context analysis for PR #${prData.prNumber} in ${prData.repositoryName}`);
 
         try {
-            // Get current configuration
-            const config = this.configService.getConfig();
-            
-            // Check if intelligent context is enabled
-            if (!config.enabled) {
-                console.log("Intelligent context disabled, falling back to standard analysis");
-                return this.wrapStandardResult(await this.fallbackToStandardAnalysis(prData), "Intelligent context disabled");
-            }
-
-            // Execute intelligent context workflow with timeout
-            const enhancedResult = await this.executeWithTimeout(
-                () => this.executeIntelligentContextWorkflow(prData, processingTimes),
-                config.maxProcessingTime,
-                "Intelligent context analysis"
+            // Execute review context workflow with timeout
+            const review = await this.executeWithTimeout(
+                () => this.executeReviewContextWorkflow(prData, processingTimes),
+                150000, // 2(1/2) minutes
+                "Review context analysis"
             );
 
             processingTimes.total = Date.now() - startTime;
 
-            console.log(`Intelligent context analysis completed in ${processingTimes.total}ms for PR #${prData.prNumber}`);
+            console.log(`Review context analysis completed in ${processingTimes.total}ms for PR #${prData.prNumber}`);
 
-            return enhancedResult;
+            return review;
 
         } catch (error) {
-            console.error("Intelligent context analysis failed:", error);
+            console.error("Review context analysis failed:", error);
 
             // Track processing time even on failure
             processingTimes.total = Date.now() - startTime;
-
-            // Fallback to standard analysis if enabled
-            const config = this.configService.getConfig();
-            if (config.fallbackOnError) {
-                console.log("Falling back to standard analysis due to error");
-                const standardResult = await this.fallbackToStandardAnalysis(prData);
-                return this.wrapStandardResult(standardResult, `Intelligent context failed: ${(error as Error).message}`);
-            }
 
             throw error;
         }
     }
 
     /**
-     * Executes the intelligent context workflow
+     * Executes the review context workflow
      */
-    private static async executeIntelligentContextWorkflow(
+    private static async executeReviewContextWorkflow(
         prData: PullRequestData,
         processingTimes: ProcessingTimes
-    ): Promise<ContextEnhancedResult> {
-        // Step 1: Extract raw code changes
+    ): Promise<ReviewResult> {
+        // Extract raw code changes
         const extractStart = Date.now();
         const rawCodeChanges = await RawCodeChangesExtractor.extractCodeChanges(
             prData.installationId,
@@ -514,7 +377,7 @@ export class PRAnalysisService {
         );
         processingTimes.codeExtraction = Date.now() - extractStart;
 
-        // Step 2: Get repository structure
+        // Get repository structure
         const pathStart = Date.now();
         const repositoryStructure = await RepositoryFilePath.getRepositoryStructure(
             prData.installationId,
@@ -522,7 +385,7 @@ export class PRAnalysisService {
         );
         processingTimes.pathRetrieval = Date.now() - pathStart;
 
-        // Step 3: AI-powered context analysis
+        // AI-powered context analysis
         const analysisStart = Date.now();
         const contextAnalysisRequest: ContextAnalysisRequest = {
             codeChanges: rawCodeChanges,
@@ -538,7 +401,7 @@ export class PRAnalysisService {
         const contextAnalysis = await this.contextAnalyzer.analyzeContextNeeds(contextAnalysisRequest);
         processingTimes.aiAnalysis = Date.now() - analysisStart;
 
-        // Step 4: Selective file fetching
+        // Selective file fetching
         const fetchStart = Date.now();
         const fetchedFiles = await this.fileFetcher.fetchRelevantFiles(
             prData.installationId,
@@ -547,176 +410,38 @@ export class PRAnalysisService {
         );
         processingTimes.fileFetching = Date.now() - fetchStart;
 
-        // Step 5: Build enhanced context
-        const enhancedContext = await EnhancedContextBuilder.buildEnhancedContext(
+        // Generate AI review with enhanced context
+        const aiReview = await this.groqService.generateReview(
+            prData,
             rawCodeChanges,
             repositoryStructure,
             contextAnalysis,
             fetchedFiles
         );
 
-        // Step 6: Generate AI review with enhanced context
-        const aiReview = await this.groqService.generateReview(prData);
+        // Rule evaluation
+        // const ruleEvaluation = await RuleEngineService.evaluateRules(prData, []);
 
-        // Step 7: Rule evaluation (using existing service)
-        const ruleEvaluation = await RuleEngineService.evaluateRules(prData, []);
-
-        // Step 8: Build enhanced result
-        const standardResult = this.buildStandardResult(prData, aiReview, ruleEvaluation);
-        
-        return this.buildEnhancedResult(
-            prData,
-            aiReview,
-            ruleEvaluation,
-            enhancedContext,
-            processingTimes,
-            standardResult
-        );
-    }
-
-    /**
-     * Builds enhanced result with intelligent context metrics
-     */
-    public static buildEnhancedResult(
-        prData: PullRequestData,
-        aiReview: AIReview,
-        ruleEvaluation: RuleEvaluation,
-        enhancedContext: EnhancedReviewContext,
-        processingTimes: ProcessingTimes,
-        standardResult?: ReviewResult
-    ): ContextEnhancedResult {
-        // Build standard result if not provided
-        const baseResult = standardResult || this.buildStandardResult(prData, aiReview, ruleEvaluation);
-
-        // Calculate context metrics
-        const contextMetrics = enhancedContext.contextMetrics;
-
-        return {
-            standardResult: baseResult,
-            contextMetrics,
-            intelligentContextUsed: true,
-            enhancedFeatures: {
-                aiRecommendedFiles: enhancedContext.contextAnalysis.relevantFiles.map(f => f.filePath),
-                contextQualityScore: contextMetrics.contextQualityScore || 0,
-                processingTimeBreakdown: processingTimes
-            }
-        };
-    }
-
-    /**
-     * Fallback to standard analysis when intelligent context fails or is disabled
-     */
-    public static async fallbackToStandardAnalysis(prData: PullRequestData): Promise<ReviewResult> {
-        console.log(`Executing standard analysis for PR #${prData.prNumber}`);
-
-        try {
-            // Generate AI review with existing context
-            const aiReview = await this.groqService.generateReview(prData);
-
-            // Rule evaluation
-            const ruleEvaluation = await RuleEngineService.evaluateRules(prData, []);
-
-            // Build standard result
-            return this.buildStandardResult(prData, aiReview, ruleEvaluation);
-
-        } catch (error) {
-            console.error("Standard analysis also failed:", error);
-            
-            // Return minimal result to prevent complete failure
-            return this.buildMinimalResult(prData, error as Error);
-        }
+        return this.buildReviewResult(prData, aiReview);
     }
 
     /**
      * Builds standard review result from AI review and rule evaluation
      */
-    private static buildStandardResult(
-        prData: PullRequestData,
-        aiReview: AIReview,
-        ruleEvaluation: RuleEvaluation
-    ): ReviewResult {
+    private static buildReviewResult(prData: PullRequestData, aiReview: AIReview): ReviewResult {
         return {
             installationId: prData.installationId,
             prNumber: prData.prNumber,
             repositoryName: prData.repositoryName,
             mergeScore: aiReview.mergeScore,
-            rulesViolated: ruleEvaluation.violated,
-            rulesPassed: ruleEvaluation.passed,
+            rulesViolated: [],
+            rulesPassed: [],
             suggestions: aiReview.suggestions,
             reviewStatus: "COMPLETED",
             summary: aiReview.summary,
             confidence: aiReview.confidence,
             processingTime: 0, // Will be set by caller
             createdAt: new Date()
-        };
-    }
-
-    /**
-     * Builds minimal result when all analysis methods fail
-     */
-    private static buildMinimalResult(prData: PullRequestData, error: Error): ReviewResult {
-        return {
-            installationId: prData.installationId,
-            prNumber: prData.prNumber,
-            repositoryName: prData.repositoryName,
-            mergeScore: 0,
-            rulesViolated: [],
-            rulesPassed: [],
-            suggestions: [{
-                file: "system",
-                type: "fix",
-                severity: "high",
-                description: "AI review failed. Manual review recommended.",
-                reasoning: `Analysis failed: ${error.message}`
-            }],
-            reviewStatus: "FAILED",
-            summary: `Analysis failed: ${error.message}. Please review manually.`,
-            confidence: 0,
-            processingTime: 0,
-            createdAt: new Date()
-        };
-    }
-
-    /**
-     * Wraps standard result in enhanced result format
-     */
-    private static wrapStandardResult(standardResult: ReviewResult, fallbackReason: string): ContextEnhancedResult {
-        return {
-            standardResult,
-            contextMetrics: this.createEmptyContextMetrics(),
-            intelligentContextUsed: false,
-            fallbackReason,
-            enhancedFeatures: {
-                aiRecommendedFiles: [],
-                contextQualityScore: 0,
-                processingTimeBreakdown: {
-                    codeExtraction: 0,
-                    pathRetrieval: 0,
-                    aiAnalysis: 0,
-                    fileFetching: 0,
-                    total: 0
-                }
-            }
-        };
-    }
-
-    /**
-     * Creates empty context metrics for fallback scenarios
-     */
-    private static createEmptyContextMetrics(): ContextMetrics {
-        return {
-            totalFilesInRepo: 0,
-            filesAnalyzedByAI: 0,
-            filesRecommended: 0,
-            filesFetched: 0,
-            fetchSuccessRate: 0,
-            processingTime: {
-                codeExtraction: 0,
-                pathRetrieval: 0,
-                aiAnalysis: 0,
-                fileFetching: 0,
-                total: 0
-            }
         };
     }
 
@@ -740,58 +465,27 @@ export class PRAnalysisService {
     }
 
     /**
-     * Logs intelligent context analysis metrics
+     * Logs review context analysis metrics
      */
-    public static logIntelligentContextMetrics(
+    public static logReviewContextMetrics(
         prData: PullRequestData,
-        result: ContextEnhancedResult,
+        result: ReviewResult,
         success: boolean = true,
         error?: Error
     ): void {
-        const config = this.configService.getConfig();
-        if (!config.enableMetrics) {
-            return;
-        }
-
         const logData = {
             installationId: prData.installationId,
             repositoryName: prData.repositoryName,
             prNumber: prData.prNumber,
-            intelligentContextUsed: result.intelligentContextUsed,
-            fallbackReason: result.fallbackReason,
-            contextMetrics: result.contextMetrics,
-            enhancedFeatures: result.enhancedFeatures,
             success,
             error: error?.message,
             timestamp: new Date().toISOString()
         };
 
         if (success) {
-            console.log("Intelligent context analysis metrics:", JSON.stringify(logData, null, 2));
+            console.log("Review context analysis metrics:", JSON.stringify(logData, null, 2));
         } else {
-            console.error("Intelligent context analysis failed metrics:", JSON.stringify(logData, null, 2));
+            console.error("Review context analysis failed metrics:", JSON.stringify(logData, null, 2));
         }
-    }
-
-    /**
-     * Gets intelligent context configuration
-     */
-    public static getIntelligentContextConfig() {
-        return this.configService.getConfig();
-    }
-
-    /**
-     * Gets intelligent context configuration service
-     */
-    public static getConfigService() {
-        return this.configService;
-    }
-
-    /**
-     * Updates intelligent context configuration
-     */
-    public static updateIntelligentContextConfig(updates: Partial<IntelligentContextConfig>) {
-        this.configService.updateConfig(updates);
-        console.log("Intelligent context configuration updated:", this.configService.getConfig());
     }
 }

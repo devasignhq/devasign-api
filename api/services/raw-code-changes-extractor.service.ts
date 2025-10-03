@@ -1,6 +1,6 @@
 import { OctokitService } from "./octokit.service";
-import { RawCodeChanges, FileChange } from "../models/intelligent-context.model";
-import { ErrorClass } from "../models/general.model";
+import { RawCodeChanges, FileChange } from "../models/ai-review-context.model";
+import { ErrorClass } from "../models";
 
 /**
  * Service implementation for extracting raw code changes from pull requests

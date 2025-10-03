@@ -2,12 +2,9 @@ import Groq from "groq-sdk";
 import {
     PullRequestData,
     AIReview,
-    CodeAnalysis,
-    RuleEvaluation,
     CodeSuggestion,
     QualityMetrics
 } from "../models/ai-review.model";
-import { MergeScoreService } from "./merge-score.service";
 import {
     GroqServiceError,
     GroqRateLimitError,
@@ -15,6 +12,12 @@ import {
     ErrorUtils
 } from "../models/ai-review.errors";
 import { getFieldFromUnknownObject } from "../helper";
+import {
+    ContextAnalysisResponse,
+    FetchedFile,
+    RawCodeChanges,
+    RepositoryStructure
+} from "../models/ai-review-context.model";
 
 /**
  * Groq AI Integration Service
@@ -54,13 +57,22 @@ export class GroqAIService {
     /**
      * Generates comprehensive AI review for a pull request
      */
-    async generateReview(prData: PullRequestData): Promise<AIReview> {
+    async generateReview(
+        prData: PullRequestData, 
+        rawCodeChanges: RawCodeChanges,
+        repositoryStructure: RepositoryStructure,
+        contextAnalysis: ContextAnalysisResponse,
+        fetchedFiles: FetchedFile[]
+    ): Promise<AIReview> {
         try {
-            // Build context window with priority-based content
-            const contextWindow = this.buildContextWindow(prData);
-
             // Generate the review using Groq
-            const reviewPrompt = this.buildReviewPrompt(prData, contextWindow);
+            const reviewPrompt = this.buildReviewPrompt({
+                prData,
+                rawCodeChanges,
+                repositoryStructure,
+                contextAnalysis,
+                fetchedFiles
+            });
             const aiResponse = await this.callGroqAPI(reviewPrompt);
 
             // Parse and validate the response
@@ -77,31 +89,6 @@ export class GroqAIService {
                 throw error;
             }
             throw ErrorUtils.wrapError(error as Error, "Failed to generate AI review");
-        }
-    }
-
-    /**
-     * Calculates merge score based on analysis and rule evaluation
-     */
-    calculateMergeScore(analysis: CodeAnalysis, ruleEvaluation: RuleEvaluation): number {
-        return MergeScoreService.calculateMergeScore(analysis, ruleEvaluation);
-    }
-
-    /**
-     * Generates specific code suggestions
-     */
-    async generateSuggestions(prData: PullRequestData): Promise<CodeSuggestion[]> {
-        try {
-            const contextWindow = this.buildContextWindow(prData);
-            const suggestionsPrompt = this.buildSuggestionsPrompt(prData, contextWindow);
-
-            const aiResponse = await this.callGroqAPI(suggestionsPrompt);
-            const suggestions = this.parseSuggestions(aiResponse);
-
-            return suggestions;
-        } catch (error) {
-            console.error("Error generating suggestions:", error);
-            return []; // Return empty array on error to allow graceful degradation
         }
     }
 
@@ -206,42 +193,14 @@ export class GroqAIService {
     // ============================================================================
 
     /**
-     * Builds context window with priority-based content selection
-     */
-    private buildContextWindow(prData: PullRequestData): ContextWindow {
-        const contextWindow: ContextWindow = {
-            maxTokens: this.config.contextLimit,
-            currentTokens: 0,
-            priority: []
-        };
-
-        // Priority 1: PR data (always include)
-        const prContent = this.formatPRData(prData);
-        const prTokens = this.estimateTokens(prContent);
-        contextWindow.priority.push({
-            type: "pr_data",
-            content: prContent,
-            tokens: prTokens,
-            priority: 1
-        });
-        contextWindow.currentTokens += prTokens;
-
-        return contextWindow;
-    }
-
-    /**
      * Builds the main review prompt for Groq
      */
-    private buildReviewPrompt(prData: PullRequestData, contextWindow: ContextWindow): string {
-        const contextContent = contextWindow.priority
-            .sort((a, b) => a.priority - b.priority)
-            .map(item => item.content)
-            .join("\n\n");
+    private buildReviewPrompt(contextWindow: ContextWindow): string {
 
         return `You are an expert code reviewer analyzing a pull request. Provide a comprehensive review with specific, actionable feedback.
 
 CONTEXT:
-${contextContent}
+${contextWindow}
 
 TASK:
 Analyze this pull request and provide:
@@ -288,51 +247,6 @@ Focus on:
 - Adherence to coding standards
 
 IMPORTANT: Respond with ONLY the JSON object. Do not include any text before or after the JSON.`;
-    }
-
-    /**
-     * Builds suggestions-specific prompt
-     */
-    private buildSuggestionsPrompt(prData: PullRequestData, contextWindow: ContextWindow): string {
-        const contextContent = contextWindow.priority
-            .sort((a, b) => a.priority - b.priority)
-            .map(item => item.content)
-            .join("\n\n");
-
-        return `You are a senior code reviewer focusing on providing specific, actionable code suggestions for this pull request.
-
-CONTEXT:
-${contextContent}
-
-TASK:
-Analyze the code changes and provide specific suggestions for improvement. Focus on:
-- Code quality and maintainability
-- Security best practices
-- Performance optimizations
-- Bug prevention
-- Code style and consistency
-
-RESPONSE FORMAT (JSON array):
-[
-  {
-    "file": "<exact filename>",
-    "lineNumber": <specific line number or null>,
-    "type": "<improvement|fix|optimization|style>",
-    "severity": "<low|medium|high>",
-    "description": "<specific, actionable description>",
-    "suggestedCode": "<optional improved code snippet>",
-    "reasoning": "<clear explanation of why this matters>"
-  }
-]
-
-Requirements:
-- Be specific about file names and line numbers when possible
-- Provide clear, actionable descriptions
-- Include code examples when helpful
-- Explain the reasoning behind each suggestion
-- Prioritize high-impact improvements
-
-IMPORTANT: Adhere to the RESPONSE FORMAT. Do not include any text before or after the array.`;
     }
 
     /**
@@ -533,26 +447,6 @@ IMPORTANT: Adhere to the RESPONSE FORMAT. Do not include any text before or afte
     }
 
     /**
-     * Parses suggestions from AI response
-     */
-    private parseSuggestions(response: string): CodeSuggestion[] {
-        try {
-            const jsonMatch = response.match(/\[[\s\S]*\]/);
-            if (!jsonMatch) {
-                return [];
-            }
-
-            const parsed = JSON.parse(jsonMatch[0]);
-            return Array.isArray(parsed) ? parsed : [];
-        } catch (error) {
-            console.error("Error parsing suggestions:", error);
-            return [];
-        }
-    }
-
-
-
-    /**
      * Formats PR data for context
      */
     private formatPRData(prData: PullRequestData): string {
@@ -613,12 +507,9 @@ ${prData.changedFiles.map(file =>
 }
 
 interface ContextWindow {
-    maxTokens: number;
-    currentTokens: number;
-    priority: Array<{
-        type: "pr_data" | "similar_prs" | "relevant_files" | "rules";
-        content: string;
-        tokens: number;
-        priority: number;
-    }>;
+    prData: PullRequestData, 
+    rawCodeChanges: RawCodeChanges,
+    repositoryStructure: RepositoryStructure,
+    contextAnalysis: ContextAnalysisResponse,
+    fetchedFiles: FetchedFile[]
 }
