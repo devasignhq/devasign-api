@@ -277,7 +277,7 @@ model AIReviewResult {
     reviewStatus   ReviewStatus
     commentId      String? // GitHub comment ID
 
-    // New fields for intelligent context tracking
+    // New fields for review context tracking
     contextAnalysisUsed  Boolean @default(false)
     totalFilesInRepo     Int?
     filesRecommendedByAI Int?

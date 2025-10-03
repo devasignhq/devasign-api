@@ -52,9 +52,43 @@ export function moneyFormat(
     }
 }
 
+/**
+ * Safely extracts a field value from an object of unknown type.
+ * 
+ * This function performs runtime type checking to verify that the input is an object
+ * and contains the specified field before attempting to access it.
+ * 
+ * @template T - The expected type of the field value
+ * @param obj - The object to extract the field from
+ * @param field - The name of the field to retrieve
+ * @returns The value of the field cast to type T, or undefined if the object is not
+ *          an object type or doesn't contain the specified field
+ * 
+ * @example
+ * const data: unknown = { name: "Alice", age: 30 };
+ * const name = getFieldFromUnknownObject<string>(data, "name"); // "Alice"
+ * const missing = getFieldFromUnknownObject<string>(data, "email"); // undefined
+ */
 export function getFieldFromUnknownObject<T>(obj: unknown, field: string) {
     if (typeof obj === "object" && field in obj!) {
         return (obj as Record<string, T>)[field];
     }
     return undefined;
 }
+
+export const STATUS_CODES = {
+    FETCH: 200,
+    CREATE: 201,
+    UPDATE: 200,
+    NO_CONTENT: 204,
+
+    RATE_LIMIT: 429,
+    TIMOUT: 408,
+
+    UNAUTHENTICATED: 400,
+    UNAUTHORIZED: 403,
+    SERVER_ERROR: 401,
+    NOT_FOUND: 404,
+    BAD_PAYLOAD: 407,
+    UNKNOWN: 500
+};

@@ -1,8 +1,3 @@
-// ============================================================================
-// Intelligent PR Context Fetching - Enhanced Data Models and Interfaces
-// Data models for AI-powered context determination and selective file fetching
-// ============================================================================
-
 import { LinkedIssue, ReviewResult } from "./ai-review.model";
 
 // ============================================================================
@@ -256,36 +251,12 @@ export function isValidFetchedFile(obj: FetchedFile): obj is FetchedFile {
 }
 
 // ============================================================================
-// Utility Types for Enhanced Context System
-// ============================================================================
-
-export type ContextAnalysisStatus = "pending" | "analyzing" | "completed" | "failed" | "cached";
-
-export type FileFetchStatus = "pending" | "fetching" | "completed" | "failed" | "skipped";
-
-export type IntelligentContextMode = "full" | "selective" | "minimal" | "disabled";
-
-export interface IntelligentContextConfig {
-    mode: IntelligentContextMode;
-    maxFilesToFetch: number;
-    maxRepositorySize: number;
-    aiAnalysisTimeout: number;
-    fileFetchTimeout: number;
-    cacheEnabled: boolean;
-    cacheTTL: number;
-    fallbackToHeuristics: boolean;
-    enableMetrics: boolean;
-}
-
-// ============================================================================
 // Integration Types with Existing System
 // ============================================================================
 
 export interface ContextEnhancedResult {
     standardResult: ReviewResult;
     contextMetrics: ContextMetrics;
-    intelligentContextUsed: boolean;
-    fallbackReason?: string;
     enhancedFeatures: {
         aiRecommendedFiles: string[];
         contextQualityScore: number;

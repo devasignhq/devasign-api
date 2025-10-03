@@ -169,7 +169,7 @@ if (process.env.GROQ_API_KEY && process.env.GITHUB_APP_ID && process.env.GITHUB_
         // Continue startup even if error handling initialization fails
     });
 
-    // Initialize workflow integration service with intelligent context
+    // Initialize workflow integration service with review context
     (async () => {
         try {
             const { WorkflowIntegrationService } = await import("./services/workflow-integration.service");

@@ -5,9 +5,7 @@ import {
     getJobStatus,
     getQueueStats,
     getWorkflowStatus,
-    triggerManualAnalysis,
-    getIntelligentContextConfig,
-    updateIntelligentContextConfig
+    triggerManualAnalysis
 } from "../controllers/webhook.controller";
 import {
     validateGitHubWebhook,
@@ -75,22 +73,4 @@ webhookRoutes.get(
 webhookRoutes.post(
     "/github/manual-analysis",
     triggerManualAnalysis as RequestHandler
-);
-
-/**
- * Intelligent context configuration endpoint
- * Get current intelligent context configuration
- */
-webhookRoutes.get(
-    "/intelligent-context/config",
-    getIntelligentContextConfig as RequestHandler
-);
-
-/**
- * Update intelligent context configuration endpoint
- * Update intelligent context configuration at runtime
- */
-webhookRoutes.post(
-    "/intelligent-context/config",
-    updateIntelligentContextConfig as RequestHandler
 );

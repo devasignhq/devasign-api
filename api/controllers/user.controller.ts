@@ -3,7 +3,7 @@ import { prisma } from "../config/database.config";
 import { InputJsonValue } from "@prisma/client/runtime/library";
 import { stellarService } from "../services/stellar.service";
 import { encrypt } from "../helper";
-import { AddressBook, ErrorClass, NotFoundErrorClass } from "../models/general.model";
+import { AddressBook, ErrorClass, NotFoundErrorClass } from "../models";
 
 export const getUser = async (req: Request, res: Response, next: NextFunction) => {
     const { userId } = req.body;
