@@ -54,8 +54,8 @@ export class GroqAIService {
     async generateReview(
         prData: PullRequestData,
         repositoryStructure: string[],
-        contextAnalysis: ContextAnalysisResponse,
-        fetchedFiles: FetchedFile[]
+        contextAnalysis?: ContextAnalysisResponse,
+        fetchedFiles?: FetchedFile[]
     ): Promise<AIReview> {
         try {
             // Generate the review using Groq
@@ -501,6 +501,6 @@ ${prData.changedFiles.map(file =>
 interface ContextWindow {
     prData: PullRequestData, 
     repositoryStructure: string[],
-    contextAnalysis: ContextAnalysisResponse,
-    fetchedFiles: FetchedFile[]
+    contextAnalysis?: ContextAnalysisResponse,
+    fetchedFiles?: FetchedFile[]
 }

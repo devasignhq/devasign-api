@@ -13,7 +13,7 @@ import {
 } from "../models/ai-review.errors";
 import { OctokitService } from "./octokit.service";
 import { GitHubComment, GitHubFile, IssueDto, IssueLabel } from "../models/github.model";
-import { ProcessingTimes } from "../models/ai-review-context.model";
+import { ContextAnalysisResponse, FetchedFile, ProcessingTimes } from "../models/ai-review-context.model";
 import { PullRequestContextAnalyzerService } from "./context-analyzer.service";
 import { SelectiveFileFetcherService } from "./selective-file-fetcher.service";
 import { GroqAIService } from "./groq-ai.service";
@@ -508,22 +508,27 @@ ${codeChangesPreview}`;
         );
         processingTimes.pathRetrieval = Date.now() - pathStart;
 
-        // AI-powered context analysis
-        const analysisStart = Date.now();
-        const contextAnalysis = await this.contextAnalyzer.analyzeContextNeeds({
-            prData,
-            repositoryStructure
-        });
-        processingTimes.aiAnalysis = Date.now() - analysisStart;
+        let contextAnalysis: ContextAnalysisResponse | undefined = undefined;
+        let fetchedFiles: FetchedFile[] | undefined = undefined;
 
-        // Selective file fetching
-        const fetchStart = Date.now();
-        const fetchedFiles = await this.fileFetcher.fetchRelevantFiles(
-            prData.installationId,
-            prData.repositoryName,
-            contextAnalysis.relevantFiles
-        );
-        processingTimes.fileFetching = Date.now() - fetchStart;
+        if (repositoryStructure.length > 0) {
+            // AI-powered context analysis
+            const analysisStart = Date.now();
+            contextAnalysis = await this.contextAnalyzer.analyzeContextNeeds({
+                prData,
+                repositoryStructure
+            });
+            processingTimes.aiAnalysis = Date.now() - analysisStart;
+
+            // Selective file fetching
+            const fetchStart = Date.now();
+            fetchedFiles = await this.fileFetcher.fetchRelevantFiles(
+                prData.installationId,
+                prData.repositoryName,
+                contextAnalysis.relevantFiles
+            );
+            processingTimes.fileFetching = Date.now() - fetchStart;
+        }
 
         // Generate AI review with enhanced context
         const aiReview = await this.groqService.generateReview(
