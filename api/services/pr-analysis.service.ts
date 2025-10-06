@@ -12,9 +12,8 @@ import {
     GitHubAPIError
 } from "../models/ai-review.errors";
 import { OctokitService } from "./octokit.service";
-import { GitHubFile } from "../models/github.model";
-import { ContextAnalysisRequest, ProcessingTimes } from "../models/ai-review-context.model";
-import { RawCodeChangesExtractor } from "./raw-code-changes-extractor.service";
+import { GitHubComment, GitHubFile, IssueDto, IssueLabel } from "../models/github.model";
+import { ProcessingTimes } from "../models/ai-review-context.model";
 import { RepositoryFilePath } from "./repository-file-path.service";
 import { PullRequestContextAnalyzerService } from "./context-analyzer.service";
 import { SelectiveFileFetcherService } from "./selective-file-fetcher.service";
@@ -49,7 +48,7 @@ export class PRAnalysisService {
     /**
      * Extracts PR data from GitHub webhook payload
      */
-    public static extractPRDataFromWebhook(payload: GitHubWebhookPayload): PullRequestData {
+    public static async extractPRDataFromWebhook(payload: GitHubWebhookPayload): Promise<PullRequestData> {
         const { pull_request, repository, installation } = payload;
 
         if (!pull_request || !repository || !installation) {
@@ -61,7 +60,11 @@ export class PRAnalysisService {
             );
         }
 
-        const linkedIssues = this.extractLinkedIssues(pull_request.body || "");
+        const linkedIssues = await this.extractLinkedIssues(
+            pull_request.body || "",
+            installation.id.toString(),
+            repository.full_name
+        );
 
         // Fix relative issue URLs to use current repository
         const fixedLinkedIssues = linkedIssues.map(issue => ({
@@ -88,8 +91,83 @@ export class PRAnalysisService {
     /**
      * Extracts linked issues from PR body using keywords
      */
-    public static extractLinkedIssues(prBody: string): LinkedIssue[] {
+    public static async extractLinkedIssues(
+        prBody: string, 
+        installationId: string, 
+        repositoryName: string
+    ): Promise<LinkedIssue[]> {
         const linkedIssues: LinkedIssue[] = [];
+
+        const fetchIssueDetails = async (issueNumber: number) => {
+            const octokit = await OctokitService.getOctokit(installationId);
+            const [owner, repo] = OctokitService.getOwnerAndRepo(repositoryName);
+
+            const query = `
+                query($owner: String!, $repo: String!, $issueNumber: Int!) {
+                    repository(owner: $owner, name: $repo) {
+                        issue(number: $issueNumber) {
+                            title
+                            body
+                            url
+                            author {
+                                login
+                            }
+                            labels(first: 100) {
+                                nodes {
+                                    name
+                                    description
+                                }
+                            }
+                            comments(first: 100) {
+                                nodes {
+                                    author {
+                                        login
+                                        ... on Bot {
+                                            __typename
+                                        }
+                                    }
+                                    body
+                                    updatedAt
+                                }
+                            }
+                        }
+                    }
+                }
+            `;
+
+            const variables = {
+                owner,
+                repo,
+                issueNumber
+            };
+
+            try {
+                const response = await octokit.graphql(query, variables);
+                const issue = (response as {
+                    repository: { 
+                        issue: IssueDto & {
+                            labels: { nodes: IssueLabel[] };
+                            comments: { nodes: GitHubComment[] };
+                        }
+                    }
+                }).repository.issue;
+                
+                // Filter out bot comments
+                const nonBotComments = issue.comments.nodes.filter(
+                    comment => comment.author?.__typename !== "Bot"
+                );
+                
+                return {
+                    title: issue.title,
+                    body: issue.body,
+                    url: issue.url,
+                    labels: issue.labels.nodes,
+                    comments: nonBotComments
+                };
+            } catch {
+                return false;
+            }
+        };
 
         // Regex patterns to match issue references
         const patterns = [
@@ -135,14 +213,29 @@ export class PRAnalysisService {
 
                 // Avoid duplicates
                 if (!linkedIssues.some(issue => issue.number === issueNumber && issue.url === issueUrl)) {
-                    // TODO: Fetch issue title, body, and comments
-                    linkedIssues.push({
-                        number: issueNumber,
-                        title: "",
-                        body: "",
-                        url: issueUrl,
-                        linkType: normalizedLinkType
-                    });
+                    const issueDetails = await fetchIssueDetails(issueNumber);
+
+                    if (!issueDetails) {
+                        linkedIssues.push({
+                            number: issueNumber,
+                            title: "",
+                            body: "",
+                            url: issueUrl,
+                            linkType: normalizedLinkType,
+                            labels: [],
+                            comments: []
+                        });
+                    } else {
+                        linkedIssues.push({
+                            number: issueNumber,
+                            title: issueDetails.title,
+                            body: issueDetails.body || "",
+                            url: issueDetails.url,
+                            linkType: normalizedLinkType,
+                            labels: issueDetails.labels,
+                            comments: issueDetails.comments
+                        });
+                    }
                 }
             }
         }
@@ -162,12 +255,19 @@ export class PRAnalysisService {
             // Use OctokitService to get PR files
             const files = await OctokitService.getPRFiles(installationId, repositoryName, prNumber);
 
+            // Build raw diff from all patches
+            // const rawDiff = files
+            //     .filter(file => file.patch)
+            //     .map(file => `diff --git a/${file.filename} b/${file.filename}\n${file.patch}`)
+            //     .join("\n\n");
+
             return files.map((file: GitHubFile) => ({
                 filename: file.filename,
                 status: this.normalizeFileStatus(file.status),
                 additions: file.additions,
                 deletions: file.deletions,
-                patch: file.patch || ""
+                patch: file.patch || "",
+                previousFilename: file.previous_filename
             }));
 
         } catch (error) {
@@ -185,7 +285,7 @@ export class PRAnalysisService {
      * Combines webhook data with additional API calls
      */
     public static async createCompletePRData(payload: GitHubWebhookPayload): Promise<PullRequestData> {
-        const prData = this.extractPRDataFromWebhook(payload);
+        const prData = await this.extractPRDataFromWebhook(payload);
 
         // Check if PR should be analyzed
         if (!this.shouldAnalyzePR(prData)) {
@@ -211,6 +311,8 @@ export class PRAnalysisService {
                 prData.repositoryName,
                 prData.prNumber
             );
+
+            // TODO: Generate Linked Issue and PR summary
 
             return prData;
         } catch (error) {
@@ -328,7 +430,7 @@ export class PRAnalysisService {
     public static async analyzePullRequest(prData: PullRequestData): Promise<ReviewResult> {
         const startTime = Date.now();
         const processingTimes: ProcessingTimes = {
-            codeExtraction: 0,
+            // codeExtraction: 0,
             pathRetrieval: 0,
             aiAnalysis: 0,
             fileFetching: 0,
@@ -341,7 +443,7 @@ export class PRAnalysisService {
             // Execute workflow with timeout
             const review = await this.executeWithTimeout(
                 () => this.executePullRequestContextWorkflow(prData, processingTimes),
-                150000, // 2(1/2) minutes
+                300000, // 5 minutes
                 "Pull request context analysis"
             );
 
@@ -368,15 +470,6 @@ export class PRAnalysisService {
         prData: PullRequestData,
         processingTimes: ProcessingTimes
     ): Promise<ReviewResult> {
-        // Extract raw code changes
-        const extractStart = Date.now();
-        const rawCodeChanges = await RawCodeChangesExtractor.extractCodeChanges(
-            prData.installationId,
-            prData.repositoryName,
-            prData.prNumber
-        );
-        processingTimes.codeExtraction = Date.now() - extractStart;
-
         // Get repository structure
         const pathStart = Date.now();
         const repositoryStructure = await RepositoryFilePath.getRepositoryStructure(
@@ -387,18 +480,10 @@ export class PRAnalysisService {
 
         // AI-powered context analysis
         const analysisStart = Date.now();
-        const contextAnalysisRequest: ContextAnalysisRequest = {
-            codeChanges: rawCodeChanges,
-            repositoryStructure,
-            prMetadata: {
-                title: prData.title,
-                description: prData.body,
-                linkedIssues: prData.linkedIssues,
-                author: prData.author
-            }
-        };
-        
-        const contextAnalysis = await this.contextAnalyzer.analyzeContextNeeds(contextAnalysisRequest);
+        const contextAnalysis = await this.contextAnalyzer.analyzeContextNeeds({
+            prData,
+            repositoryStructure
+        });
         processingTimes.aiAnalysis = Date.now() - analysisStart;
 
         // Selective file fetching
@@ -413,7 +498,6 @@ export class PRAnalysisService {
         // Generate AI review with enhanced context
         const aiReview = await this.groqService.generateReview(
             prData,
-            rawCodeChanges,
             repositoryStructure,
             contextAnalysis,
             fetchedFiles

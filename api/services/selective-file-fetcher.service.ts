@@ -364,7 +364,6 @@ export class SelectiveFileFetcherService {
                     content: "",
                     language: this.detectLanguage(recommendation.filePath),
                     size: 0,
-                    lastModified: new Date().toISOString(),
                     fetchSuccess: false,
                     error: error instanceof Error ? error.message : String(error)
                 });
@@ -417,7 +416,6 @@ export class SelectiveFileFetcherService {
                     content,
                     language,
                     size,
-                    lastModified: new Date().toISOString(),
                     fetchSuccess: true
                 };
 
