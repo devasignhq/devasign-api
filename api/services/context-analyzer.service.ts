@@ -4,8 +4,8 @@ import {
     ContextAnalysisResponse,
     RelevantFileRecommendation,
     ContextValidationResult,
-    RawCodeChanges,
-    isValidContextAnalysisResponse
+    isValidContextAnalysisResponse,
+    FileChange
 } from "../models/ai-review-context.model";
 import {
     GroqServiceError,
@@ -44,7 +44,7 @@ export class PullRequestContextAnalyzerService {
      */
     async analyzeContextNeeds(request: ContextAnalysisRequest): Promise<ContextAnalysisResponse> {
         try {
-            console.log(`Starting context analysis for PR #${request.codeChanges.prNumber} in ${request.codeChanges.repositoryName}`);
+            console.log(`Starting context analysis for PR #${request.prData.prNumber} in ${request.prData.repositoryName}`);
 
             // Validate input request
             this.validateAnalysisRequest(request);
@@ -63,11 +63,7 @@ export class PullRequestContextAnalyzerService {
             if (!validation.isValid) {
                 console.warn("Context analysis validation failed:", validation.errors);
 
-                if (this.config.fallbackToHeuristics) {
-                    return this.generateHeuristicFallback(request, validation.errors);
-                } else {
-                    throw new GroqServiceError(`Context analysis validation failed: ${validation.errors.join(", ")}`);
-                }
+                throw new GroqServiceError(`Context analysis validation failed: ${validation.errors.join(", ")}`);
             }
 
             console.log(`Context analysis completed: ${contextAnalysis.relevantFiles.length} files recommended with ${(contextAnalysis.confidence * 100).toFixed(1)}% confidence`);
@@ -79,19 +75,12 @@ export class PullRequestContextAnalyzerService {
 
             // Handle specific error types
             if (error instanceof GroqRateLimitError) {
-                console.log("Rate limit hit, falling back to heuristics");
-                return this.generateHeuristicFallback(request, ["AI service rate limited"]);
+                console.log("Rate limit hit");
             }
 
             if (error instanceof GroqContextLimitError) {
                 console.log("Context limit exceeded, trying with reduced context");
-                return this.analyzeWithReducedContext(request);
-            }
-
-            // Fallback to heuristics if enabled
-            if (this.config.fallbackToHeuristics) {
-                console.log("Falling back to heuristic analysis due to error:", (error as Error).message);
-                return this.generateHeuristicFallback(request, [(error as Error).message]);
+                return this.analyzeChangedFilesIndependently(request);
             }
 
             throw ErrorUtils.wrapError(error as Error, "Failed to analyze context needs");
@@ -102,16 +91,15 @@ export class PullRequestContextAnalyzerService {
      * Builds specialized prompt for AI context analysis
      */
     buildContextPrompt(request: ContextAnalysisRequest): string {
-        const { codeChanges, repositoryStructure, prMetadata } = request;
+        const { prData, repositoryStructure } = request;
 
         // Format code changes for analysis
-        const changedFilesInfo = codeChanges.fileChanges.map(file =>
-            `${file.filename} (${file.status}, +${file.additions}/-${file.deletions}, ${file.language || "unknown"})`
+        const changedFilesInfo = prData.changedFiles.map(file =>
+            `${file.filename} (${file.status}, +${file.additions}/-${file.deletions})`
         ).join("\n");
 
         // Format file structure (limit to prevent token overflow)
-        const filePathsPreview = repositoryStructure.filePaths.slice(0, 200).join("\n");
-        const hasMoreFiles = repositoryStructure.filePaths.length > 200;
+        const filePathsPreview = repositoryStructure.filePaths.join("\n");
 
         // Format languages breakdown
         const languageBreakdown = Object.entries(repositoryStructure.filesByLanguage)
@@ -119,20 +107,19 @@ export class PullRequestContextAnalyzerService {
             .join(", ");
 
         // Format linked issues
-        const linkedIssuesInfo = prMetadata.linkedIssues.length > 0
-            ? prMetadata.linkedIssues.map(issue => `#${issue.number}: ${issue.title}`).join(", ")
+        const linkedIssuesInfo = prData.linkedIssues.length > 0
+            ? prData.linkedIssues.map(issue => `#${issue.number}: ${issue.title}`).join(", ")
             : "None";
 
         return `You are an expert code reviewer analyzing a pull request to determine which repository files are most relevant for providing comprehensive context.
 
 PULL REQUEST CHANGES:
-Repository: ${codeChanges.repositoryName}
-PR #${codeChanges.prNumber}: ${prMetadata.title}
-Author: ${prMetadata.author}
-Total Changes: +${codeChanges.totalChanges.additions}/-${codeChanges.totalChanges.deletions} across ${codeChanges.totalChanges.filesChanged} files
+Repository: ${prData.repositoryName}
+PR #${prData.prNumber}: ${prData.title}
+Author: ${prData.author}
 
 Description:
-${prMetadata.description || "No description provided"}
+${prData.body || "No description provided"}
 
 Linked Issues: ${linkedIssuesInfo}
 
@@ -140,15 +127,14 @@ CHANGED FILES:
 ${changedFilesInfo}
 
 CODE CHANGES PREVIEW:
-${this.formatCodeChangesPreview(codeChanges)}
+${this.formatCodeChangesPreview(prData.changedFiles)}
 
 REPOSITORY STRUCTURE:
 Total files: ${repositoryStructure.totalFiles}
 Languages: ${languageBreakdown}
 
-File paths${hasMoreFiles ? " (first 200)" : ""}:
+File paths:
 ${filePathsPreview}
-${hasMoreFiles ? `\n... and ${repositoryStructure.totalFiles - 200} more files` : ""}
 
 TASK:
 Analyze the code changes and determine which files from the repository would be most helpful for providing comprehensive context. Consider:
@@ -277,18 +263,12 @@ IMPORTANT: Respond with ONLY the JSON object. Do not include any text before or 
      */
     validateContextAnalysis(analysis: ContextAnalysisResponse): ContextValidationResult {
         const errors: string[] = [];
-        const warnings: string[] = [];
 
         try {
             // Validate basic structure
             if (!isValidContextAnalysisResponse(analysis)) {
                 errors.push("Invalid context analysis response structure");
-                return { isValid: false, errors, warnings };
-            }
-
-            // Validate confidence threshold
-            if (analysis.confidence < this.config.minConfidenceThreshold) {
-                warnings.push(`Low confidence score: ${analysis.confidence}`);
+                return { isValid: false, errors };
             }
 
             // Validate relevant files
@@ -302,25 +282,14 @@ IMPORTANT: Respond with ONLY the JSON object. Do not include any text before or 
                 }
             }
 
-            // Validate reasoning
-            if (!analysis.reasoning || analysis.reasoning.length < 10) {
-                warnings.push("Reasoning is too short or missing");
-            }
-
-            // Validate estimated review quality
-            if (analysis.estimatedReviewQuality < 0 || analysis.estimatedReviewQuality > 100) {
-                errors.push("estimatedReviewQuality must be between 0 and 100");
-            }
-
             return {
                 isValid: errors.length === 0,
-                errors,
-                warnings
+                errors
             };
 
         } catch (error) {
             errors.push(`Validation error: ${(error as Error).message}`);
-            return { isValid: false, errors, warnings };
+            return { isValid: false, errors };
         }
     }
 
@@ -332,11 +301,11 @@ IMPORTANT: Respond with ONLY the JSON object. Do not include any text before or 
      * Validates the analysis request
      */
     private validateAnalysisRequest(request: ContextAnalysisRequest): void {
-        if (!request.codeChanges || !request.repositoryStructure || !request.prMetadata) {
+        if (!request.prData.changedFiles || !request.repositoryStructure ) {
             throw new Error("Invalid analysis request: missing required fields");
         }
 
-        if (!request.codeChanges.fileChanges || request.codeChanges.fileChanges.length === 0) {
+        if (!request.prData.changedFiles || request.prData.changedFiles.length === 0) {
             throw new Error("No file changes found in PR");
         }
 
@@ -366,8 +335,8 @@ IMPORTANT: Respond with ONLY the JSON object. Do not include any text before or 
     /**
      * Formats code changes preview for the prompt
      */
-    private formatCodeChangesPreview(codeChanges: RawCodeChanges): string {
-        return codeChanges.fileChanges.map((file) => {
+    private formatCodeChangesPreview(fileChanges: FileChange[]): string {
+        return fileChanges.map((file) => {
             const patchPreview = file.patch ? file.patch.substring(0, 500) : "No patch available";
             return `\n--- ${file.filename} (${file.status}) ---\n${patchPreview}${file.patch && file.patch.length > 500 ? "\n..." : ""}`;
         }).join("\n");
@@ -460,118 +429,78 @@ IMPORTANT: Respond with ONLY the JSON object. Do not include any text before or 
     }
 
     /**
-     * Generates heuristic fallback when AI analysis fails
-     */
-    private generateHeuristicFallback(request: ContextAnalysisRequest, errors: string[]): ContextAnalysisResponse {
-        console.log("Generating heuristic fallback for context analysis");
-
-        const { codeChanges, repositoryStructure } = request;
-        const relevantFiles: RelevantFileRecommendation[] = [];
-
-        // Heuristic 1: Look for common configuration files
-        const configFiles = ["package.json", "tsconfig.json", "webpack.config.js", "vite.config.js", "next.config.js", ".env", "README.md"];
-        configFiles.forEach(configFile => {
-            if (repositoryStructure.filePaths.includes(configFile)) {
-                relevantFiles.push({
-                    filePath: configFile,
-                    relevanceScore: 0.7,
-                    reason: "Common configuration file that might be relevant to the changes",
-                    category: configFile.endsWith(".md") ? "documentation" : "config",
-                    priority: "medium"
-                });
-            }
-        });
-
-        // Heuristic 2: Look for test files related to changed files
-        codeChanges.fileChanges.forEach(changedFile => {
-            const baseName = changedFile.filename.replace(/\.[^/.]+$/, ""); // Remove extension
-            const testPatterns = [
-                `${baseName}.test.ts`,
-                `${baseName}.test.js`,
-                `${baseName}.spec.ts`,
-                `${baseName}.spec.js`,
-                `tests/${changedFile.filename}`,
-                `__tests__/${changedFile.filename}`
-            ];
-
-            testPatterns.forEach(pattern => {
-                if (repositoryStructure.filePaths.includes(pattern)) {
-                    relevantFiles.push({
-                        filePath: pattern,
-                        relevanceScore: 0.8,
-                        reason: `Test file for ${changedFile.filename}`,
-                        category: "test",
-                        priority: "high"
-                    });
-                }
-            });
-        });
-
-        // Heuristic 3: Look for type definition files
-        const typeFiles = repositoryStructure.filePaths.filter(path =>
-            path.endsWith(".d.ts") || path.includes("types") || path.includes("interfaces")
-        ).slice(0, 3);
-
-        typeFiles.forEach(typeFile => {
-            relevantFiles.push({
-                filePath: typeFile,
-                relevanceScore: 0.6,
-                reason: "Type definition file that might provide context",
-                category: "interface",
-                priority: "medium"
-            });
-        });
-
-        // Remove duplicates and limit results
-        const uniqueFiles = relevantFiles.filter((file, index, self) =>
-            index === self.findIndex(f => f.filePath === file.filePath)
-        ).slice(0, this.config.maxRecommendedFiles);
-
-        return {
-            relevantFiles: uniqueFiles,
-            reasoning: `Used heuristic analysis due to AI service issues: ${errors.join(", ")}. Applied common patterns for configuration files, tests, and type definitions.`,
-            confidence: 0.3, // Lower confidence for heuristic approach
-            analysisType: "minimal",
-            estimatedReviewQuality: 40
-        };
-    }
-
-    /**
      * Analyzes with reduced context when hitting token limits
      */
-    private async analyzeWithReducedContext(request: ContextAnalysisRequest): Promise<ContextAnalysisResponse> {
-        console.log("Retrying context analysis with reduced context due to token limits");
+    private async analyzeChangedFilesIndependently(request: ContextAnalysisRequest): Promise<ContextAnalysisResponse> {
+        console.log("Retrying context analysis for each file changed independently due to token limits");
 
-        // Create a reduced version of the request
-        const reducedRequest: ContextAnalysisRequest = {
-            ...request,
-            repositoryStructure: {
-                ...request.repositoryStructure,
-                filePaths: request.repositoryStructure.filePaths.slice(0, 100), // Limit to first 100 files
-                directoryStructure: [] // Remove directory structure to save tokens
-            },
-            codeChanges: {
-                ...request.codeChanges,
-                fileChanges: request.codeChanges.fileChanges.map(file => ({
-                    ...file,
-                    patch: file.patch.substring(0, 200) // Limit patch size
-                }))
+        const allAnalysis: ContextAnalysisResponse[] = [];
+
+        for (const changedFile of request.prData.changedFiles) {
+            // Create a reduced version of the request
+            const reducedRequest: ContextAnalysisRequest = {
+                ...request,
+                prData: {
+                    ...request.prData,
+                    changedFiles: [changedFile]
+                }
+            };
+
+            try {
+                const prompt = this.buildContextPrompt(reducedRequest);
+                const aiResponse = await this.callAIWithTimeout(prompt);
+                const contextAnalysis = this.parseContextResponse(aiResponse);
+
+                allAnalysis.push(contextAnalysis);
+            } catch {
+                // 
             }
+        }
+
+        if (allAnalysis.length === 0) {
+            console.error("Analyzing files independently also failed");
         };
 
-        try {
-            const prompt = this.buildContextPrompt(reducedRequest);
-            const aiResponse = await this.callAIWithTimeout(prompt);
-            const contextAnalysis = this.parseContextResponse(aiResponse);
+        let totalRelevantFiles: RelevantFileRecommendation[] = [];
+        for (const analysis of allAnalysis) {
+            const currentRelevantFiles = new Set(totalRelevantFiles.map(file => file.filePath));
 
-            // Add note about reduced context
-            contextAnalysis.reasoning += " (Analysis performed with reduced context due to size limitations)";
-            contextAnalysis.confidence = Math.max(0.2, contextAnalysis.confidence - 0.2); // Reduce confidence
-
-            return contextAnalysis;
-        } catch (error) {
-            console.error("Reduced context analysis also failed:", error);
-            return this.generateHeuristicFallback(request, ["Token limit exceeded", (error as Error).message]);
+            for (const fileR of analysis.relevantFiles) {
+                if (currentRelevantFiles.has(fileR.filePath)) {
+                    totalRelevantFiles = totalRelevantFiles.map(fileT => {
+                        if (fileT.filePath === fileR.filePath) {
+                            return {
+                                filePath: fileT.filePath,
+                                relevanceScore: Math.max(fileT.relevanceScore, fileR.relevanceScore),
+                                reason: `${fileT.reason} ${fileR.reason}`,
+                                category: fileT.relevanceScore > fileR.relevanceScore ? fileT.category : fileR.category,
+                                priority: fileT.relevanceScore > fileR.relevanceScore ? fileT.priority : fileR.priority
+                            };
+                        } else {
+                            return fileT;
+                        }
+                    });
+                } else {
+                    totalRelevantFiles.push(fileR);
+                }
+            }
         }
+
+        const averageConfidence = (allAnalysis
+            .map(analysis => analysis.confidence)
+            .reduce((acc, confidence) => (acc + confidence), 0)) / allAnalysis.length;
+        const averageEstimatedReviewQuality = (allAnalysis
+            .map(analysis => analysis.estimatedReviewQuality)
+            .reduce((acc, estimatedReviewQuality) => (acc + estimatedReviewQuality), 0)) / allAnalysis.length;
+            
+        const contextAnalysis: ContextAnalysisResponse = {
+            relevantFiles: totalRelevantFiles,
+            reasoning: allAnalysis.map(analysis => analysis.reasoning).join(" "),
+            confidence: averageConfidence,
+            analysisType: "comprehensive",
+            estimatedReviewQuality: averageEstimatedReviewQuality
+        };
+
+        return contextAnalysis;
     }
 }
