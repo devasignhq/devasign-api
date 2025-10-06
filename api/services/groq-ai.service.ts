@@ -12,15 +12,9 @@ import {
     ErrorUtils
 } from "../models/ai-review.errors";
 import { getFieldFromUnknownObject } from "../helper";
-import {
-    ContextAnalysisResponse,
-    FetchedFile,
-    RawCodeChanges,
-    RepositoryStructure
-} from "../models/ai-review-context.model";
+import { ContextAnalysisResponse, FetchedFile } from "../models/ai-review-context.model";
 
 /**
- * Groq AI Integration Service
  * Implements AI-powered code review.
  */
 export class GroqAIService {
@@ -58,9 +52,8 @@ export class GroqAIService {
      * Generates comprehensive AI review for a pull request
      */
     async generateReview(
-        prData: PullRequestData, 
-        rawCodeChanges: RawCodeChanges,
-        repositoryStructure: RepositoryStructure,
+        prData: PullRequestData,
+        repositoryStructure: string[],
         contextAnalysis: ContextAnalysisResponse,
         fetchedFiles: FetchedFile[]
     ): Promise<AIReview> {
@@ -68,7 +61,6 @@ export class GroqAIService {
             // Generate the review using Groq
             const reviewPrompt = this.buildReviewPrompt({
                 prData,
-                rawCodeChanges,
                 repositoryStructure,
                 contextAnalysis,
                 fetchedFiles
@@ -508,8 +500,7 @@ ${prData.changedFiles.map(file =>
 
 interface ContextWindow {
     prData: PullRequestData, 
-    rawCodeChanges: RawCodeChanges,
-    repositoryStructure: RepositoryStructure,
+    repositoryStructure: string[],
     contextAnalysis: ContextAnalysisResponse,
     fetchedFiles: FetchedFile[]
 }

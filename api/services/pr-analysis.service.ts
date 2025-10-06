@@ -14,7 +14,6 @@ import {
 import { OctokitService } from "./octokit.service";
 import { GitHubComment, GitHubFile, IssueDto, IssueLabel } from "../models/github.model";
 import { ProcessingTimes } from "../models/ai-review-context.model";
-import { RepositoryFilePath } from "./repository-file-path.service";
 import { PullRequestContextAnalyzerService } from "./context-analyzer.service";
 import { SelectiveFileFetcherService } from "./selective-file-fetcher.service";
 import { GroqAIService } from "./groq-ai.service";
@@ -503,7 +502,7 @@ ${codeChangesPreview}`;
     ): Promise<ReviewResult> {
         // Get repository structure
         const pathStart = Date.now();
-        const repositoryStructure = await RepositoryFilePath.getRepositoryStructure(
+        const repositoryStructure = await this.getRepositoryStructure(
             prData.installationId,
             prData.repositoryName
         );
@@ -538,6 +537,60 @@ ${codeChangesPreview}`;
         // const ruleEvaluation = await RuleEngineService.evaluateRules(prData, []);
 
         return this.buildReviewResult(prData, aiReview);
+    }
+
+    /**
+     * Get repository file paths
+     */
+    public static async getRepositoryStructure(
+        installationId: string,
+        repositoryName: string,
+        branch?: string
+    ): Promise<string[]> {
+        try {
+            // Use existing OctokitService method to get all file paths
+            const filePaths = await OctokitService.getAllFilePathsFromTree(
+                installationId,
+                repositoryName,
+                branch
+            );
+
+            // Handle empty repository case
+            if (!filePaths || filePaths.length === 0) {
+                return [];
+            }
+
+            return filePaths;
+
+        } catch (error) {
+            const errorStatus = getFieldFromUnknownObject<number>(error, "status");
+            const errorMessage = getFieldFromUnknownObject<string>(error, "message");
+
+            if (errorStatus === 404) {
+                console.warn(
+                    "getRepositoryStructure",
+                    error,
+                    `Repository ${repositoryName} not found or not accessible`
+                );
+            }
+
+            if (errorStatus === 403) {
+                console.warn(
+                    "getRepositoryStructure", 
+                    error,
+                    `Access denied to repository ${repositoryName}`
+                );
+            }
+
+            // Handle API failures with detailed error information
+            console.warn(
+                "getRepositoryStructure",
+                error,
+                `Failed to retrieve repository structure for ${repositoryName}: ${errorMessage}`
+            );
+
+            return [];
+        }
     }
 
     /**

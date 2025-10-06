@@ -93,14 +93,14 @@ export class PullRequestContextAnalyzerService {
         const { prData, repositoryStructure } = request;
 
         // Format file structure (limit to prevent token overflow)
-        const filePathsPreview = repositoryStructure.filePaths.join("\n");
+        const filePathsPreview = repositoryStructure.join("\n");
 
         return `You are an expert code reviewer analyzing a pull request to determine which repository files are most relevant for providing comprehensive context.
 
 ${prData.formattedPullRequest}
 
 REPOSITORY STRUCTURE:
-Total files: ${repositoryStructure.totalFiles}
+Total files: ${repositoryStructure.length}
 
 File paths:
 ${filePathsPreview}
@@ -278,7 +278,7 @@ IMPORTANT: Respond with ONLY the JSON object. Do not include any text before or 
             throw new Error("No file changes found in PR");
         }
 
-        if (!request.repositoryStructure.filePaths || request.repositoryStructure.filePaths.length === 0) {
+        if (!request.repositoryStructure || request.repositoryStructure.length === 0) {
             throw new Error("No files found in repository structure");
         }
     }

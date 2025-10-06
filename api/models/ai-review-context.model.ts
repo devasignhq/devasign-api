@@ -15,31 +15,12 @@ export interface FileChange {
 }
 
 // ============================================================================
-// Repository Structure Analysis Types
-// ============================================================================
-
-export interface RepositoryStructure {
-    totalFiles: number;
-    filePaths: string[];
-    filesByLanguage: Record<string, string[]>;
-    directoryStructure: DirectoryNode[];
-}
-
-export interface DirectoryNode {
-    name: string;
-    path: string;
-    type: "file" | "directory";
-    children?: DirectoryNode[];
-    language?: string;
-}
-
-// ============================================================================
 // AI Context Analysis Types
 // ============================================================================
 
 export interface ContextAnalysisRequest {
     prData: PullRequestData;
-    repositoryStructure: RepositoryStructure;
+    repositoryStructure: string[];
 }
 
 export interface ContextAnalysisResponse {
@@ -185,14 +166,6 @@ export interface BatchProcessingConfig {
 // ============================================================================
 // Type Guards and Utility Functions
 // ============================================================================
-
-export function isValidRepositoryStructure(obj: RepositoryStructure): obj is RepositoryStructure {
-    return obj &&
-        typeof obj.totalFiles === "number" &&
-        Array.isArray(obj.filePaths) &&
-        obj.filesByLanguage &&
-        Array.isArray(obj.directoryStructure);
-}
 
 export function isValidContextAnalysisResponse(obj: ContextAnalysisResponse): obj is ContextAnalysisResponse {
     return obj &&
