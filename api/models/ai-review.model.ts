@@ -1,4 +1,5 @@
 import { RuleType, RuleSeverity, ReviewStatus } from "../generated/client";
+import { IssueLabel, GitHubComment } from "./github.model";
 
 // ============================================================================
 // Core Data Transfer Objects for PR Analysis Workflow
@@ -15,6 +16,8 @@ export interface PullRequestData {
     linkedIssues: LinkedIssue[];
     author: string;
     isDraft: boolean;
+    formattedLinkedIssues?: string[];
+    formattedPullRequest?: string;
 }
 
 export interface ChangedFile {
@@ -23,6 +26,7 @@ export interface ChangedFile {
     additions: number;
     deletions: number;
     patch: string;
+    previousFilename?: string;
 }
 
 export interface LinkedIssue {
@@ -31,6 +35,8 @@ export interface LinkedIssue {
     body: string;
     url: string;
     linkType: "closes" | "resolves" | "fixes";
+    labels: IssueLabel[];
+    comments: GitHubComment[];
 }
 
 

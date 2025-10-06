@@ -74,6 +74,7 @@ export type GitHubUser = {
     id: string;
     avatarUrl: string;
     url: string;
+    __typename?: string;
 }
 
 export type GitHubFile = {

@@ -1,20 +1,8 @@
-import { LinkedIssue, ReviewResult } from "./ai-review.model";
+import { PullRequestData, ReviewResult } from "./ai-review.model";
 
 // ============================================================================
-// Raw Code Changes Extraction Types
+// Code Changes Extraction Type
 // ============================================================================
-
-export interface RawCodeChanges {
-    prNumber: number;
-    repositoryName: string;
-    totalChanges: {
-        additions: number;
-        deletions: number;
-        filesChanged: number;
-    };
-    fileChanges: FileChange[];
-    rawDiff: string; // Complete diff content
-}
 
 export interface FileChange {
     filename: string;
@@ -50,14 +38,8 @@ export interface DirectoryNode {
 // ============================================================================
 
 export interface ContextAnalysisRequest {
-    codeChanges: RawCodeChanges;
+    prData: PullRequestData;
     repositoryStructure: RepositoryStructure;
-    prMetadata: {
-        title: string;
-        description: string;
-        linkedIssues: LinkedIssue[];
-        author: string;
-    };
 }
 
 export interface ContextAnalysisResponse {
@@ -85,7 +67,6 @@ export interface FetchedFile {
     content: string;
     language: string;
     size: number;
-    lastModified: string;
     fetchSuccess: boolean;
     error?: string;
 }
@@ -175,7 +156,7 @@ export interface ContextAnalysisMetrics {
 }
 
 export interface ProcessingTimes {
-    codeExtraction: number;
+    codeExtraction?: number;
     pathRetrieval: number;
     aiAnalysis: number;
     fileFetching: number;
@@ -189,7 +170,6 @@ export interface ProcessingTimes {
 export interface ContextValidationResult {
     isValid: boolean;
     errors: string[];
-    warnings: string[];
 }
 
 // ============================================================================
@@ -205,15 +185,6 @@ export interface BatchProcessingConfig {
 // ============================================================================
 // Type Guards and Utility Functions
 // ============================================================================
-
-export function isValidRawCodeChanges(obj: RawCodeChanges): obj is RawCodeChanges {
-    return obj &&
-        typeof obj.prNumber === "number" &&
-        typeof obj.repositoryName === "string" &&
-        obj.totalChanges &&
-        Array.isArray(obj.fileChanges) &&
-        typeof obj.rawDiff === "string";
-}
 
 export function isValidRepositoryStructure(obj: RepositoryStructure): obj is RepositoryStructure {
     return obj &&
@@ -238,7 +209,6 @@ export function isValidFetchedFile(obj: FetchedFile): obj is FetchedFile {
         typeof obj.content === "string" &&
         typeof obj.language === "string" &&
         typeof obj.size === "number" &&
-        typeof obj.lastModified === "string" &&
         typeof obj.fetchSuccess === "boolean";
 }
 
