@@ -4,8 +4,7 @@ import {
     ContextAnalysisResponse,
     RelevantFileRecommendation,
     ContextValidationResult,
-    isValidContextAnalysisResponse,
-    FileChange
+    isValidContextAnalysisResponse
 } from "../models/ai-review-context.model";
 import {
     GroqServiceError,
@@ -93,45 +92,15 @@ export class PullRequestContextAnalyzerService {
     buildContextPrompt(request: ContextAnalysisRequest): string {
         const { prData, repositoryStructure } = request;
 
-        // Format code changes for analysis
-        const changedFilesInfo = prData.changedFiles.map(file =>
-            `${file.filename} (${file.status}, +${file.additions}/-${file.deletions})`
-        ).join("\n");
-
         // Format file structure (limit to prevent token overflow)
         const filePathsPreview = repositoryStructure.filePaths.join("\n");
 
-        // Format languages breakdown
-        const languageBreakdown = Object.entries(repositoryStructure.filesByLanguage)
-            .map(([lang, files]) => `${lang}: ${files.length} files`)
-            .join(", ");
-
-        // Format linked issues
-        const linkedIssuesInfo = prData.linkedIssues.length > 0
-            ? prData.linkedIssues.map(issue => `#${issue.number}: ${issue.title}`).join(", ")
-            : "None";
-
         return `You are an expert code reviewer analyzing a pull request to determine which repository files are most relevant for providing comprehensive context.
 
-PULL REQUEST CHANGES:
-Repository: ${prData.repositoryName}
-PR #${prData.prNumber}: ${prData.title}
-Author: ${prData.author}
-
-Description:
-${prData.body || "No description provided"}
-
-Linked Issues: ${linkedIssuesInfo}
-
-CHANGED FILES:
-${changedFilesInfo}
-
-CODE CHANGES PREVIEW:
-${this.formatCodeChangesPreview(prData.changedFiles)}
+${prData.formattedPullRequest}
 
 REPOSITORY STRUCTURE:
 Total files: ${repositoryStructure.totalFiles}
-Languages: ${languageBreakdown}
 
 File paths:
 ${filePathsPreview}
@@ -330,16 +299,6 @@ IMPORTANT: Respond with ONLY the JSON object. Do not include any text before or 
             operationPromise,
             timeoutPromise
         ]);
-    }
-
-    /**
-     * Formats code changes preview for the prompt
-     */
-    private formatCodeChangesPreview(fileChanges: FileChange[]): string {
-        return fileChanges.map((file) => {
-            const patchPreview = file.patch ? file.patch.substring(0, 500) : "No patch available";
-            return `\n--- ${file.filename} (${file.status}) ---\n${patchPreview}${file.patch && file.patch.length > 500 ? "\n..." : ""}`;
-        }).join("\n");
     }
 
     /**

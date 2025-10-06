@@ -16,8 +16,7 @@ export interface PullRequestData {
     linkedIssues: LinkedIssue[];
     author: string;
     isDraft: boolean;
-    formattedLinkedIssues?: string[];
-    formattedPullRequest?: string;
+    formattedPullRequest: string;
 }
 
 export interface ChangedFile {

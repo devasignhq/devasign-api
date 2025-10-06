@@ -84,7 +84,8 @@ export class PRAnalysisService {
             changedFiles: [], // Will be populated by fetchChangedFiles
             linkedIssues: fixedLinkedIssues,
             author: pull_request.user.login,
-            isDraft: pull_request.draft
+            isDraft: pull_request.draft,
+            formattedPullRequest: ""
         };
     }
 
@@ -311,8 +312,38 @@ export class PRAnalysisService {
                 prData.repositoryName,
                 prData.prNumber
             );
+            
+            const changedFilesInfo = prData.changedFiles.map(file =>
+                `${file.filename} (${file.status}, +${file.additions}/-${file.deletions})`
+            ).join("\n");
 
-            // TODO: Generate Linked Issue and PR summary
+            const codeChangesPreview = prData.changedFiles.map((file) => {
+                return `\n--- ${file.filename} (${file.status}) ---\n${file.patch}`;
+            }).join("\n");
+
+            // Format linked issues
+            const linkedIssuesInfo = prData.linkedIssues.map(issue => `- #${issue.number}:\n
+                title: ${issue.title}\n
+                body: ${issue.body}`).join("\n");
+
+            prData.formattedPullRequest = `Here's the pull request summary:
+
+PULL REQUEST CHANGES:
+Repository: ${prData.repositoryName}
+PR #${prData.prNumber}: ${prData.title}
+Author: ${prData.author}
+
+Body:
+${prData.body || "No body provided"}
+
+Linked Issues: 
+${linkedIssuesInfo}
+
+CHANGED FILES:
+${changedFilesInfo}
+
+CODE CHANGES PREVIEW:
+${codeChangesPreview}`;
 
             return prData;
         } catch (error) {
