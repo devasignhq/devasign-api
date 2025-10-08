@@ -182,7 +182,8 @@ export class WorkflowIntegrationService {
                 changedFiles: [], // Would be fetched from GitHub API in full implementation
                 linkedIssues: [], // Would be extracted from PR body
                 author: request.userId,
-                isDraft: false
+                isDraft: false,
+                formattedPullRequest: ""
             };
 
             // Queue for analysis
