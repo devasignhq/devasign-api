@@ -1,4 +1,4 @@
-import { ErrorClass } from "../models/general.model";
+import { ErrorClass } from "../models";
 import { AIReviewError, ErrorUtils } from "../models/ai-review.errors";
 import { LoggingService } from "../services/logging.service";
 import { Request, Response, ErrorRequestHandler } from "express";

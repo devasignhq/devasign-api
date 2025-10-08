@@ -1,6 +1,6 @@
 import { NextFunction, Request, Response } from "express";
 import { prisma } from "../config/database.config";
-import { ErrorClass, NotFoundErrorClass } from "../models/general.model";
+import { ErrorClass, NotFoundErrorClass } from "../models";
 import { RuleType, RuleSeverity, Prisma } from "../generated/client";
 import { RuleEngineService } from "../services/rule-engine.service";
 

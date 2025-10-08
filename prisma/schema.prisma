@@ -277,7 +277,7 @@ model AIReviewResult {
     reviewStatus   ReviewStatus
     commentId      String? // GitHub comment ID
 
-    // New fields for intelligent context tracking
+    // New fields for pull request context tracking
     contextAnalysisUsed  Boolean @default(false)
     totalFilesInRepo     Int?
     filesRecommendedByAI Int?
@@ -288,7 +288,7 @@ model AIReviewResult {
 
     // JSON fields for detailed context metrics
     contextMetrics    Json? // ContextMetrics object
-    aiRecommendations Json? // ContextAnalysisResponse object
+    aiRecommendations Json? // RelevantFileRecommendation object
     fetchedFilePaths  Json? // Array of successfully fetched file paths
 
     createdAt DateTime @default(now())
@@ -296,25 +296,4 @@ model AIReviewResult {
 
     @@unique([installationId, prNumber, repositoryName])
     @@index([installationId, reviewStatus])
-}
-
-model ContextAnalysisMetrics {
-    id             String @id @default(cuid())
-    installationId String
-    repositoryName String
-    prNumber       Int
-
-    totalFilesInRepo Int
-    filesRecommended Int
-    filesFetched     Int
-    fetchSuccessRate Float
-
-    processingTimes    Json // ProcessingTimes object
-    aiConfidence       Float
-    reviewQualityScore Int // 0-100
-
-    createdAt DateTime @default(now())
-
-    @@index([installationId, repositoryName])
-    @@index([createdAt])
 }

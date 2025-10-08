@@ -2,13 +2,9 @@ import Groq from "groq-sdk";
 import {
     PullRequestData,
     AIReview,
-    CodeAnalysis,
-    RuleEvaluation,
-    CodeSuggestion,
-    QualityMetrics
+    QualityMetrics,
+    RelevantFileRecommendation
 } from "../models/ai-review.model";
-import { MergeScoreService } from "./merge-score.service";
-import { ContextWindow } from "../models/ai-review.types";
 import {
     GroqServiceError,
     GroqRateLimitError,
@@ -18,7 +14,6 @@ import {
 import { getFieldFromUnknownObject } from "../helper";
 
 /**
- * Groq AI Integration Service
  * Implements AI-powered code review.
  */
 export class GroqAIService {
@@ -44,7 +39,8 @@ export class GroqAIService {
 
         // Configuration for Groq models
         this.config = {
-            model: process.env.GROQ_MODEL || "llama-3.3-70b-versatile",
+            model: process.env.GROQ_MODEL || "groq/compound",
+            // model: process.env.GROQ_MODEL || "llama-3.3-70b-versatile",
             maxTokens: parseInt(process.env.GROQ_MAX_TOKENS || "4096"),
             temperature: parseFloat(process.env.GROQ_TEMPERATURE || "0.0"), // Lower temperature for more consistent JSON
             maxRetries: parseInt(process.env.GROQ_MAX_RETRIES || "3"),
@@ -55,17 +51,20 @@ export class GroqAIService {
     /**
      * Generates comprehensive AI review for a pull request
      */
-    async generateReview(prData: PullRequestData): Promise<AIReview> {
+    async generateReview(
+        prData: PullRequestData,
+        relevantFiles: RelevantFileRecommendation[]
+    ): Promise<AIReview> {
         try {
-            // Build context window with priority-based content
-            const contextWindow = this.buildContextWindow(prData);
-
             // Generate the review using Groq
-            const reviewPrompt = this.buildReviewPrompt(prData, contextWindow);
+            const reviewPrompt = this.buildReviewPrompt(prData, relevantFiles);
             const aiResponse = await this.callGroqAPI(reviewPrompt);
 
             // Parse and validate the response
-            const parsedReview = this.parseAIResponse(aiResponse);
+            const parsedReview = this.parseAIResponse<AIReview>(aiResponse);
+            if (!parsedReview) {
+                throw new GroqServiceError("AI response validation failed", { response: aiResponse });
+            }
 
             // Validate the review quality
             if (!this.validateAIResponse(parsedReview)) {
@@ -78,31 +77,6 @@ export class GroqAIService {
                 throw error;
             }
             throw ErrorUtils.wrapError(error as Error, "Failed to generate AI review");
-        }
-    }
-
-    /**
-     * Calculates merge score based on analysis and rule evaluation
-     */
-    calculateMergeScore(analysis: CodeAnalysis, ruleEvaluation: RuleEvaluation): number {
-        return MergeScoreService.calculateMergeScore(analysis, ruleEvaluation);
-    }
-
-    /**
-     * Generates specific code suggestions
-     */
-    async generateSuggestions(prData: PullRequestData): Promise<CodeSuggestion[]> {
-        try {
-            const contextWindow = this.buildContextWindow(prData);
-            const suggestionsPrompt = this.buildSuggestionsPrompt(prData, contextWindow);
-
-            const aiResponse = await this.callGroqAPI(suggestionsPrompt);
-            const suggestions = this.parseSuggestions(aiResponse);
-
-            return suggestions;
-        } catch (error) {
-            console.error("Error generating suggestions:", error);
-            return []; // Return empty array on error to allow graceful degradation
         }
     }
 
@@ -207,42 +181,27 @@ export class GroqAIService {
     // ============================================================================
 
     /**
-     * Builds context window with priority-based content selection
-     */
-    private buildContextWindow(prData: PullRequestData): ContextWindow {
-        const contextWindow: ContextWindow = {
-            maxTokens: this.config.contextLimit,
-            currentTokens: 0,
-            priority: []
-        };
-
-        // Priority 1: PR data (always include)
-        const prContent = this.formatPRData(prData);
-        const prTokens = this.estimateTokens(prContent);
-        contextWindow.priority.push({
-            type: "pr_data",
-            content: prContent,
-            tokens: prTokens,
-            priority: 1
-        });
-        contextWindow.currentTokens += prTokens;
-
-        return contextWindow;
-    }
-
-    /**
      * Builds the main review prompt for Groq
      */
-    private buildReviewPrompt(prData: PullRequestData, contextWindow: ContextWindow): string {
-        const contextContent = contextWindow.priority
-            .sort((a, b) => a.priority - b.priority)
-            .map(item => item.content)
-            .join("\n\n");
+    private buildReviewPrompt(
+        prData: PullRequestData,
+        relevantFiles: RelevantFileRecommendation[]
+    ): string {
+        const fileInfoList = relevantFiles.map((file, index) => {
+            return file.content ? `FILE ${index + 1}: ${file.filePath}\n
+                Reason for inclusion: ${file.reason || "N/A"}\n
+                ---CONTENT START---\n
+                ${file.content}\n
+                ---CONTENT END---` : "";
+        }).join("\n\n");
 
         return `You are an expert code reviewer analyzing a pull request. Provide a comprehensive review with specific, actionable feedback.
 
-CONTEXT:
-${contextContent}
+${prData.formattedPullRequest}
+
+CONTEXTUAL FILES:
+The following files were fetched to provide context for this pull request review:
+${fileInfoList}
 
 TASK:
 Analyze this pull request and provide:
@@ -292,51 +251,6 @@ IMPORTANT: Respond with ONLY the JSON object. Do not include any text before or 
     }
 
     /**
-     * Builds suggestions-specific prompt
-     */
-    private buildSuggestionsPrompt(prData: PullRequestData, contextWindow: ContextWindow): string {
-        const contextContent = contextWindow.priority
-            .sort((a, b) => a.priority - b.priority)
-            .map(item => item.content)
-            .join("\n\n");
-
-        return `You are a senior code reviewer focusing on providing specific, actionable code suggestions for this pull request.
-
-CONTEXT:
-${contextContent}
-
-TASK:
-Analyze the code changes and provide specific suggestions for improvement. Focus on:
-- Code quality and maintainability
-- Security best practices
-- Performance optimizations
-- Bug prevention
-- Code style and consistency
-
-RESPONSE FORMAT (JSON array):
-[
-  {
-    "file": "<exact filename>",
-    "lineNumber": <specific line number or null>,
-    "type": "<improvement|fix|optimization|style>",
-    "severity": "<low|medium|high>",
-    "description": "<specific, actionable description>",
-    "suggestedCode": "<optional improved code snippet>",
-    "reasoning": "<clear explanation of why this matters>"
-  }
-]
-
-Requirements:
-- Be specific about file names and line numbers when possible
-- Provide clear, actionable descriptions
-- Include code examples when helpful
-- Explain the reasoning behind each suggestion
-- Prioritize high-impact improvements
-
-IMPORTANT: Adhere to the RESPONSE FORMAT. Do not include any text before or after the array.`;
-    }
-
-    /**
      * Calls Groq API with error handling and retries
      */
     async callGroqAPI(prompt: string): Promise<string> {
@@ -354,7 +268,7 @@ IMPORTANT: Adhere to the RESPONSE FORMAT. Do not include any text before or afte
                         }
                     ],
                     model: this.config.model,
-                    max_tokens: this.config.maxTokens,
+                    // max_completion_tokens: this.config.maxTokens,
                     temperature: this.config.temperature
                 });
 
@@ -391,7 +305,7 @@ IMPORTANT: Adhere to the RESPONSE FORMAT. Do not include any text before or afte
     /**
      * Parses AI response into structured review
      */
-    private parseAIResponse(response: string): AIReview {
+    parseAIResponse<T>(response: string): T | null {
         try {
             console.log("ai-response", response);
 
@@ -443,147 +357,13 @@ IMPORTANT: Adhere to the RESPONSE FORMAT. Do not include any text before or afte
 
             const parsed = JSON.parse(jsonString);
 
-            // Ensure all required fields are present with defaults
-            return {
-                mergeScore: this.validateNumber(parsed.mergeScore, 0, 100, 50),
-                codeQuality: {
-                    codeStyle: this.validateNumber(parsed.codeQuality?.codeStyle, 0, 100, 50),
-                    testCoverage: this.validateNumber(parsed.codeQuality?.testCoverage, 0, 100, 50),
-                    documentation: this.validateNumber(parsed.codeQuality?.documentation, 0, 100, 50),
-                    security: this.validateNumber(parsed.codeQuality?.security, 0, 100, 50),
-                    performance: this.validateNumber(parsed.codeQuality?.performance, 0, 100, 50),
-                    maintainability: this.validateNumber(parsed.codeQuality?.maintainability, 0, 100, 50)
-                },
-                suggestions: Array.isArray(parsed.suggestions) ? parsed.suggestions.map(this.validateSuggestion) : [],
-                summary: typeof parsed.summary === "string" ? parsed.summary : "AI review completed",
-                confidence: this.validateNumber(parsed.confidence, 0, 1, 0.5)
-            };
+            return parsed as T;
         } catch (error) {
             console.error("Error parsing AI response:", error);
             console.error("Raw response:", response);
-
-            // Try to extract meaningful information from the text response as fallback
-            const fallbackReview = this.extractFallbackReview(response);
-            return fallbackReview;
+            
+            return null;
         }
-    }
-
-    /**
-     * Validates and clamps a number within a range
-     */
-    private validateNumber(value: unknown, min: number, max: number, defaultValue: number): number {
-        if (typeof value === "number" && !isNaN(value)) {
-            return Math.max(min, Math.min(max, value));
-        }
-        return defaultValue;
-    }
-
-    /**
-     * Validates a suggestion object
-     */
-    private validateSuggestion(suggestion: CodeSuggestion): CodeSuggestion {
-        return {
-            file: typeof suggestion.file === "string" ? suggestion.file : "unknown",
-            lineNumber: typeof suggestion.lineNumber === "number" ? suggestion.lineNumber : undefined,
-            type: ["improvement", "fix", "optimization", "style"].includes(suggestion.type) ? suggestion.type : "improvement",
-            severity: ["low", "medium", "high"].includes(suggestion.severity) ? suggestion.severity : "medium",
-            description: typeof suggestion.description === "string" ? suggestion.description : "No description provided",
-            suggestedCode: typeof suggestion.suggestedCode === "string" ? suggestion.suggestedCode : undefined,
-            reasoning: typeof suggestion.reasoning === "string" ? suggestion.reasoning : "No reasoning provided"
-        };
-    }
-
-    /**
-     * Extracts meaningful information from non-JSON response as fallback
-     */
-    private extractFallbackReview(response: string): AIReview {
-        // Try to extract merge score from text
-        const scoreMatch = response.match(/(?:merge\s*score|score)[:\s]*(\d+)/i);
-        const mergeScore = scoreMatch ? parseInt(scoreMatch[1]) : 50;
-
-        // Extract suggestions from text
-        const suggestions: CodeSuggestion[] = [];
-        const suggestionMatches = response.match(/(?:suggestion|fix|improvement)[:\s]*([^\n]+)/gi);
-
-        if (suggestionMatches) {
-            suggestionMatches.slice(0, 3).forEach((match) => {
-                suggestions.push({
-                    file: "extracted_from_text",
-                    type: "improvement",
-                    severity: "medium",
-                    description: match.replace(/(?:suggestion|fix|improvement)[:\s]*/i, "").trim(),
-                    reasoning: "Extracted from AI text response"
-                });
-            });
-        }
-
-        return {
-            mergeScore: this.validateNumber(mergeScore, 0, 100, 50),
-            codeQuality: {
-                codeStyle: 50,
-                testCoverage: 40,
-                documentation: 30,
-                security: 60,
-                performance: 50,
-                maintainability: 50
-            },
-            suggestions,
-            summary: response.length > 200 ? `${response.substring(0, 200)  }...` : response,
-            confidence: 0.3 // Lower confidence for fallback parsing
-        };
-    }
-
-    /**
-     * Parses suggestions from AI response
-     */
-    private parseSuggestions(response: string): CodeSuggestion[] {
-        try {
-            const jsonMatch = response.match(/\[[\s\S]*\]/);
-            if (!jsonMatch) {
-                return [];
-            }
-
-            const parsed = JSON.parse(jsonMatch[0]);
-            return Array.isArray(parsed) ? parsed : [];
-        } catch (error) {
-            console.error("Error parsing suggestions:", error);
-            return [];
-        }
-    }
-
-
-
-    /**
-     * Formats PR data for context
-     */
-    private formatPRData(prData: PullRequestData): string {
-        const changedFilesInfo = prData.changedFiles.map(file =>
-            `- ${file.filename} (${file.status}, +${file.additions}/-${file.deletions})`
-        ).join("\n");
-
-        const linkedIssuesInfo = prData.linkedIssues.map(issue =>
-            `- #${issue.number}: ${issue.title} (${issue.linkType})`
-        ).join("\n");
-
-        return `PULL REQUEST ANALYSIS:
-Title: ${prData.title}
-Author: ${prData.author}
-Repository: ${prData.repositoryName}
-PR Number: #${prData.prNumber}
-
-Description:
-${prData.body || "No description provided"}
-
-Changed Files:
-${changedFilesInfo}
-
-Linked Issues:
-${linkedIssuesInfo}
-
-File Changes Details:
-${prData.changedFiles.map(file =>
-        `\n--- ${file.filename} ---\n${file.patch?.substring(0, 1000) || "No patch available"}`
-    ).join("\n")}`;
     }
 
     /**
@@ -610,46 +390,5 @@ ${prData.changedFiles.map(file =>
      */
     private sleep(ms: number): Promise<void> {
         return new Promise(resolve => setTimeout(resolve, ms));
-    }
-}
-
-/**
- * Groq Client Implementation
- * Provides low-level Groq API access
- */
-export class GroqClientImpl {
-    private groqService: GroqAIService;
-
-    constructor() {
-        this.groqService = new GroqAIService();
-    }
-
-    /**
-     * Generates chat completion using Groq API
-     */
-    async generateCompletion(messages: Record<string, string>[]) {
-        const prompt = messages.map(msg => `${msg.role}: ${msg.content}`).join("\n\n");
-        return this.groqService["callGroqAPI"](prompt);
-    }
-
-    /**
-     * Checks API status and limits
-     */
-    async checkStatus(): Promise<{ available: boolean; rateLimitRemaining: number }> {
-        try {
-            // Simple test call to check if API is available
-            await this.generateCompletion([{ role: "user", content: "test" }]);
-            return { available: true, rateLimitRemaining: 100 }; // Placeholder values
-        } catch {
-            return { available: false, rateLimitRemaining: 0 };
-        }
-    }
-
-    /**
-     * Waits for rate limit to reset
-     */
-    async waitForRateLimit(): Promise<void> {
-        // Wait for 60 seconds by default
-        await new Promise(resolve => setTimeout(resolve, 60000));
     }
 }

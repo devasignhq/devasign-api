@@ -11,7 +11,7 @@ import cors from "cors";
 import morgan from "morgan";
 import { prisma } from "./config/database.config";
 import { validateUser } from "./middlewares/auth.middleware";
-import { dynamicRoute, localhostOnly } from "./middlewares/general.middleware";
+import { dynamicRoute, localhostOnly } from "./middlewares";
 import { userRoutes } from "./routes/user.route";
 import { installationRoutes } from "./routes/installation.route";
 import { taskRoutes } from "./routes/task.route";
@@ -25,6 +25,7 @@ import { aiReviewTestRoutes } from "./routes/test_routes/ai-review.test.route";
 import { aiServicesRoutes } from "./routes/test_routes/ai-services.test.route";
 import { errorHandler } from "./middlewares/error.middleware";
 import { ErrorHandlingInitService } from "./services/error-handling-init.service";
+import { healthRoutes } from "./routes/health.route";
 
 const app = express();
 const PORT = process.env.NODE_ENV === "development"
@@ -61,129 +62,7 @@ app.use("/webhook/github/pr-review", express.raw({ type: "application/json" }));
 // JSON parser for all other routes
 app.use(express.json());
 
-app.get("/", (req: Request, res: Response) => {
-    res.send("Hello, DevAsign Server!");
-});
-
-// Health check endpoint for Google Cloud Run
-app.get("/health", (req: Request, res: Response) => {
-    res.status(200).json({
-        status: "healthy",
-        timestamp: new Date().toISOString(),
-        uptime: process.uptime()
-    });
-});
-
-// Comprehensive health check endpoint for AI Review system
-app.get("/health/detailed", async (req: Request, res: Response) => {
-    try {
-        const { HealthCheckService } = await import("./services/health-check.service");
-        const healthResult = await HealthCheckService.performHealthCheck(true);
-
-        const statusCode = healthResult.status === "healthy" ? 200 :
-            healthResult.status === "degraded" ? 206 : 503;
-
-        res.status(statusCode).json(healthResult);
-    } catch (error) {
-        res.status(503).json({
-            status: "unhealthy",
-            timestamp: new Date().toISOString(),
-            error: "Health check failed",
-            details: error
-        });
-    }
-});
-
-// Quick health status endpoint
-app.get("/health/status", (async (req: Request, res: Response) => {
-    try {
-        const { HealthCheckService } = await import("./services/health-check.service");
-        const cached = HealthCheckService.getCachedHealthStatus();
-
-        if (!cached) {
-            // Perform quick health check if no cached result
-            const healthResult = await HealthCheckService.performHealthCheck(false);
-            const statusCode = healthResult.status === "healthy" ? 200 :
-                healthResult.status === "degraded" ? 206 : 503;
-            return res.status(statusCode).json({
-                status: healthResult.status,
-                degradedMode: healthResult.degradedMode,
-                timestamp: healthResult.timestamp
-            });
-        }
-
-        const statusCode = cached.status === "healthy" ? 200 :
-            cached.status === "degraded" ? 206 : 503;
-
-        res.status(statusCode).json({
-            status: cached.status,
-            degradedMode: cached.degradedMode,
-            timestamp: cached.timestamp,
-            cached: true
-        });
-    } catch {
-        res.status(503).json({
-            status: "unhealthy",
-            timestamp: new Date().toISOString(),
-            error: "Health status check failed"
-        });
-    }
-}) as RequestHandler);
-
-// Error handling status endpoint
-app.get("/health/error-handling", async (req: Request, res: Response) => {
-    try {
-        const { ErrorHandlingIntegrationService } = await import("./services/error-handling-integration.service");
-        const { ErrorRecoveryService } = await import("./services/error-recovery.service");
-
-        const status = ErrorHandlingIntegrationService.getErrorHandlingStatus();
-        const recoveryStatus = ErrorRecoveryService.getRecoveryStatus();
-
-        res.status(200).json({
-            timestamp: new Date().toISOString(),
-            errorHandling: status,
-            recovery: recoveryStatus
-        });
-    } catch (error) {
-        res.status(500).json({
-            error: "Failed to get error handling status",
-            details: String(error),
-            timestamp: new Date().toISOString()
-        });
-    }
-});
-
-// Manual recovery endpoint (admin only)
-app.post("/health/recover", validateUser as RequestHandler, (async (req: Request, res: Response) => {
-    try {
-        // Check if user has admin privileges
-        const { currentUser } = req.body;
-
-        if (!currentUser?.admin && !currentUser?.custom_claims?.admin) {
-            return res.status(403).json({
-                error: "Access denied. Admin privileges required."
-            });
-        }
-
-        const { ErrorRecoveryService } = await import("./services/error-recovery.service");
-        const { type = "complete", context } = req.body;
-
-        const recoveryResult = await ErrorRecoveryService.attemptSystemRecovery(type, context);
-
-        const statusCode = recoveryResult.success ? 200 : 500;
-        res.status(statusCode).json({
-            recovery: recoveryResult,
-            timestamp: new Date().toISOString()
-        });
-    } catch (error) {
-        res.status(500).json({
-            error: "Recovery attempt failed",
-            details: String(error),
-            timestamp: new Date().toISOString()
-        });
-    }
-}) as RequestHandler);
-
+// To be removed
 app.post(
     "/clear-db",
     validateUser as RequestHandler,
@@ -230,6 +109,8 @@ app.get("/get-packages", validateUser as RequestHandler, async (_, res) => {
         res.status(500).json({ error, message: "Failed to fetch subscription packages" });
     }
 });
+
+app.use("/health", healthRoutes);
 
 app.use(
     "/users",
@@ -289,7 +170,7 @@ if (process.env.GROQ_API_KEY && process.env.GITHUB_APP_ID && process.env.GITHUB_
         // Continue startup even if error handling initialization fails
     });
 
-    // Initialize workflow integration service with intelligent context
+    // Initialize workflow integration service
     (async () => {
         try {
             const { WorkflowIntegrationService } = await import("./services/workflow-integration.service");

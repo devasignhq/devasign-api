@@ -27,19 +27,6 @@ export class ReviewCommentIntegrationService {
                 };
             }
 
-            // Check if we have permission to post comments
-            const hasPermission = await AIReviewCommentService.validateCommentPermissions(
-                result.installationId,
-                result.repositoryName
-            );
-
-            if (!hasPermission) {
-                return {
-                    success: false,
-                    error: "No permission to post comments on this repository"
-                };
-            }
-
             // Post or update the review comment
             const commentId = await AIReviewCommentService.postOrUpdateReview(result);
 
@@ -50,44 +37,6 @@ export class ReviewCommentIntegrationService {
 
         } catch (error) {
             console.error("Error posting review comment:", error);
-
-            return {
-                success: false,
-                error: error instanceof Error ? error.message : "Unknown error occurred"
-            };
-        }
-    }
-
-    /**
-     * Posts a status update comment (analysis started, completed, failed)
-     */
-    public static async postStatusUpdate(
-        installationId: string,
-        repositoryName: string,
-        prNumber: number,
-        status: "started" | "completed" | "failed",
-        details?: string
-    ): Promise<{
-        success: boolean;
-        commentId?: string;
-        error?: string;
-    }> {
-        try {
-            const commentId = await AIReviewCommentService.postStatusComment(
-                installationId,
-                repositoryName,
-                prNumber,
-                status,
-                details
-            );
-
-            return {
-                success: true,
-                commentId
-            };
-
-        } catch (error) {
-            console.error("Error posting status update:", error);
 
             return {
                 success: false,

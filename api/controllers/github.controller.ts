@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { OctokitService } from "../services/octokit.service";
-import { IssueFilters } from "../models/general.model";
+import { IssueFilters } from "../models";
 import { validateUserInstallation } from "../middlewares/auth.middleware";
 import { PRAnalysisService } from "../services/pr-analysis.service";
 import {
@@ -141,7 +141,7 @@ export const triggerManualPRAnalysis = async (req: Request, res: Response, next:
     const { userId } = req.body;
 
     try {
-        // Validate user has access to this installation (Requirement 1.4)
+        // Validate user has access to this installation
         await validateUserInstallation(installationId, userId);
 
         console.log(`Manual PR analysis triggered by user ${userId} for PR #${prNumber} in ${repositoryName}`);
@@ -288,8 +288,7 @@ export const triggerManualPRAnalysis = async (req: Request, res: Response, next:
             prNumber: prData.prNumber,
             linkedIssuesCount: prData.linkedIssues.length,
             changedFilesCount: prData.changedFiles.length,
-            author: prData.author,
-            complexity: PRAnalysisService.calculatePRComplexity(prData.changedFiles)
+            author: prData.author
         });
 
         // Return success response with PR analysis data
@@ -311,7 +310,6 @@ export const triggerManualPRAnalysis = async (req: Request, res: Response, next:
                     url: issue.url,
                     linkType: issue.linkType
                 })),
-                complexity: PRAnalysisService.calculatePRComplexity(prData.changedFiles),
                 eligibleForAnalysis: true,
                 triggerType: "manual",
                 triggeredBy: userId

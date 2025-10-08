@@ -1,22 +1,15 @@
-// ============================================================================
-// Selective File Fetcher Service
-// AI-powered selective file fetching with prioritization and batch processing
-// ============================================================================
-
 import { OctokitService } from "./octokit.service";
 import { LoggingService } from "./logging.service";
 import {
     RelevantFileRecommendation,
     FetchedFile,
-    BatchProcessingConfig,
-    RetryConfig
-} from "../models/intelligent-context.model";
+    BatchProcessingConfig
+} from "../models/ai-review.model";
 
 /**
- * Service for selectively fetching files based on AI recommendations
- * Implements prioritization, batch processing, and graceful error handling
+ * Service for fetching files based on AI recommendations
  */
-export class SelectiveFileFetcherService {
+export class FileFetcherService {
     private readonly defaultBatchConfig: BatchProcessingConfig = {
         batchSize: 10,
         maxConcurrency: 3,
@@ -52,8 +45,8 @@ export class SelectiveFileFetcherService {
     ): Promise<FetchedFile[]> {
         const startTime = Date.now();
         LoggingService.logInfo(
-            "selective_file_fetching_started",
-            "Starting selective file fetching",
+            "file_fetching_started",
+            "Starting file fetching",
             {
                 installationId,
                 repositoryName,
@@ -63,10 +56,10 @@ export class SelectiveFileFetcherService {
         );
 
         try {
-            // Step 1: Prioritize files based on AI recommendations
+            // Prioritize files based on AI recommendations
             const prioritizedFiles = this.prioritizeFiles(recommendations);
             
-            // Step 2: Process files in batches with concurrency control
+            // Process files in batches with concurrency control
             const fetchedFiles = await this.processBatchesWithConcurrency(
                 installationId,
                 repositoryName,
@@ -74,7 +67,7 @@ export class SelectiveFileFetcherService {
                 branch
             );
 
-            // Step 3: Handle any fetch errors and compile results
+            // Handle any fetch errors and compile results
             const processedFiles = this.handleFetchErrors(fetchedFiles);
 
             const processingTime = Date.now() - startTime;
@@ -82,8 +75,8 @@ export class SelectiveFileFetcherService {
             const failureCount = processedFiles.length - successCount;
 
             LoggingService.logInfo(
-                "selective_file_fetching_completed",
-                "Selective file fetching completed",
+                "file_fetching_completed",
+                "File fetching completed",
                 {
                     installationId,
                     repositoryName,
@@ -99,7 +92,7 @@ export class SelectiveFileFetcherService {
 
         } catch (error) {
             LoggingService.logError(
-                "selective_file_fetching_failed",
+                "file_fetching_failed",
                 error instanceof Error ? error : new Error(String(error)),
                 {
                     installationId,
@@ -112,7 +105,6 @@ export class SelectiveFileFetcherService {
             return recommendations.map(rec => ({
                 filePath: rec.filePath,
                 content: "",
-                language: this.detectLanguage(rec.filePath),
                 size: 0,
                 lastModified: new Date().toISOString(),
                 fetchSuccess: false,
@@ -132,22 +124,6 @@ export class SelectiveFileFetcherService {
                 const priorityOrder = { high: 3, medium: 2, low: 1 };
                 const priorityDiff = priorityOrder[b.priority] - priorityOrder[a.priority];
                 if (priorityDiff !== 0) return priorityDiff;
-
-                // Secondary sort: Relevance score (higher is better)
-                const scoreDiff = b.relevanceScore - a.relevanceScore;
-                if (scoreDiff !== 0) return scoreDiff;
-
-                // Tertiary sort: Category importance
-                const categoryOrder = {
-                    interface: 6,
-                    dependency: 5,
-                    related_logic: 4,
-                    test: 3,
-                    config: 2,
-                    documentation: 1
-                };
-                const categoryDiff = (categoryOrder[b.category] || 0) - (categoryOrder[a.category] || 0);
-                if (categoryDiff !== 0) return categoryDiff;
 
                 // Final sort: Alphabetical by file path for consistency
                 return a.filePath.localeCompare(b.filePath);
@@ -219,7 +195,6 @@ export class SelectiveFileFetcherService {
                         const failedFiles = concurrentBatches[index].map(rec => ({
                             filePath: rec.filePath,
                             content: "",
-                            language: this.detectLanguage(rec.filePath),
                             size: 0,
                             lastModified: new Date().toISOString(),
                             fetchSuccess: false,
@@ -277,13 +252,11 @@ export class SelectiveFileFetcherService {
             // Convert the results to FetchedFile format
             const results: FetchedFile[] = batch.map(recommendation => {
                 const fileData = fileContents[recommendation.filePath];
-                const language = this.detectLanguage(recommendation.filePath);
 
                 if (fileData && !fileData.isBinary) {
                     return {
                         filePath: recommendation.filePath,
                         content: fileData.text,
-                        language,
                         size: fileData.byteSize,
                         lastModified: new Date().toISOString(),
                         fetchSuccess: true
@@ -292,7 +265,6 @@ export class SelectiveFileFetcherService {
                     return {
                         filePath: recommendation.filePath,
                         content: "",
-                        language,
                         size: 0,
                         lastModified: new Date().toISOString(),
                         fetchSuccess: false,
@@ -367,9 +339,7 @@ export class SelectiveFileFetcherService {
                 results.push({
                     filePath: recommendation.filePath,
                     content: "",
-                    language: this.detectLanguage(recommendation.filePath),
                     size: 0,
-                    lastModified: new Date().toISOString(),
                     fetchSuccess: false,
                     error: error instanceof Error ? error.message : String(error)
                 });
@@ -402,7 +372,6 @@ export class SelectiveFileFetcherService {
                 );
 
                 const fetchTime = Date.now() - startTime;
-                const language = this.detectLanguage(recommendation.filePath);
                 const size = Buffer.byteLength(content, "utf8");
 
                 LoggingService.logDebug(
@@ -411,7 +380,6 @@ export class SelectiveFileFetcherService {
                     {
                         filePath: recommendation.filePath,
                         size,
-                        language,
                         fetchTime,
                         attempt: attempt + 1
                     }
@@ -420,9 +388,7 @@ export class SelectiveFileFetcherService {
                 return {
                     filePath: recommendation.filePath,
                     content,
-                    language,
                     size,
-                    lastModified: new Date().toISOString(),
                     fetchSuccess: true
                 };
 
@@ -507,62 +473,6 @@ export class SelectiveFileFetcherService {
     }
 
     /**
-     * Detect programming language from file extension
-     */
-    private detectLanguage(filePath: string): string {
-        const extension = filePath.split(".").pop()?.toLowerCase();
-        
-        const languageMap: Record<string, string> = {
-            "ts": "typescript",
-            "js": "javascript",
-            "tsx": "typescript",
-            "jsx": "javascript",
-            "py": "python",
-            "java": "java",
-            "cpp": "cpp",
-            "c": "c",
-            "cs": "csharp",
-            "php": "php",
-            "rb": "ruby",
-            "go": "go",
-            "rs": "rust",
-            "swift": "swift",
-            "kt": "kotlin",
-            "scala": "scala",
-            "sh": "bash",
-            "bash": "bash",
-            "zsh": "zsh",
-            "fish": "fish",
-            "ps1": "powershell",
-            "sql": "sql",
-            "html": "html",
-            "css": "css",
-            "scss": "scss",
-            "sass": "sass",
-            "less": "less",
-            "json": "json",
-            "xml": "xml",
-            "yaml": "yaml",
-            "yml": "yaml",
-            "toml": "toml",
-            "ini": "ini",
-            "cfg": "ini",
-            "conf": "ini",
-            "md": "markdown",
-            "markdown": "markdown",
-            "txt": "text",
-            "log": "text",
-            "dockerfile": "dockerfile",
-            "makefile": "makefile",
-            "gradle": "gradle",
-            "maven": "xml",
-            "pom": "xml"
-        };
-
-        return languageMap[extension || ""] || "text";
-    }
-
-    /**
      * Sleep utility for retry delays
      */
     private sleep(ms: number): Promise<void> {
@@ -572,11 +482,7 @@ export class SelectiveFileFetcherService {
     /**
      * Get processing statistics for monitoring
      */
-    getProcessingStats(): {
-        defaultBatchSize: number;
-        defaultMaxConcurrency: number;
-        defaultRetryConfig: RetryConfig;
-        } {
+    getProcessingStats() {
         return {
             defaultBatchSize: this.defaultBatchConfig.batchSize,
             defaultMaxConcurrency: this.defaultBatchConfig.maxConcurrency,

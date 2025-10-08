@@ -1,7 +1,7 @@
 import { prisma } from "../config/database.config";
 import { firebaseAdmin } from "../config/firebase.config";
 import { getFieldFromUnknownObject } from "../helper";
-import { ErrorClass } from "../models/general.model";
+import { ErrorClass } from "../models";
 import { Request, Response, NextFunction } from "express";
 
 export const validateUser = async (req: Request, res: Response, next: NextFunction) => {

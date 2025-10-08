@@ -1,6 +1,6 @@
 import { NextFunction, Request, Response } from "express";
 import { prisma } from "../config/database.config";
-import { ErrorClass, NotFoundErrorClass } from "../models/general.model";
+import { ErrorClass, NotFoundErrorClass } from "../models";
 import { usdcAssetId } from "../config/stellar.config";
 import { stellarService } from "../services/stellar.service";
 import { decrypt, encrypt } from "../helper";

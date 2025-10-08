@@ -92,7 +92,7 @@ export class WorkflowIntegrationService {
                 repository: payload.repository.full_name
             });
 
-            // Step 1: Extract and validate PR data
+            // Extract and validate PR data
             let prData: PullRequestData;
             try {
                 prData = await PRAnalysisService.createCompletePRData(payload);
@@ -112,10 +112,10 @@ export class WorkflowIntegrationService {
                 throw error;
             }
 
-            // Step 2: Log analysis decision
+            // Log analysis decision
             PRAnalysisService.logAnalysisDecision(prData, true);
 
-            // Step 3: Queue for background analysis
+            // Queue for background analysis
             const jobId = await this.jobQueue.addPRAnalysisJob(prData);
 
             LoggingService.logInfo("processWebhookWorkflow", "Webhook workflow completed successfully", {
@@ -171,7 +171,7 @@ export class WorkflowIntegrationService {
                 reason: request.reason
             });
 
-            // Step 1: Create PR data for manual analysis
+            // Create PR data for manual analysis
             const prData: PullRequestData = {
                 installationId: request.installationId,
                 repositoryName: request.repositoryName,
@@ -185,10 +185,10 @@ export class WorkflowIntegrationService {
                 isDraft: false
             };
 
-            // Step 2: Queue for analysis
+            // Queue for analysis
             const jobId = await this.jobQueue.addPRAnalysisJob(prData);
 
-            // Step 3: Update monitoring - manual analysis triggered
+            // Update monitoring - manual analysis triggered
 
             LoggingService.logInfo("processManualAnalysisWorkflow", "Manual analysis workflow completed", {
                 jobId,
@@ -234,8 +234,8 @@ export class WorkflowIntegrationService {
                 repositoryName: prData.repositoryName
             });
 
-            // Execute analysis directly using intelligent context
-            const result = await this.orchestrationService.analyzeWithIntelligentContext(prData);
+            // Execute analysis directly
+            const result = await this.orchestrationService.analyzePullRequest(prData);
 
             // Direct analysis completed successfully
             LoggingService.logInfo("processDirectAnalysisWorkflow", "Direct analysis workflow completed", {

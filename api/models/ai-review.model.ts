@@ -1,4 +1,5 @@
 import { RuleType, RuleSeverity, ReviewStatus } from "../generated/client";
+import { IssueLabel, GitHubComment } from "./github.model";
 
 // ============================================================================
 // Core Data Transfer Objects for PR Analysis Workflow
@@ -15,6 +16,7 @@ export interface PullRequestData {
     linkedIssues: LinkedIssue[];
     author: string;
     isDraft: boolean;
+    formattedPullRequest: string;
 }
 
 export interface ChangedFile {
@@ -23,6 +25,7 @@ export interface ChangedFile {
     additions: number;
     deletions: number;
     patch: string;
+    previousFilename?: string;
 }
 
 export interface LinkedIssue {
@@ -31,8 +34,9 @@ export interface LinkedIssue {
     body: string;
     url: string;
     linkType: "closes" | "resolves" | "fixes";
+    labels: IssueLabel[];
+    comments: GitHubComment[];
 }
-
 
 
 // ============================================================================
@@ -98,6 +102,55 @@ export interface TestCoverageMetrics {
     coveragePercentage: number;
 }
 
+
+// ============================================================================
+// AI Context Analysis Types
+// ============================================================================
+
+export interface RelevantFileRecommendation {
+    filePath: string;
+    reason: string;
+    priority: "high" | "medium" | "low";
+    content?: string;
+}
+
+export interface FetchedFile {
+    filePath: string;
+    content: string;
+    size: number;
+    fetchSuccess: boolean;
+    error?: string;
+}
+
+export interface ContextMetrics { // ?
+    filesAnalyzedByAI: number;
+    filesRecommended: number;
+    filesFetched: number;
+    fetchSuccessRate: number;
+    contextQualityScore?: number; // 0-100 quality assessment score
+    optimizationTime?: number; // Time spent optimizing context in ms
+    processingTime: {
+        codeExtraction: number;
+        pathRetrieval: number;
+        aiAnalysis: number;
+        fileFetching: number;
+        total: number;
+    };
+}
+
+export interface BatchProcessingConfig { // ?
+    batchSize: number;
+    maxConcurrency: number;
+    retryConfig: {
+        maxRetries: number;
+        baseDelay: number;
+        maxDelay: number;
+        backoffMultiplier: number;
+        retryableErrors: string[];
+    };
+}
+
+
 // ============================================================================
 // Rule Engine Types
 // ============================================================================
@@ -132,8 +185,6 @@ export interface ValidationResult {
     errors: string[];
     warnings: string[];
 }
-
-
 
 // ============================================================================
 // Review Result Types
@@ -259,5 +310,3 @@ export interface ManualTriggerRequest extends AnalysisRequest {
     userId: string; // Change to username
     reason?: string;
 }
-
-

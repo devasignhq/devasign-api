@@ -14,7 +14,8 @@ export default defineConfig([
 
             "no-useless-escape": "off",
             "no-case-declarations": "off",
-            "no-console": "warn",
+            "no-console": "off",
+            // "no-console": "warn",
             "no-debugger": "error",
             "no-duplicate-imports": "error",
             "no-unused-expressions": "error",

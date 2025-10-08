@@ -11,7 +11,7 @@ import {
     NotFoundErrorClass,
     TaskIssue,
     FilterTasks
-} from "../models/general.model";
+} from "../models";
 import { HorizonApi } from "../models/horizonapi.model";
 import { $Enums, Prisma, TaskStatus, TimelineType } from "../generated/client";
 import { OctokitService } from "../services/octokit.service";

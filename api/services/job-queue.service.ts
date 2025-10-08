@@ -32,7 +32,7 @@ export class JobQueueService extends EventEmitter {
     // Configuration
     private readonly config = {
         maxConcurrentJobs: parseInt(process.env.JOB_QUEUE_MAX_CONCURRENT || "3"),
-        maxRetries: parseInt(process.env.JOB_QUEUE_MAX_RETRIES || "2"),
+        maxRetries: parseInt(process.env.JOB_QUEUE_MAX_RETRIES || "0"),
         retryDelayMs: parseInt(process.env.JOB_QUEUE_RETRY_DELAY || "30000"), // 30 seconds
         jobTimeoutMs: parseInt(process.env.JOB_QUEUE_TIMEOUT || "600000"), // 10 minutes
         cleanupIntervalMs: parseInt(process.env.JOB_QUEUE_CLEANUP_INTERVAL || "3600000") // 1 hour
@@ -217,9 +217,9 @@ export class JobQueueService extends EventEmitter {
             // Emit event for monitoring
             this.emit("jobStarted", job);
 
-            // Process with timeout using intelligent context analysis
+            // Process with timeout
             const result = await Promise.race([
-                this.orchestrationService.analyzeWithIntelligentContext(job.data),
+                this.orchestrationService.analyzePullRequest(job.data),
                 this.createTimeoutPromise(job.id)
             ]);
 

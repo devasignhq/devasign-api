@@ -1,5 +1,5 @@
 /**
- * Circuit Breaker Service for AI Review System
+ * Circuit Breaker Service
  * Implements circuit breaker pattern for external service calls
  */
 export class CircuitBreakerService {

@@ -1,5 +1,5 @@
 import { App } from "octokit";
-import { ErrorClass, IssueFilters } from "../models/general.model";
+import { ErrorClass, IssueFilters } from "../models";
 import {
     GitHubComment,
     InstallationOctokit,
