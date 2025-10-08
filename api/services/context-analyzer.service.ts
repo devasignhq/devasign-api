@@ -38,7 +38,11 @@ export class PullRequestContextAnalyzerService {
             const aiResponse = await this.callAIWithTimeout(prompt);
 
             // Parse and validate AI response
-            const parsedResponse = this.parseContextResponse<{ relevantFiles: RelevantFileRecommendation[] }>(aiResponse);
+            const parsedResponse = this.groqService.parseAIResponse<{ relevantFiles: RelevantFileRecommendation[] }>(aiResponse);
+            if (!parsedResponse) {
+                throw new GroqServiceError("AI response validation failed", { response: aiResponse });
+            }
+
             const relevantFiles = this.validateAndNormalizeRecommendations(parsedResponse.relevantFiles || []);
 
             const fetchedFiles = await this.fileFetcher.fetchRelevantFiles(
@@ -59,7 +63,11 @@ export class PullRequestContextAnalyzerService {
 
                     // Call AI service with timeout
                     const aiResponse = await this.callAIWithTimeout(prompt);
-                    const optimizedFile = this.parseContextResponse<{ file: string, content: string }>(aiResponse);
+                    const optimizedFile = this.groqService.parseAIResponse<{ file: string, content: string }>(aiResponse);
+                    if (!optimizedFile) {
+                        console.warn(`"AI response validation failed for: ${file.filePath}`, { response: aiResponse });
+                        continue;
+                    }
 
                     const fileRIndex = relevantFiles.findIndex(fileR => fileR.filePath === file.filePath);
                     if (fileRIndex !== -1) {
@@ -126,51 +134,6 @@ IMPORTANT:
 - Respond with ONLY the JSON object. Do not include any text before or after.
 - Use exact file paths.
 - If no additional files need to be fetched, return an empty array: {"relevantFiles": []}`;
-    }
-
-    /**
-     * Parses AI response into structured context analysis
-     */
-    parseContextResponse<T>(response: string): T {
-        try {
-            console.log("Parsing AI context analysis response...");
-
-            // Clean the response - remove any markdown formatting or extra text
-            let cleanResponse = response.trim();
-
-            // Remove markdown code blocks if present
-            cleanResponse = cleanResponse.replace(/```json\s*/g, "").replace(/```\s*/g, "");
-
-            // Extract JSON object using multiple strategies
-            let jsonString = "";
-
-            // Strategy 1: Try to parse the entire response as JSON
-            try {
-                JSON.parse(cleanResponse);
-                jsonString = cleanResponse;
-            } catch {
-                // Strategy 2: Extract JSON object using regex
-                const jsonMatch = cleanResponse.match(/\{[\s\S]*\}/);
-                if (jsonMatch) {
-                    jsonString = jsonMatch[0];
-                } else {
-                    throw new Error("No JSON found in response");
-                }
-            }
-
-            if (!jsonString) {
-                throw new Error("Could not extract JSON from AI response");
-            }
-
-            const parsed = JSON.parse(jsonString);
-
-            return parsed as T;
-        } catch (error) {
-            console.error("Error parsing context analysis response:", error);
-            console.error("Raw response:", response);
-
-            throw new GroqServiceError(`Failed to parse context analysis response: ${(error as Error).message}`, { response });
-        }
     }
     
     /**

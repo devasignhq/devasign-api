@@ -61,7 +61,10 @@ export class GroqAIService {
             const aiResponse = await this.callGroqAPI(reviewPrompt);
 
             // Parse and validate the response
-            const parsedReview = this.parseAIResponse(aiResponse);
+            const parsedReview = this.parseAIResponse<AIReview>(aiResponse);
+            if (!parsedReview) {
+                throw new GroqServiceError("AI response validation failed", { response: aiResponse });
+            }
 
             // Validate the review quality
             if (!this.validateAIResponse(parsedReview)) {
@@ -302,7 +305,7 @@ IMPORTANT: Respond with ONLY the JSON object. Do not include any text before or 
     /**
      * Parses AI response into structured review
      */
-    private parseAIResponse(response: string): AIReview {
+    parseAIResponse<T>(response: string): T | null {
         try {
             console.log("ai-response", response);
 
@@ -354,28 +357,12 @@ IMPORTANT: Respond with ONLY the JSON object. Do not include any text before or 
 
             const parsed = JSON.parse(jsonString);
 
-            // Ensure all required fields are present with defaults
-            return {
-                mergeScore: this.validateNumber(parsed.mergeScore, 0, 100, 50),
-                codeQuality: {
-                    codeStyle: this.validateNumber(parsed.codeQuality?.codeStyle, 0, 100, 50),
-                    testCoverage: this.validateNumber(parsed.codeQuality?.testCoverage, 0, 100, 50),
-                    documentation: this.validateNumber(parsed.codeQuality?.documentation, 0, 100, 50),
-                    security: this.validateNumber(parsed.codeQuality?.security, 0, 100, 50),
-                    performance: this.validateNumber(parsed.codeQuality?.performance, 0, 100, 50),
-                    maintainability: this.validateNumber(parsed.codeQuality?.maintainability, 0, 100, 50)
-                },
-                suggestions: Array.isArray(parsed.suggestions) ? parsed.suggestions.map(this.validateSuggestion) : [],
-                summary: typeof parsed.summary === "string" ? parsed.summary : "AI review completed",
-                confidence: this.validateNumber(parsed.confidence, 0, 1, 0.5)
-            };
+            return parsed as T;
         } catch (error) {
             console.error("Error parsing AI response:", error);
             console.error("Raw response:", response);
-
-            // Try to extract meaningful information from the text response as fallback
-            const fallbackReview = this.extractFallbackReview(response);
-            return fallbackReview;
+            
+            return null;
         }
     }
 
@@ -402,79 +389,6 @@ IMPORTANT: Respond with ONLY the JSON object. Do not include any text before or 
             suggestedCode: typeof suggestion.suggestedCode === "string" ? suggestion.suggestedCode : undefined,
             reasoning: typeof suggestion.reasoning === "string" ? suggestion.reasoning : "No reasoning provided"
         };
-    }
-
-    /**
-     * Extracts meaningful information from non-JSON response as fallback
-     */
-    private extractFallbackReview(response: string): AIReview {
-        // Try to extract merge score from text
-        const scoreMatch = response.match(/(?:merge\s*score|score)[:\s]*(\d+)/i);
-        const mergeScore = scoreMatch ? parseInt(scoreMatch[1]) : 50;
-
-        // Extract suggestions from text
-        const suggestions: CodeSuggestion[] = [];
-        const suggestionMatches = response.match(/(?:suggestion|fix|improvement)[:\s]*([^\n]+)/gi);
-
-        if (suggestionMatches) {
-            suggestionMatches.slice(0, 3).forEach((match) => {
-                suggestions.push({
-                    file: "extracted_from_text",
-                    type: "improvement",
-                    severity: "medium",
-                    description: match.replace(/(?:suggestion|fix|improvement)[:\s]*/i, "").trim(),
-                    reasoning: "Extracted from AI text response"
-                });
-            });
-        }
-
-        return {
-            mergeScore: this.validateNumber(mergeScore, 0, 100, 50),
-            codeQuality: {
-                codeStyle: 50,
-                testCoverage: 40,
-                documentation: 30,
-                security: 60,
-                performance: 50,
-                maintainability: 50
-            },
-            suggestions,
-            summary: response.length > 200 ? `${response.substring(0, 200)  }...` : response,
-            confidence: 0.3 // Lower confidence for fallback parsing
-        };
-    }
-
-    /**
-     * Formats PR data for context
-     */
-    private formatPRData(prData: PullRequestData): string {
-        const changedFilesInfo = prData.changedFiles.map(file =>
-            `- ${file.filename} (${file.status}, +${file.additions}/-${file.deletions})`
-        ).join("\n");
-
-        const linkedIssuesInfo = prData.linkedIssues.map(issue =>
-            `- #${issue.number}: ${issue.title} (${issue.linkType})`
-        ).join("\n");
-
-        return `PULL REQUEST ANALYSIS:
-Title: ${prData.title}
-Author: ${prData.author}
-Repository: ${prData.repositoryName}
-PR Number: #${prData.prNumber}
-
-Description:
-${prData.body || "No description provided"}
-
-Changed Files:
-${changedFilesInfo}
-
-Linked Issues:
-${linkedIssuesInfo}
-
-File Changes Details:
-${prData.changedFiles.map(file =>
-        `\n--- ${file.filename} ---\n${file.patch?.substring(0, 1000) || "No patch available"}`
-    ).join("\n")}`;
     }
 
     /**
