@@ -1,52 +1,17 @@
-import { PullRequestData, ReviewResult } from "./ai-review.model";
-
-// ============================================================================
-// Code Changes Extraction Type
-// ============================================================================
-
-export interface FileChange {
-    filename: string;
-    status: "added" | "modified" | "removed" | "renamed";
-    additions: number;
-    deletions: number;
-    patch: string; // Raw patch content
-    language?: string;
-    previousFilename?: string; // For renamed files
-}
-
 // ============================================================================
 // AI Context Analysis Types
 // ============================================================================
 
-export interface ContextAnalysisRequest {
-    prData: PullRequestData;
-    repositoryStructure: string[];
-}
-
-export interface ContextAnalysisResponse {
-    relevantFiles: RelevantFileRecommendation[];
-    reasoning: string;
-    confidence: number;
-    analysisType: "comprehensive" | "focused" | "minimal";
-    estimatedReviewQuality: number; // 0-100
-}
-
 export interface RelevantFileRecommendation {
     filePath: string;
-    relevanceScore: number; // 0-1
     reason: string;
-    category: "dependency" | "interface" | "test" | "config" | "documentation" | "related_logic";
     priority: "high" | "medium" | "low";
+    content?: string;
 }
 
-// ============================================================================
-// File Fetching Types
-// ============================================================================
-
-export interface FetchedFile {
+export interface FetchedFile { // !
     filePath: string;
     content: string;
-    language: string;
     size: number;
     fetchSuccess: boolean;
     error?: string;
@@ -56,8 +21,7 @@ export interface FetchedFile {
 // Context Types
 // ============================================================================
 
-export interface ContextMetrics {
-    totalFilesInRepo: number;
+export interface ContextMetrics { // ?
     filesAnalyzedByAI: number;
     filesRecommended: number;
     filesFetched: number;
@@ -77,71 +41,12 @@ export interface ContextMetrics {
 // Error Handling Types
 // ============================================================================
 
-export interface RetryConfig {
+export interface RetryConfig { // !
     maxRetries: number;
     baseDelay: number;
     maxDelay: number;
     backoffMultiplier: number;
     retryableErrors: string[];
-}
-
-export interface CircuitBreakerConfig {
-    failureThreshold: number;
-    resetTimeout: number;
-    monitoringPeriod: number;
-}
-
-export interface ErrorTrackingMetrics {
-    serviceName: string;
-    errorCount: number;
-    lastError?: {
-        message: string;
-        timestamp: Date;
-        errorType: string;
-    };
-    retryAttempts: number;
-    circuitBreakerTrips: number;
-    fallbackUsageCount: number;
-}
-
-export interface WorkflowExecutionResult<T> {
-    success: boolean;
-    result?: T;
-    errors: string[];
-    warnings: string[];
-    fallbacksUsed: string[];
-    processingTimes: Record<string, number>;
-    errorMetrics: ErrorTrackingMetrics[];
-}
-
-// ============================================================================
-// Performance and Monitoring Types
-// ============================================================================
-
-export interface ContextAnalysisMetrics {
-    id: string;
-    installationId: string;
-    repositoryName: string;
-    prNumber: number;
-    
-    totalFilesInRepo: number;
-    filesRecommended: number;
-    filesFetched: number;
-    fetchSuccessRate: number;
-    
-    processingTimes: ProcessingTimes;
-    aiConfidence: number;
-    reviewQualityScore: number; // 0-100
-    
-    createdAt: Date;
-}
-
-export interface ProcessingTimes {
-    codeExtraction?: number;
-    pathRetrieval: number;
-    aiAnalysis: number;
-    fileFetching: number;
-    total: number;
 }
 
 // ============================================================================
@@ -157,44 +62,8 @@ export interface ContextValidationResult {
 // Batch Processing Types
 // ============================================================================
 
-export interface BatchProcessingConfig {
+export interface BatchProcessingConfig { // ?
     batchSize: number;
     maxConcurrency: number;
     retryConfig: RetryConfig;
-}
-
-// ============================================================================
-// Type Guards and Utility Functions
-// ============================================================================
-
-export function isValidContextAnalysisResponse(obj: ContextAnalysisResponse): obj is ContextAnalysisResponse {
-    return obj &&
-        Array.isArray(obj.relevantFiles) &&
-        typeof obj.reasoning === "string" &&
-        typeof obj.confidence === "number" &&
-        ["comprehensive", "focused", "minimal"].includes(obj.analysisType as string) &&
-        typeof obj.estimatedReviewQuality === "number";
-}
-
-export function isValidFetchedFile(obj: FetchedFile): obj is FetchedFile {
-    return obj &&
-        typeof obj.filePath === "string" &&
-        typeof obj.content === "string" &&
-        typeof obj.language === "string" &&
-        typeof obj.size === "number" &&
-        typeof obj.fetchSuccess === "boolean";
-}
-
-// ============================================================================
-// Integration Types with Existing System
-// ============================================================================
-
-export interface ContextEnhancedResult {
-    standardResult: ReviewResult;
-    contextMetrics: ContextMetrics;
-    enhancedFeatures: {
-        aiRecommendedFiles: string[];
-        contextQualityScore: number;
-        processingTimeBreakdown: ProcessingTimes;
-    };
 }
