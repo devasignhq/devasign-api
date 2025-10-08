@@ -20,7 +20,7 @@ export class ReviewFormatterService {
         const fullComment = [
             header,
             mergeScoreSection,
-            rulesSection,
+            ...(rulesSection ? [rulesSection] : []),
             suggestionsSection,
             footer
         ].join("\n\n");
@@ -71,18 +71,13 @@ ${result.summary}`;
      * Creates the rules compliance section
      */
     private static createRulesSection(result: ReviewResult): string {
-        const totalRules = result.rulesPassed.length + result.rulesViolated.length;
-        const passedCount = result.rulesPassed.length;
         const violatedCount = result.rulesViolated.length;
 
-        let section = `### 📋 Rules Compliance (${passedCount}/${totalRules} passed)
-
-`;
+        let section = "";
 
         if (result.rulesViolated.length > 0) {
-            section += `#### ❌ Rules Violated (${violatedCount})
+            section += `#### ❌ Rules Violated (${violatedCount})`;
 
-`;
             result.rulesViolated.forEach((rule, index) => {
                 const severityEmoji = this.getSeverityEmoji(rule.severity);
                 const severityBadge = this.getSeverityBadge(rule.severity);
@@ -104,22 +99,58 @@ ${result.summary}`;
             });
         }
 
-        if (result.rulesPassed.length > 0) {
-            section += `#### ✅ Rules Passed (${passedCount})
-
-<details>
-<summary>Click to view passed rules</summary>
-
-`;
-            result.rulesPassed.forEach((rule, index) => {
-                section += `${index + 1}. **${rule.ruleName}** - ${rule.description}\n`;
-            });
-
-            section += "\n</details>";
-        }
-
         return section;
     }
+    //     private static createRulesSection(result: ReviewResult): string {
+    //         const totalRules = result.rulesPassed.length + result.rulesViolated.length;
+    //         const passedCount = result.rulesPassed.length;
+    //         const violatedCount = result.rulesViolated.length;
+
+    //         let section = `### 📋 Rules Compliance (${passedCount}/${totalRules} passed)
+
+    // `;
+
+    //         if (result.rulesViolated.length > 0) {
+    //             section += `#### ❌ Rules Violated (${violatedCount})
+
+    // `;
+    //             result.rulesViolated.forEach((rule, index) => {
+    //                 const severityEmoji = this.getSeverityEmoji(rule.severity);
+    //                 const severityBadge = this.getSeverityBadge(rule.severity);
+
+    //                 section += `${index + 1}. **${rule.ruleName}** ${severityBadge}
+    //    ${severityEmoji} ${rule.description}`;
+
+    //                 if (rule.details) {
+    //                     section += `
+    //    📝 ${rule.details}`;
+    //                 }
+
+    //                 if (rule.affectedFiles && rule.affectedFiles.length > 0) {
+    //                     section += `
+    //    📁 Files: ${rule.affectedFiles.join(", ")}`;
+    //                 }
+
+    //                 section += "\n\n";
+    //             });
+    //         }
+
+    //         if (result.rulesPassed.length > 0) {
+    //             section += `#### ✅ Rules Passed (${passedCount})
+
+    // <details>
+    // <summary>Click to view passed rules</summary>
+
+    // `;
+    //             result.rulesPassed.forEach((rule, index) => {
+    //                 section += `${index + 1}. **${rule.ruleName}** - ${rule.description}\n`;
+    //             });
+
+    //             section += "\n</details>";
+    //         }
+
+    //         return section;
+    //     }
 
     /**
      * Creates the code suggestions section
