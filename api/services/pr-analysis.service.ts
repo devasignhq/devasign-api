@@ -15,6 +15,7 @@ import { GitHubComment, GitHubFile, IssueDto, IssueLabel } from "../models/githu
 import { PullRequestContextAnalyzerService } from "./context-analyzer.service";
 import { GroqAIService } from "./groq-ai.service";
 import { getFieldFromUnknownObject } from "../helper";
+import { RuleEngineService } from "./rule-engine.service";
 
 /**
  * Service for analyzing PR events and determining eligibility for AI review
@@ -465,15 +466,15 @@ ${codeChangesPreview}`;
                     );
 
                     // Rule evaluation
-                    // const ruleEvaluation = await RuleEngineService.evaluateRules(prData, []);
+                    const ruleEvaluation = await RuleEngineService.evaluateRules(prData, []);
 
                     return {
                         installationId: prData.installationId,
                         prNumber: prData.prNumber,
                         repositoryName: prData.repositoryName,
                         mergeScore: aiReview.mergeScore,
-                        rulesViolated: [],
-                        rulesPassed: [],
+                        rulesViolated: ruleEvaluation.violated,
+                        rulesPassed: ruleEvaluation.passed,
                         suggestions: aiReview.suggestions,
                         reviewStatus: "COMPLETED",
                         summary: aiReview.summary,
