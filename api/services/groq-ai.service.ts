@@ -2,7 +2,6 @@ import Groq from "groq-sdk";
 import {
     PullRequestData,
     AIReview,
-    CodeSuggestion,
     QualityMetrics,
     RelevantFileRecommendation
 } from "../models/ai-review.model";
@@ -40,7 +39,8 @@ export class GroqAIService {
 
         // Configuration for Groq models
         this.config = {
-            model: process.env.GROQ_MODEL || "llama-3.3-70b-versatile",
+            model: process.env.GROQ_MODEL || "groq/compound",
+            // model: process.env.GROQ_MODEL || "llama-3.3-70b-versatile",
             maxTokens: parseInt(process.env.GROQ_MAX_TOKENS || "4096"),
             temperature: parseFloat(process.env.GROQ_TEMPERATURE || "0.0"), // Lower temperature for more consistent JSON
             maxRetries: parseInt(process.env.GROQ_MAX_RETRIES || "3"),
@@ -188,11 +188,11 @@ export class GroqAIService {
         relevantFiles: RelevantFileRecommendation[]
     ): string {
         const fileInfoList = relevantFiles.map((file, index) => {
-            return `FILE ${index + 1}: ${file.filePath}\n
+            return file.content ? `FILE ${index + 1}: ${file.filePath}\n
                 Reason for inclusion: ${file.reason || "N/A"}\n
                 ---CONTENT START---\n
                 ${file.content}\n
-                ---CONTENT END---`;
+                ---CONTENT END---` : "";
         }).join("\n\n");
 
         return `You are an expert code reviewer analyzing a pull request. Provide a comprehensive review with specific, actionable feedback.
@@ -268,7 +268,7 @@ IMPORTANT: Respond with ONLY the JSON object. Do not include any text before or 
                         }
                     ],
                     model: this.config.model,
-                    max_tokens: this.config.maxTokens,
+                    // max_completion_tokens: this.config.maxTokens,
                     temperature: this.config.temperature
                 });
 
@@ -364,31 +364,6 @@ IMPORTANT: Respond with ONLY the JSON object. Do not include any text before or 
             
             return null;
         }
-    }
-
-    /**
-     * Validates and clamps a number within a range
-     */
-    private validateNumber(value: unknown, min: number, max: number, defaultValue: number): number {
-        if (typeof value === "number" && !isNaN(value)) {
-            return Math.max(min, Math.min(max, value));
-        }
-        return defaultValue;
-    }
-
-    /**
-     * Validates a suggestion object
-     */
-    private validateSuggestion(suggestion: CodeSuggestion): CodeSuggestion {
-        return {
-            file: typeof suggestion.file === "string" ? suggestion.file : "unknown",
-            lineNumber: typeof suggestion.lineNumber === "number" ? suggestion.lineNumber : undefined,
-            type: ["improvement", "fix", "optimization", "style"].includes(suggestion.type) ? suggestion.type : "improvement",
-            severity: ["low", "medium", "high"].includes(suggestion.severity) ? suggestion.severity : "medium",
-            description: typeof suggestion.description === "string" ? suggestion.description : "No description provided",
-            suggestedCode: typeof suggestion.suggestedCode === "string" ? suggestion.suggestedCode : undefined,
-            reasoning: typeof suggestion.reasoning === "string" ? suggestion.reasoning : "No reasoning provided"
-        };
     }
 
     /**

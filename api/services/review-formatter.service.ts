@@ -182,18 +182,19 @@ ${result.summary}`;
                 suggestions.forEach((suggestion, index) => {
                     const typeEmoji = this.getSuggestionTypeEmoji(suggestion.type);
 
-                    section += `${index + 1}. **${suggestion.file}**${suggestion.lineNumber ? ` (Line ${suggestion.lineNumber})` : ""}
-   ${typeEmoji} ${suggestion.description}
-   
-   💭 **Reasoning:** ${suggestion.reasoning}`;
+                    section += `
+${index + 1}. **${suggestion.file}**${suggestion.lineNumber ? ` (Line ${suggestion.lineNumber})` : ""}
+${typeEmoji} ${suggestion.description}
+
+💭 **Reasoning:** ${suggestion.reasoning}`;
 
                     if (suggestion.suggestedCode) {
                         section += `
-   
-   **Suggested Code:**
-   \`\`\`
-   ${suggestion.suggestedCode}
-   \`\`\``;
+
+**Suggested Code:**
+\`\`\`
+${suggestion.suggestedCode}
+\`\`\``;
                     }
 
                     section += "\n\n";

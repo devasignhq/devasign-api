@@ -58,23 +58,24 @@ export class PullRequestContextAnalyzerService {
                 }
                 
                 if (!file.filePath.includes("CONTRIBUTING.md")) {
-                    // Build specialized prompt for optimizing file content
-                    const prompt = this.buildOptimizeFetchedFilesPrompt(prData, file);
+                    // // Build specialized prompt for optimizing file content
+                    // const prompt = this.buildOptimizeFetchedFilesPrompt(prData, file);
 
-                    // Call AI service with timeout
-                    const aiResponse = await this.callAIWithTimeout(prompt);
-                    const optimizedFile = this.groqService.parseAIResponse<{ file: string, content: string }>(aiResponse);
-                    if (!optimizedFile) {
-                        console.warn(`"AI response validation failed for: ${file.filePath}`, { response: aiResponse });
-                        continue;
-                    }
+                    // // Call AI service with timeout
+                    // const aiResponse = await this.callAIWithTimeout(prompt);
+                    // const optimizedFile = this.groqService.parseAIResponse<{ file: string, content: string }>(aiResponse);
+                    // console.log("optimizing...", file.filePath);
+                    // if (!optimizedFile) {
+                    //     console.warn(`"AI response validation failed for: ${file.filePath}`, { parsedResponse: optimizedFile });
+                    //     continue;
+                    // }
 
-                    const fileRIndex = relevantFiles.findIndex(fileR => fileR.filePath === file.filePath);
-                    if (fileRIndex !== -1) {
-                        relevantFiles[fileRIndex].content = optimizedFile.content;
-                    } else {
-                        console.warn(`Could not find ${file.filePath} in relevantFiles to update content`);
-                    }
+                    // const fileRIndex = relevantFiles.findIndex(fileR => fileR.filePath === file.filePath);
+                    // if (fileRIndex !== -1) {
+                    //     relevantFiles[fileRIndex].content = optimizedFile.content;
+                    // } else {
+                    //     console.warn(`Could not find ${file.filePath} in relevantFiles to update content`);
+                    // }
                 } else {
                     const contributingMDFile = fetchedFiles.find(fileF => fileF.filePath.includes("CONTRIBUTING.md"));
                     const fileRIndex = relevantFiles.findIndex(fileR => fileR.filePath === file.filePath);
@@ -186,7 +187,7 @@ Remove any code, sections, or content that is not pertinent to reviewing this PR
 RESPONSE FORMAT (JSON only):
 {
     "file": "exact/path/to/file.ext",
-    "content": "actual code or content snippet"
+    "content": "actual/raw code"
 }
 
 GUIDELINES:
@@ -195,10 +196,7 @@ GUIDELINES:
 - Exclude boilerplate, unrelated functions, and irrelevant code sections
 - Preserve enough context to understand the code structure (e.g., class names, namespaces)
 
-IMPORTANT:
-- Respond with ONLY the JSON object. Do not include any text before or after.
-- Use exact file paths matching the input files.
-- Line markings (\n) should be approximate positions in the original file if known, otherwise use discretion.`;
+IMPORTANT:Respond with ONLY the JSON object. Do not include any text before or after.`;
     }
 
     /**
