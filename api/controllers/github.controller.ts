@@ -167,6 +167,12 @@ export const triggerManualPRAnalysis = async (req: Request, res: Response, next:
                 } as APIResponse);
             }
 
+            const linkedIssues = await PRAnalysisService.extractLinkedIssues(
+                prDetails.body || "",
+                installationId,
+                repositoryName
+            );
+
             // Convert GitHub PR data to our PullRequestData format
             prData = {
                 installationId,
@@ -176,9 +182,10 @@ export const triggerManualPRAnalysis = async (req: Request, res: Response, next:
                 title: prDetails.title,
                 body: prDetails.body || "",
                 changedFiles: [], // Will be populated below
-                linkedIssues: PRAnalysisService.extractLinkedIssues(prDetails.body || ""),
+                linkedIssues,
                 author: prDetails.user.login,
-                isDraft: Boolean(prDetails.draft)
+                isDraft: Boolean(prDetails.draft),
+                formattedPullRequest: ""
             };
 
             // Fix relative issue URLs to use current repository
@@ -195,6 +202,39 @@ export const triggerManualPRAnalysis = async (req: Request, res: Response, next:
                 repositoryName,
                 prNumber
             );
+            
+            const changedFilesInfo = prData.changedFiles.map(file =>
+                `${file.filename} (${file.status}, +${file.additions}/-${file.deletions})${file.previousFilename ? ` (renamed from ${file.previousFilename})` : ""}`
+            ).join("\n");
+
+            const codeChangesPreview = prData.changedFiles.map((file) => {
+                return `\n--- ${file.filename} (${file.status}) ---\n${file.patch}`;
+            }).join("\n");
+
+            // Format linked issues
+            const linkedIssuesInfo = prData.linkedIssues.map(issue => `- #${issue.number}:\n
+                title: ${issue.title}\n
+                body: ${issue.body}\n
+                labels: ${issue.labels.map(label => `${label.name} (${label.description}), `)}`).join("\n\n");
+
+            prData.formattedPullRequest = `Here's the pull request summary:
+
+PULL REQUEST CHANGES:
+Repository: ${prData.repositoryName}
+PR #${prData.prNumber}: ${prData.title}
+Author: ${prData.author}
+
+Body:
+${prData.body || "No body provided"}
+
+Linked Issue(s): 
+${linkedIssuesInfo}
+
+CHANGED FILES:
+${changedFilesInfo}
+
+CODE CHANGES PREVIEW:
+${codeChangesPreview}`;
 
             const extractionTime = Date.now() - startTime;
             PRAnalysisService.logExtractionResult(prData, extractionTime, true);
@@ -234,8 +274,6 @@ export const triggerManualPRAnalysis = async (req: Request, res: Response, next:
 
         // Validate PR data and check eligibility
         try {
-            PRAnalysisService.validatePRData(prData);
-
             if (!PRAnalysisService.shouldAnalyzePR(prData)) {
                 const reason = prData.isDraft ? "PR is in draft status" : "PR does not link to any issues";
 
