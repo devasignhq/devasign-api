@@ -12,7 +12,7 @@ import {
     ErrorUtils
 } from "../models/ai-review.errors";
 import { getFieldFromUnknownObject } from "../helper";
-import { ContextAnalysisResponse, FetchedFile } from "../models/ai-review-context.model";
+import { RelevantFileRecommendation } from "../models/ai-review-context.model";
 
 /**
  * Implements AI-powered code review.
@@ -53,18 +53,11 @@ export class GroqAIService {
      */
     async generateReview(
         prData: PullRequestData,
-        repositoryStructure: string[],
-        contextAnalysis?: ContextAnalysisResponse,
-        fetchedFiles?: FetchedFile[]
+        relevantFiles: RelevantFileRecommendation[]
     ): Promise<AIReview> {
         try {
             // Generate the review using Groq
-            const reviewPrompt = this.buildReviewPrompt({
-                prData,
-                repositoryStructure,
-                contextAnalysis,
-                fetchedFiles
-            });
+            const reviewPrompt = this.buildReviewPrompt(prData, relevantFiles);
             const aiResponse = await this.callGroqAPI(reviewPrompt);
 
             // Parse and validate the response
@@ -187,12 +180,25 @@ export class GroqAIService {
     /**
      * Builds the main review prompt for Groq
      */
-    private buildReviewPrompt(contextWindow: ContextWindow): string {
+    private buildReviewPrompt(
+        prData: PullRequestData,
+        relevantFiles: RelevantFileRecommendation[]
+    ): string {
+        const fileInfoList = relevantFiles.map((file, index) => {
+            return `FILE ${index + 1}: ${file.filePath}\n
+                Reason for inclusion: ${file.reason || "N/A"}\n
+                ---CONTENT START---\n
+                ${file.content}\n
+                ---CONTENT END---`;
+        }).join("\n\n");
 
         return `You are an expert code reviewer analyzing a pull request. Provide a comprehensive review with specific, actionable feedback.
 
-CONTEXT:
-${contextWindow}
+${prData.formattedPullRequest}
+
+CONTEXTUAL FILES:
+The following files were fetched to provide context for this pull request review:
+${fileInfoList}
 
 TASK:
 Analyze this pull request and provide:
@@ -496,11 +502,4 @@ ${prData.changedFiles.map(file =>
     private sleep(ms: number): Promise<void> {
         return new Promise(resolve => setTimeout(resolve, ms));
     }
-}
-
-interface ContextWindow {
-    prData: PullRequestData, 
-    repositoryStructure: string[],
-    contextAnalysis?: ContextAnalysisResponse,
-    fetchedFiles?: FetchedFile[]
 }
