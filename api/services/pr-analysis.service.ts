@@ -3,7 +3,6 @@ import {
     LinkedIssue,
     ChangedFile,
     GitHubWebhookPayload,
-    AIReview,
     ReviewResult
 } from "../models/ai-review.model";
 import {
@@ -13,9 +12,7 @@ import {
 } from "../models/ai-review.errors";
 import { OctokitService } from "./octokit.service";
 import { GitHubComment, GitHubFile, IssueDto, IssueLabel } from "../models/github.model";
-import { ContextAnalysisResponse, FetchedFile, ProcessingTimes } from "../models/ai-review-context.model";
 import { PullRequestContextAnalyzerService } from "./context-analyzer.service";
-import { SelectiveFileFetcherService } from "./selective-file-fetcher.service";
 import { GroqAIService } from "./groq-ai.service";
 import { getFieldFromUnknownObject } from "../helper";
 
@@ -24,7 +21,6 @@ import { getFieldFromUnknownObject } from "../helper";
  */
 export class PRAnalysisService {
     private static contextAnalyzer = new PullRequestContextAnalyzerService();
-    private static fileFetcher = new SelectiveFileFetcherService();
     private static groqService = new GroqAIService();
 
     /**
@@ -255,12 +251,6 @@ export class PRAnalysisService {
             // Use OctokitService to get PR files
             const files = await OctokitService.getPRFiles(installationId, repositoryName, prNumber);
 
-            // Build raw diff from all patches
-            // const rawDiff = files
-            //     .filter(file => file.patch)
-            //     .map(file => `diff --git a/${file.filename} b/${file.filename}\n${file.patch}`)
-            //     .join("\n\n");
-
             return files.map((file: GitHubFile) => ({
                 filename: file.filename,
                 status: this.normalizeFileStatus(file.status),
@@ -313,7 +303,7 @@ export class PRAnalysisService {
             );
             
             const changedFilesInfo = prData.changedFiles.map(file =>
-                `${file.filename} (${file.status}, +${file.additions}/-${file.deletions})`
+                `${file.filename} (${file.status}, +${file.additions}/-${file.deletions})${file.previousFilename ? ` (renamed from ${file.previousFilename})` : ""}`
             ).join("\n");
 
             const codeChangesPreview = prData.changedFiles.map((file) => {
@@ -323,7 +313,8 @@ export class PRAnalysisService {
             // Format linked issues
             const linkedIssuesInfo = prData.linkedIssues.map(issue => `- #${issue.number}:\n
                 title: ${issue.title}\n
-                body: ${issue.body}`).join("\n");
+                body: ${issue.body}\n
+                labels: ${issue.labels.map(label => `${label.name} (${label.description}), `)}`).join("\n\n");
 
             prData.formattedPullRequest = `Here's the pull request summary:
 
@@ -335,7 +326,7 @@ Author: ${prData.author}
 Body:
 ${prData.body || "No body provided"}
 
-Linked Issues: 
+Linked Issue(s): 
 ${linkedIssuesInfo}
 
 CHANGED FILES:
@@ -459,163 +450,52 @@ ${codeChangesPreview}`;
      */
     public static async analyzePullRequest(prData: PullRequestData): Promise<ReviewResult> {
         const startTime = Date.now();
-        const processingTimes: ProcessingTimes = {
-            // codeExtraction: 0,
-            pathRetrieval: 0,
-            aiAnalysis: 0,
-            fileFetching: 0,
-            total: 0
-        };
-
         console.log(`Starting analysis for PR #${prData.prNumber} in ${prData.repositoryName}`);
 
         try {
             // Execute workflow with timeout
             const review = await this.executeWithTimeout(
-                () => this.executePullRequestContextWorkflow(prData, processingTimes),
+                async () => {
+                    const relevantFiles = await this.contextAnalyzer.analyzeContextNeeds(prData);
+
+                    // Generate AI review with enhanced context
+                    const aiReview = await this.groqService.generateReview(
+                        prData,
+                        relevantFiles
+                    );
+
+                    // Rule evaluation
+                    // const ruleEvaluation = await RuleEngineService.evaluateRules(prData, []);
+
+                    return {
+                        installationId: prData.installationId,
+                        prNumber: prData.prNumber,
+                        repositoryName: prData.repositoryName,
+                        mergeScore: aiReview.mergeScore,
+                        rulesViolated: [],
+                        rulesPassed: [],
+                        suggestions: aiReview.suggestions,
+                        reviewStatus: "COMPLETED",
+                        summary: aiReview.summary,
+                        confidence: aiReview.confidence,
+                        processingTime: 0, // Will be set by caller
+                        createdAt: new Date()
+                    } as ReviewResult;
+                },
                 300000, // 5 minutes
                 "Pull request context analysis"
             );
 
-            processingTimes.total = Date.now() - startTime;
-
-            console.log(`Pull request context analysis completed in ${processingTimes.total}ms for PR #${prData.prNumber}`);
+            const processingTime = Date.now() - startTime;
+            console.log(`Pull request context analysis completed in ${processingTime}ms for PR #${prData.prNumber}`);
 
             return review;
 
         } catch (error) {
             console.error("Pull request context analysis failed:", error);
 
-            // Track processing time even on failure
-            processingTimes.total = Date.now() - startTime;
-
             throw error;
         }
-    }
-
-    /**
-     * Executes the pull request context workflow
-     */
-    private static async executePullRequestContextWorkflow(
-        prData: PullRequestData,
-        processingTimes: ProcessingTimes
-    ): Promise<ReviewResult> {
-        // Get repository structure
-        const pathStart = Date.now();
-        const repositoryStructure = await this.getRepositoryStructure(
-            prData.installationId,
-            prData.repositoryName
-        );
-        processingTimes.pathRetrieval = Date.now() - pathStart;
-
-        let contextAnalysis: ContextAnalysisResponse | undefined = undefined;
-        let fetchedFiles: FetchedFile[] | undefined = undefined;
-
-        if (repositoryStructure.length > 0) {
-            // AI-powered context analysis
-            const analysisStart = Date.now();
-            contextAnalysis = await this.contextAnalyzer.analyzeContextNeeds({
-                prData,
-                repositoryStructure
-            });
-            processingTimes.aiAnalysis = Date.now() - analysisStart;
-
-            // Selective file fetching
-            const fetchStart = Date.now();
-            fetchedFiles = await this.fileFetcher.fetchRelevantFiles(
-                prData.installationId,
-                prData.repositoryName,
-                contextAnalysis.relevantFiles
-            );
-            processingTimes.fileFetching = Date.now() - fetchStart;
-        }
-
-        // Generate AI review with enhanced context
-        const aiReview = await this.groqService.generateReview(
-            prData,
-            repositoryStructure,
-            contextAnalysis,
-            fetchedFiles
-        );
-
-        // Rule evaluation
-        // const ruleEvaluation = await RuleEngineService.evaluateRules(prData, []);
-
-        return this.buildReviewResult(prData, aiReview);
-    }
-
-    /**
-     * Get repository file paths
-     */
-    public static async getRepositoryStructure(
-        installationId: string,
-        repositoryName: string,
-        branch?: string
-    ): Promise<string[]> {
-        try {
-            // Use existing OctokitService method to get all file paths
-            const filePaths = await OctokitService.getAllFilePathsFromTree(
-                installationId,
-                repositoryName,
-                branch
-            );
-
-            // Handle empty repository case
-            if (!filePaths || filePaths.length === 0) {
-                return [];
-            }
-
-            return filePaths;
-
-        } catch (error) {
-            const errorStatus = getFieldFromUnknownObject<number>(error, "status");
-            const errorMessage = getFieldFromUnknownObject<string>(error, "message");
-
-            if (errorStatus === 404) {
-                console.warn(
-                    "getRepositoryStructure",
-                    error,
-                    `Repository ${repositoryName} not found or not accessible`
-                );
-            }
-
-            if (errorStatus === 403) {
-                console.warn(
-                    "getRepositoryStructure", 
-                    error,
-                    `Access denied to repository ${repositoryName}`
-                );
-            }
-
-            // Handle API failures with detailed error information
-            console.warn(
-                "getRepositoryStructure",
-                error,
-                `Failed to retrieve repository structure for ${repositoryName}: ${errorMessage}`
-            );
-
-            return [];
-        }
-    }
-
-    /**
-     * Builds standard review result from AI review and rule evaluation
-     */
-    private static buildReviewResult(prData: PullRequestData, aiReview: AIReview): ReviewResult {
-        return {
-            installationId: prData.installationId,
-            prNumber: prData.prNumber,
-            repositoryName: prData.repositoryName,
-            mergeScore: aiReview.mergeScore,
-            rulesViolated: [],
-            rulesPassed: [],
-            suggestions: aiReview.suggestions,
-            reviewStatus: "COMPLETED",
-            summary: aiReview.summary,
-            confidence: aiReview.confidence,
-            processingTime: 0, // Will be set by caller
-            createdAt: new Date()
-        };
     }
 
     /**
@@ -635,30 +515,5 @@ ${codeChangesPreview}`;
                 }, timeoutMs);
             })
         ]);
-    }
-
-    /**
-     * Logs pull request context analysis metrics
-     */
-    public static logPullRequestContextMetrics(
-        prData: PullRequestData,
-        result: ReviewResult,
-        success: boolean = true,
-        error?: Error
-    ): void {
-        const logData = {
-            installationId: prData.installationId,
-            repositoryName: prData.repositoryName,
-            prNumber: prData.prNumber,
-            success,
-            error: error?.message,
-            timestamp: new Date().toISOString()
-        };
-
-        if (success) {
-            console.log("Pull request context analysis metrics:", JSON.stringify(logData, null, 2));
-        } else {
-            console.error("Pull request context analysis failed metrics:", JSON.stringify(logData, null, 2));
-        }
     }
 }

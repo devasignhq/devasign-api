@@ -178,9 +178,6 @@ export class AIReviewOrchestrationService {
             // Post review comment to GitHub
             await this.postReviewComment(reviewResult);
 
-            // Log metrics
-            PRAnalysisService.logPullRequestContextMetrics(prData, reviewResult, true);
-
             console.log(`Pull request context analysis completed successfully for PR #${prData.prNumber} in ${reviewResult.processingTime}ms`);
 
             return reviewResult;
