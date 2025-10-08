@@ -4,7 +4,7 @@ import {
     RelevantFileRecommendation,
     FetchedFile,
     BatchProcessingConfig
-} from "../models/ai-review-context.model";
+} from "../models/ai-review.model";
 
 /**
  * Service for fetching files based on AI recommendations

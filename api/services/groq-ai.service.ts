@@ -3,7 +3,8 @@ import {
     PullRequestData,
     AIReview,
     CodeSuggestion,
-    QualityMetrics
+    QualityMetrics,
+    RelevantFileRecommendation
 } from "../models/ai-review.model";
 import {
     GroqServiceError,
@@ -12,7 +13,6 @@ import {
     ErrorUtils
 } from "../models/ai-review.errors";
 import { getFieldFromUnknownObject } from "../helper";
-import { RelevantFileRecommendation } from "../models/ai-review-context.model";
 
 /**
  * Implements AI-powered code review.

@@ -1,7 +1,6 @@
 import { GroqAIService } from "./groq-ai.service";
 import { GroqServiceError, GroqRateLimitError } from "../models/ai-review.errors";
-import { FetchedFile, RelevantFileRecommendation } from "../models/ai-review-context.model";
-import { PullRequestData } from "../models/ai-review.model";
+import { FetchedFile, PullRequestData, RelevantFileRecommendation } from "../models/ai-review.model";
 import { FileFetcherService } from "./file-fetcher.service";
 
 /**
