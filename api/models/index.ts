@@ -57,21 +57,3 @@ export type Message = {
     createdAt?: string;
     updatedAt?: string;
 }
-
-export class ErrorClass {
-    public readonly name: string;
-    public readonly message: string;
-    public readonly details?: unknown;
-
-    constructor(name: string, details: unknown, message: string) {
-        this.name = name;
-        this.message = message;
-        this.details = details;
-    }
-
-}
-export class NotFoundErrorClass extends ErrorClass {
-    constructor(message: string) {
-        super("NotFoundError", null, message);
-    }
-}
