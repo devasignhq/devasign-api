@@ -4,18 +4,18 @@ import { STATUS_CODES } from "../helper";
  * Base error class for general api errors
  */
 export class ErrorClass {
-    public readonly name: string;
+    public code: string;
     public readonly message: string;
     public readonly details: unknown;
     public readonly status: number;
 
     constructor(
-        name: string, 
+        code: string, 
         details: unknown, 
         message: string, 
         status: number
     ) {
-        this.name = name;
+        this.code = code;
         this.message = message;
         this.details = details;
         this.status = status;
@@ -26,7 +26,7 @@ export class ErrorClass {
 export class NotFoundErrorClass extends ErrorClass {
     constructor(message: string) {
         super(
-            "NotFoundError", 
+            "NOT_FOUND", 
             null,
             message,
             STATUS_CODES.NOT_FOUND
@@ -37,7 +37,7 @@ export class NotFoundErrorClass extends ErrorClass {
 export class AuthorizationError extends ErrorClass {
     constructor(message: string) {
         super(
-            "UnauthorizedError", 
+            "UNAUTHORIZED", 
             null, 
             message, 
             STATUS_CODES.UNAUTHORIZED
@@ -49,23 +49,21 @@ export class AuthorizationError extends ErrorClass {
 /**
  * Base error class for all AI review related errors
  */
-export abstract class AIReviewError extends Error {
-    public code: string;
-    public readonly details?: unknown;
-    public readonly timestamp: Date;
+export abstract class AIReviewError extends ErrorClass {
     public readonly retryable: boolean;
 
     constructor(
-        message: string,
-        code: string,
-        details?: unknown,
-        retryable: boolean = false
+        // message: string,
+        // code: string,
+        // details?: unknown,
+        
+        code: string, 
+        details: unknown, 
+        message: string, 
+        retryable: boolean = false,
+        status: number = STATUS_CODES.SERVER_ERROR
     ) {
-        super(message);
-        this.name = this.constructor.name;
-        this.code = code;
-        this.details = details;
-        this.timestamp = new Date();
+        super(code, details, message, status);
         this.retryable = retryable;
 
         // Maintains proper stack trace for where our error was thrown
@@ -79,13 +77,11 @@ export abstract class AIReviewError extends Error {
      */
     toJSON() {
         return {
-            name: this.name,
-            message: this.message,
             code: this.code,
             details: this.details,
-            timestamp: this.timestamp.toISOString(),
-            retryable: this.retryable,
-            stack: this.stack
+            message: this.message,
+            status: this.status,
+            retryable: this.retryable
         };
     }
 }
@@ -99,7 +95,13 @@ export abstract class AIReviewError extends Error {
  */
 export class GroqServiceError extends AIReviewError {
     constructor(message: string, details?: unknown, retryable: boolean = true) {
-        super(message, "GROQ_SERVICE_ERROR", details, retryable);
+        super(
+            "GROQ_SERVICE_ERROR", 
+            details, 
+            message, 
+            retryable, 
+            STATUS_CODES.GROQ_API_ERROR
+        );
     }
 }
 
@@ -145,13 +147,17 @@ export class GitHubAPIError extends AIReviewError {
 
     constructor(
         message: string,
-        statusCode?: number,
-        rateLimitRemaining?: number,
-        details?: unknown
+        details: unknown,
+        retryable: boolean = true,
+        rateLimitRemaining?: number
     ) {
-        const retryable = statusCode ? statusCode >= 500 || statusCode === 429 : true;
-        super(message, "GITHUB_API_ERROR", details, retryable);
-        this.statusCode = statusCode;
+        super(
+            "GITHUB_API_ERROR", 
+            details, 
+            message, 
+            retryable,
+            STATUS_CODES.GITHUB_API_ERROR
+        );
         this.rateLimitRemaining = rateLimitRemaining;
     }
 }
@@ -161,7 +167,13 @@ export class GitHubAPIError extends AIReviewError {
  */
 export class GitHubWebhookError extends AIReviewError {
     constructor(message: string, details?: unknown) {
-        super(message, "GITHUB_WEBHOOK_ERROR", details, false);
+        super(
+            "GITHUB_WEBHOOK_ERROR", 
+            details, 
+            message, 
+            false,
+            STATUS_CODES.GITHUB_API_ERROR
+        );
     }
 }
 
@@ -176,54 +188,16 @@ export class PRAnalysisError extends AIReviewError {
         prNumber: number,
         repositoryName: string,
         message: string,
-        details?: unknown,
-        retryable: boolean = true
+        details: unknown,
+        code?: string,
+        retryable: boolean = false
     ) {
-        super(message, "PR_ANALYSIS_ERROR", details, retryable);
+        super(code || "PR_ANALYSIS_ERROR", details, message, retryable);
         this.prNumber = prNumber;
         this.repositoryName = repositoryName;
     }
 }
 
-/**
- * PR does not meet analysis criteria
- */
-export class PRNotEligibleError extends PRAnalysisError {
-    public readonly reason: string;
-
-    constructor(
-        prNumber: number,
-        repositoryName: string,
-        reason: string,
-        details?: unknown
-    ) {
-        super(
-            prNumber,
-            repositoryName,
-            `PR #${prNumber} is not eligible for analysis: ${reason}`,
-            details,
-            false
-        );
-        this.code = "PR_NOT_ELIGIBLE";
-        this.reason = reason;
-    }
-}
-
-/**
- * Database operation errors
- */
-export class PrismaError extends AIReviewError {
-    public readonly operation: string;
-
-    constructor(operation: string, message: string, details?: unknown) {
-        super(message, "DATABASE_ERROR", details, true);
-        this.operation = operation;
-    }
-}
-
-// ============================================================================
-// Timeout and Resource Errors
-// ============================================================================
 
 /**
  * Operation timeout errors
@@ -234,35 +208,16 @@ export class TimeoutError extends AIReviewError {
 
     constructor(operation: string, timeoutMs: number, details?: unknown) {
         super(
-            `Operation '${operation}' timed out after ${timeoutMs}ms`,
             "TIMEOUT_ERROR",
             details,
-            true
+            `Operation '${operation}' timed out after ${timeoutMs}ms`,
+            true,
+            STATUS_CODES.TIMEOUT
         );
         this.operation = operation;
         this.timeoutMs = timeoutMs;
     }
 }
-
-// ============================================================================
-// Generic Error Classes
-// ============================================================================
-
-/**
- * Generic wrapped error for non-AIReviewError instances
- */
-export class WrappedError extends AIReviewError {
-    public readonly originalError: string;
-
-    constructor(context: string, originalError: Error, details?: unknown, retryable: boolean = false) {
-        super(`${context}: ${originalError.message}`, "WRAPPED_ERROR", details, retryable);
-        this.originalError = originalError.message;
-    }
-}
-
-// ============================================================================
-// Error Utilities
-// ============================================================================
 
 /**
  * Utility functions for error handling
@@ -305,32 +260,11 @@ export class ErrorUtils {
     }
 
     /**
-     * Wraps an error with additional context
-     */
-    static wrapError(originalError: Error, context: string, details?: unknown): AIReviewError {
-        if (originalError instanceof AIReviewError) {
-            return originalError;
-        }
-
-        return new WrappedError(
-            context,
-            originalError,
-            details,
-            ErrorUtils.isRetryable(originalError)
-        );
-    }
-
-    /**
      * Sanitizes error for client response (removes sensitive data)
      */
-    static sanitizeError(error: AIReviewError): Partial<AIReviewError> {
-        return {
-            name: error.name,
-            message: error.message,
-            code: error.code,
-            timestamp: error.timestamp,
-            retryable: error.retryable
-            // Exclude details and stack trace for security
-        };
+    static sanitizeError(error: ErrorClass) {
+        return process.env.NODE_ENV === "development" ?
+            { ...error } :
+            { message: error.message, code: error.code };
     }
 }
