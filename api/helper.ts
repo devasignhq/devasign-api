@@ -77,13 +77,16 @@ export function getFieldFromUnknownObject<T>(obj: unknown, field: string) {
 }
 
 export const STATUS_CODES = {
-    FETCH: 200,
-    CREATE: 201,
-    UPDATE: 200,
-    NO_CONTENT: 204,
+    GET: 200,
+    POST: 201,
+    PATCH: 200,
+    PUT: 200,
+    DELETE: 204,
 
+    PARTIAL_SUCCESS: 202,
+    NO_CONTENT: 204,
     RATE_LIMIT: 429,
-    TIMOUT: 408,
+    TIMEOUT: 408,
 
     UNAUTHENTICATED: 400,
     UNAUTHORIZED: 403,
