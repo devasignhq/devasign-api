@@ -5,7 +5,7 @@ import {
     GitHubInstallation,
     GitHubPullRequest
 } from "../models/ai-review.model";
-import { GitHubWebhookError, PRAnalysisError } from "../models/ai-review.errors";
+import { GitHubWebhookError, PRAnalysisError } from "../models/error.model";
 import { JobQueueService } from "../services/job-queue.service";
 import { WorkflowIntegrationService } from "../services/workflow-integration.service";
 import { LoggingService } from "../services/logging.service";

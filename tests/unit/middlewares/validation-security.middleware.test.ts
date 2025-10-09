@@ -4,7 +4,7 @@ import { dynamicRoute, localhostOnly } from "../../../api/middlewares/general.mi
 import { errorHandler } from "../../../api/middlewares/error.middleware";
 import { validateGitHubWebhook, validatePRWebhookEvent } from "../../../api/middlewares/webhook.middleware";
 import { ErrorClass } from "../../../api/models/general.model";
-import { AIReviewError as AIReviewErrorAbstract } from "../../../api/models/ai-review.errors";
+import { AIReviewError as AIReviewErrorAbstract } from "../../../api/models/error.model";
 
 class AIReviewError extends AIReviewErrorAbstract {};
 

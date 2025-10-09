@@ -1,7 +1,7 @@
 import { ReviewResult } from "../models/ai-review.model";
 import { ReviewFormatterService } from "./review-formatter.service";
 import { AIReviewCommentService } from "./ai-review-comment.service";
-import { GitHubAPIError } from "../models/ai-review.errors";
+import { GitHubAPIError } from "../models/error.model";
 
 /**
  * Review Comment Integration Service

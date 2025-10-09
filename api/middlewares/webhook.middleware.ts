@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import crypto from "crypto";
-import { GitHubWebhookError } from "../models/ai-review.errors";
+import { GitHubWebhookError } from "../models/error.model";
 import { OctokitService } from "../services/octokit.service";
 import { LoggingService } from "../services/logging.service";
 

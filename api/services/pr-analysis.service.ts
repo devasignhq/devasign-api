@@ -9,7 +9,7 @@ import {
     PRNotEligibleError,
     PRAnalysisError,
     GitHubAPIError
-} from "../models/ai-review.errors";
+} from "../models/error.model";
 import { OctokitService } from "./octokit.service";
 import { GitHubComment, GitHubFile, IssueDto, IssueLabel } from "../models/github.model";
 import { PullRequestContextAnalyzerService } from "./context-analyzer.service";

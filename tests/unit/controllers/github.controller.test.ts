@@ -9,7 +9,7 @@ import {
 import { OctokitService } from "../../../api/services/octokit.service";
 import { PRAnalysisService } from "../../../api/services/pr-analysis.service";
 import { validateUserInstallation } from "../../../api/middlewares/auth.middleware";
-import { PRAnalysisError, GitHubAPIError } from "../../../api/models/ai-review.errors";
+import { PRAnalysisError, GitHubAPIError } from "../../../api/models/error.model";
 import { createMockRequest, createMockResponse, createMockNext } from "../../helpers/test-utils";
 import { RepositoryDto, IssueDto, IssueLabel, IssueMilestone } from "../../../api/models/github.model";
 

@@ -470,7 +470,7 @@ describe("Webhook API Integration Tests", () => {
 
     describe("Error Handling and Retry Mechanisms", () => {
         it("should handle GitHub API errors gracefully", async () => {
-            const { GitHubAPIError } = await import("../../../api/models/ai-review.errors");
+            const { GitHubAPIError } = await import("../../../api/models/error.model");
             mockWorkflowService.processWebhookWorkflow.mockRejectedValue(
                 new GitHubAPIError("API rate limit exceeded", 429, 0)
             );
@@ -502,7 +502,7 @@ describe("Webhook API Integration Tests", () => {
         });
 
         it("should handle PR analysis errors with context", async () => {
-            const { PRAnalysisError } = await import("../../../api/models/ai-review.errors");
+            const { PRAnalysisError } = await import("../../../api/models/error.model");
             mockWorkflowService.processWebhookWorkflow.mockRejectedValue(
                 new PRAnalysisError(1, VALID_REPO_NAME, "Failed to analyze PR changes")
             );

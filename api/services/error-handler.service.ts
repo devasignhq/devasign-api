@@ -3,7 +3,7 @@ import {
     GitHubAPIError,
     TimeoutError,
     ErrorUtils
-} from "../models/ai-review.errors";
+} from "../models/error.model";
 import {
     PullRequestData,
     AIReview,

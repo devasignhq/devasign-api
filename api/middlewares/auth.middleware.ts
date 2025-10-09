@@ -2,7 +2,7 @@ import { prisma } from "../config/database.config";
 import { firebaseAdmin } from "../config/firebase.config";
 import { STATUS_CODES, getFieldFromUnknownObject } from "../helper";
 import { Request, Response, NextFunction } from "express";
-import { UnauthorizedErrorClass } from "../models/error.model";
+import { AuthorizationError } from "../models/error.model";
 
 export const validateUser = async (req: Request, res: Response, next: NextFunction) => {
     if (req.headers.authorization && req.headers.authorization.startsWith("Bearer ")) {
@@ -42,6 +42,6 @@ export const validateUserInstallation = async (installationId: string, userId: s
     });
 
     if (!installation) {
-        throw new UnauthorizedErrorClass("Only members of this installation are allowed access");
+        throw new AuthorizationError("Only members of this installation are allowed access");
     }
 };

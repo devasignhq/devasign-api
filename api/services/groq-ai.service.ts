@@ -10,7 +10,7 @@ import {
     GroqRateLimitError,
     GroqContextLimitError,
     ErrorUtils
-} from "../models/ai-review.errors";
+} from "../models/error.model";
 import { getFieldFromUnknownObject } from "../helper";
 
 /**

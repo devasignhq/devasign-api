@@ -11,7 +11,7 @@ import {
     PRNotEligibleError,
     PRAnalysisError,
     GitHubAPIError
-} from "../models/ai-review.errors";
+} from "../models/error.model";
 import { getFieldFromUnknownObject } from "../helper";
 
 export const getInstallationRepositories = async (req: Request, res: Response, next: NextFunction) => {

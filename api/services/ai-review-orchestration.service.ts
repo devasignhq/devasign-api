@@ -1,5 +1,5 @@
 import { PullRequestData, ReviewResult } from "../models/ai-review.model";
-import { PRAnalysisError, ErrorUtils } from "../models/ai-review.errors";
+import { PRAnalysisError, ErrorUtils } from "../models/error.model";
 import { ReviewCommentIntegrationService } from "./review-comment-integration.service";
 import { ReviewStatus } from "../generated/client";
 import { prisma } from "../config/database.config";

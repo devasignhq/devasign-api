@@ -3,7 +3,7 @@ import {
     GroqRateLimitError,
     GitHubAPIError,
     TimeoutError
-} from "../models/ai-review.errors";
+} from "../models/error.model";
 import { LoggingService } from "./logging.service";
 import { CircuitBreakerService } from "./circuit-breaker.service";
 import { getFieldFromUnknownObject } from "../helper";

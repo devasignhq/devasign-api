@@ -1,5 +1,5 @@
 import { ReviewResult } from "../models/ai-review.model";
-import { GitHubAPIError } from "../models/ai-review.errors";
+import { GitHubAPIError } from "../models/error.model";
 import { ReviewFormatterService } from "./review-formatter.service";
 import { OctokitService } from "./octokit.service";
 import { prisma } from "../config/database.config";

@@ -1,6 +1,6 @@
 import { GroqAIService } from "../../../api/services/groq-ai.service";
 import { PullRequestData, AIReview, CodeAnalysis, RuleEvaluation } from "../../../api/models/ai-review.model";
-import { GroqServiceError, GroqRateLimitError, GroqContextLimitError } from "../../../api/models/ai-review.errors";
+import { GroqServiceError, GroqRateLimitError, GroqContextLimitError } from "../../../api/models/error.model";
 import { GroqAITestHelpers } from "../../mocks/groq-ai.service.mock";
 import { RuleSeverity } from "@/generated/client";
 
