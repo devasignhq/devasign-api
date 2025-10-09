@@ -108,5 +108,10 @@ export const STATUS_CODES = {
     /**407 */
     BAD_PAYLOAD: 407,
     /**500 */
-    UNKNOWN: 500
+    UNKNOWN: 500,
+
+    /**411 */
+    GROQ_API_ERROR: 411,
+    /**412 */
+    GITHUB_API_ERROR: 412
 };
