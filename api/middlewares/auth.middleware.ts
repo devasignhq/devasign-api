@@ -1,8 +1,8 @@
 import { prisma } from "../config/database.config";
 import { firebaseAdmin } from "../config/firebase.config";
-import { getFieldFromUnknownObject } from "../helper";
-import { ErrorClass } from "../models";
+import { STATUS_CODES, getFieldFromUnknownObject } from "../helper";
 import { Request, Response, NextFunction } from "express";
+import { UnauthorizedErrorClass } from "../models/error.model";
 
 export const validateUser = async (req: Request, res: Response, next: NextFunction) => {
     if (req.headers.authorization && req.headers.authorization.startsWith("Bearer ")) {
@@ -20,13 +20,15 @@ export const validateUser = async (req: Request, res: Response, next: NextFuncti
             
             next();
         } catch (error) {
-            return res.status(401).json({ 
+            return res.status(STATUS_CODES.UNAUTHENTICATED).json({ 
                 error: "Authentication failed",
                 details: getFieldFromUnknownObject<string>(error, "message") 
             });
         }
     } else {
-        return res.status(401).json({ error: "No authorization token sent" });
+        return res.status(STATUS_CODES.UNAUTHENTICATED).json({ 
+            error: "No authorization token sent" 
+        });
     }
 };
 
@@ -40,10 +42,6 @@ export const validateUserInstallation = async (installationId: string, userId: s
     });
 
     if (!installation) {
-        throw new ErrorClass(
-            "AuthenticationError", 
-            null, 
-            "Only members of this installation are allowed access"
-        );
+        throw new UnauthorizedErrorClass("Only members of this installation are allowed access");
     }
 };
