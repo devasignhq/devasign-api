@@ -77,21 +77,36 @@ export function getFieldFromUnknownObject<T>(obj: unknown, field: string) {
 }
 
 export const STATUS_CODES = {
+    /**200 */
     GET: 200,
+    /**201 */
     POST: 201,
+    /**200 */
     PATCH: 200,
+    /**200 */
     PUT: 200,
+    /**204 */
     DELETE: 204,
 
+    /**202 */
     PARTIAL_SUCCESS: 202,
+    /**204 */
     NO_CONTENT: 204,
+    /**429 */
     RATE_LIMIT: 429,
+    /**408 */
     TIMEOUT: 408,
 
+    /**400 */
     UNAUTHENTICATED: 400,
+    /**403 */
     UNAUTHORIZED: 403,
+    /**401 */
     SERVER_ERROR: 401,
+    /**404 */
     NOT_FOUND: 404,
+    /**407 */
     BAD_PAYLOAD: 407,
+    /**500 */
     UNKNOWN: 500
 };

@@ -1,30 +1,23 @@
-import { ErrorClass } from "../models";
-import { AIReviewError, ErrorUtils } from "../models/ai-review.errors";
+import { AIReviewError, ErrorClass, ErrorUtils } from "../models/error.model";
 import { LoggingService } from "../services/logging.service";
 import { Request, Response, ErrorRequestHandler } from "express";
-import { getFieldFromUnknownObject } from "../helper";
+import { STATUS_CODES, getFieldFromUnknownObject } from "../helper";
 
 export const errorHandler = ((error: unknown, req: Request, res: Response) => {
-    console.error("Error:", error);
+    // Log the error
+    LoggingService.logError("api_error", error, {
+        url: req.url,
+        method: req.method,
+        userAgent: req.get("User-Agent"),
+        ip: req.ip
+    });
 
     // Handle AI Review specific errors
     if (error instanceof AIReviewError) {
-        // Log the error with structured logging
-        LoggingService.logError("api_error", error, {
-            url: req.url,
-            method: req.method,
-            userAgent: req.get("User-Agent"),
-            ip: req.ip
-        });
-
         // Determine appropriate HTTP status code
-        let statusCode = 500;
-        if (error.code === "AUTHENTICATION_ERROR") statusCode = 401;
-        else if (error.code === "AUTHORIZATION_ERROR") statusCode = 403;
-        else if (error.code === "PR_NOT_ELIGIBLE" || error.code === "REVIEW_RESULT_NOT_FOUND" || error.code === "CUSTOM_RULE_NOT_FOUND") statusCode = 404;
-        else if (error.code === "RULE_VALIDATION_ERROR" || error.code === "CONFIGURATION_ERROR") statusCode = 400;
-        else if (error.code === "GROQ_RATE_LIMIT" || error.code === "GITHUB_API_ERROR") statusCode = 429;
-        else if (error.code === "TIMEOUT_ERROR") statusCode = 408;
+        let statusCode = STATUS_CODES.SERVER_ERROR;
+        if (error.code === "GROQ_RATE_LIMIT" || error.code === "GITHUB_API_ERROR") statusCode = STATUS_CODES.RATE_LIMIT;
+        else if (error.code === "TIMEOUT_ERROR") statusCode = STATUS_CODES.TIMEOUT;
 
         return res.status(statusCode).json({
             error: ErrorUtils.sanitizeError(error),
@@ -34,13 +27,11 @@ export const errorHandler = ((error: unknown, req: Request, res: Response) => {
     }
 
     if (error instanceof ErrorClass) {
-        return res.status(420).json({
-            error: { ...error }
-        });
+        return res.status(error.status).json({ ...error });
     }
 
     if (getFieldFromUnknownObject<string>(error, "name") === "ValidationError") {
-        return res.status(404).json({
+        return res.status(STATUS_CODES.SERVER_ERROR).json({
             error: {
                 name: "ValidationError",
                 message: getFieldFromUnknownObject<string>(error, "message"),
@@ -49,18 +40,10 @@ export const errorHandler = ((error: unknown, req: Request, res: Response) => {
         });
     }
 
-    // Log unhandled errors
-    LoggingService.logError("unhandled_error", error, {
-        url: req.url,
-        method: req.method,
-        userAgent: req.get("User-Agent"),
-        ip: req.ip
-    });
-
-    res.status(getFieldFromUnknownObject<number>(error, "status") || 500).json({
+    res.status(STATUS_CODES.UNKNOWN).json({
         error: {
             message: "Internal Server Error",
-            details: error || null
+            details: { ...(typeof error === "object" ? error : { error }) }
         }
     });
 }) as ErrorRequestHandler;
