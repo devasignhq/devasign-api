@@ -20,30 +20,27 @@ export const errorHandler = ((error: unknown, req: Request, res: Response) => {
         else if (error.code === "TIMEOUT_ERROR") statusCode = STATUS_CODES.TIMEOUT;
 
         return res.status(statusCode).json({
-            error: ErrorUtils.sanitizeError(error),
-            retryable: error.retryable,
-            timestamp: error.timestamp.toISOString()
+            ...ErrorUtils.sanitizeError(error),
+            retryable: error.retryable
         });
     }
 
     if (error instanceof ErrorClass) {
-        return res.status(error.status).json({ ...error });
+        return res.status(error.status).json({ ...ErrorUtils.sanitizeError(error) });
     }
+
+    const development = process.env.NODE_ENV === "development";
 
     if (getFieldFromUnknownObject<string>(error, "name") === "ValidationError") {
         return res.status(STATUS_CODES.SERVER_ERROR).json({
-            error: {
-                name: "ValidationError",
-                message: getFieldFromUnknownObject<string>(error, "message"),
-                details: getFieldFromUnknownObject<string>(error, "errors")
-            }
+            name: "ValidationError",
+            message: getFieldFromUnknownObject<string>(error, "message"),
+            details: development ? getFieldFromUnknownObject<string>(error, "errors") : null
         });
     }
 
     res.status(STATUS_CODES.UNKNOWN).json({
-        error: {
-            message: "Internal Server Error",
-            details: { ...(typeof error === "object" ? error : { error }) }
-        }
+        message: "An unknown error occured",
+        details: development ? { ...(typeof error === "object" ? error : { error }) } : null
     });
 }) as ErrorRequestHandler;

@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from "express";
+import { STATUS_CODES } from "../helper";
 
 export const dynamicRoute = (req: Request, res: Response, next: NextFunction) => {
     res.set({
@@ -27,7 +28,7 @@ export const localhostOnly = (req: Request, res: Response, next: NextFunction) =
         return next();
     }
 
-    res.status(403).json({
+    res.status(STATUS_CODES.UNAUTHORIZED).json({
         error: "Access denied. This endpoint is only available from localhost."
     });
     return;
