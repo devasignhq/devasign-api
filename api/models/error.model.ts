@@ -13,7 +13,7 @@ export class ErrorClass {
         code: string, 
         details: unknown, 
         message: string, 
-        status: number
+        status: number = STATUS_CODES.SERVER_ERROR
     ) {
         this.code = code;
         this.message = message;
@@ -38,6 +38,17 @@ export class AuthorizationError extends ErrorClass {
     constructor(message: string) {
         super(
             "UNAUTHORIZED", 
+            null, 
+            message, 
+            STATUS_CODES.UNAUTHORIZED
+        );
+    }
+}
+
+export class ValidationError extends ErrorClass {
+    constructor(message: string) {
+        super(
+            "VALIDATION_ERROR", 
             null, 
             message, 
             STATUS_CODES.UNAUTHORIZED
@@ -141,23 +152,23 @@ export class GroqContextLimitError extends GroqServiceError {
 /**
  * GitHub API related errors
  */
-export class GitHubAPIError extends AIReviewError {
+export class GitHubAPIError extends ErrorClass {
     public readonly statusCode?: number;
     public readonly rateLimitRemaining?: number;
 
     constructor(
         message: string,
         details: unknown,
-        retryable: boolean = true,
+        statusCode?: number,
         rateLimitRemaining?: number
     ) {
         super(
             "GITHUB_API_ERROR", 
             details, 
             message, 
-            retryable,
             STATUS_CODES.GITHUB_API_ERROR
         );
+        this.statusCode = statusCode;
         this.rateLimitRemaining = rateLimitRemaining;
     }
 }
