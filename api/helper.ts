@@ -76,6 +76,11 @@ export function getFieldFromUnknownObject<T>(obj: unknown, field: string) {
     return undefined;
 }
 
+/**
+ * HTTP status codes used throughout the application.
+
+ * Including success responses, client errors, server errors, and custom API errors.
+ */
 export const STATUS_CODES = {
     /**200 */
     SUCCESS: 200,
@@ -106,6 +111,8 @@ export const STATUS_CODES = {
     /**500 */
     UNKNOWN: 500,
 
+    /**410 */
+    STELLAR_ERROR: 410,
     /**411 */
     GROQ_API_ERROR: 411,
     /**412 */

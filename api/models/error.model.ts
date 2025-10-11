@@ -101,6 +101,17 @@ export abstract class AIReviewError extends ErrorClass {
 // External Service Errors
 // ============================================================================
 
+export class StellarServiceError extends ErrorClass {
+    constructor(message: string, details: unknown = null) {
+        super(
+            "STELLAR_SERVICE_ERROR", 
+            details, 
+            message,
+            STATUS_CODES.STELLAR_ERROR
+        );
+    }
+}
+
 /**
  * Groq AI service related errors
  */
