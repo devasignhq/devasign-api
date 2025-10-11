@@ -5,11 +5,7 @@ import {
     GitHubWebhookPayload,
     ReviewResult
 } from "../models/ai-review.model";
-import {
-    PRNotEligibleError,
-    PRAnalysisError,
-    GitHubAPIError
-} from "../models/error.model";
+import { PRAnalysisError, GitHubAPIError, ErrorClass } from "../models/error.model";
 import { OctokitService } from "./octokit.service";
 import { GitHubComment, GitHubFile, IssueDto, IssueLabel } from "../models/github.model";
 import { PullRequestContextAnalyzerService } from "./context-analyzer.service";
@@ -264,9 +260,9 @@ export class PRAnalysisService {
         } catch (error) {
             throw new GitHubAPIError(
                 `Failed to fetch changed files for PR #${prNumber}`,
+                { installationId, repositoryName, prNumber, originalError: getFieldFromUnknownObject<string>(error, "message") },
                 getFieldFromUnknownObject<number>(error, "status"),
-                undefined,
-                { installationId, repositoryName, prNumber, originalError: getFieldFromUnknownObject<string>(error, "message") }
+                undefined
             );
         }
     }
@@ -281,16 +277,20 @@ export class PRAnalysisService {
         // Check if PR should be analyzed
         if (!this.shouldAnalyzePR(prData)) {
             if (prData.isDraft) {
-                throw new PRNotEligibleError(
+                throw new PRAnalysisError(
                     prData.prNumber,
                     prData.repositoryName,
-                    "PR is in draft status"
+                    `PR #${prData.prNumber} is not eligible for analysis: PR is in draft status`,
+                    null,
+                    "PR_NOT_ELIGIBLE_ERROR"
                 );
             } else {
-                throw new PRNotEligibleError(
+                throw new PRAnalysisError(
                     prData.prNumber,
                     prData.repositoryName,
-                    "PR does not link to any issues"
+                    `PR #${prData.prNumber} is not eligible for analysis: PR does not link to any issues`,
+                    null,
+                    "PR_NOT_ELIGIBLE_ERROR"
                 );
             }
         }
@@ -338,7 +338,7 @@ ${codeChangesPreview}`;
 
             return prData;
         } catch (error) {
-            if (error instanceof PRNotEligibleError) {
+            if (error instanceof PRAnalysisError) {
                 throw error;
             }
 
@@ -422,7 +422,7 @@ ${codeChangesPreview}`;
         prData: PullRequestData,
         extractionTime: number,
         success: boolean = true,
-        error?: Error
+        error?: ErrorClass
     ): void {
         const logData = {
             installationId: prData.installationId,

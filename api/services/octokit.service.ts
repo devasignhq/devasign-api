@@ -1,5 +1,5 @@
 import { App } from "octokit";
-import { ErrorClass, IssueFilters } from "../models";
+import { IssueFilters } from "../models";
 import {
     GitHubComment,
     InstallationOctokit,
@@ -9,6 +9,7 @@ import {
     RepositoryDto
 } from "../models/github.model";
 import { getFieldFromUnknownObject, moneyFormat } from "../helper";
+import { GitHubAPIError } from "../models/error.model";
 
 const commentCTA = `${process.env.CONTRIBUTOR_APP_URL!  }/application`;
 
@@ -125,9 +126,7 @@ export class OctokitService {
             if (installation.account && "login" in installation.account &&
                 installation.account.login !== githubUsername
             ) {
-                throw new ErrorClass(
-                    "OctokitServiceError",
-                    null,
+                throw new GitHubAPIError(
                     "Unauthorized: You can only access installations on your own account"
                 );
             }
@@ -143,25 +142,21 @@ export class OctokitService {
 
                 // Ensure user is an active member
                 if (membership.data.state === "pending") {
-                    throw new ErrorClass(
-                        "OctokitServiceError",
-                        null,
+                    throw new GitHubAPIError(
                         "Unauthorized: You must be an active member of this organization to access its installation"
                     );
                 }
             } catch (error) {
                 const errorStatus = getFieldFromUnknownObject<number>(error, "status");
                 if (errorStatus === 404 || errorStatus === 403) {
-                    throw new ErrorClass(
-                        "OctokitServiceError",
-                        error,
-                        "Unauthorized: You must be a member of this organization to access its installation"
+                    throw new GitHubAPIError(
+                        "Unauthorized: You must be a member of this organization to access its installation",
+                        error
                     );
                 }
-                throw new ErrorClass(
-                    "OctokitServiceError",
-                    error,
-                    "An error occured while verifying the installation"
+                throw new GitHubAPIError(
+                    "An error occured while verifying the installation",
+                    error
                 );
             }
         }
@@ -486,7 +481,7 @@ export class OctokitService {
         }
 
         if (mutations.length === 0) {
-            throw new Error("No updates specified");
+            throw new GitHubAPIError("No updates specified");
         }
 
         const mutation = `
@@ -622,7 +617,7 @@ export class OctokitService {
         );
 
         if (!bountyLabel) {
-            throw new Error("Bounty label not found");
+            throw new GitHubAPIError("Bounty label not found");
         }
 
         return bountyLabel;
@@ -750,7 +745,7 @@ export class OctokitService {
 
                 return "SUCCESS";
             }
-            throw new Error("Bounty label not found on this issue");
+            throw new GitHubAPIError("Bounty label not found on this issue");
         }
 
         // Then remove the label and delete the comment
@@ -818,10 +813,9 @@ export class OctokitService {
             if (getFieldFromUnknownObject<number>(error, "status") === 404) {
                 return null; // PR not found
             }
-            throw new ErrorClass(
-                "OctokitServiceError",
-                error,
-                "Failed to fetch pull request details"
+            throw new GitHubAPIError(
+                "Failed to fetch pull request details",
+                error
             );
         }
     }
@@ -854,17 +848,19 @@ export class OctokitService {
                 throw new Error(`Path ${filePath} is not a file or content not available`);
             }
         } catch (error) {
-            if (getFieldFromUnknownObject<number>(error, "status") === 404) {
-                throw new ErrorClass(
-                    "OctokitServiceError",
+            const errorStatus = getFieldFromUnknownObject<number>(error, "status");
+
+            if (errorStatus === 404) {
+                throw new GitHubAPIError(
+                    `File ${filePath} not found in repository`,
                     error,
-                    `File ${filePath} not found in repository`
+                    errorStatus
                 );
             }
-            throw new ErrorClass(
-                "OctokitServiceError",
-                error,
-                `Failed to fetch file content: ${getFieldFromUnknownObject<number>(error, "message")}`
+                
+            throw new GitHubAPIError(
+                `Failed to fetch file content: ${getFieldFromUnknownObject<number>(error, "message")}`,
+                error
             );
         }
     }
@@ -915,10 +911,9 @@ export class OctokitService {
                 console.log(`Repository ${owner}/${repo} is empty`);
                 return [];
             }
-            throw new ErrorClass(
-                "OctokitServiceError",
-                error,
-                `Failed to get file paths: ${getFieldFromUnknownObject<string>(error, "message")}`
+            throw new GitHubAPIError(
+                `Failed to get file paths: ${getFieldFromUnknownObject<string>(error, "message")}`,
+                error
             );
         }
     }
@@ -985,9 +980,7 @@ export class OctokitService {
             }
         }
 
-        throw new ErrorClass(
-            "OctokitServiceError",
-            null,
+        throw new GitHubAPIError(
             `No valid branch found among: ${branchCandidates.join(", ")}`
         );
     }

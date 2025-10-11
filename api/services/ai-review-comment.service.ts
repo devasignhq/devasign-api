@@ -116,8 +116,6 @@ export class AIReviewCommentService {
         } catch (error) {
             throw new GitHubAPIError(
                 `Failed to create comment on PR #${prNumber} in ${repositoryName}`,
-                getFieldFromUnknownObject<number>(error, "status") || 500,
-                getFieldFromUnknownObject<number>(error, "rateLimitRemaining") || 0,
                 {
                     installationId,
                     repositoryName,
@@ -125,7 +123,9 @@ export class AIReviewCommentService {
                     bodyLength: body.length,
                     originalError: getFieldFromUnknownObject<string>(error, "message"),
                     operation: "createComment"
-                }
+                },
+                getFieldFromUnknownObject<number>(error, "status") || 500,
+                getFieldFromUnknownObject<number>(error, "rateLimitRemaining") || 0
             );
         }
     }
@@ -154,8 +154,6 @@ export class AIReviewCommentService {
         } catch (error) {
             throw new GitHubAPIError(
                 `Failed to update comment ${commentId} in ${repositoryName}`,
-                getFieldFromUnknownObject<number>(error, "status") || 500,
-                getFieldFromUnknownObject<number>(error, "rateLimitRemaining") || 0,
                 {
                     installationId,
                     repositoryName,
@@ -163,7 +161,9 @@ export class AIReviewCommentService {
                     bodyLength: body.length,
                     originalError: getFieldFromUnknownObject<string>(error, "message"),
                     operation: "updateComment"
-                }
+                },
+                getFieldFromUnknownObject<number>(error, "status") || 500,
+                getFieldFromUnknownObject<number>(error, "rateLimitRemaining") || 0
             );
         }
     }
@@ -316,15 +316,15 @@ export class AIReviewCommentService {
 
             throw new GitHubAPIError(
                 `Failed to delete comment ${commentId} in ${repositoryName}`,
-                errorStatus || 500,
-                getFieldFromUnknownObject<number>(error, "rateLimitRemaining") || 0,
                 {
                     installationId,
                     repositoryName,
                     commentId,
                     originalError: getFieldFromUnknownObject<string>(error, "message"),
                     operation: "deleteComment"
-                }
+                },
+                errorStatus || 500,
+                getFieldFromUnknownObject<number>(error, "rateLimitRemaining") || 0
             );
         }
     }
@@ -364,15 +364,15 @@ export class AIReviewCommentService {
         } catch (error) {
             throw new GitHubAPIError(
                 `Failed to get AI review comments for PR #${prNumber} in ${repositoryName}`,
-                getFieldFromUnknownObject<number>(error, "status") || 500,
-                getFieldFromUnknownObject<number>(error, "rateLimitRemaining") || 0,
                 {
                     installationId,
                     repositoryName,
                     prNumber,
                     originalError: getFieldFromUnknownObject<string>(error, "message"),
                     operation: "getAIReviewComments"
-                }
+                },
+                getFieldFromUnknownObject<number>(error, "status") || 500,
+                getFieldFromUnknownObject<number>(error, "rateLimitRemaining") || 0
             );
         }
     }
@@ -399,13 +399,13 @@ export class AIReviewCommentService {
 
             throw new GitHubAPIError(
                 `GitHub API call failed for installation ${installationId}`,
-                getFieldFromUnknownObject<number>(error, "status") || 500,
-                getFieldFromUnknownObject<number>(error, "rateLimitRemaining") || 0,
                 {
                     installationId,
                     originalError: getFieldFromUnknownObject<string>(error, "message"),
                     operation: "callGitHubAPI"
-                }
+                },
+                getFieldFromUnknownObject<number>(error, "status") || 500,
+                getFieldFromUnknownObject<number>(error, "rateLimitRemaining") || 0
             );
         }
     }

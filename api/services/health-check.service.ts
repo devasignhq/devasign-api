@@ -1,7 +1,7 @@
-import { ErrorHandlerService } from "./error-handler.service";
 import { CircuitBreakerService } from "./circuit-breaker.service";
 import { LoggingService } from "./logging.service";
 import { prisma } from "../config/database.config";
+import { RetryService } from "./retry.service";
 
 /**
  * Health Check Service for AI Review System
@@ -100,7 +100,7 @@ export class HealthCheckService {
         checkFunction: () => Promise<ServiceHealth>
     ): Promise<[string, ServiceHealth]> {
         try {
-            const health = await ErrorHandlerService.withTimeout(
+            const health = await RetryService.withTimeout(
                 checkFunction,
                 `health_check_${serviceName}`,
                 HealthCheckService.HEALTH_CHECK_TIMEOUT

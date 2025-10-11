@@ -76,7 +76,7 @@ export class GroqAIService {
             if (error instanceof GroqServiceError) {
                 throw error;
             }
-            throw ErrorUtils.wrapError(error as Error, "Failed to generate AI review");
+            throw new GroqServiceError("Failed to generate AI review", error);
         }
     }
 

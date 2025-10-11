@@ -120,7 +120,7 @@ export class RetryService {
     /**
      * Executes operation with timeout and retry logic
      */
-    private static async executeWithTimeoutAndRetry<T>(
+    static async executeWithTimeoutAndRetry<T>(
         operationName: string,
         operation: () => Promise<T>,
         maxRetries: number,
@@ -190,7 +190,7 @@ export class RetryService {
     /**
      * Wraps operation with timeout
      */
-    private static async withTimeout<T>(
+    static async withTimeout<T>(
         operation: () => Promise<T>,
         operationName: string,
         timeoutMs: number

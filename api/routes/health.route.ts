@@ -1,11 +1,12 @@
 import { RequestHandler, Router, Request, Response } from "express";
 import { validateUser } from "../middlewares/auth.middleware";
+import { STATUS_CODES } from "../helper";
 
 export const healthRoutes = Router();
 
 // Health check endpoint for Google Cloud Run
 healthRoutes.get("/", (req: Request, res: Response) => {
-    res.status(200).json({
+    res.status(STATUS_CODES.SUCCESS).json({
         status: "healthy",
         timestamp: new Date().toISOString(),
         uptime: process.uptime()
@@ -19,14 +20,14 @@ healthRoutes.get("/detailed", async (req: Request, res: Response) => {
         const healthResult = await HealthCheckService.performHealthCheck(true);
 
         const statusCode = healthResult.status === "healthy" 
-            ? 200 
+            ? STATUS_CODES.SUCCESS 
             : healthResult.status === "degraded" 
-                ? 206 
-                : 503;
+                ? STATUS_CODES.PARTIAL_SUCCESS 
+                : STATUS_CODES.SERVER_ERROR;
 
         res.status(statusCode).json(healthResult);
     } catch (error) {
-        res.status(503).json({
+        res.status(STATUS_CODES.SERVER_ERROR).json({
             status: "unhealthy",
             timestamp: new Date().toISOString(),
             error: "Health check failed",
@@ -44,8 +45,12 @@ healthRoutes.get("/status", (async (req: Request, res: Response) => {
         if (!cached) {
             // Perform quick health check if no cached result
             const healthResult = await HealthCheckService.performHealthCheck(false);
-            const statusCode = healthResult.status === "healthy" ? 200 :
-                healthResult.status === "degraded" ? 206 : 503;
+            const statusCode = healthResult.status === "healthy" 
+                ? STATUS_CODES.SUCCESS 
+                : healthResult.status === "degraded" 
+                    ? STATUS_CODES.PARTIAL_SUCCESS 
+                    : STATUS_CODES.SERVER_ERROR;
+
             return res.status(statusCode).json({
                 status: healthResult.status,
                 degradedMode: healthResult.degradedMode,
@@ -53,8 +58,11 @@ healthRoutes.get("/status", (async (req: Request, res: Response) => {
             });
         }
 
-        const statusCode = cached.status === "healthy" ? 200 :
-            cached.status === "degraded" ? 206 : 503;
+        const statusCode = cached.status === "healthy" 
+            ? STATUS_CODES.SUCCESS 
+            : cached.status === "degraded" 
+                ? STATUS_CODES.PARTIAL_SUCCESS 
+                : STATUS_CODES.SERVER_ERROR;
 
         res.status(statusCode).json({
             status: cached.status,
@@ -63,7 +71,7 @@ healthRoutes.get("/status", (async (req: Request, res: Response) => {
             cached: true
         });
     } catch {
-        res.status(503).json({
+        res.status(STATUS_CODES.SERVER_ERROR).json({
             status: "unhealthy",
             timestamp: new Date().toISOString(),
             error: "Health status check failed"
@@ -80,13 +88,13 @@ healthRoutes.get("/error-handling", async (req: Request, res: Response) => {
         const status = ErrorHandlerService.getErrorHandlingStatus();
         const recoveryStatus = ErrorRecoveryService.getRecoveryStatus();
 
-        res.status(200).json({
+        res.status(STATUS_CODES.SUCCESS).json({
             timestamp: new Date().toISOString(),
             errorHandling: status,
             recovery: recoveryStatus
         });
     } catch (error) {
-        res.status(500).json({
+        res.status(STATUS_CODES.UNKNOWN).json({
             error: "Failed to get error handling status",
             details: String(error),
             timestamp: new Date().toISOString()
@@ -111,13 +119,13 @@ healthRoutes.post("/recover", validateUser as RequestHandler, (async (req: Reque
 
         const recoveryResult = await ErrorRecoveryService.attemptSystemRecovery(type, context);
 
-        const statusCode = recoveryResult.success ? 200 : 500;
+        const statusCode = recoveryResult.success ? STATUS_CODES.SUCCESS : STATUS_CODES.UNKNOWN;
         res.status(statusCode).json({
             recovery: recoveryResult,
             timestamp: new Date().toISOString()
         });
     } catch (error) {
-        res.status(500).json({
+        res.status(STATUS_CODES.UNKNOWN).json({
             error: "Recovery attempt failed",
             details: String(error),
             timestamp: new Date().toISOString()

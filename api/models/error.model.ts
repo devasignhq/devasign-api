@@ -169,7 +169,7 @@ export class GitHubAPIError extends ErrorClass {
 
     constructor(
         message: string,
-        details: unknown,
+        details: unknown = null,
         statusCode?: number,
         rateLimitRemaining?: number
     ) {

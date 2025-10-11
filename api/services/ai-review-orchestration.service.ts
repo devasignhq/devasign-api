@@ -1,5 +1,5 @@
 import { PullRequestData, ReviewResult } from "../models/ai-review.model";
-import { PRAnalysisError, ErrorUtils } from "../models/error.model";
+import { PRAnalysisError } from "../models/error.model";
 import { ReviewCommentIntegrationService } from "./review-comment-integration.service";
 import { ReviewStatus } from "../generated/client";
 import { prisma } from "../config/database.config";
@@ -221,7 +221,12 @@ export class AIReviewOrchestrationService {
             return await this.analyzePullRequest(prData);
         } catch (error) {
             console.error("Error updating existing review:", error);
-            throw ErrorUtils.wrapError(error as Error, "Update existing review");
+            throw new PRAnalysisError(
+                prData.prNumber,
+                prData.repositoryName,
+                "Failed to update existing review",
+                error
+            );
         }
     }
 }

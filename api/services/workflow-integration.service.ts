@@ -8,8 +8,8 @@ import { JobQueueService } from "./job-queue.service";
 import { AIReviewOrchestrationService } from "./ai-review-orchestration.service";
 import { PRAnalysisService } from "./pr-analysis.service";
 import { LoggingService } from "./logging.service";
-import { ErrorHandlingIntegrationService } from "./error-handling-integration.service";
-import { getFieldFromUnknownObject } from "../helper";
+import { PRAnalysisError } from "../models/error.model";
+import { ErrorHandlerService } from "./error-handler.service";
 
 /**
  * Workflow Integration Service
@@ -53,7 +53,7 @@ export class WorkflowIntegrationService {
             this.setupJobQueueEventListeners();
 
             // Initialize error handling integration
-            ErrorHandlingIntegrationService.initializeCircuitBreakers();
+            ErrorHandlerService.initializeCircuitBreakers();
 
             this.initialized = true;
 
@@ -80,8 +80,8 @@ export class WorkflowIntegrationService {
         success: boolean;
         jobId?: string;
         prData?: PullRequestData;
-        reason?: string;
         error?: string;
+        reason?: string;
     }> {
         const startTime = Date.now();
 
@@ -97,17 +97,13 @@ export class WorkflowIntegrationService {
             try {
                 prData = await PRAnalysisService.createCompletePRData(payload);
             } catch (error) {
-                if (getFieldFromUnknownObject<string>(error, "name") === "PRNotEligibleError") {
-                    LoggingService.logInfo("processWebhookWorkflow", "PR not eligible for analysis", {
-                        prNumber: getFieldFromUnknownObject<number>(error, "prNumber"),
-                        repositoryName: getFieldFromUnknownObject<string>(error, "repositoryName"),
-                        reason: getFieldFromUnknownObject<string>(error, "reason")
+                if (error instanceof PRAnalysisError && error.code === "PR_NOT_ELIGIBLE_ERROR") {
+                    LoggingService.logInfo("processWebhookWorkflow", error.message, {
+                        prNumber: error.prNumber,
+                        repositoryName: error.repositoryName
                     });
 
-                    return {
-                        success: true,
-                        reason: getFieldFromUnknownObject<string>(error, "reason")
-                    };
+                    return { success: true, reason: error.message };
                 }
                 throw error;
             }
@@ -118,12 +114,16 @@ export class WorkflowIntegrationService {
             // Queue for background analysis
             const jobId = await this.jobQueue.addPRAnalysisJob(prData);
 
-            LoggingService.logInfo("processWebhookWorkflow", "Webhook workflow completed successfully", {
-                jobId,
-                prNumber: prData.prNumber,
-                repositoryName: prData.repositoryName,
-                processingTime: Date.now() - startTime
-            });
+            LoggingService.logInfo(
+                "processWebhookWorkflow", 
+                "Webhook workflow completed successfully", 
+                {
+                    jobId,
+                    prNumber: prData.prNumber,
+                    repositoryName: prData.repositoryName,
+                    processingTime: Date.now() - startTime
+                }
+            );
 
             return {
                 success: true,
@@ -135,8 +135,9 @@ export class WorkflowIntegrationService {
             const processingTime = Date.now() - startTime;
             const errorMessage = error instanceof Error ? error.message : String(error);
 
-            LoggingService.logError("Webhook workflow failed", {
-                error: errorMessage,
+            LoggingService.logError("processWebhookWorkflow", error, {
+                prNumber: payload.pull_request.number,
+                repositoryName: payload.repository.full_name,
                 processingTime
             });
 

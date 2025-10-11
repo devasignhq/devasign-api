@@ -28,7 +28,6 @@ export class LoggingService {
             {
                 ...context,
                 error: {
-                    name: getFieldFromUnknownObject<string>(error, "name") || "UnknownError",
                     message: getFieldFromUnknownObject<string>(error, "message") || String(error),
                     code: getFieldFromUnknownObject<string>(error, "code"),
                     stack: getFieldFromUnknownObject<string>(error, "stack"),
