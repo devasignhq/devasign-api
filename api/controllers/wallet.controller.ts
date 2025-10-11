@@ -1,13 +1,19 @@
 import { NextFunction, Request, Response } from "express";
 import { prisma } from "../config/database.config";
-import { decrypt } from "../helper";
-import { ErrorClass, NotFoundErrorClass } from "../models";
+import { STATUS_CODES, decrypt } from "../helper";
 import { HorizonApi } from "../models/horizonapi.model";
 import { Prisma, TransactionCategory } from "../generated/client";
 import { usdcAssetId, xlmAssetId } from "../config/stellar.config";
 import { stellarService } from "../services/stellar.service";
+import { AuthorizationError, ErrorClass, NotFoundError, ValidationError } from "../models/error.model";
 
 type USDCBalance = HorizonApi.BalanceLineAsset<"credit_alphanum12">;
+
+class WalletError extends ErrorClass {
+    constructor(message: string, details: unknown = null) {
+        super("WALLET_ERROR", details, message);
+    }
+}
 
 export const withdrawAsset = async (req: Request, res: Response, next: NextFunction) => {
     const {
@@ -20,7 +26,7 @@ export const withdrawAsset = async (req: Request, res: Response, next: NextFunct
 
     try {
         if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
-            throw new ErrorClass("ValidationError", null, "Invalid amount specified");
+            throw new ValidationError("Invalid amount specified");
         }
 
         let walletAddress = "";
@@ -40,9 +46,7 @@ export const withdrawAsset = async (req: Request, res: Response, next: NextFunct
             });
 
             if (!installation) {
-                throw new ErrorClass(
-                    "TransactionError",
-                    null,
+                throw new NotFoundError(
                     "Installation does not exist or user is not part of this installation."
                 );
             }
@@ -56,7 +60,7 @@ export const withdrawAsset = async (req: Request, res: Response, next: NextFunct
             });
 
             if (!user) {
-                throw new NotFoundErrorClass("User not found");
+                throw new NotFoundError("User not found");
             }
 
             walletAddress = user.walletAddress;
@@ -72,32 +76,32 @@ export const withdrawAsset = async (req: Request, res: Response, next: NextFunct
             );
 
             if (!usdcAsset) {
-                throw new ErrorClass("ValidationError", null, "No USDC asset found in wallet");
+                throw new WalletError("No USDC asset found in wallet");
             }
 
             if (parseFloat(usdcAsset.balance) < Number(amount)) {
-                throw new ErrorClass(
-                    "InsufficientFundsError",
-                    { available: usdcAsset.balance },
-                    "Insufficient USDC balance"
+                throw new WalletError(
+                    "Insufficient USDC balance", 
+                    { available: usdcAsset.balance }
                 );
             }
         } else {
             // XLM balance check
-            const xlmBalance = accountInfo.balances.find(balance => "asset_type" in balance && balance.asset_type === "native");
+            const xlmBalance = accountInfo.balances.find(
+                balance => "asset_type" in balance && balance.asset_type === "native"
+            );
 
             if (!xlmBalance) {
-                throw new ErrorClass("ValidationError", null, "No XLM balance found");
+                throw new WalletError("No XLM balance found");
             }
 
             // Keep 1 XLM as minimum reserve
             const availableXLM = parseFloat(xlmBalance.balance) - 1;
 
             if (availableXLM < Number(amount)) {
-                throw new ErrorClass(
-                    "InsufficientFundsError",
-                    { available: availableXLM.toString() },
-                    "Insufficient XLM balance (1 XLM reserve required)"
+                throw new WalletError(
+                    "Insufficient XLM balance (1 XLM reserve required)",
+                    { available: availableXLM.toString() }
                 );
             }
         }
@@ -124,7 +128,7 @@ export const withdrawAsset = async (req: Request, res: Response, next: NextFunct
 
         const withdrawal = await prisma.transaction.create({ data: transactionPayload });
 
-        res.status(200).json(withdrawal);
+        res.status(STATUS_CODES.SUCCESS).json(withdrawal);
     } catch (error) {
         next(error);
     }
@@ -141,7 +145,7 @@ export const swapAsset = async (req: Request, res: Response, next: NextFunction)
 
     try {
         if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
-            throw new ErrorClass("ValidationError", null, "Invalid amount specified");
+            throw new ValidationError("Invalid amount specified");
         }
 
         let walletAddress = "";
@@ -161,9 +165,7 @@ export const swapAsset = async (req: Request, res: Response, next: NextFunction)
             });
 
             if (!installation) {
-                throw new ErrorClass(
-                    "TransactionError",
-                    null,
+                throw new NotFoundError(
                     "Installation does not exist or user is not part of this installation."
                 );
             }
@@ -177,7 +179,7 @@ export const swapAsset = async (req: Request, res: Response, next: NextFunction)
             });
 
             if (!user) {
-                throw new NotFoundErrorClass("User not found");
+                throw new NotFoundError("User not found");
             }
 
             walletAddress = user.walletAddress;
@@ -189,20 +191,21 @@ export const swapAsset = async (req: Request, res: Response, next: NextFunction)
 
         if (toAssetType === "USDC") {
             // Check XLM balance for swap to USDC
-            const xlmBalance = accountInfo.balances.find(balance => "asset_type" in balance && balance.asset_type === "native");
+            const xlmBalance = accountInfo.balances.find(
+                balance => "asset_type" in balance && balance.asset_type === "native"
+            );
 
             if (!xlmBalance) {
-                throw new ErrorClass("ValidationError", null, "No XLM balance found");
+                throw new WalletError("No XLM balance found");
             }
 
             // Keep 1 XLM as minimum reserve
             const availableXLM = parseFloat(xlmBalance.balance) - 1;
 
             if (availableXLM < Number(amount)) {
-                throw new ErrorClass(
-                    "InsufficientFundsError",
-                    { available: availableXLM.toString() },
-                    "Insufficient XLM balance for swap (1 XLM reserve required)"
+                throw new WalletError(
+                    "Insufficient XLM balance for swap (1 XLM reserve required)",
+                    { available: availableXLM.toString() }
                 );
             }
         } else {
@@ -212,14 +215,13 @@ export const swapAsset = async (req: Request, res: Response, next: NextFunction)
             );
 
             if (!usdcAsset) {
-                throw new ErrorClass("ValidationError", null, "No USDC asset found in wallet");
+                throw new WalletError("No USDC asset found in wallet");
             }
 
             if (parseFloat(usdcAsset.balance) < Number(amount)) {
-                throw new ErrorClass(
-                    "InsufficientFundsError",
-                    { available: usdcAsset.balance },
-                    "Insufficient USDC balance for swap"
+                throw new WalletError(
+                    "Insufficient USDC balance for swap",
+                    { available: usdcAsset.balance }
                 );
             }
         }
@@ -240,7 +242,9 @@ export const swapAsset = async (req: Request, res: Response, next: NextFunction)
 
         const transactionPayload = {
             txHash,
-            category: toAssetType === "USDC" ? TransactionCategory.SWAP_XLM : TransactionCategory.SWAP_USDC,
+            category: toAssetType === "USDC" 
+                ? TransactionCategory.SWAP_XLM 
+                : TransactionCategory.SWAP_USDC,
             amount: parseFloat(amount.toString()),
             fromAmount: parseFloat(amount.toString()),
             toAmount: parseFloat(equivalentAmount.toString()),
@@ -254,7 +258,7 @@ export const swapAsset = async (req: Request, res: Response, next: NextFunction)
 
         const swap = await prisma.transaction.create({ data: transactionPayload });
 
-        res.status(200).json(swap);
+        res.status(STATUS_CODES.SUCCESS).json(swap);
     } catch (error) {
         next(error);
     }
@@ -280,9 +284,7 @@ export const getWalletInfo = async (req: Request, res: Response, next: NextFunct
             });
 
             if (!installation) {
-                throw new ErrorClass(
-                    "TransactionError",
-                    null,
+                throw new NotFoundError(
                     "Installation does not exist or user is not part of this installation."
                 );
             }
@@ -295,7 +297,7 @@ export const getWalletInfo = async (req: Request, res: Response, next: NextFunct
             });
 
             if (!user) {
-                throw new NotFoundErrorClass("User not found");
+                throw new NotFoundError("User not found");
             }
 
             walletAddress = user.walletAddress;
@@ -303,7 +305,7 @@ export const getWalletInfo = async (req: Request, res: Response, next: NextFunct
 
         const accountInfo = await stellarService.getAccountInfo(walletAddress);
 
-        res.status(200).json(accountInfo);
+        res.status(STATUS_CODES.SUCCESS).json(accountInfo);
     } catch (error) {
         next(error);
     }
@@ -336,7 +338,7 @@ export const getTransactions = async (req: Request, res: Response, next: NextFun
             });
 
             if (!userInstallation) {
-                throw new ErrorClass("TransactionError", null, "User is not part of this installation.");
+                throw new AuthorizationError("User is not part of this installation.");
             }
         } else {
             const user = await prisma.user.findUnique({
@@ -345,7 +347,7 @@ export const getTransactions = async (req: Request, res: Response, next: NextFun
             });
 
             if (!user) {
-                throw new NotFoundErrorClass("User not found");
+                throw new NotFoundError("User not found");
             }
         }
 
@@ -375,7 +377,7 @@ export const getTransactions = async (req: Request, res: Response, next: NextFun
             }
         });
 
-        res.status(200).json({
+        res.status(STATUS_CODES.SUCCESS).json({
             transactions,
             hasMore: transactions.length === take
         });
@@ -411,7 +413,7 @@ export const recordWalletTopups = async (req: Request, res: Response, next: Next
             });
 
             if (!installation) {
-                throw new ErrorClass("TransactionError", null, "User is not part of this installation.");
+                throw new AuthorizationError("User is not part of this installation.");
             }
 
             walletAddress = installation.walletAddress;
@@ -423,7 +425,7 @@ export const recordWalletTopups = async (req: Request, res: Response, next: Next
             });
 
             if (!user) {
-                throw new NotFoundErrorClass("User not found");
+                throw new NotFoundError("User not found");
             }
 
             walletAddress = user.walletAddress;
@@ -433,7 +435,7 @@ export const recordWalletTopups = async (req: Request, res: Response, next: Next
         const stellarTopups = await stellarService.getTopUpTransactions(walletAddress);
 
         if (stellarTopups.length === 0) {
-            return res.status(200).json({
+            return res.status(STATUS_CODES.SUCCESS).json({
                 message: "No new topup transactions found",
                 processed: 0
             });
@@ -455,7 +457,7 @@ export const recordWalletTopups = async (req: Request, res: Response, next: Next
 
         // If last recorded topup matches the most recent stellar topup, no new transactions
         if (lastRecordedTopup && lastRecordedTopup.txHash === mostRecentStellarTxHash) {
-            return res.status(200).json({
+            return res.status(STATUS_CODES.SUCCESS).json({
                 message: "No new topup transactions found",
                 processed: 0
             });
@@ -508,7 +510,7 @@ export const recordWalletTopups = async (req: Request, res: Response, next: Next
             );
         }
 
-        res.status(200).json({
+        res.status(STATUS_CODES.SUCCESS).json({
             message: `Successfully processed ${processed} topup transactions`,
             processed,
             transactions: newTransactions.map(tx => ({

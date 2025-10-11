@@ -2,8 +2,15 @@ import { NextFunction, Request, Response } from "express";
 import { prisma } from "../config/database.config";
 import { InputJsonValue } from "@prisma/client/runtime/library";
 import { stellarService } from "../services/stellar.service";
-import { encrypt } from "../helper";
-import { AddressBook, ErrorClass, NotFoundErrorClass } from "../models";
+import { STATUS_CODES, encrypt } from "../helper";
+import { AddressBook } from "../models";
+import { NotFoundError, ErrorClass } from "../models/error.model";
+
+class UserError extends ErrorClass {
+    constructor(message: string, details: unknown = null) {
+        super("USER_ERROR", details, message);
+    }
+}
 
 export const getUser = async (req: Request, res: Response, next: NextFunction) => {
     const { userId } = req.body;
@@ -45,7 +52,7 @@ export const getUser = async (req: Request, res: Response, next: NextFunction) =
         });
     
         if (!user) {
-            throw new NotFoundErrorClass("User not found");
+            throw new NotFoundError("User not found");
         }
 
         const walletStatus = { wallet: false, usdcTrustline: false };
@@ -77,7 +84,7 @@ export const getUser = async (req: Request, res: Response, next: NextFunction) =
                     walletStatus.usdcTrustline = true;
                 } catch (walletError) {
                     console.warn("Failed to add USDC trustline:", walletError);
-                    return res.status(200).json({ 
+                    return res.status(STATUS_CODES.PARTIAL_SUCCESS).json({ 
                         user, 
                         error: walletError,
                         walletStatus,
@@ -85,10 +92,10 @@ export const getUser = async (req: Request, res: Response, next: NextFunction) =
                     });
                 }
 
-                return res.status(200).json({ user, walletStatus });
+                return res.status(STATUS_CODES.SUCCESS).json({ user, walletStatus });
             } catch (walletCreationError) {
                 console.warn("Failed to create wallet for existing user:", walletCreationError);
-                return res.status(200).json({ 
+                return res.status(STATUS_CODES.PARTIAL_SUCCESS).json({ 
                     user, 
                     error: walletCreationError,
                     walletStatus,
@@ -97,7 +104,7 @@ export const getUser = async (req: Request, res: Response, next: NextFunction) =
             }
         }
         
-        res.status(200).json(user);
+        res.status(STATUS_CODES.SUCCESS).json(user);
     } catch (error) {
         next(error);
     }
@@ -114,7 +121,7 @@ export const createUser = async (req: Request, res: Response, next: NextFunction
         });
 
         if (existingUser) {
-            throw new ErrorClass("UserError", null, "User already exists");
+            throw new UserError("User already exists");
         }
 
         const select = {
@@ -140,7 +147,7 @@ export const createUser = async (req: Request, res: Response, next: NextFunction
                 select
             });
         
-            return res.status(201).json(user);
+            return res.status(STATUS_CODES.POST).json(user);
         }
     
         // Create wallet for contributor.devasign.com or when not skipping
@@ -166,9 +173,9 @@ export const createUser = async (req: Request, res: Response, next: NextFunction
                 userWallet.secretKey
             );
             
-            res.status(201).json(user);
+            res.status(STATUS_CODES.POST).json(user);
         } catch (error) {
-            res.status(202).json({ 
+            res.status(STATUS_CODES.PARTIAL_SUCCESS).json({ 
                 error, 
                 user, 
                 message: "Failed to add USDC trustline for wallet."
@@ -188,7 +195,7 @@ export const updateUsername = async (req: Request, res: Response, next: NextFunc
         });
 
         if (!existingUser) {
-            throw new NotFoundErrorClass("User not found");
+            throw new NotFoundError("User not found");
         }
 
         const user = await prisma.user.update({
@@ -201,7 +208,7 @@ export const updateUsername = async (req: Request, res: Response, next: NextFunc
             }
         });
 
-        res.status(200).json(user);
+        res.status(STATUS_CODES.SUCCESS).json(user);
     } catch (error) {
         next(error);
     }
@@ -219,7 +226,7 @@ export const updateAddressBook = async (req: Request, res: Response, next: NextF
         });
 
         if (!user) {
-            throw new NotFoundErrorClass("User not found");
+            throw new NotFoundError("User not found");
         }
 
         // Check for duplicate address
@@ -227,17 +234,15 @@ export const updateAddressBook = async (req: Request, res: Response, next: NextF
             entry => entry.address === address
         );
         if (addressExists) {
-            throw new ErrorClass("ValidationError", null, "Address already exists in address book");
-        }
-
-        // TODO: Add a way to delete or replace other addresses
-        // Limit address book size
-        if (user.addressBook.length >= 20) {
-            throw new ErrorClass("ValidationError", null, "Address book limit reached (max 20)");
+            throw new UserError("Address already exists in address book");
         }
 
         const newAddress = { address, name };
-        const updatedAddressBook = [...user.addressBook, newAddress];
+        let updatedAddressBook = [...user.addressBook, newAddress];
+
+        if (updatedAddressBook.length > 20) {
+            updatedAddressBook = updatedAddressBook.slice(-20);
+        }
 
         const updatedUser = await prisma.user.update({
             where: { userId },
@@ -251,7 +256,7 @@ export const updateAddressBook = async (req: Request, res: Response, next: NextF
             }
         });
 
-        res.status(200).json(updatedUser);
+        res.status(STATUS_CODES.SUCCESS).json(updatedUser);
     } catch (error) {
         next(error);
     }

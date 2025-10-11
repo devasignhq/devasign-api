@@ -3,20 +3,30 @@ import { prisma } from "../config/database.config";
 import { FirebaseService } from "../services/firebase.service";
 import { usdcAssetId } from "../config/stellar.config";
 import { stellarService } from "../services/stellar.service";
-import { decrypt } from "../helper";
+import { STATUS_CODES, decrypt } from "../helper";
 import {
     MessageType,
     CreateTask,
-    ErrorClass,
-    NotFoundErrorClass,
     TaskIssue,
     FilterTasks
 } from "../models";
 import { HorizonApi } from "../models/horizonapi.model";
 import { $Enums, Prisma, TaskStatus, TimelineType } from "../generated/client";
 import { OctokitService } from "../services/octokit.service";
+import {
+    AuthorizationError,
+    ErrorClass,
+    NotFoundError,
+    ValidationError
+} from "../models/error.model";
 
 type USDCBalance = HorizonApi.BalanceLineAsset<"credit_alphanum12">;
+
+class TaskError extends ErrorClass {
+    constructor(message: string, details: unknown = null) {
+        super("TASK_ERROR", details, message);
+    }
+}
 
 export const createTask = async (req: Request, res: Response, next: NextFunction) => {
     const { userId, payload: data } = req.body;
@@ -34,7 +44,7 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
         });
 
         if (!installation) {
-            throw new NotFoundErrorClass("Installation not found");
+            throw new NotFoundError("Installation not found");
         }
 
         // Check user balance
@@ -44,7 +54,7 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
         ) as USDCBalance;
 
         if (parseFloat(usdcAsset.balance) < parseFloat(payload.bounty)) {
-            throw new ErrorClass("TaskError", null, "Insufficient balance");
+            throw new TaskError("Insufficient balance");
         }
 
         // Confirm USDC trustline
@@ -136,7 +146,7 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
             });
 
             if (!bountyTransactionStatus.recorded) {
-                return res.status(202).json({
+                return res.status(STATUS_CODES.PARTIAL_SUCCESS).json({
                     error: bountyTransactionStatus.error,
                     transactionRecord: false,
                     task: updatedTask,
@@ -144,7 +154,7 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
                 });
             }
 
-            res.status(201).json({ ...task, ...updatedTask });
+            res.status(STATUS_CODES.POST).json({ ...task, ...updatedTask });
         } catch (error) {
             let message = "Failed to either create bounty comment or add bounty label.";
 
@@ -152,7 +162,7 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
                 message = "Failed to record bounty transaction and to either create bounty comment or add bounty label.";
             }
 
-            res.status(202).json({
+            res.status(STATUS_CODES.PARTIAL_SUCCESS).json({
                 error,
                 transactionRecord: bountyTransactionStatus.recorded,
                 task,
@@ -178,7 +188,7 @@ export const createManyTasks = async (req: Request, res: Response, next: NextFun
         });
 
         if (!user) {
-            throw new NotFoundErrorClass("User not found");
+            throw new NotFoundError("User not found");
         }
 
         // Calculate total bounty needed for all tasks
@@ -193,7 +203,7 @@ export const createManyTasks = async (req: Request, res: Response, next: NextFun
         ) as USDCBalance;
 
         if (parseFloat(usdcAsset.balance) < totalBounty) {
-            throw new ErrorClass("TaskError", null, "Insufficient balance for all tasks");
+            throw new TaskError("Insufficient balance for all tasks");
         }
 
         const decryptedUserSecret = decrypt(user.walletSecret);
@@ -205,7 +215,7 @@ export const createManyTasks = async (req: Request, res: Response, next: NextFun
         });
 
         if (!installation) {
-            throw new NotFoundErrorClass("Installation not found");
+            throw new NotFoundError("Installation not found");
         }
 
         // Ensure USDC trustline exists
@@ -248,7 +258,7 @@ export const createManyTasks = async (req: Request, res: Response, next: NextFun
             })
         );
 
-        res.status(201).json({
+        res.status(STATUS_CODES.POST).json({
             message: `Successfully created ${createdTasks.length} tasks`,
             tasks: createdTasks
         });
@@ -344,7 +354,7 @@ export const getTasks = async (req: Request, res: Response, next: NextFunction) 
             take: Number(limit)
         });
 
-        res.status(200).json({
+        res.status(STATUS_CODES.SUCCESS).json({
             data: tasks,
             pagination: {
                 currentPage: Number(page),
@@ -487,7 +497,7 @@ export const getInstallationTasks = async (req: Request, res: Response, next: Ne
             take: Number(limit)
         });
 
-        res.status(200).json({
+        res.status(STATUS_CODES.SUCCESS).json({
             data: tasks,
             pagination: {
                 currentPage: Number(page),
@@ -603,7 +613,7 @@ export const getContributorTasks = async (req: Request, res: Response, next: Nex
             take: Number(limit)
         });
 
-        res.status(200).json({
+        res.status(STATUS_CODES.SUCCESS).json({
             data: tasks,
             pagination: {
                 currentPage: Number(page),
@@ -649,10 +659,10 @@ export const getTask = async (req: Request, res: Response, next: NextFunction) =
         });
 
         if (!task) {
-            throw new NotFoundErrorClass("Task not found");
+            throw new NotFoundError("Task not found");
         }
 
-        res.status(200).json(task);
+        res.status(STATUS_CODES.SUCCESS).json(task);
     } catch (error) {
         next(error);
     }
@@ -712,10 +722,10 @@ export const getInstallationTask = async (req: Request, res: Response, next: Nex
         });
 
         if (!task) {
-            throw new NotFoundErrorClass("Task not found");
+            throw new NotFoundError("Task not found");
         }
 
-        res.status(200).json(task);
+        res.status(STATUS_CODES.SUCCESS).json(task);
     } catch (error) {
         next(error);
     }
@@ -762,10 +772,10 @@ export const getContributorTask = async (req: Request, res: Response, next: Next
         });
 
         if (!task) {
-            throw new NotFoundErrorClass("Task not found");
+            throw new NotFoundError("Task not found");
         }
 
-        res.status(200).json(task);
+        res.status(STATUS_CODES.SUCCESS).json(task);
     } catch (error) {
         next(error);
     }
@@ -787,13 +797,13 @@ export const addBountyCommentId = async (req: Request, res: Response, next: Next
         });
 
         if (!task) {
-            throw new NotFoundErrorClass("Task not found");
-        }
-        if (task.status !== "OPEN") {
-            throw new ErrorClass("TaskError", null, "Only open tasks can be updated");
+            throw new NotFoundError("Task not found");
         }
         if (task.creatorId !== userId) {
-            throw new ErrorClass("TaskError", null, "Only task creator can perform action");
+            throw new AuthorizationError("Only task creator can perform this action");
+        }
+        if (task.status !== "OPEN") {
+            throw new ValidationError("Only open tasks can be updated");
         }
 
         const updatedTask = await prisma.task.update({
@@ -804,7 +814,7 @@ export const addBountyCommentId = async (req: Request, res: Response, next: Next
             select: { id: true }
         });
 
-        res.status(200).json(updatedTask);
+        res.status(STATUS_CODES.SUCCESS).json(updatedTask);
     } catch (error) {
         next(error);
     }
@@ -840,19 +850,19 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
         });
 
         if (!task) {
-            throw new NotFoundErrorClass("Task not found");
-        }
-        if (task.status !== "OPEN") {
-            throw new ErrorClass("TaskError", null, "Only open tasks can be updated");
+            throw new NotFoundError("Task not found");
         }
         if (task.creatorId !== userId) {
-            throw new ErrorClass("TaskError", null, "Only task creator can update bounty");
+            throw new AuthorizationError("Only task creator can perform this action");
+        }
+        if (task.status !== "OPEN") {
+            throw new ValidationError("Only open tasks can be updated");
         }
         if (task._count.taskActivities > 0) {
-            throw new ErrorClass("TaskError", null, "Cannot update the bounty amount for tasks with existing applications");
+            throw new ValidationError("Cannot update the bounty amount for tasks with existing applications");
         }
         if (task.bounty === newBounty) {
-            throw new ErrorClass("TaskError", null, "New bounty is the same as current bounty");
+            throw new ValidationError("New bounty is the same as current bounty");
         }
 
         const bountyDifference = Number(newBounty) - task.bounty;
@@ -877,7 +887,7 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
             );
 
             if (!usdcAsset || parseFloat(usdcAsset.balance) < bountyDifference) {
-                throw new ErrorClass("TaskError", null, "Insufficient USDC balance for compensation increase");
+                throw new TaskError("Insufficient USDC balance for compensation increase");
             }
 
             const { txHash } = await stellarService.transferAsset(
@@ -939,7 +949,7 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
             );
 
             if (!additionalFundsTransaction.recorded && additionalFundsTransaction.txHash) {
-                return res.status(202).json({
+                return res.status(STATUS_CODES.PARTIAL_SUCCESS).json({
                     error: additionalFundsTransaction.error,
                     transactionRecord: false,
                     task: updatedTask,
@@ -947,7 +957,7 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
                 });
             }
 
-            res.status(200).json(updatedTask);
+            res.status(STATUS_CODES.SUCCESS).json(updatedTask);
         } catch (error) {
             let message = "Failed to update bounty amount on GitHub.";
 
@@ -959,7 +969,7 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
                 ? additionalFundsTransaction.recorded
                 : null;
 
-            res.status(202).json({
+            res.status(STATUS_CODES.PARTIAL_SUCCESS).json({
                 error,
                 transactionRecord,
                 task: updatedTask,
@@ -993,16 +1003,16 @@ export const updateTaskTimeline = async (req: Request, res: Response, next: Next
         });
 
         if (!task) {
-            throw new NotFoundErrorClass("Task not found");
-        }
-        if (task.status !== "OPEN") {
-            throw new ErrorClass("TaskError", null, "Only open tasks can be updated");
+            throw new NotFoundError("Task not found");
         }
         if (task.creatorId !== userId) {
-            throw new ErrorClass("TaskError", null, "Only task creator can update timeline");
+            throw new AuthorizationError("Only task creator can perform this action");
+        }
+        if (task.status !== "OPEN") {
+            throw new ValidationError("Only open tasks can be updated");
         }
         if (task._count.taskActivities > 0) {
-            throw new ErrorClass("TaskError", null, "Cannot update the timeline for tasks with existing applications");
+            throw new ValidationError("Cannot update the timeline for tasks with existing applications");
         }
 
         // Optionally, convert days > 6 to weeks+days as in createTask
@@ -1028,7 +1038,7 @@ export const updateTaskTimeline = async (req: Request, res: Response, next: Next
             }
         });
 
-        res.status(200).json(updatedTask);
+        res.status(STATUS_CODES.SUCCESS).json(updatedTask);
     } catch (error) {
         next(error);
     }
@@ -1045,10 +1055,10 @@ export const submitTaskApplication = async (req: Request, res: Response, next: N
         });
 
         if (!task) {
-            throw new NotFoundErrorClass("Task not found");
+            throw new NotFoundError("Task not found");
         }
         if (task.status !== "OPEN") {
-            throw new ErrorClass("TaskError", null, "Task is not open");
+            throw new ValidationError("Task is not open");
         }
 
         const existingApplication = await prisma.taskActivity.findFirst({
@@ -1061,7 +1071,7 @@ export const submitTaskApplication = async (req: Request, res: Response, next: N
         });
 
         if (existingApplication) {
-            throw new ErrorClass("TaskError", null, "You have already applied for this task!");
+            throw new TaskError("You have already applied for this task!");
         }
 
         await prisma.taskActivity.create({
@@ -1075,7 +1085,7 @@ export const submitTaskApplication = async (req: Request, res: Response, next: N
             }
         });
 
-        res.status(200).json({ message: "Task application submitted" });
+        res.status(STATUS_CODES.SUCCESS).json({ message: "Task application submitted" });
     } catch (error) {
         next(error);
     }
@@ -1098,23 +1108,22 @@ export const acceptTaskApplication = async (req: Request, res: Response, next: N
         });
 
         if (!task) {
-            throw new NotFoundErrorClass("Task not found");
+            throw new NotFoundError("Task not found");
+        }
+        if (task.creatorId !== userId) {
+            throw new AuthorizationError("Only task creator can perform this action");
         }
         if (task.status !== "OPEN") {
-            throw new ErrorClass("TaskError", null, "Only open tasks can be assigned");
-        }
-        // TODO: Update when permissions are live
-        if (task.creatorId !== userId) {
-            throw new ErrorClass("TaskError", null, "Only the task creator can accept applications");
+            throw new ValidationError("Only open tasks can be assigned");
         }
         if (task.contributorId) {
-            throw new ErrorClass("TaskError", null, "Task has already has already been delegated to a contributor");
+            throw new ValidationError("Task has already has already been delegated to a contributor");
         }
 
         // Check if the contributor actually applied
         const hasApplied = task.taskActivities.find(activity => activity.userId === contributorId);
         if (!hasApplied) {
-            throw new ErrorClass("TaskError", null, "User did not apply for this task");
+            throw new TaskError("User did not apply for this task");
         }
 
         // Assign the contributor and update status
@@ -1137,9 +1146,9 @@ export const acceptTaskApplication = async (req: Request, res: Response, next: N
             // TODO: Add logic on frontend for retrying.
             await FirebaseService.createTask(taskId, userId, contributorId);
 
-            res.status(200).json(updatedTask);
+            res.status(STATUS_CODES.SUCCESS).json(updatedTask);
         } catch (error) {
-            return res.status(202).json({
+            return res.status(STATUS_CODES.PARTIAL_SUCCESS).json({
                 error,
                 task: updatedTask,
                 message: "Failed to enable chat functionality for this task."
@@ -1173,13 +1182,10 @@ export const requestTimelineExtension = async (req: Request, res: Response, next
         });
 
         if (!task) {
-            throw new NotFoundErrorClass("Task not found");
+            throw new NotFoundError("Task not found");
         }
-
         if (task.status !== "IN_PROGRESS" || task.contributorId !== userId) {
-            throw new ErrorClass(
-                "TaskError",
-                null,
+            throw new ValidationError(
                 "Requesting timeline extension can only be requested by the active contributor"
             );
         }
@@ -1200,7 +1206,7 @@ export const requestTimelineExtension = async (req: Request, res: Response, next
             }
         });
 
-        res.status(200).json(message);
+        res.status(STATUS_CODES.SUCCESS).json(message);
     } catch (error) {
         next(error);
     }
@@ -1226,15 +1232,10 @@ export const replyTimelineExtensionRequest = async (req: Request, res: Response,
         });
 
         if (!task) {
-            throw new NotFoundErrorClass("Task not found");
+            throw new NotFoundError("Task not found");
         }
-
         if (task.creatorId !== userId) {
-            throw new ErrorClass(
-                "TaskError",
-                null,
-                "Only task creator can respond to timeline extension requests"
-            );
+            throw new AuthorizationError("Only task creator can perform this action");
         }
 
         if (accept) {
@@ -1315,7 +1316,7 @@ export const replyTimelineExtensionRequest = async (req: Request, res: Response,
                 }
             });
 
-            return res.status(200).json({ message, task: updatedTask });
+            return res.status(STATUS_CODES.SUCCESS).json({ message, task: updatedTask });
         }
 
         const message = await FirebaseService.createMessage({
@@ -1331,7 +1332,7 @@ export const replyTimelineExtensionRequest = async (req: Request, res: Response,
             }
         });
 
-        res.status(200).json({ message });
+        res.status(STATUS_CODES.SUCCESS).json({ message });
     } catch (error) {
         next(error);
     }
@@ -1352,21 +1353,13 @@ export const markAsComplete = async (req: Request, res: Response, next: NextFunc
         });
 
         if (!task) {
-            throw new NotFoundErrorClass("Task not found");
+            throw new NotFoundError("Task not found");
         }
         if (task.contributorId !== userId) {
-            throw new ErrorClass(
-                "TaskError",
-                null,
-                "Only the active contributor can make this action"
-            );
+            throw new AuthorizationError("Only the active contributor can make this action");
         }
         if (task.status !== "IN_PROGRESS" && task.status !== "MARKED_AS_COMPLETED") {
-            throw new ErrorClass(
-                "TaskError",
-                null,
-                "Task is not active"
-            );
+            throw new ValidationError("Task is not active");
         }
 
         const submission = await prisma.taskSubmission.create({
@@ -1414,7 +1407,7 @@ export const markAsComplete = async (req: Request, res: Response, next: NextFunc
             }
         });
 
-        res.status(200).json(updatedTask);
+        res.status(STATUS_CODES.SUCCESS).json(updatedTask);
     } catch (error) {
         next(error);
     }
@@ -1451,22 +1444,16 @@ export const validateCompletion = async (req: Request, res: Response, next: Next
         });
 
         if (!task) {
-            throw new NotFoundErrorClass("Task not found");
+            throw new NotFoundError("Task not found");
+        }
+        if (task.creator.userId !== userId) {
+            throw new AuthorizationError("Only task creator can perform this action");
         }
         if (task.status !== "MARKED_AS_COMPLETED") {
-            throw new ErrorClass("TaskError", null, "Task has not been marked as completed");
-        }
-
-        // TODO: Update to allow team members with permission
-        if (task.creator.userId !== userId) {
-            throw new ErrorClass(
-                "TaskError",
-                null,
-                "Only task creator can validate if task is completed"
-            );
+            throw new ValidationError("Task has not been marked as completed");
         }
         if (!task.contributor) {
-            throw new ErrorClass("TaskError", null, "Contributor not found");
+            throw new ValidationError("Contributor not found");
         }
 
         const decryptedWalletSecret = decrypt(task.installation.walletSecret);
@@ -1522,9 +1509,9 @@ export const validateCompletion = async (req: Request, res: Response, next: Next
                 // eslint-disable-next-line no-empty
             } catch { }
 
-            res.status(200).json(updatedTask);
+            res.status(STATUS_CODES.SUCCESS).json(updatedTask);
         } catch (error) {
-            res.status(202).json({
+            res.status(STATUS_CODES.PARTIAL_SUCCESS).json({
                 error,
                 validated: true,
                 task,
@@ -1597,7 +1584,7 @@ export const getTaskActivities = async (req: Request, res: Response, next: NextF
             take: Number(limit)
         });
 
-        res.status(200).json({
+        res.status(STATUS_CODES.SUCCESS).json({
             data: activities,
             pagination: {
                 currentPage: Number(page),
@@ -1631,7 +1618,7 @@ export const markActivityAsViewed = async (req: Request, res: Response, next: Ne
         });
 
         if (!activity) {
-            throw new NotFoundErrorClass("Task activity not found");
+            throw new NotFoundError("Task activity not found");
         }
 
         // Update the activity as viewed
@@ -1645,7 +1632,7 @@ export const markActivityAsViewed = async (req: Request, res: Response, next: Ne
             }
         });
 
-        res.status(200).json({
+        res.status(STATUS_CODES.SUCCESS).json({
             message: "Activity marked as viewed",
             activity: updatedActivity
         });
@@ -1679,18 +1666,18 @@ export const deleteTask = async (req: Request, res: Response, next: NextFunction
         });
 
         if (!task) {
-            throw new NotFoundErrorClass("Task not found");
+            throw new NotFoundError("Task not found");
         }
 
         // Validations
         if (task.creatorId !== userId) {
-            throw new ErrorClass("TaskError", null, "Only task creator can delete the task");
+            throw new AuthorizationError("Only task creator can perform this action");
         }
         if (task.status !== "OPEN") {
-            throw new ErrorClass("TaskError", null, "Only open tasks can be deleted");
+            throw new ValidationError("Only open tasks can be deleted");
         }
         if (task.contributorId) {
-            throw new ErrorClass("TaskError", null, "Cannot delete task with assigned contributor");
+            throw new ValidationError("Cannot delete task with assigned contributor");
         }
 
         // Return bounty to wallet if it exists
@@ -1720,12 +1707,12 @@ export const deleteTask = async (req: Request, res: Response, next: NextFunction
                 (task.issue as TaskIssue).bountyCommentId!
             );
 
-            res.status(200).json({
+            res.status(STATUS_CODES.SUCCESS).json({
                 message: "Task deleted successfully",
                 refunded: `${task.bounty} USDC`
             });
         } catch (error) {
-            res.status(202).json({
+            res.status(STATUS_CODES.PARTIAL_SUCCESS).json({
                 error,
                 data: {
                     message: "Task deleted successfully",

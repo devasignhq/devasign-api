@@ -1,11 +1,22 @@
 import { NextFunction, Request, Response } from "express";
 import { prisma } from "../config/database.config";
-import { ErrorClass, NotFoundErrorClass } from "../models";
 import { usdcAssetId } from "../config/stellar.config";
 import { stellarService } from "../services/stellar.service";
-import { decrypt, encrypt } from "../helper";
+import { STATUS_CODES, decrypt, encrypt } from "../helper";
 import { OctokitService } from "../services/octokit.service";
 import { Prisma } from "../generated/client";
+import {
+    AuthorizationError,
+    ErrorClass,
+    NotFoundError,
+    ValidationError
+} from "../models/error.model";
+
+class InstallationError extends ErrorClass {
+    constructor(message: string, details: unknown = null) {
+        super("INSTALLATION_ERROR", details, message);
+    }
+}
 
 export const getInstallations = async (req: Request, res: Response, next: NextFunction) => {
     const { page = 1, limit = 10} = req.query;
@@ -13,10 +24,10 @@ export const getInstallations = async (req: Request, res: Response, next: NextFu
 
     try {
         if (Number(limit) > 100) {
-            throw new ErrorClass("ValidationError", null, "Maximum limit is 100");
+            throw new ValidationError("Maximum limit is 100");
         }
         if (Number(page) < 1) {
-            throw new ErrorClass("ValidationError", null, "Page must be greater than 0");
+            throw new ValidationError("Page must be greater than 0");
         }
 
         // Build where clause based on filters
@@ -58,7 +69,7 @@ export const getInstallations = async (req: Request, res: Response, next: NextFu
             take: Number(limit)
         });
 
-        res.status(200).json({
+        res.status(STATUS_CODES.SUCCESS).json({
             data: installations,
             pagination: {
                 currentPage: Number(page),
@@ -135,12 +146,12 @@ export const getInstallation = async (req: Request, res: Response, next: NextFun
         });
 
         if (!installation) {
-            throw new NotFoundErrorClass("Installation not found");
+            throw new NotFoundError("Installation not found");
         }
         
         const userIsTeamMember = installation.users.some(user => user.userId === userId);
         if (!userIsTeamMember) {
-            throw new ErrorClass("AuthorizationError", null, "Not authorized to view this installation");
+            throw new AuthorizationError("Not authorized to view this installation");
         }
 
         // Calculate installation stats
@@ -152,7 +163,7 @@ export const getInstallation = async (req: Request, res: Response, next: NextFun
             totalMembers: installation.users.length
         };
 
-        res.status(200).json({
+        res.status(STATUS_CODES.SUCCESS).json({
             ...installation,
             stats
         });
@@ -171,7 +182,7 @@ export const createInstallation = async (req: Request, res: Response, next: Next
         });
 
         if (!user) {
-            throw new NotFoundErrorClass("User not found");
+            throw new NotFoundError("User not found");
         }
 
         const existingInstallation = await prisma.installation.findUnique({
@@ -180,7 +191,7 @@ export const createInstallation = async (req: Request, res: Response, next: Next
         });
 
         if (existingInstallation) {
-            throw new ErrorClass("ValidationError", null, "Installation already exists");
+            throw new ValidationError("Installation already exists");
         }
 
         const githubInstallation = await OctokitService.getInstallationDetails(
@@ -245,9 +256,9 @@ export const createInstallation = async (req: Request, res: Response, next: Next
                 escrowWallet.secretKey
             );
             
-            res.status(201).json(installation);
+            res.status(STATUS_CODES.POST).json(installation);
         } catch (error) {
-            res.status(202).json({ 
+            res.status(STATUS_CODES.PARTIAL_SUCCESS).json({ 
                 error, 
                 installation, 
                 message: "Failed to add USDC trustlines."
@@ -276,13 +287,13 @@ export const updateInstallation = async (req: Request, res: Response, next: Next
         });
         
         if (!installation) {
-            throw new NotFoundErrorClass("Installation not found");
+            throw new NotFoundError("Installation not found");
         }
 
         // Check authorization
         const userIsTeamMember = installation.users.some(user => user.userId === userId);
         if (!userIsTeamMember) {
-            throw new ErrorClass("AuthorizationError", null, "Not authorized to update this installation");
+            throw new AuthorizationError("Not authorized to update this installation");
         }
 
         const updatedInstallation = await prisma.installation.update({
@@ -299,7 +310,8 @@ export const updateInstallation = async (req: Request, res: Response, next: Next
                 updatedAt: true
             }
         });
-        res.status(200).json(updatedInstallation);
+
+        res.status(STATUS_CODES.SUCCESS).json(updatedInstallation);
     } catch (error) {
         next(error);
     }
@@ -326,16 +338,12 @@ export const deleteInstallation = async (req: Request, res: Response, next: Next
         });
         
         if (!installation) {
-            throw new NotFoundErrorClass("Installation not found");
+            throw new NotFoundError("Installation not found");
         }
 
         // Check if there are active tasks
         if (!installation.tasks.every(task => task.status !== "OPEN")) {
-            throw new ErrorClass(
-                "InstallationError",
-                null,
-                "Cannot delete installation with active or completed tasks"
-            );
+            throw new InstallationError("Cannot delete installation with active or completed tasks");
         }
 
         // Refund escrow funds
@@ -359,7 +367,7 @@ export const deleteInstallation = async (req: Request, res: Response, next: Next
             where: { id }
         });
 
-        res.status(200).json({ 
+        res.status(STATUS_CODES.SUCCESS).json({ 
             message: "Installation deleted successfully", 
             refunded: `${refunded} USDC` 
         });
@@ -387,7 +395,7 @@ export const addTeamMember = async (req: Request, res: Response, next: NextFunct
         });
 
         if (!installation) {
-            throw new NotFoundErrorClass("Installation not found");
+            throw new NotFoundError("Installation not found");
         }
 
         // Check if user exists in our system
@@ -446,7 +454,7 @@ export const addTeamMember = async (req: Request, res: Response, next: NextFunct
             result = { username, status: "not_found" };
         }
 
-        res.status(200).json(result);
+        res.status(STATUS_CODES.SUCCESS).json(result);
     } catch (error) {
         next(error);
     }
@@ -463,14 +471,14 @@ export const updateTeamMemberPermissions = async (req: Request, res: Response, n
             select: { users: { select: { userId: true } } }
         });
         if (!installation) {
-            throw new NotFoundErrorClass("Installation not found");
+            throw new NotFoundError("Installation not found");
         }
         
         // TODO: check if user/actor has permission
         // Only allow if the acting user is a team member
         const userIsTeamMember = installation.users.some(user => user.userId === userId);
         if (!userIsTeamMember) {
-            throw new ErrorClass("AuthorizationError", null, "Not authorized to update permissions for this installation");
+            throw new AuthorizationError("Not authorized to update permissions for this installation");
         }
 
         // Update UserInstallationPermission
@@ -489,7 +497,10 @@ export const updateTeamMemberPermissions = async (req: Request, res: Response, n
                 }
             }
         });
-        res.status(200).json({ message: "Permissions updated successfully" });
+
+        res.status(STATUS_CODES.SUCCESS).json({ 
+            message: "Permissions updated successfully" 
+        });
     } catch (error) {
         next(error);
     }
@@ -506,14 +517,14 @@ export const removeTeamMember = async (req: Request, res: Response, next: NextFu
             select: { users: { select: { userId: true } } }
         });
         if (!installation) {
-            throw new NotFoundErrorClass("Installation not found");
+            throw new NotFoundError("Installation not found");
         }
 
         // TODO: check if user/actor has permission
         // Only allow if the acting user is a team member
         const userIsTeamMember = installation.users.some(user => user.userId === userId);
         if (!userIsTeamMember) {
-            throw new ErrorClass("AuthorizationError", null, "Not authorized to remove members from this installation");
+            throw new AuthorizationError("Not authorized to remove members from this installation");
         }
 
         // Remove user from installation
@@ -536,7 +547,9 @@ export const removeTeamMember = async (req: Request, res: Response, next: NextFu
             }
         });
 
-        res.status(200).json({ message: "Team member removed successfully" });
+        res.status(STATUS_CODES.SUCCESS).json({ 
+            message: "Team member removed successfully" 
+        });
     } catch (error) {
         next(error);
     }

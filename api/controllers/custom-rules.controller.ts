@@ -1,8 +1,9 @@
 import { NextFunction, Request, Response } from "express";
 import { prisma } from "../config/database.config";
-import { ErrorClass, NotFoundErrorClass } from "../models";
 import { RuleType, RuleSeverity, Prisma } from "../generated/client";
 import { RuleEngineService } from "../services/rule-engine.service";
+import { NotFoundError, ValidationError } from "../models/error.model";
+import { STATUS_CODES } from "../helper";
 
 // Get all custom rules for an installation
 export const getCustomRules = async (req: Request, res: Response, next: NextFunction) => {
@@ -22,7 +23,7 @@ export const getCustomRules = async (req: Request, res: Response, next: NextFunc
         });
 
         if (!installation) {
-            throw new NotFoundErrorClass("Installation not found or access denied");
+            throw new NotFoundError("Installation not found or access denied");
         }
 
         // Build where clause based on filters
@@ -51,7 +52,7 @@ export const getCustomRules = async (req: Request, res: Response, next: NextFunc
             ]
         });
 
-        res.status(200).json({
+        res.status(STATUS_CODES.SUCCESS).json({
             success: true,
             data: rules,
             count: rules.length
@@ -78,7 +79,7 @@ export const getCustomRule = async (req: Request, res: Response, next: NextFunct
         });
 
         if (!installation) {
-            throw new NotFoundErrorClass("Installation not found or access denied");
+            throw new NotFoundError("Installation not found or access denied");
         }
 
         const rule = await prisma.aIReviewRule.findFirst({
@@ -89,10 +90,10 @@ export const getCustomRule = async (req: Request, res: Response, next: NextFunct
         });
 
         if (!rule) {
-            throw new NotFoundErrorClass("Custom rule not found");
+            throw new NotFoundError("Custom rule not found");
         }
 
-        res.status(200).json({
+        res.status(STATUS_CODES.SUCCESS).json({
             success: true,
             data: rule
         });
@@ -119,7 +120,7 @@ export const createCustomRule = async (req: Request, res: Response, next: NextFu
         });
 
         if (!installation) {
-            throw new NotFoundErrorClass("Installation not found or access denied");
+            throw new NotFoundError("Installation not found or access denied");
         }
 
         // Check if rule name already exists for this installation
@@ -131,7 +132,7 @@ export const createCustomRule = async (req: Request, res: Response, next: NextFu
         });
 
         if (existingRule) {
-            throw new ErrorClass("ValidationError", null, "A rule with this name already exists for this installation");
+            throw new ValidationError("A rule with this name already exists for this installation");
         }
 
         // Validate rule configuration based on type
@@ -139,7 +140,7 @@ export const createCustomRule = async (req: Request, res: Response, next: NextFu
             name, description, ruleType, severity, pattern, config, active
         });
         if (!validationResult.isValid) {
-            throw new ErrorClass("ValidationError", null, validationResult.error || "");
+            throw new ValidationError(validationResult.error || "");
         }
 
         const rule = await prisma.aIReviewRule.create({
@@ -155,7 +156,7 @@ export const createCustomRule = async (req: Request, res: Response, next: NextFu
             }
         });
 
-        res.status(201).json({
+        res.status(STATUS_CODES.POST).json({
             success: true,
             data: rule,
             message: "Custom rule created successfully"
@@ -183,7 +184,7 @@ export const updateCustomRule = async (req: Request, res: Response, next: NextFu
         });
 
         if (!installation) {
-            throw new NotFoundErrorClass("Installation not found or access denied");
+            throw new NotFoundError("Installation not found or access denied");
         }
 
         // Check if rule exists
@@ -195,7 +196,7 @@ export const updateCustomRule = async (req: Request, res: Response, next: NextFu
         });
 
         if (!existingRule) {
-            throw new NotFoundErrorClass("Custom rule not found");
+            throw new NotFoundError("Custom rule not found");
         }
 
         // Check if new name conflicts with existing rules (excluding current rule)
@@ -209,7 +210,7 @@ export const updateCustomRule = async (req: Request, res: Response, next: NextFu
             });
 
             if (nameConflict) {
-                throw new ErrorClass("ValidationError", null, "A rule with this name already exists for this installation");
+                throw new ValidationError("A rule with this name already exists for this installation");
             }
         }
 
@@ -227,7 +228,7 @@ export const updateCustomRule = async (req: Request, res: Response, next: NextFu
 
             const validationResult = RuleEngineService.validateCustomRule(finalRule);
             if (!validationResult.isValid) {
-                throw new ErrorClass("ValidationError", null, validationResult.error || "");
+                throw new ValidationError(validationResult.error || "");
             }
         }
 
@@ -246,7 +247,7 @@ export const updateCustomRule = async (req: Request, res: Response, next: NextFu
             data: updateData
         });
 
-        res.status(200).json({
+        res.status(STATUS_CODES.SUCCESS).json({
             success: true,
             data: updatedRule,
             message: "Custom rule updated successfully"
@@ -273,7 +274,7 @@ export const deleteCustomRule = async (req: Request, res: Response, next: NextFu
         });
 
         if (!installation) {
-            throw new NotFoundErrorClass("Installation not found or access denied");
+            throw new NotFoundError("Installation not found or access denied");
         }
 
         // Check if rule exists
@@ -285,14 +286,14 @@ export const deleteCustomRule = async (req: Request, res: Response, next: NextFu
         });
 
         if (!existingRule) {
-            throw new NotFoundErrorClass("Custom rule not found");
+            throw new NotFoundError("Custom rule not found");
         }
 
         await prisma.aIReviewRule.delete({
             where: { id: ruleId }
         });
 
-        res.status(200).json({
+        res.status(STATUS_CODES.SUCCESS).json({
             success: true,
             message: "Custom rule deleted successfully"
         });
@@ -307,7 +308,7 @@ export const getDefaultRules = async (req: Request, res: Response, next: NextFun
     try {
         const defaultRules = RuleEngineService.getDefaultRules();
 
-        res.status(200).json({
+        res.status(STATUS_CODES.SUCCESS).json({
             success: true,
             data: defaultRules,
             count: defaultRules.length

@@ -10,6 +10,7 @@ import { JobQueueService } from "../services/job-queue.service";
 import { WorkflowIntegrationService } from "../services/workflow-integration.service";
 import { LoggingService } from "../services/logging.service";
 import { OctokitService } from "../services/octokit.service";
+import { STATUS_CODES } from "../helper";
 
 /**
  * Handles GitHub PR webhook events
@@ -29,7 +30,7 @@ export const handlePRWebhook = async (req: Request, res: Response, next: NextFun
         const result = await workflowService.processWebhookWorkflow(payload);
 
         if (!result.success) {
-            return res.status(500).json({
+            return res.status(STATUS_CODES.UNKNOWN).json({
                 success: false,
                 error: result.error,
                 timestamp: new Date().toISOString()
@@ -38,9 +39,9 @@ export const handlePRWebhook = async (req: Request, res: Response, next: NextFun
 
         // Handle case where PR is not eligible for analysis
         if (result.reason && !result.jobId) {
-            return res.status(200).json({
+            return res.status(STATUS_CODES.SUCCESS).json({
                 success: true,
-                message: `PR not eligible for analysis: ${result.reason}`,
+                message: result.reason,
                 data: {
                     prNumber: payload.pull_request.number,
                     repositoryName: payload.repository.full_name,
@@ -51,7 +52,7 @@ export const handlePRWebhook = async (req: Request, res: Response, next: NextFun
         }
 
         // Return success response with job information
-        res.status(202).json({
+        res.status(STATUS_CODES.BACKGROUND_JOB).json({
             success: true,
             message: "PR webhook processed successfully - analysis queued",
             data: {
@@ -69,12 +70,10 @@ export const handlePRWebhook = async (req: Request, res: Response, next: NextFun
         } as APIResponse);
 
     } catch (error) {
-        LoggingService.logError("PR webhook processing failed", {
-            error: error instanceof Error ? error.message : String(error)
-        });
+        LoggingService.logError("PR webhook processing failed", error);
 
         if (error instanceof PRAnalysisError) {
-            return res.status(400).json({
+            return res.status(error.status).json({
                 success: false,
                 error: error.message,
                 code: error.code,
@@ -87,7 +86,7 @@ export const handlePRWebhook = async (req: Request, res: Response, next: NextFun
         }
 
         if (error instanceof GitHubWebhookError) {
-            return res.status(400).json({
+            return res.status(error.status).json({
                 success: false,
                 error: error.message,
                 code: error.code,
@@ -109,7 +108,7 @@ export const webhookHealthCheck = async (req: Request, res: Response) => {
         const healthCheck = await workflowService.healthCheck();
         const workflowStatus = workflowService.getWorkflowStatus();
 
-        const statusCode = healthCheck.healthy ? 200 : 503;
+        const statusCode = healthCheck.healthy ? STATUS_CODES.SUCCESS : STATUS_CODES.SERVER_ERROR;
 
         res.status(statusCode).json({
             success: healthCheck.healthy,
@@ -123,7 +122,7 @@ export const webhookHealthCheck = async (req: Request, res: Response) => {
         } as APIResponse);
 
     } catch (error) {
-        res.status(503).json({
+        res.status(STATUS_CODES.UNKNOWN).json({
             success: false,
             message: "Health check failed",
             error: error instanceof Error ? error.message : String(error),
@@ -141,7 +140,7 @@ export const getJobStatus = (req: Request, res: Response) => {
         const { jobId } = req.params;
 
         if (!jobId) {
-            return res.status(400).json({
+            return res.status(STATUS_CODES.SERVER_ERROR).json({
                 success: false,
                 error: "Job ID is required"
             });
@@ -151,13 +150,13 @@ export const getJobStatus = (req: Request, res: Response) => {
         const job = jobQueue.getJobStatus(jobId);
 
         if (!job) {
-            return res.status(404).json({
+            return res.status(STATUS_CODES.NOT_FOUND).json({
                 success: false,
                 error: "Job not found"
             });
         }
 
-        res.status(200).json({
+        res.status(STATUS_CODES.SUCCESS).json({
             success: true,
             data: {
                 jobId: job.id,
@@ -183,7 +182,7 @@ export const getJobStatus = (req: Request, res: Response) => {
 
     } catch (error) {
         LoggingService.logError("Error getting job status", { error });
-        res.status(500).json({
+        res.status(STATUS_CODES.UNKNOWN).json({
             success: false,
             error: "Internal server error"
         });
@@ -198,7 +197,7 @@ export const getQueueStats = (req: Request, res: Response) => {
         const jobQueue = JobQueueService.getInstance();
         const stats = jobQueue.getQueueStats();
 
-        res.status(200).json({
+        res.status(STATUS_CODES.SUCCESS).json({
             success: true,
             data: {
                 queue: stats,
@@ -209,7 +208,7 @@ export const getQueueStats = (req: Request, res: Response) => {
 
     } catch (error) {
         LoggingService.logError("Error getting queue stats", { error });
-        res.status(500).json({
+        res.status(STATUS_CODES.UNKNOWN).json({
             success: false,
             error: "Internal server error"
         });
@@ -224,7 +223,7 @@ export const getWorkflowStatus = (req: Request, res: Response) => {
         const workflowService = WorkflowIntegrationService.getInstance();
         const status = workflowService.getWorkflowStatus();
 
-        res.status(200).json({
+        res.status(STATUS_CODES.SUCCESS).json({
             success: true,
             data: status,
             timestamp: new Date().toISOString()
@@ -232,7 +231,7 @@ export const getWorkflowStatus = (req: Request, res: Response) => {
 
     } catch (error) {
         LoggingService.logError("Error getting workflow status", { error });
-        res.status(500).json({
+        res.status(STATUS_CODES.UNKNOWN).json({
             success: false,
             error: "Internal server error",
             timestamp: new Date().toISOString()
@@ -248,7 +247,7 @@ export const triggerManualAnalysis = async (req: Request, res: Response, next: N
         const { installationId, repositoryName, prNumber, reason } = req.body;
 
         if (!installationId || !repositoryName || !prNumber) {
-            return res.status(400).json({
+            return res.status(STATUS_CODES.SERVER_ERROR).json({
                 success: false,
                 error: "Missing required fields: installationId, repositoryName, prNumber"
             });
@@ -284,14 +283,14 @@ export const triggerManualAnalysis = async (req: Request, res: Response, next: N
         });
         
         if (!result.success) {
-            return res.status(500).json({
+            return res.status(STATUS_CODES.UNKNOWN).json({
                 success: false,
                 error: result.error,
                 timestamp: new Date().toISOString()
             } as APIResponse);
         }
 
-        res.status(202).json({
+        res.status(STATUS_CODES.BACKGROUND_JOB).json({
             success: true,
             message: "Manual analysis queued successfully",
             data: {

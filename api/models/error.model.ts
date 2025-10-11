@@ -23,7 +23,7 @@ export class ErrorClass {
 
 }
 
-export class NotFoundErrorClass extends ErrorClass {
+export class NotFoundError extends ErrorClass {
     constructor(message: string) {
         super(
             "NOT_FOUND", 

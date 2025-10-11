@@ -16,7 +16,7 @@ export const errorHandler = ((error: unknown, req: Request, res: Response) => {
     if (error instanceof AIReviewError) {
         // Determine appropriate HTTP status code
         let statusCode = STATUS_CODES.SERVER_ERROR;
-        if (error.code === "GROQ_RATE_LIMIT" || error.code === "GITHUB_API_ERROR") statusCode = STATUS_CODES.RATE_LIMIT;
+        if (error.code === "GROQ_RATE_LIMIT" || error.code === "GITHUB_RATE_LIMIT") statusCode = STATUS_CODES.RATE_LIMIT;
         else if (error.code === "TIMEOUT_ERROR") statusCode = STATUS_CODES.TIMEOUT;
 
         return res.status(statusCode).json({

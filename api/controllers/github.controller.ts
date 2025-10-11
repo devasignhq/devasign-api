@@ -7,12 +7,8 @@ import {
     PullRequestData,
     APIResponse
 } from "../models/ai-review.model";
-import {
-    PRNotEligibleError,
-    PRAnalysisError,
-    GitHubAPIError
-} from "../models/error.model";
-import { getFieldFromUnknownObject } from "../helper";
+import { PRAnalysisError, GitHubAPIError, ErrorClass } from "../models/error.model";
+import { STATUS_CODES, getFieldFromUnknownObject } from "../helper";
 
 export const getInstallationRepositories = async (req: Request, res: Response, next: NextFunction) => {
     const { installationId } = req.params;
@@ -23,7 +19,7 @@ export const getInstallationRepositories = async (req: Request, res: Response, n
 
         const repositories = await OctokitService.getInstallationRepositories(installationId);
 
-        res.status(200).json(repositories);
+        res.status(STATUS_CODES.SUCCESS).json(repositories);
     } catch (error) {
         next(error);
     }
@@ -62,7 +58,7 @@ export const getRepositoryIssues = async (req: Request, res: Response, next: Nex
             parseInt(perPage as string)
         );
 
-        res.status(200).json({
+        res.status(STATUS_CODES.SUCCESS).json({
             issues: result.issues,
             hasMore: result.hasMore,
             pagination: {
@@ -88,7 +84,7 @@ export const getRepositoryResources = async (req: Request, res: Response, next: 
             installationId
         );
 
-        res.status(200).json(resources);
+        res.status(STATUS_CODES.SUCCESS).json(resources);
     } catch (error) {
         next(error);
     }
@@ -120,7 +116,7 @@ export const getOrCreateBountyLabel = async (req: Request, res: Response, next: 
             installationId
         );
 
-        res.status(200).json({ valid: true, bountyLabel });
+        res.status(STATUS_CODES.SUCCESS).json({ valid: true, bountyLabel });
     } catch (error) {
         next(error);
     }
@@ -155,7 +151,7 @@ export const triggerManualPRAnalysis = async (req: Request, res: Response, next:
             const prDetails = await OctokitService.getPRDetails(installationId, repositoryName, prNumber);
 
             if (!prDetails) {
-                return res.status(404).json({
+                return res.status(STATUS_CODES.NOT_FOUND).json({
                     success: false,
                     error: `PR #${prNumber} not found in repository ${repositoryName}`,
                     data: {
@@ -245,7 +241,7 @@ ${codeChangesPreview}`;
             const errorMessage = getFieldFromUnknownObject<string>(error, "message");
 
             if (errorStatus === 404) {
-                return res.status(404).json({
+                return res.status(STATUS_CODES.NOT_FOUND).json({
                     success: false,
                     error: `PR #${prNumber} not found in repository ${repositoryName}`,
                     data: {
@@ -261,14 +257,13 @@ ${codeChangesPreview}`;
                 { installationId, repositoryName, prNumber } as PullRequestData,
                 extractionTime,
                 false,
-                (errorMessage ? (error as Error) : undefined)
+                (errorMessage ? (error as ErrorClass) : undefined)
             );
 
             throw new GitHubAPIError(
                 `Failed to fetch PR data for PR #${prNumber}`,
-                errorStatus,
-                undefined,
-                { installationId, repositoryName, prNumber, originalError: errorMessage }
+                { installationId, repositoryName, prNumber, error },
+                errorStatus
             );
         }
 
@@ -279,7 +274,7 @@ ${codeChangesPreview}`;
 
                 PRAnalysisService.logAnalysisDecision(prData, false, reason);
 
-                return res.status(400).json({
+                return res.status(STATUS_CODES.SERVER_ERROR).json({
                     success: false,
                     error: `PR not eligible for analysis: ${reason}`,
                     data: {
@@ -296,18 +291,17 @@ ${codeChangesPreview}`;
             }
 
         } catch (error) {
-            if (error instanceof PRNotEligibleError) {
-                PRAnalysisService.logAnalysisDecision(prData, false, error.reason);
+            if (error instanceof PRAnalysisError) {
+                PRAnalysisService.logAnalysisDecision(prData, false, error.message);
 
-                return res.status(400).json({
+                return res.status(error.status).json({
                     success: false,
-                    error: `PR not eligible for analysis: ${error.reason}`,
+                    error: error.message,
                     data: {
                         installationId: prData.installationId,
                         repositoryName: prData.repositoryName,
                         prNumber: prData.prNumber,
-                        prUrl: prData.prUrl,
-                        reason: error.reason
+                        prUrl: prData.prUrl
                     },
                     timestamp: new Date().toISOString()
                 } as APIResponse);
@@ -330,7 +324,7 @@ ${codeChangesPreview}`;
         });
 
         // Return success response with PR analysis data
-        res.status(200).json({
+        res.status(STATUS_CODES.SUCCESS).json({
             success: true,
             message: "PR analysis triggered successfully",
             data: {
@@ -359,7 +353,7 @@ ${codeChangesPreview}`;
         console.error("Manual PR analysis trigger failed:", error);
 
         if (error instanceof PRAnalysisError) {
-            return res.status(400).json({
+            return res.status(error.status).json({
                 success: false,
                 error: error.message,
                 code: error.code,
@@ -374,7 +368,7 @@ ${codeChangesPreview}`;
         }
 
         if (error instanceof GitHubAPIError) {
-            return res.status(error.statusCode || 500).json({
+            return res.status(error.status).json({
                 success: false,
                 error: error.message,
                 code: error.code,
