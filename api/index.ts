@@ -24,7 +24,7 @@ import { customRulesRoutes } from "./routes/custom-rules.route";
 import { aiReviewTestRoutes } from "./routes/test_routes/ai-review.test.route";
 import { aiServicesRoutes } from "./routes/test_routes/ai-services.test.route";
 import { errorHandler } from "./middlewares/error.middleware";
-import { ErrorHandlingInitService } from "./services/error-handling-init.service";
+import { ErrorHandlerService } from "./services/error-handler.service";
 import { healthRoutes } from "./routes/health.route";
 
 const app = express();
@@ -165,7 +165,7 @@ prisma.$connect();
 // Initialize AI Review system (disabled until environment variables are configured)
 if (process.env.GROQ_API_KEY && process.env.GITHUB_APP_ID && process.env.GITHUB_APP_PRIVATE_KEY) {
     // Initialize error handling system
-    ErrorHandlingInitService.initialize().catch(error => {
+    ErrorHandlerService.initialize().catch(error => {
         console.error("Failed to initialize error handling system:", error);
         // Continue startup even if error handling initialization fails
     });

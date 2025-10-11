@@ -18,8 +18,11 @@ healthRoutes.get("/detailed", async (req: Request, res: Response) => {
         const { HealthCheckService } = await import("../services/health-check.service");
         const healthResult = await HealthCheckService.performHealthCheck(true);
 
-        const statusCode = healthResult.status === "healthy" ? 200 :
-            healthResult.status === "degraded" ? 206 : 503;
+        const statusCode = healthResult.status === "healthy" 
+            ? 200 
+            : healthResult.status === "degraded" 
+                ? 206 
+                : 503;
 
         res.status(statusCode).json(healthResult);
     } catch (error) {
@@ -71,10 +74,10 @@ healthRoutes.get("/status", (async (req: Request, res: Response) => {
 // Error handling status endpoint
 healthRoutes.get("/error-handling", async (req: Request, res: Response) => {
     try {
-        const { ErrorHandlingIntegrationService } = await import("../services/error-handling-integration.service");
+        const { ErrorHandlerService } = await import("../services/error-handler.service");
         const { ErrorRecoveryService } = await import("../services/error-recovery.service");
 
-        const status = ErrorHandlingIntegrationService.getErrorHandlingStatus();
+        const status = ErrorHandlerService.getErrorHandlingStatus();
         const recoveryStatus = ErrorRecoveryService.getRecoveryStatus();
 
         res.status(200).json({

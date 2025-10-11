@@ -1,325 +1,372 @@
-import {
-    GroqServiceError,
-    GitHubAPIError,
-    TimeoutError,
-    ErrorUtils
-} from "../models/error.model";
-import {
-    PullRequestData,
-    AIReview,
-    RuleEvaluation,
-    CodeSuggestion
-} from "../models/ai-review.model";
+import { LoggingService } from "./logging.service";
+import { HealthCheckService } from "./health-check.service";
+import { CircuitBreakerService } from "./circuit-breaker.service";
 
 /**
- * Error Handler Service for AI Review System
- * Implements fallback mechanisms and graceful degradation
+ * Sets up and configures all error handling components for the AI Review System
  */
 export class ErrorHandlerService {
-    private static readonly MAX_RETRIES = 3;
-    private static readonly TIMEOUT_MS = 60000; // 60 seconds
+    private static initialized = false;
+    private static shutdownHandlers: Array<() => Promise<void> | void> = [];
+    private static readonly CIRCUIT_BREAKER_CONFIG = {
+        groq: { failureThreshold: 3, recoveryTimeout: 120000 }, // 2 minutes
+        github: { failureThreshold: 10, recoveryTimeout: 30000 }, // 30 seconds
+        database: { failureThreshold: 3, recoveryTimeout: 60000 } // 1 minute
+    };
 
     /**
-     * Executes operation with retry logic and exponential backoff
+     * Initializes all error handling components
      */
-    static async withRetry<T>(
-        operation: () => Promise<T>,
-        operationName: string,
-        maxRetries: number = ErrorHandlerService.MAX_RETRIES,
-        timeoutMs: number = ErrorHandlerService.TIMEOUT_MS
-    ): Promise<T> {
-        if (maxRetries <= 0) {
-            throw new Error(`Invalid maxRetries value: ${maxRetries}. Must be greater than 0.`);
+    static async initialize(): Promise<void> {
+        if (this.initialized) {
+            LoggingService.logWarning(
+                "error_handling_already_initialized",
+                "Error handling components are already initialized"
+            );
+            return;
         }
 
-        let lastError: Error | undefined;
+        try {
+            LoggingService.logInfo(
+                "error_handling_init_start",
+                "Starting error handling initialization"
+            );
 
-        for (let attempt = 0; attempt < maxRetries; attempt++) {
-            try {
-                // Wrap operation with timeout
-                return await ErrorHandlerService.withTimeout(operation, operationName, timeoutMs);
-            } catch (err) {
-                const error = err as Error;
-                lastError = error;
+            // Initialize circuit breakers
+            this.initializeCircuitBreakers();
 
-                // Log the attempt
-                console.warn(`Attempt ${attempt + 1}/${maxRetries} failed for ${operationName}:`, {
-                    error: error.message,
-                    retryable: ErrorUtils.isRetryable(error)
-                });
+            // Perform initial health check
+            await this.performInitialHealthCheck();
 
-                // Don't retry if error is not retryable
-                if (!ErrorUtils.isRetryable(error)) {
-                    console.error(`Non-retryable error for ${operationName}, aborting:`, error);
-                    throw error;
+            // Set up process event handlers
+            this.setupProcessEventHandlers();
+
+            // Set up periodic health checks
+            // this.setupPeriodicHealthChecks();
+
+            // Validate environment configuration
+            this.validateEnvironmentConfiguration();
+
+            this.initialized = true;
+
+            LoggingService.logInfo(
+                "error_handling_init_complete",
+                "Error handling initialization completed successfully",
+                {
+                    circuitBreakers: Object.keys(CircuitBreakerService.getCircuitStatus()),
+                    monitoringActive: true,
+                    healthCheckEnabled: true
                 }
+            );
 
-                // Don't wait after the last attempt
-                if (attempt < maxRetries - 1) {
-                    const delay = ErrorUtils.getRetryDelay(error, attempt);
-                    console.log(`Waiting ${delay}ms before retry ${attempt + 2}/${maxRetries} for ${operationName}`);
-                    await ErrorHandlerService.sleep(delay);
+        } catch (error) {
+            LoggingService.logError(
+                "error_handling_init_failed",
+                error as Error,
+                { phase: "initialization" }
+            );
+            throw error;
+        }
+    }
+
+    /**
+     * Shuts down error handling components gracefully
+     */
+    static async shutdown(): Promise<void> {
+        if (!this.initialized) {
+            return;
+        }
+
+        LoggingService.logInfo(
+            "error_handling_shutdown_start",
+            "Starting graceful shutdown of error handling components"
+        );
+
+        try {
+
+            // Execute shutdown handlers
+            for (const handler of this.shutdownHandlers) {
+                try {
+                    await handler();
+                } catch (error) {
+                    LoggingService.logError(
+                        "shutdown_handler_failed",
+                        error as Error
+                    );
                 }
             }
-        }
 
-        // All retries exhausted - lastError should be defined here since maxRetries > 0
-        console.error(`All ${maxRetries} retries exhausted for ${operationName}:`, lastError);
-        throw ErrorUtils.wrapError(lastError!, `Failed after ${maxRetries} retries: ${operationName}`);
-    }
+            // Reset circuit breakers
+            CircuitBreakerService.resetAll();
 
-    /**
-     * Wraps operation with timeout
-     */
-    static async withTimeout<T>(
-        operation: () => Promise<T>,
-        operationName: string,
-        timeoutMs: number
-    ): Promise<T> {
-        return Promise.race([
-            operation(),
-            new Promise<never>((_, reject) => {
-                 
-                setTimeout(() => {
-                    reject(new TimeoutError(operationName, timeoutMs));
-                }, timeoutMs);
-            })
-        ]);
-    }
+            this.initialized = false;
 
-    /**
-     * Handles Groq AI service failures with fallback
-     */
-    static async handleGroqFailure(
-        prData: PullRequestData,
-        ruleEvaluation: RuleEvaluation,
-        error: GroqServiceError
-    ): Promise<AIReview> {
-        console.warn("Groq AI service failed, using fallback review generation:", {
-            error: error.message,
-            code: error.code,
-            prNumber: prData.prNumber,
-            repository: prData.repositoryName
-        });
+            LoggingService.logInfo(
+                "error_handling_shutdown_complete",
+                "Error handling shutdown completed"
+            );
 
-        // Generate fallback review based on rule evaluation and basic analysis
-        return ErrorHandlerService.generateFallbackReview(prData, ruleEvaluation, error);
-    }
-
-
-
-    /**
-     * Handles GitHub API failures with fallback
-     */
-    static async handleGitHubFailure(
-        installationId: string,
-        repositoryName: string,
-        prNumber: number,
-        operation: string,
-        error: GitHubAPIError
-    ): Promise<boolean> {
-        console.warn("GitHub API operation failed:", {
-            error: error.message,
-            code: error.code,
-            statusCode: error.statusCode,
-            operation,
-            installationId,
-            repositoryName,
-            prNumber
-        });
-
-        // For rate limiting, we should retry
-        if (error.statusCode === 429) {
-            console.log("GitHub API rate limited, operation will be retried by retry mechanism");
-            throw error; // Let retry mechanism handle this
-        }
-
-        // For other errors, log and continue without the operation
-        console.error(`GitHub API operation '${operation}' failed permanently:`, error);
-        return false;
-    }
-
-    /**
-     * Handles database operation failures
-     */
-    static async handleDatabaseFailure<T>(
-        operation: string,
-        fallbackValue: T,
-        error: Error
-    ): Promise<T> {
-        console.warn("Database operation failed, using fallback:", {
-            operation,
-            error: error.message,
-            fallbackValue: typeof fallbackValue
-        });
-
-        // Log to external monitoring if available
-        await ErrorHandlerService.logToMonitoring("database_failure", {
-            operation,
-            error: error.message,
-            timestamp: new Date().toISOString()
-        });
-
-        return fallbackValue;
-    }
-
-    /**
-     * Generates fallback AI review when Groq is unavailable
-     */
-    private static generateFallbackReview(
-        prData: PullRequestData,
-        ruleEvaluation: RuleEvaluation,
-        error: GroqServiceError
-    ): AIReview {
-        // Calculate basic merge score from rule evaluation
-        const ruleScore = ErrorHandlerService.calculateRuleBasedScore(ruleEvaluation);
-
-        // Generate basic quality metrics
-        const codeQuality = ErrorHandlerService.generateBasicQualityMetrics(prData, ruleEvaluation);
-
-        // Generate basic suggestions from rule violations
-        const suggestions = ErrorHandlerService.generateBasicSuggestions(prData, ruleEvaluation);
-
-        return {
-            mergeScore: ruleScore,
-            codeQuality,
-            suggestions,
-            summary: `Automated review completed with rule-based analysis. AI analysis unavailable: ${error.message}. Manual review recommended for comprehensive feedback.`,
-            confidence: 0.3 // Low confidence for fallback review
-        };
-    }
-
-    /**
-     * Calculates merge score based on rule evaluation only
-     */
-    private static calculateRuleBasedScore(ruleEvaluation: RuleEvaluation): number {
-        const totalRules = ruleEvaluation.passed.length + ruleEvaluation.violated.length;
-        if (totalRules === 0) return 50; // Default score when no rules
-
-        const passedRules = ruleEvaluation.passed.length;
-        const baseScore = (passedRules / totalRules) * 100;
-
-        // Apply penalties for critical violations
-        const criticalViolations = ruleEvaluation.violated.filter(v => v.severity === "CRITICAL").length;
-        const highViolations = ruleEvaluation.violated.filter(v => v.severity === "HIGH").length;
-
-        const penalty = (criticalViolations * 20) + (highViolations * 10);
-
-        return Math.max(0, Math.min(100, baseScore - penalty));
-    }
-
-    /**
-     * Generates basic quality metrics from PR data and rules
-     */
-    private static generateBasicQualityMetrics(
-        prData: PullRequestData,
-        ruleEvaluation: RuleEvaluation
-    ) {
-        const hasTests = prData.changedFiles.some(f =>
-            f.filename.includes("test") ||
-            f.filename.includes("spec") ||
-            f.filename.includes("__tests__")
-        );
-
-        const hasDocumentation = prData.changedFiles.some(f =>
-            f.filename.toLowerCase().includes("readme") ||
-            f.filename.toLowerCase().includes("doc") ||
-            f.filename.endsWith(".md")
-        );
-
-        const securityViolations = ruleEvaluation.violated.filter(v =>
-            v.ruleName.toLowerCase().includes("security")
-        ).length;
-
-        return {
-            codeStyle: ErrorHandlerService.calculateMetricFromRules(ruleEvaluation, "CODE_QUALITY"),
-            testCoverage: hasTests ? 70 : 30,
-            documentation: hasDocumentation ? 80 : 40,
-            security: securityViolations > 0 ? 30 : 80,
-            performance: ErrorHandlerService.calculateMetricFromRules(ruleEvaluation, "PERFORMANCE"),
-            maintainability: ErrorHandlerService.calculateMetricFromRules(ruleEvaluation, "MAINTAINABILITY")
-        };
-    }
-
-    /**
-     * Calculates metric score from rule evaluation for specific category
-     */
-    private static calculateMetricFromRules(ruleEvaluation: RuleEvaluation, category: string): number {
-        const categoryRules = [
-            ...ruleEvaluation.passed.filter(r => r.ruleName.includes(category)),
-            ...ruleEvaluation.violated.filter(r => r.ruleName.includes(category))
-        ];
-
-        if (categoryRules.length === 0) return 60; // Default score
-
-        const passedCount = ruleEvaluation.passed.filter(r => r.ruleName.includes(category)).length;
-        return Math.round((passedCount / categoryRules.length) * 100);
-    }
-
-    /**
-     * Generates basic suggestions from rule violations
-     */
-    private static generateBasicSuggestions(
-        prData: PullRequestData,
-        ruleEvaluation: RuleEvaluation
-    ) {
-        const suggestions: CodeSuggestion[] = [];
-
-        // Convert rule violations to suggestions
-        for (const violation of ruleEvaluation.violated) {
-            suggestions.push({
-                file: violation.affectedFiles?.[0] || "multiple files",
-                lineNumber: undefined,
-                type: "fix",
-                severity: violation.severity.toLowerCase() as ("low" | "medium" | "high"),
-                description: `${violation.ruleName}: ${violation.description}`,
-                suggestedCode: undefined,
-                reasoning: violation.details || "Rule violation detected by automated analysis"
-            });
-        }
-
-        // Add basic suggestions based on PR characteristics
-        if (!prData.changedFiles.some(f => f.filename.includes("test"))) {
-            suggestions.push({
-                file: "tests",
-                lineNumber: undefined,
-                type: "improvement",
-                severity: "medium",
-                description: "Consider adding tests for the changes in this PR",
-                suggestedCode: undefined,
-                reasoning: "No test files were modified or added in this PR"
-            });
-        }
-
-        return suggestions.slice(0, 10); // Limit to 10 suggestions
-    }
-
-
-
-    /**
-     * Logs errors to monitoring system
-     */
-    private static async logToMonitoring(eventType: string, data: unknown): Promise<void> {
-        try {
-            // Use the new LoggingService for structured logging
-            const { LoggingService } = await import("./logging.service");
-
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            LoggingService.logError(eventType, new Error((data as any)?.error || "Unknown error"), {
-                ...(typeof data === "object" ? data : { data }),
-                source: "error_handler_service"
-            });
         } catch (error) {
-            // Don't let monitoring failures break the main flow
-            console.error("Failed to log to monitoring:", error);
+            LoggingService.logError(
+                "error_handling_shutdown_failed",
+                error as Error
+            );
         }
     }
 
     /**
-     * Sleep utility for delays
+     * Initializes circuit breakers with appropriate configurations
      */
-    private static sleep(ms: number): Promise<void> {
-         
-        return new Promise(resolve => setTimeout(resolve, ms));
+    static initializeCircuitBreakers(): void {
+        // Initialize circuit breakers for each service
+        Object.entries(this.CIRCUIT_BREAKER_CONFIG).forEach(
+            ([serviceName, config]) => {
+                CircuitBreakerService.getCircuit(serviceName, config);
+            }
+        );
+
+        LoggingService.logInfo(
+            "circuit_breakers_initialized",
+            "Circuit breakers initialized for all services",
+            { services: Object.keys(this.CIRCUIT_BREAKER_CONFIG) }
+        );
+    }
+
+    /**
+     * Gets current error handling status
+     */
+    static getErrorHandlingStatus() {
+        return {
+            circuitBreakers: CircuitBreakerService.getCircuitStatus(),
+            systemHealth: HealthCheckService.getCachedHealthStatus(),
+            lastHealthCheck: HealthCheckService.getCachedHealthStatus()?.timestamp
+        };
+    }
+
+    /**
+     * Performs initial health check to validate system state
+     */
+    private static async performInitialHealthCheck(): Promise<void> {
+        try {
+            const healthResult = await HealthCheckService.performHealthCheck(true);
+
+            LoggingService.logInfo(
+                "initial_health_check",
+                `Initial health check completed: ${healthResult.status}`,
+                {
+                    status: healthResult.status,
+                    degradedMode: healthResult.degradedMode,
+                    services: Object.keys(healthResult.services)
+                }
+            );
+
+            // Log warnings for unhealthy services
+            Object.entries(healthResult.services).forEach(([serviceName, health]) => {
+                if (health.status !== "healthy") {
+                    LoggingService.logWarning(
+                        "service_not_healthy_on_startup",
+                        `Service ${serviceName} is not healthy on startup: ${health.message}`,
+                        { serviceName, health }
+                    );
+                }
+            });
+
+            // If system is completely unhealthy, log critical error but don't fail startup
+            if (healthResult.status === "unhealthy") {
+                LoggingService.logError(
+                    "system_unhealthy_on_startup",
+                    new Error("System is unhealthy on startup"),
+                    { healthResult }
+                );
+            }
+
+        } catch (error) {
+            LoggingService.logError(
+                "initial_health_check_failed",
+                error as Error
+            );
+            // Don't fail initialization due to health check failure
+        }
+    }
+
+    /**
+     * Sets up process event handlers for graceful shutdown
+     */
+    private static setupProcessEventHandlers(): void {
+        // Handle graceful shutdown
+        const gracefulShutdown = async (signal: string) => {
+            LoggingService.logInfo(
+                "graceful_shutdown_initiated",
+                `Graceful shutdown initiated by ${signal}`
+            );
+
+            await this.shutdown();
+            process.exit(0);
+        };
+
+        // Handle uncaught exceptions
+        process.on("uncaughtException", (error: Error) => {
+            LoggingService.logError(
+                "uncaught_exception",
+                error,
+                { fatal: true }
+            );
+
+            // Give time for logging to complete
+            setTimeout(() => {
+                process.exit(1);
+            }, 1000);
+        });
+
+        // Handle unhandled promise rejections
+        process.on("unhandledRejection", (reason: unknown, promise: Promise<unknown>) => {
+            LoggingService.logError(
+                "unhandled_rejection",
+                reason instanceof Error ? reason : new Error(String(reason)),
+                { promise: promise.toString() }
+            );
+        });
+
+        // Handle shutdown signals
+        process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+        process.on("SIGINT", () => gracefulShutdown("SIGINT"));
+
+        // Handle warnings
+        process.on("warning", (warning: Error) => {
+            LoggingService.logWarning(
+                "process_warning",
+                warning.message,
+                { warning: warning.stack }
+            );
+        });
+
+        LoggingService.logInfo(
+            "process_handlers_setup",
+            "Process event handlers have been set up"
+        );
+    }
+
+    /**
+     * Sets up periodic health checks
+     */
+    private static setupPeriodicHealthChecks(): void {
+        // Perform detailed health check every 5 minutes
+        const healthCheckInterval = setInterval(async () => {
+            try {
+                const healthResult = await HealthCheckService.performHealthCheck(false);
+
+                // Only log if status changed or if there are issues
+                if (healthResult.status !== "healthy") {
+                    LoggingService.logWarning(
+                        "periodic_health_check",
+                        `Periodic health check: ${healthResult.status}`,
+                        {
+                            status: healthResult.status,
+                            degradedMode: healthResult.degradedMode,
+                            timestamp: healthResult.timestamp
+                        }
+                    );
+                }
+            } catch (error) {
+                LoggingService.logError(
+                    "periodic_health_check_failed",
+                    error as Error
+                );
+            }
+        }, 300000); // 5 minutes
+
+        // Add to shutdown handlers
+        this.shutdownHandlers.push(() => {
+            clearInterval(healthCheckInterval);
+        });
+
+        LoggingService.logInfo(
+            "periodic_health_checks_setup",
+            "Periodic health checks have been set up"
+        );
+    }
+
+    /**
+     * Validates environment configuration for error handling
+     */
+    private static validateEnvironmentConfiguration(): void {
+        const warnings: string[] = [];
+        const errors: string[] = [];
+
+        // Check for required service configurations
+        if (!process.env.GROQ_API_KEY) {
+            warnings.push("GROQ_API_KEY not configured - Groq service will be unavailable");
+        }
+
+        if (!process.env.GITHUB_APP_ID || !process.env.GITHUB_APP_PRIVATE_KEY) {
+            errors.push("GitHub app credentials not configured - GitHub integration will fail");
+        }
+
+        if (!process.env.DATABASE_URL) {
+            errors.push("DATABASE_URL not configured - database operations will fail");
+        }
+
+        if (!process.env.GITHUB_WEBHOOK_SECRET) {
+            warnings.push("GITHUB_WEBHOOK_SECRET not configured - pull request review disabled");
+        }
+
+        // Log warnings
+        warnings.forEach(warning => {
+            LoggingService.logWarning(
+                "config_validation_warning",
+                warning
+            );
+        });
+
+        // Log errors
+        errors.forEach(error => {
+            LoggingService.logError(
+                "config_validation_error",
+                new Error(error)
+            );
+        });
+
+        LoggingService.logInfo(
+            "environment_validation_complete",
+            "Environment configuration validation completed",
+            {
+                warnings: warnings.length,
+                errors: errors.length,
+                hasMonitoring: !!process.env.MONITORING_WEBHOOK_URL,
+                hasAlerting: !!process.env.ALERT_WEBHOOK_URL
+            }
+        );
+    }
+
+    /**
+     * Gets initialization status
+     */
+    static getInitializationStatus() {
+        return {
+            initialized: this.initialized,
+            healthStatus: HealthCheckService.getCachedHealthStatus(),
+            circuitBreakers: CircuitBreakerService.getCircuitStatus()
+        };
+    }
+
+    /**
+     * Adds a shutdown handler
+     */
+    static addShutdownHandler(handler: () => Promise<void> | void): void {
+        this.shutdownHandlers.push(handler);
+    }
+
+    /**
+     * Forces reinitialization (for testing or recovery)
+     */
+    static async forceReinitialize(): Promise<void> {
+        LoggingService.logWarning(
+            "force_reinitialize",
+            "Forcing reinitialization of error handling components"
+        );
+
+        await this.shutdown();
+        this.initialized = false;
+        await this.initialize();
     }
 }
