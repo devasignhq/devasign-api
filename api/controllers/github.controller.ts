@@ -9,6 +9,7 @@ import {
 } from "../models/ai-review.model";
 import { PRAnalysisError, GitHubAPIError, ErrorClass } from "../models/error.model";
 import { STATUS_CODES, getFieldFromUnknownObject } from "../helper";
+import { dataLogger, messageLogger } from "../config/logger.config";
 
 export const getInstallationRepositories = async (req: Request, res: Response, next: NextFunction) => {
     const { installationId } = req.params;
@@ -140,7 +141,7 @@ export const triggerManualPRAnalysis = async (req: Request, res: Response, next:
         // Validate user has access to this installation
         await validateUserInstallation(installationId, userId);
 
-        console.log(`Manual PR analysis triggered by user ${userId} for PR #${prNumber} in ${repositoryName}`);
+        messageLogger.info(`Manual PR analysis triggered by user ${userId} for PR #${prNumber} in ${repositoryName}`);
 
         // Fetch PR data from GitHub API
         const startTime = Date.now();
@@ -314,7 +315,7 @@ ${codeChangesPreview}`;
 
         // TODO: In future tasks, this will trigger the complete AI analysis workflow
         // For now, we return success with PR data to confirm the trigger worked
-        console.log("Manual PR analysis data prepared successfully:", {
+        dataLogger.info("Manual PR analysis data prepared successfully", {
             installationId: prData.installationId,
             repositoryName: prData.repositoryName,
             prNumber: prData.prNumber,
@@ -350,7 +351,7 @@ ${codeChangesPreview}`;
         } as APIResponse);
 
     } catch (error) {
-        console.error("Manual PR analysis trigger failed:", error);
+        dataLogger.error("Manual PR analysis trigger failed", { error });
 
         if (error instanceof PRAnalysisError) {
             return res.status(error.status).json({

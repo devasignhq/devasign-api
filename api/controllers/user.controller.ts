@@ -5,6 +5,7 @@ import { stellarService } from "../services/stellar.service";
 import { STATUS_CODES, encrypt } from "../helper";
 import { AddressBook } from "../models";
 import { NotFoundError, ErrorClass } from "../models/error.model";
+import { dataLogger } from "../config/logger.config";
 
 class UserError extends ErrorClass {
     constructor(message: string, details: unknown = null) {
@@ -83,7 +84,7 @@ export const getUser = async (req: Request, res: Response, next: NextFunction) =
                     );
                     walletStatus.usdcTrustline = true;
                 } catch (walletError) {
-                    console.warn("Failed to add USDC trustline:", walletError);
+                    dataLogger.warn("Failed to add USDC trustline", { walletError });
                     return res.status(STATUS_CODES.PARTIAL_SUCCESS).json({ 
                         user, 
                         error: walletError,
@@ -94,7 +95,7 @@ export const getUser = async (req: Request, res: Response, next: NextFunction) =
 
                 return res.status(STATUS_CODES.SUCCESS).json({ user, walletStatus });
             } catch (walletCreationError) {
-                console.warn("Failed to create wallet for existing user:", walletCreationError);
+                dataLogger.warn("Failed to create wallet for existing user", { walletCreationError });
                 return res.status(STATUS_CODES.PARTIAL_SUCCESS).json({ 
                     user, 
                     error: walletCreationError,

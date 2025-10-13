@@ -12,6 +12,7 @@ import { PullRequestContextAnalyzerService } from "./context-analyzer.service";
 import { GroqAIService } from "./groq-ai.service";
 import { getFieldFromUnknownObject } from "../helper";
 import { RuleEngineService } from "./rule-engine.service";
+import { dataLogger, messageLogger } from "../config/logger.config";
 
 /**
  * Service for analyzing PR events and determining eligibility for AI review
@@ -85,8 +86,8 @@ export class PRAnalysisService {
      * Extracts linked issues from PR body using keywords
      */
     public static async extractLinkedIssues(
-        prBody: string, 
-        installationId: string, 
+        prBody: string,
+        installationId: string,
         repositoryName: string
     ): Promise<LinkedIssue[]> {
         const linkedIssues: LinkedIssue[] = [];
@@ -137,19 +138,19 @@ export class PRAnalysisService {
             try {
                 const response = await octokit.graphql(query, variables);
                 const issue = (response as {
-                    repository: { 
+                    repository: {
                         issue: IssueDto & {
                             labels: { nodes: IssueLabel[] };
                             comments: { nodes: GitHubComment[] };
                         }
                     }
                 }).repository.issue;
-                
+
                 // Filter out bot comments
                 const nonBotComments = issue.comments.nodes.filter(
                     comment => comment.author?.__typename !== "Bot"
                 );
-                
+
                 return {
                     title: issue.title,
                     body: issue.body,
@@ -302,7 +303,7 @@ export class PRAnalysisService {
                 prData.repositoryName,
                 prData.prNumber
             );
-            
+
             const changedFilesInfo = prData.changedFiles.map(file =>
                 `${file.filename} (${file.status}, +${file.additions}/-${file.deletions})${file.previousFilename ? ` (renamed from ${file.previousFilename})` : ""}`
             ).join("\n");
@@ -409,9 +410,9 @@ ${codeChangesPreview}`;
         };
 
         if (shouldAnalyze) {
-            console.log("PR eligible for AI review:", JSON.stringify(logData, null, 2));
+            dataLogger.info("PR eligible for AI review", logData);
         } else {
-            console.log("PR not eligible for AI review:", JSON.stringify(logData, null, 2));
+            dataLogger.info("PR not eligible for AI review", logData);
         }
     }
 
@@ -440,9 +441,9 @@ ${codeChangesPreview}`;
         };
 
         if (success) {
-            console.log("PR data extraction successful:", JSON.stringify(logData, null, 2));
+            dataLogger.info("PR data extraction successful", logData);
         } else {
-            console.error("PR data extraction failed:", JSON.stringify(logData, null, 2));
+            dataLogger.error("PR data extraction failed", logData);
         }
     }
 
@@ -451,7 +452,7 @@ ${codeChangesPreview}`;
      */
     public static async analyzePullRequest(prData: PullRequestData): Promise<ReviewResult> {
         const startTime = Date.now();
-        console.log(`Starting analysis for PR #${prData.prNumber} in ${prData.repositoryName}`);
+        messageLogger.info(`Starting analysis for PR #${prData.prNumber} in ${prData.repositoryName}`);
 
         try {
             // Execute workflow with timeout
@@ -488,12 +489,12 @@ ${codeChangesPreview}`;
             );
 
             const processingTime = Date.now() - startTime;
-            console.log(`Pull request context analysis completed in ${processingTime}ms for PR #${prData.prNumber}`);
+            messageLogger.info(`Pull request context analysis completed in ${processingTime}ms for PR #${prData.prNumber}`);
 
             return review;
 
         } catch (error) {
-            console.error("Pull request context analysis failed:", error);
+            dataLogger.error("Pull request context analysis failed", { error });
 
             throw error;
         }
@@ -510,7 +511,7 @@ ${codeChangesPreview}`;
         return Promise.race([
             operation(),
             new Promise<never>((_, reject) => {
-                 
+
                 setTimeout(() => {
                     reject(new Error(`${operationName} timed out after ${timeoutMs}ms`));
                 }, timeoutMs);

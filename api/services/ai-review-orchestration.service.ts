@@ -4,6 +4,7 @@ import { ReviewCommentIntegrationService } from "./review-comment-integration.se
 import { ReviewStatus } from "../generated/client";
 import { prisma } from "../config/database.config";
 import { PRAnalysisService } from "./pr-analysis.service";
+import { dataLogger, messageLogger } from "../config/logger.config";
 
 /**
  * AI Review Orchestration Service
@@ -95,7 +96,7 @@ export class AIReviewOrchestrationService {
                 }
             });
         } catch (error) {
-            console.error("Failed to update review status:", error);
+            dataLogger.error("Failed to update review status", { error });
             // Don't throw error to avoid breaking main workflow
         }
     }
@@ -121,7 +122,7 @@ export class AIReviewOrchestrationService {
                 }
             });
         } catch (error) {
-            console.error("Failed to store review result:", error);
+            dataLogger.error("Failed to store review result", { error });
             // Don't throw error to avoid breaking main workflow
         }
     }
@@ -134,9 +135,9 @@ export class AIReviewOrchestrationService {
             const commentResult = await ReviewCommentIntegrationService.postReviewWithRetry(result, 3);
 
             if (commentResult.success) {
-                console.log(`Successfully posted review comment ${commentResult.commentId} for PR #${result.prNumber}`);
+                messageLogger.info(`Successfully posted review comment ${commentResult.commentId} for PR #${result.prNumber}`);
             } else {
-                console.error(`Failed to post review comment for PR #${result.prNumber}:`, commentResult.error);
+                messageLogger.error(`Failed to post review comment for PR #${result.prNumber}`, { error: commentResult.error });
 
                 // Try to post a simple error comment instead
                 try {
@@ -147,11 +148,11 @@ export class AIReviewOrchestrationService {
                         "Review analysis completed but failed to post detailed results. Please check the logs."
                     );
                 } catch (errorCommentError) {
-                    console.error("Failed to post error comment:", errorCommentError);
+                    dataLogger.error("Failed to post error comment", { errorCommentError });
                 }
             }
         } catch (error) {
-            console.error("Error in review comment posting:", error);
+            dataLogger.error("Error in review comment posting", { error });
             // Don't throw error to avoid breaking main workflow
         }
     }
@@ -178,21 +179,23 @@ export class AIReviewOrchestrationService {
             // Post review comment to GitHub
             await this.postReviewComment(reviewResult);
 
-            console.log(`Pull request context analysis completed successfully for PR #${prData.prNumber} in ${reviewResult.processingTime}ms`);
+            messageLogger.info(`Pull request context analysis completed successfully for PR #${prData.prNumber} in ${reviewResult.processingTime}ms`);
 
             return reviewResult;
 
         } catch (error) {
-            console.error(
-                `Analysis failed for PR #${prData.prNumber} in ${prData.repositoryName}:`, 
-                error,
-                `processingTime: ${Date.now() - startTime}`
+            dataLogger.error(
+                `Analysis failed for PR #${prData.prNumber} in ${prData.repositoryName}`,
+                { 
+                    error,
+                    processingTime: Date.now() - startTime
+                }
             );
 
             try {
                 await this.updateReviewStatus(prData.installationId, prData.prNumber, prData.repositoryName, ReviewStatus.FAILED);
             } catch (statusError) {
-                console.error("Failed to update review status to FAILED:", statusError);
+                dataLogger.error("Failed to update review status to FAILED", { statusError });
             }
 
             // Try to post error comment
@@ -204,7 +207,7 @@ export class AIReviewOrchestrationService {
                     `Analysis failed: ${(error as Error).message}. Please review manually.`
                 );
             } catch (commentError) {
-                console.error("Failed to post error comment:", commentError);
+                dataLogger.error("Failed to post error comment", { commentError });
             }
 
             throw error;
@@ -217,10 +220,10 @@ export class AIReviewOrchestrationService {
     async updateExistingReview(prData: PullRequestData): Promise<ReviewResult> {
         // Use analysis for updates as well
         try {
-            console.log(`Updating existing review for PR #${prData.prNumber}`);
+            messageLogger.info(`Updating existing review for PR #${prData.prNumber}`);
             return await this.analyzePullRequest(prData);
         } catch (error) {
-            console.error("Error updating existing review:", error);
+            dataLogger.error("Error updating existing review", { error });
             throw new PRAnalysisError(
                 prData.prNumber,
                 prData.repositoryName,

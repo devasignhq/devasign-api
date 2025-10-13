@@ -12,6 +12,7 @@ import {
     ErrorUtils
 } from "../models/error.model";
 import { getFieldFromUnknownObject } from "../helper";
+import { dataLogger, messageLogger } from "../config/logger.config";
 
 /**
  * Implements AI-powered code review.
@@ -87,24 +88,24 @@ export class GroqAIService {
         try {
             // Check required fields with more lenient validation
             if (typeof review.mergeScore !== "number" || review.mergeScore < 0 || review.mergeScore > 100) {
-                console.warn("Invalid merge score:", review.mergeScore);
+                dataLogger.warn("Invalid merge score", { mergeScore: review.mergeScore });
                 return false;
             }
 
             if (!review.summary || typeof review.summary !== "string" || review.summary.length < 5) {
-                console.warn("Invalid summary:", review.summary);
+                dataLogger.warn("Invalid summary", { summary: review.summary });
                 return false;
             }
 
             if (typeof review.confidence !== "number" || review.confidence < 0 || review.confidence > 1) {
-                console.warn("Invalid confidence:", review.confidence);
+                dataLogger.warn("Invalid confidence", { confidence: review.confidence });
                 return false;
             }
 
             // Validate quality metrics with more lenient checks
             const metrics = review.codeQuality;
             if (!metrics || typeof metrics !== "object") {
-                console.warn("Invalid code quality metrics:", metrics);
+                dataLogger.warn("Invalid code quality metrics", { metrics });
                 return false;
             }
 
@@ -113,31 +114,31 @@ export class GroqAIService {
             for (const metric of requiredMetrics) {
                 const value = metrics[metric as keyof QualityMetrics];
                 if (typeof value !== "number" || value < 0 || value > 100) {
-                    console.warn(`Invalid metric ${metric}:`, value);
+                    dataLogger.warn(`Invalid metric ${metric}`, { value });
                     return false;
                 }
             }
 
             // Validate suggestions format (more lenient)
             if (!Array.isArray(review.suggestions)) {
-                console.warn("Invalid suggestions array:", review.suggestions);
+                dataLogger.warn("Invalid suggestions array", { suggestions: review.suggestions });
                 return false;
             }
 
             for (const suggestion of review.suggestions) {
                 if (!suggestion || typeof suggestion !== "object") {
-                    console.warn("Invalid suggestion object:", suggestion);
+                    dataLogger.warn("Invalid suggestion object", { suggestion });
                     return false;
                 }
                 if (!suggestion.file || !suggestion.description || !suggestion.type || !suggestion.severity) {
-                    console.warn("Missing required suggestion fields:", suggestion);
+                    dataLogger.warn("Missing required suggestion fields", { suggestion });
                     return false;
                 }
             }
 
             return true;
         } catch (error) {
-            console.error("Error validating AI response:", error);
+            dataLogger.error("Error validating AI response", { error });
             return false;
         }
     }
@@ -157,7 +158,7 @@ export class GroqAIService {
                 // Check if it's a rate limit error
                 if (this.isRateLimitError(error)) {
                     const delay = ErrorUtils.getRetryDelay(error as Error, attempt);
-                    console.log(`Rate limited, retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`);
+                    messageLogger.info(`Rate limited, retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`);
                     await this.sleep(delay);
                     continue;
                 }
@@ -307,7 +308,7 @@ IMPORTANT: Respond with ONLY the JSON object. Do not include any text before or 
      */
     parseAIResponse<T>(response: string): T | null {
         try {
-            console.log("ai-response", response);
+            dataLogger.debug("ai-response", { response });
 
             // Clean the response - remove any markdown formatting or extra text
             let cleanResponse = response.trim();
@@ -359,8 +360,7 @@ IMPORTANT: Respond with ONLY the JSON object. Do not include any text before or 
 
             return parsed as T;
         } catch (error) {
-            console.error("Error parsing AI response:", error);
-            console.error("Raw response:", response);
+            dataLogger.error("Error parsing AI response", { error, rawResponse: response });
             
             return null;
         }

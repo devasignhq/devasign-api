@@ -2,9 +2,9 @@ import { ReviewResult } from "../models/ai-review.model";
 import { ReviewFormatterService } from "./review-formatter.service";
 import { AIReviewCommentService } from "./ai-review-comment.service";
 import { GitHubAPIError } from "../models/error.model";
+import { dataLogger, messageLogger } from "../config/logger.config";
 
 /**
- * Review Comment Integration Service
  * Integrates review formatting and GitHub comment posting
  */
 export class ReviewCommentIntegrationService {
@@ -36,7 +36,7 @@ export class ReviewCommentIntegrationService {
             };
 
         } catch (error) {
-            console.error("Error posting review comment:", error);
+            dataLogger.error("Error posting review comment", { error });
 
             return {
                 success: false,
@@ -73,7 +73,7 @@ export class ReviewCommentIntegrationService {
             };
 
         } catch (error) {
-            console.error("Error generating review preview:", error);
+            dataLogger.error("Error generating review preview", { error });
 
             return {
                 success: false,
@@ -105,7 +105,7 @@ export class ReviewCommentIntegrationService {
             };
 
         } catch (error) {
-            console.error("Error deleting review comment:", error);
+            dataLogger.error("Error deleting review comment", { error });
 
             return {
                 success: false,
@@ -139,7 +139,7 @@ export class ReviewCommentIntegrationService {
             };
 
         } catch (error) {
-            console.error("Error getting review comments:", error);
+            dataLogger.error("Error getting review comments", { error });
 
             return {
                 success: false,
@@ -199,7 +199,7 @@ export class ReviewCommentIntegrationService {
             // Wait before retrying (exponential backoff)
             if (attempt < maxRetries - 1) {
                 const delay = Math.pow(2, attempt) * 1000; // 1s, 2s, 4s
-                console.log(`Review comment posting failed (attempt ${attempt + 1}/${maxRetries}), retrying in ${delay}ms`);
+                messageLogger.info(`Review comment posting failed (attempt ${attempt + 1}/${maxRetries}), retrying in ${delay}ms`);
                 await new Promise(resolve => setTimeout(resolve, delay));
             }
         }
@@ -216,7 +216,7 @@ export class ReviewCommentIntegrationService {
      */
     private static validateReviewResult(result: ReviewResult): boolean {
         if (!result) {
-            console.error("Review result is null or undefined");
+            messageLogger.error("Review result is null or undefined");
             return false;
         }
 
@@ -229,30 +229,30 @@ export class ReviewCommentIntegrationService {
 
         for (const field of requiredFields) {
             if (!(field in result) || result[field as keyof ReviewResult] === undefined) {
-                console.error(`Review result missing required field: ${field}`);
+                messageLogger.error(`Review result missing required field: ${field}`);
                 return false;
             }
         }
 
         // Validate merge score is within valid range
         if (typeof result.mergeScore !== "number" || result.mergeScore < 0 || result.mergeScore > 100) {
-            console.error(`Invalid merge score: ${result.mergeScore}`);
+            messageLogger.error(`Invalid merge score: ${result.mergeScore}`);
             return false;
         }
 
         // Validate arrays exist (even if empty)
         if (!Array.isArray(result.rulesViolated)) {
-            console.error("rulesViolated is not an array");
+            messageLogger.error("rulesViolated is not an array");
             return false;
         }
 
         if (!Array.isArray(result.rulesPassed)) {
-            console.error("rulesPassed is not an array");
+            messageLogger.error("rulesPassed is not an array");
             return false;
         }
 
         if (!Array.isArray(result.suggestions)) {
-            console.error("suggestions is not an array");
+            messageLogger.error("suggestions is not an array");
             return false;
         }
 
@@ -356,7 +356,7 @@ export class ReviewCommentIntegrationService {
             };
 
         } catch (postError) {
-            console.error("Error posting analysis error comment:", postError);
+            dataLogger.error("Error posting analysis error comment", { postError });
 
             return {
                 success: false,

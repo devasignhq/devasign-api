@@ -2,6 +2,7 @@ import { GroqAIService } from "./groq-ai.service";
 import { GroqServiceError, GroqRateLimitError } from "../models/error.model";
 import { FetchedFile, PullRequestData, RelevantFileRecommendation } from "../models/ai-review.model";
 import { FileFetcherService } from "./file-fetcher.service";
+import { dataLogger, messageLogger } from "../config/logger.config";
 
 /**
  * Uses AI to determine which files are most relevant for PR
@@ -28,7 +29,7 @@ export class PullRequestContextAnalyzerService {
      * Analyzes code changes to determine relevant files
      */
     async analyzeContextNeeds(prData: PullRequestData): Promise<RelevantFileRecommendation[]> {
-        console.log(`Starting context analysis for PR #${prData.prNumber} in ${prData.repositoryName}`);
+        messageLogger.info(`Starting context analysis for PR #${prData.prNumber} in ${prData.repositoryName}`);
 
         try {
             // Build specialized prompt for context analysis
@@ -53,7 +54,7 @@ export class PullRequestContextAnalyzerService {
 
             for (const file of fetchedFiles) {
                 if (!file.fetchSuccess) {
-                    console.warn(`Skipping optimization for ${file.filePath} due to fetch failure`);
+                    messageLogger.warn(`Skipping optimization for ${file.filePath} due to fetch failure`);
                     continue;
                 }
                 
@@ -64,9 +65,9 @@ export class PullRequestContextAnalyzerService {
                     // // Call AI service with timeout
                     // const aiResponse = await this.callAIWithTimeout(prompt);
                     // const optimizedFile = this.groqService.parseAIResponse<{ file: string, content: string }>(aiResponse);
-                    // console.log("optimizing...", file.filePath);
+                    // messageLogger.info("optimizing...", file.filePath);
                     // if (!optimizedFile) {
-                    //     console.warn(`"AI response validation failed for: ${file.filePath}`, { parsedResponse: optimizedFile });
+                    //     messageLogger.warn(`"AI response validation failed for: ${file.filePath}`, { parsedResponse: optimizedFile });
                     //     continue;
                     // }
 
@@ -74,7 +75,7 @@ export class PullRequestContextAnalyzerService {
                     // if (fileRIndex !== -1) {
                     //     relevantFiles[fileRIndex].content = optimizedFile.content;
                     // } else {
-                    //     console.warn(`Could not find ${file.filePath} in relevantFiles to update content`);
+                    //     messageLogger.warn(`Could not find ${file.filePath} in relevantFiles to update content`);
                     // }
                 } else {
                     const contributingMDFile = fetchedFiles.find(fileF => fileF.filePath.includes("CONTRIBUTING.md"));
@@ -82,21 +83,21 @@ export class PullRequestContextAnalyzerService {
                     if (fileRIndex !== -1 && contributingMDFile) {
                         relevantFiles[fileRIndex].content = contributingMDFile.content;
                     } else {
-                        console.warn(`Could not find ${file.filePath} in relevantFiles to update content`);
+                        messageLogger.warn(`Could not find ${file.filePath} in relevantFiles to update content`);
                     }
                 }
             }
 
-            console.log("Context analysis completed.");
+            messageLogger.info("Context analysis completed.");
 
             return relevantFiles;
 
         } catch (error) {
-            console.error("Error in context analysis:", error);
+            dataLogger.error("Error in context analysis", { error });
 
             // Handle specific error types
             if (error instanceof GroqRateLimitError) {
-                console.log("Rate limit hit");
+                messageLogger.warn("Rate limit hit");
             }
 
             throw new GroqServiceError("Context analysis validation failed", error);

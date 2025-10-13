@@ -1,5 +1,6 @@
+import { dataLogger, messageLogger } from "../config/logger.config";
+
 /**
- * Circuit Breaker Service
  * Implements circuit breaker pattern for external service calls
  */
 export class CircuitBreakerService {
@@ -88,9 +89,9 @@ class CircuitBreaker {
             if (this.shouldAttemptReset()) {
                 this.state = "HALF_OPEN";
                 this.successCount = 0;
-                console.log(`Circuit breaker for ${this.serviceName} moved to HALF_OPEN state`);
+                messageLogger.info(`Circuit breaker for ${this.serviceName} moved to HALF_OPEN state`);
             } else {
-                console.warn(`Circuit breaker for ${this.serviceName} is OPEN, using fallback`);
+                messageLogger.warn(`Circuit breaker for ${this.serviceName} is OPEN, using fallback`);
                 if (fallback) {
                     return fallback();
                 }
@@ -99,7 +100,7 @@ class CircuitBreaker {
         }
 
         if (this.state === "HALF_OPEN" && this.successCount >= this.options.halfOpenMaxCalls!) {
-            console.warn(`Circuit breaker for ${this.serviceName} is HALF_OPEN with max calls reached, using fallback`);
+            messageLogger.warn(`Circuit breaker for ${this.serviceName} is HALF_OPEN with max calls reached, using fallback`);
             if (fallback) {
                 return fallback();
             }
@@ -118,7 +119,7 @@ class CircuitBreaker {
                 // After onFailure(), check if circuit is now open or should be
                 const shouldUseFallback = this.failureCount >= this.options.failureThreshold!;
                 if (shouldUseFallback) {
-                    console.warn(`Circuit breaker for ${this.serviceName} failed, using fallback:`, error);
+                    dataLogger.warn(`Circuit breaker for ${this.serviceName} failed, using fallback`, { error });
                     return fallback();
                 }
             }
@@ -139,7 +140,7 @@ class CircuitBreaker {
             if (this.successCount >= this.options.halfOpenMaxCalls!) {
                 this.state = "CLOSED";
                 this.successCount = 0;
-                console.log(`Circuit breaker for ${this.serviceName} recovered to CLOSED state`);
+                messageLogger.info(`Circuit breaker for ${this.serviceName} recovered to CLOSED state`);
             }
         }
     }
@@ -154,11 +155,11 @@ class CircuitBreaker {
         if (this.state === "HALF_OPEN") {
             this.state = "OPEN";
             this.nextAttemptTime = new Date(Date.now() + this.options.recoveryTimeout!);
-            console.warn(`Circuit breaker for ${this.serviceName} failed in HALF_OPEN, moving to OPEN state`);
+            messageLogger.warn(`Circuit breaker for ${this.serviceName} failed in HALF_OPEN, moving to OPEN state`);
         } else if (this.failureCount >= this.options.failureThreshold!) {
             this.state = "OPEN";
             this.nextAttemptTime = new Date(Date.now() + this.options.recoveryTimeout!);
-            console.warn(`Circuit breaker for ${this.serviceName} opened due to ${this.failureCount} failures`);
+            messageLogger.warn(`Circuit breaker for ${this.serviceName} opened due to ${this.failureCount} failures`);
         }
     }
 
@@ -206,7 +207,7 @@ class CircuitBreaker {
         this.successCount = 0;
         this.lastFailureTime = undefined;
         this.nextAttemptTime = undefined;
-        console.log(`Circuit breaker for ${this.serviceName} manually reset`);
+        messageLogger.info(`Circuit breaker for ${this.serviceName} manually reset`);
     }
 }
 

@@ -2,6 +2,7 @@ import { RuleType, RuleSeverity, AIReviewRule } from "../generated/client";
 import { getFieldFromUnknownObject } from "../helper";
 import { PullRequestData } from "../models/ai-review.model";
 import lodash from "lodash";
+import { dataLogger } from "../config/logger.config";
 
 export interface DefaultRule {
     id: string;
@@ -393,7 +394,7 @@ export class RuleEngineService {
                 return { passed: true, details: "Rule type not implemented" };
             }
         } catch (error) {
-            console.error(`Error evaluating rule ${rule.id}:`, error);
+            dataLogger.error(`Error evaluating rule ${rule.id}`, { error });
             return { passed: true, details: "Rule evaluation failed" };
         }
     }
@@ -421,7 +422,7 @@ export class RuleEngineService {
 
             return await this.evaluateDefaultRule(defaultRule, prData);
         } catch (error) {
-            console.error(`Error evaluating custom rule ${rule.id}:`, error);
+            dataLogger.error(`Error evaluating custom rule ${rule.id}`, { error });
             return { passed: true, details: "Custom rule evaluation failed" };
         }
     }
@@ -464,7 +465,7 @@ export class RuleEngineService {
                 affectedFiles: passed ? undefined : affectedFiles
             };
         } catch (error) {
-            console.error("Error evaluating pattern rule:", error);
+            dataLogger.error("Error evaluating pattern rule", { error });
             return { passed: true, details: "Pattern evaluation failed" };
         }
     }

@@ -5,6 +5,7 @@ import { OctokitService } from "./octokit.service";
 import { prisma } from "../config/database.config";
 import { getFieldFromUnknownObject } from "../helper";
 import { InstallationOctokit } from "../models/github.model";
+import { dataLogger, messageLogger } from "../config/logger.config";
 
 /**
  * GitHub Comment Service
@@ -38,7 +39,7 @@ export class AIReviewCommentService {
                     formattedReview.fullComment
                 );
                 commentId = existingCommentId;
-                console.log(`Updated existing AI review comment ${existingCommentId} on PR #${result.prNumber}`);
+                messageLogger.info(`Updated existing AI review comment ${existingCommentId} on PR #${result.prNumber}`);
             } else {
                 // Create new comment
                 commentId = await this.createComment(
@@ -47,7 +48,7 @@ export class AIReviewCommentService {
                     result.prNumber,
                     formattedReview.fullComment
                 );
-                console.log(`Created new AI review comment ${commentId} on PR #${result.prNumber}`);
+                messageLogger.info(`Created new AI review comment ${commentId} on PR #${result.prNumber}`);
             }
 
             // Store the comment ID in the database for future updates
@@ -56,7 +57,7 @@ export class AIReviewCommentService {
             return commentId;
 
         } catch (error) {
-            console.error("Error posting/updating review comment:", error);
+            dataLogger.error("Error posting/updating review comment", { error });
 
             // Try to post an error comment instead
             try {
@@ -74,11 +75,11 @@ export class AIReviewCommentService {
                     errorComment
                 );
 
-                console.log(`Posted error comment ${errorCommentId} on PR #${result.prNumber}`);
+                messageLogger.info(`Posted error comment ${errorCommentId} on PR #${result.prNumber}`);
                 return errorCommentId;
 
             } catch (errorCommentError) {
-                console.error("Failed to post error comment:", errorCommentError);
+                dataLogger.error("Failed to post error comment", { errorCommentError });
                 throw error; // Throw original error
             }
         }
@@ -229,7 +230,7 @@ export class AIReviewCommentService {
             return null;
 
         } catch (error) {
-            console.error("Error finding existing review comment:", error);
+            dataLogger.error("Error finding existing review comment", { error });
             return null; // Return null to create a new comment instead
         }
     }
@@ -281,7 +282,7 @@ export class AIReviewCommentService {
                 }
             });
         } catch (error) {
-            console.error("Failed to store comment ID:", error);
+            dataLogger.error("Failed to store comment ID", { error });
             // Don't throw error to avoid breaking the main workflow
         }
     }
@@ -305,12 +306,12 @@ export class AIReviewCommentService {
                 });
             });
 
-            console.log(`Deleted AI review comment ${commentId} from ${repositoryName}`);
+            messageLogger.info(`Deleted AI review comment ${commentId} from ${repositoryName}`);
 
         } catch (error) {
             const errorStatus = getFieldFromUnknownObject<number>(error, "status");
             if (errorStatus === 404) {
-                console.log(`Comment ${commentId} already deleted or doesn't exist`);
+                messageLogger.info(`Comment ${commentId} already deleted or doesn't exist`);
                 return; // Comment already deleted, no error
             }
 
@@ -430,7 +431,7 @@ export class AIReviewCommentService {
                 if (errorStatus === 429 || errorStatus === 403) {
                     // Rate limited, wait and retry
                     const delay = Math.pow(2, attempt) * 1000; // Exponential backoff
-                    console.log(`GitHub API rate limited, waiting ${delay}ms before retry ${attempt + 1}/${maxRetries}`);
+                    messageLogger.info(`GitHub API rate limited, waiting ${delay}ms before retry ${attempt + 1}/${maxRetries}`);
                     await new Promise(resolve => setTimeout(resolve, delay));
                     continue;
                 }

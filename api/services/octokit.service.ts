@@ -10,6 +10,7 @@ import {
 } from "../models/github.model";
 import { getFieldFromUnknownObject, moneyFormat } from "../helper";
 import { GitHubAPIError } from "../models/error.model";
+import { dataLogger, messageLogger } from "../config/logger.config";
 
 const commentCTA = `${process.env.CONTRIBUTOR_APP_URL!  }/application`;
 
@@ -908,7 +909,7 @@ export class OctokitService {
             return filePaths;
         } catch (error) {
             if (getFieldFromUnknownObject<number>(error, "status") === 409) {
-                console.log(`Repository ${owner}/${repo} is empty`);
+                messageLogger.info(`Repository ${owner}/${repo} is empty`);
                 return [];
             }
             throw new GitHubAPIError(
@@ -940,7 +941,7 @@ export class OctokitService {
 
             return response.repository.defaultBranchRef?.name || "main";
         } catch {
-            console.warn(`Could not get default branch for ${owner}/${repo}, using 'main'`);
+            messageLogger.warn(`Could not get default branch for ${owner}/${repo}, using 'main'`);
             return "main";
         }
     }
@@ -1041,7 +1042,7 @@ export class OctokitService {
                     results[path] = response.repository[`file${index}`];
                 });
             } catch (error) {
-                console.error(`Error fetching file batch starting at index ${i}:`, error);
+                dataLogger.error(`Error fetching file batch starting at index ${i}`, { error });
                 // Mark failed files as null
                 batchPaths.forEach(path => {
                     results[path] = null;
