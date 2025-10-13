@@ -1,8 +1,8 @@
 import { EventEmitter } from "events";
 import { PullRequestData, ReviewResult } from "../models/ai-review.model";
 import { AIReviewOrchestrationService } from "./ai-review-orchestration.service";
-import { LoggingService } from "./logging.service";
 import { getFieldFromUnknownObject } from "../helper";
+import { dataLogger, messageLogger } from "../config/logger.config";
 
 /**
  * Simple in-memory job queue for AI review processing
@@ -61,11 +61,14 @@ export class JobQueueService extends EventEmitter {
         // Check if job already exists
         const existingJob = this.jobs.get(jobId);
         if (existingJob && (existingJob.status === "pending" || existingJob.status === "processing")) {
-            LoggingService.logInfo("addPRAnalysisJob", "Job already exists and is pending/processing", {
-                jobId,
-                prNumber: prData.prNumber,
-                repositoryName: prData.repositoryName
-            });
+            dataLogger.info(
+                "Job already exists and is pending/processing", 
+                {
+                    jobId,
+                    prNumber: prData.prNumber,
+                    repositoryName: prData.repositoryName
+                }
+            );
             return jobId;
         }
 
@@ -81,12 +84,15 @@ export class JobQueueService extends EventEmitter {
 
         this.jobs.set(jobId, job);
 
-        LoggingService.logInfo("addPRAnalysisJob", "PR analysis job added to queue", {
-            jobId,
-            prNumber: prData.prNumber,
-            repositoryName: prData.repositoryName,
-            queueSize: this.jobs.size
-        });
+        dataLogger.info(
+            "PR analysis job added to queue", 
+            {
+                jobId,
+                prNumber: prData.prNumber,
+                repositoryName: prData.repositoryName,
+                queueSize: this.jobs.size
+            }
+        );
 
         // Emit event for monitoring
         this.emit("jobAdded", job);
@@ -177,10 +183,13 @@ export class JobQueueService extends EventEmitter {
                     Promise.allSettled(processingPromises).then(results => {
                         results.forEach((result, index) => {
                             if (result.status === "rejected") {
-                                LoggingService.logError("Job processing promise rejected", {
-                                    jobId: jobsToProcess[index].id,
-                                    error: result.reason
-                                });
+                                dataLogger.error(
+                                    "Job processing promise rejected", 
+                                    {
+                                        jobId: jobsToProcess[index].id,
+                                        error: result.reason
+                                    }
+                                );
                             }
                         });
                     });
@@ -190,7 +199,7 @@ export class JobQueueService extends EventEmitter {
                 await this.sleep(5000); // 5 seconds
 
             } catch (error) {
-                LoggingService.logError("Error in job processing loop", { error });
+                dataLogger.error("Error in job processing loop", { error });
                 await this.sleep(10000); // Wait longer on error
             }
         }
@@ -207,12 +216,15 @@ export class JobQueueService extends EventEmitter {
             job.status = "processing";
             job.startedAt = new Date();
 
-            LoggingService.logInfo("processJob", "Starting job processing", {
-                jobId: job.id,
-                prNumber: job.data.prNumber,
-                repositoryName: job.data.repositoryName,
-                retryCount: job.retryCount
-            });
+            dataLogger.info(
+                "Starting job processing", 
+                {
+                    jobId: job.id,
+                    prNumber: job.data.prNumber,
+                    repositoryName: job.data.repositoryName,
+                    retryCount: job.retryCount
+                }
+            );
 
             // Emit event for monitoring
             this.emit("jobStarted", job);
@@ -230,13 +242,16 @@ export class JobQueueService extends EventEmitter {
 
             const processingTime = Date.now() - startTime;
 
-            LoggingService.logInfo("processJob", "Job completed successfully", {
-                jobId: job.id,
-                prNumber: job.data.prNumber,
-                repositoryName: job.data.repositoryName,
-                processingTime,
-                mergeScore: result.mergeScore
-            });
+            dataLogger.info(
+                "Job completed successfully", 
+                {
+                    jobId: job.id,
+                    prNumber: job.data.prNumber,
+                    repositoryName: job.data.repositoryName,
+                    processingTime,
+                    mergeScore: result.mergeScore
+                }
+            );
 
             // Emit event for monitoring
             this.emit("jobCompleted", job);
@@ -245,14 +260,17 @@ export class JobQueueService extends EventEmitter {
             const processingTime = Date.now() - startTime;
             const errorMessage = error instanceof Error ? error.message : String(error);
 
-            LoggingService.logError("Job processing failed", {
-                jobId: job.id,
-                prNumber: job.data.prNumber,
-                repositoryName: job.data.repositoryName,
-                error: errorMessage,
-                retryCount: job.retryCount,
-                processingTime
-            });
+            dataLogger.error(
+                "Job processing failed", 
+                {
+                    jobId: job.id,
+                    prNumber: job.data.prNumber,
+                    repositoryName: job.data.repositoryName,
+                    error: errorMessage,
+                    retryCount: job.retryCount,
+                    processingTime
+                }
+            );
 
             // Check if we should retry
             if (job.retryCount < job.maxRetries && this.shouldRetry(error)) {
@@ -260,11 +278,14 @@ export class JobQueueService extends EventEmitter {
                 job.status = "pending";
                 job.error = `Retry ${job.retryCount}/${job.maxRetries}: ${errorMessage}`;
 
-                LoggingService.logInfo("processJob", "Job scheduled for retry", {
-                    jobId: job.id,
-                    retryCount: job.retryCount,
-                    maxRetries: job.maxRetries
-                });
+                dataLogger.info(
+                    "Job scheduled for retry", 
+                    {
+                        jobId: job.id,
+                        retryCount: job.retryCount,
+                        maxRetries: job.maxRetries
+                    }
+                );
 
                 // Schedule retry with delay
                 setTimeout(() => {
@@ -276,13 +297,16 @@ export class JobQueueService extends EventEmitter {
                 job.completedAt = new Date();
                 job.error = errorMessage;
 
-                LoggingService.logError("Job failed permanently", {
-                    jobId: job.id,
-                    prNumber: job.data.prNumber,
-                    repositoryName: job.data.repositoryName,
-                    finalError: errorMessage,
-                    totalRetries: job.retryCount
-                });
+                dataLogger.error(
+                    "Job failed permanently", 
+                    {
+                        jobId: job.id,
+                        prNumber: job.data.prNumber,
+                        repositoryName: job.data.repositoryName,
+                        finalError: errorMessage,
+                        totalRetries: job.retryCount
+                    }
+                );
 
                 this.emit("jobFailed", job);
             }
@@ -347,10 +371,10 @@ export class JobQueueService extends EventEmitter {
         }
 
         if (cleanedCount > 0) {
-            LoggingService.logInfo("cleanupOldJobs", "Cleaned up old jobs", {
-                cleanedCount,
-                remainingJobs: this.jobs.size
-            });
+            dataLogger.info(
+                "Cleaned up old jobs", 
+                { cleanedCount, remainingJobs: this.jobs.size }
+            );
         }
     }
 
@@ -373,7 +397,7 @@ export class JobQueueService extends EventEmitter {
      */
     public stop(): void {
         this.processing = false;
-        LoggingService.logInfo("stop", "Job queue processing stopped");
+        messageLogger.info("Job queue processing stopped");
     }
 
     /**
@@ -393,7 +417,7 @@ export class JobQueueService extends EventEmitter {
             job.error = "Job cancelled";
             job.completedAt = new Date();
 
-            LoggingService.logInfo("cancelJob", "Job cancelled", { jobId });
+            dataLogger.info("Job cancelled", { jobId });
             return true;
         }
         return false;

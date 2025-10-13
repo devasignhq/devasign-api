@@ -12,5 +12,6 @@ requirements.txt
 /.kiro/*
 /dist/*
 
-# Testing folders
+# Test & log folders
 coverage
+logs

@@ -7,9 +7,9 @@ import {
 import { JobQueueService } from "./job-queue.service";
 import { AIReviewOrchestrationService } from "./ai-review-orchestration.service";
 import { PRAnalysisService } from "./pr-analysis.service";
-import { LoggingService } from "./logging.service";
 import { PRAnalysisError } from "../models/error.model";
 import { ErrorHandlerService } from "./error-handler.service";
+import { dataLogger, messageLogger } from "../config/logger.config";
 
 /**
  * Workflow Integration Service
@@ -47,7 +47,7 @@ export class WorkflowIntegrationService {
         if (this.initialized) return;
 
         try {
-            LoggingService.logInfo("initialize", "Initializing Workflow Integration Service");
+            messageLogger.info("Initializing Workflow Integration Service");
 
             // Set up job queue event listeners for monitoring
             this.setupJobQueueEventListeners();
@@ -57,10 +57,10 @@ export class WorkflowIntegrationService {
 
             this.initialized = true;
 
-            LoggingService.logInfo("initialize", "Workflow Integration Service initialized successfully");
+            messageLogger.info("Workflow Integration Service initialized successfully");
 
         } catch (error) {
-            LoggingService.logError("Failed to initialize Workflow Integration Service", { error });
+            dataLogger.error("Failed to initialize Workflow Integration Service", { error });
             throw error;
         }
     }
@@ -86,11 +86,14 @@ export class WorkflowIntegrationService {
         const startTime = Date.now();
 
         try {
-            LoggingService.logInfo("processWebhookWorkflow", "Starting webhook workflow", {
-                action: payload.action,
-                prNumber: payload.pull_request.number,
-                repository: payload.repository.full_name
-            });
+            dataLogger.info(
+                "Starting webhook workflow", 
+                {
+                    action: payload.action,
+                    prNumber: payload.pull_request.number,
+                    repository: payload.repository.full_name
+                }
+            );
 
             // Extract and validate PR data
             let prData: PullRequestData;
@@ -98,10 +101,10 @@ export class WorkflowIntegrationService {
                 prData = await PRAnalysisService.createCompletePRData(payload);
             } catch (error) {
                 if (error instanceof PRAnalysisError && error.code === "PR_NOT_ELIGIBLE_ERROR") {
-                    LoggingService.logInfo("processWebhookWorkflow", error.message, {
-                        prNumber: error.prNumber,
-                        repositoryName: error.repositoryName
-                    });
+                    dataLogger.info(
+                        error.message, 
+                        { prNumber: error.prNumber, repositoryName: error.repositoryName }
+                    );
 
                     return { success: true, reason: error.message };
                 }
@@ -114,8 +117,7 @@ export class WorkflowIntegrationService {
             // Queue for background analysis
             const jobId = await this.jobQueue.addPRAnalysisJob(prData);
 
-            LoggingService.logInfo(
-                "processWebhookWorkflow", 
+            dataLogger.info(
                 "Webhook workflow completed successfully", 
                 {
                     jobId,
@@ -135,11 +137,15 @@ export class WorkflowIntegrationService {
             const processingTime = Date.now() - startTime;
             const errorMessage = error instanceof Error ? error.message : String(error);
 
-            LoggingService.logError("processWebhookWorkflow", error, {
-                prNumber: payload.pull_request.number,
-                repositoryName: payload.repository.full_name,
-                processingTime
-            });
+            dataLogger.error(
+                "Failed to process webhook", 
+                {
+                    error,
+                    prNumber: payload.pull_request.number,
+                    repositoryName: payload.repository.full_name,
+                    processingTime
+                }
+            );
 
             return {
                 success: false,
@@ -165,12 +171,15 @@ export class WorkflowIntegrationService {
         const startTime = Date.now();
 
         try {
-            LoggingService.logInfo("processManualAnalysisWorkflow", "Starting manual analysis workflow", {
-                installationId: request.installationId,
-                repositoryName: request.repositoryName,
-                prNumber: request.prNumber,
-                reason: request.reason
-            });
+            dataLogger.info(
+                "Starting manual analysis workflow", 
+                {
+                    installationId: request.installationId,
+                    repositoryName: request.repositoryName,
+                    prNumber: request.prNumber,
+                    reason: request.reason
+                }
+            );
 
             // Create PR data for manual analysis
             const prData: PullRequestData = {
@@ -190,12 +199,11 @@ export class WorkflowIntegrationService {
             // Queue for analysis
             const jobId = await this.jobQueue.addPRAnalysisJob(prData);
 
-            // Update monitoring - manual analysis triggered
-
-            LoggingService.logInfo("processManualAnalysisWorkflow", "Manual analysis workflow completed", {
-                jobId,
-                processingTime: Date.now() - startTime
-            });
+            const processingTime = Date.now() - startTime;
+            dataLogger.info(
+                "Manual analysis workflow completed", 
+                { jobId, processingTime }
+            );
 
             return {
                 success: true,
@@ -206,10 +214,10 @@ export class WorkflowIntegrationService {
             const processingTime = Date.now() - startTime;
             const errorMessage = error instanceof Error ? error.message : String(error);
 
-            LoggingService.logError("Manual analysis workflow failed", {
-                error: errorMessage,
-                processingTime
-            });
+            dataLogger.error(
+                "Manual analysis workflow failed", 
+                { error: errorMessage, processingTime }
+            );
 
             return {
                 success: false,
@@ -231,32 +239,38 @@ export class WorkflowIntegrationService {
         const startTime = Date.now();
 
         try {
-            LoggingService.logInfo("processDirectAnalysisWorkflow", "Starting direct analysis workflow", {
-                prNumber: prData.prNumber,
-                repositoryName: prData.repositoryName
-            });
+            dataLogger.info(
+                "Starting direct analysis workflow", 
+                { prNumber: prData.prNumber, repositoryName: prData.repositoryName }
+            );
 
             // Execute analysis directly
             const result = await this.orchestrationService.analyzePullRequest(prData);
 
             // Direct analysis completed successfully
-            LoggingService.logInfo("processDirectAnalysisWorkflow", "Direct analysis workflow completed", {
-                prNumber: prData.prNumber,
-                mergeScore: result.mergeScore,
-                processingTime: Date.now() - startTime
-            });
+            dataLogger.info(
+                "Direct analysis workflow completed", 
+                {
+                    prNumber: prData.prNumber,
+                    mergeScore: result.mergeScore,
+                    processingTime: Date.now() - startTime
+                }
+            );
 
             return result;
 
         } catch (error) {
             const processingTime = Date.now() - startTime;
 
-            LoggingService.logError("Direct analysis workflow failed", {
-                prNumber: prData.prNumber,
-                repositoryName: prData.repositoryName,
-                error: error instanceof Error ? error.message : String(error),
-                processingTime
-            });
+            dataLogger.error(
+                "Direct analysis workflow failed", 
+                {
+                    prNumber: prData.prNumber,
+                    repositoryName: prData.repositoryName,
+                    error: error instanceof Error ? error.message : String(error),
+                    processingTime
+                }
+            );
 
             throw error;
         }
@@ -285,7 +299,7 @@ export class WorkflowIntegrationService {
             };
 
         } catch (error) {
-            LoggingService.logError("Error getting workflow status", { error });
+            dataLogger.error("Error getting workflow status", { error });
             return {
                 initialized: this.initialized,
                 jobQueue: {
@@ -307,7 +321,7 @@ export class WorkflowIntegrationService {
      */
     public async shutdown(): Promise<void> {
         try {
-            LoggingService.logInfo("shutdown", "Starting workflow shutdown");
+            messageLogger.info("Starting workflow shutdown");
 
             // Stop accepting new jobs
             this.jobQueue.stop();
@@ -317,26 +331,27 @@ export class WorkflowIntegrationService {
             const startTime = Date.now();
 
             while (this.jobQueue.getActiveJobsCount() > 0 && (Date.now() - startTime) < shutdownTimeout) {
-                LoggingService.logInfo("shutdown", "Waiting for active jobs to complete", {
-                    activeJobs: this.jobQueue.getActiveJobsCount(),
-                    waitTime: Date.now() - startTime
-                });
+                dataLogger.info(
+                    "Waiting for active jobs to complete", 
+                    {
+                        activeJobs: this.jobQueue.getActiveJobsCount(),
+                        waitTime: Date.now() - startTime
+                    }
+                );
 
                 await this.sleep(1000); // Wait 1 second
             }
 
             const remainingJobs = this.jobQueue.getActiveJobsCount();
             if (remainingJobs > 0) {
-                LoggingService.logInfo("shutdown", "Shutdown timeout reached with active jobs remaining", {
-                    remainingJobs
-                });
+                dataLogger.info("Shutdown timeout reached with active jobs remaining", { remainingJobs });
             }
 
             this.initialized = false;
-            LoggingService.logInfo("shutdown", "Workflow shutdown completed");
+            messageLogger.info("Workflow shutdown completed");
 
         } catch (error) {
-            LoggingService.logError("Error during workflow shutdown", { error });
+            dataLogger.error("Error during workflow shutdown", { error });
         }
     }
 
@@ -345,42 +360,38 @@ export class WorkflowIntegrationService {
      */
     private setupJobQueueEventListeners(): void {
         this.jobQueue.on("jobAdded", (job) => {
-            LoggingService.logInfo("setupJobQueueEventListeners", "Job added to queue", {
+            dataLogger.info("Job added to queue", {
                 jobId: job.id,
                 prNumber: job.data.prNumber,
                 repositoryName: job.data.repositoryName
             });
-            // Job added to queue - tracked by job queue service
         });
 
         this.jobQueue.on("jobStarted", (job) => {
-            LoggingService.logInfo("setupJobQueueEventListeners", "Job processing started", {
+            dataLogger.info("Job processing started", {
                 jobId: job.id,
                 prNumber: job.data.prNumber,
                 repositoryName: job.data.repositoryName
             });
-            // Job started - tracked by job queue service
         });
 
         this.jobQueue.on("jobCompleted", (job) => {
-            LoggingService.logInfo("setupJobQueueEventListeners", "Job completed successfully", {
+            dataLogger.info("Job completed successfully", {
                 jobId: job.id,
                 prNumber: job.data.prNumber,
                 repositoryName: job.data.repositoryName,
                 mergeScore: job.result?.mergeScore
             });
-            // Job completed - tracked by job queue service
         });
 
         this.jobQueue.on("jobFailed", (job) => {
-            LoggingService.logError("setupJobQueueEventListeners", "Job failed permanently", {
+            dataLogger.error("Job failed permanently", {
                 jobId: job.id,
                 prNumber: job.data.prNumber,
                 repositoryName: job.data.repositoryName,
                 error: job.error,
                 retryCount: job.retryCount
             });
-            // Job failed - tracked by job queue service
         });
     }
 
@@ -415,7 +426,7 @@ export class WorkflowIntegrationService {
             };
 
         } catch (error) {
-            LoggingService.logError("Workflow health check failed", { error });
+            dataLogger.error("Workflow health check failed", { error });
             return {
                 healthy: false,
                 services: {

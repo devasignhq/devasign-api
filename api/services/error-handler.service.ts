@@ -1,6 +1,6 @@
-import { LoggingService } from "./logging.service";
 import { HealthCheckService } from "./health-check.service";
 import { CircuitBreakerService } from "./circuit-breaker.service";
+import { dataLogger, messageLogger } from "../config/logger.config";
 
 /**
  * Sets up and configures all error handling components for the AI Review System
@@ -19,18 +19,12 @@ export class ErrorHandlerService {
      */
     static async initialize(): Promise<void> {
         if (this.initialized) {
-            LoggingService.logWarning(
-                "error_handling_already_initialized",
-                "Error handling components are already initialized"
-            );
+            messageLogger.info("Error handling components are already initialized");
             return;
         }
 
         try {
-            LoggingService.logInfo(
-                "error_handling_init_start",
-                "Starting error handling initialization"
-            );
+            messageLogger.info("Starting error handling initialization");
 
             // Initialize circuit breakers
             this.initializeCircuitBreakers();
@@ -42,29 +36,23 @@ export class ErrorHandlerService {
             this.setupProcessEventHandlers();
 
             // Set up periodic health checks
-            // this.setupPeriodicHealthChecks();
+            this.setupPeriodicHealthChecks();
 
             // Validate environment configuration
             this.validateEnvironmentConfiguration();
 
             this.initialized = true;
 
-            LoggingService.logInfo(
-                "error_handling_init_complete",
-                "Error handling initialization completed successfully",
+            dataLogger.info(
+                "Error handling initialization completed successfully", 
                 {
                     circuitBreakers: Object.keys(CircuitBreakerService.getCircuitStatus()),
                     monitoringActive: true,
                     healthCheckEnabled: true
                 }
             );
-
         } catch (error) {
-            LoggingService.logError(
-                "error_handling_init_failed",
-                error as Error,
-                { phase: "initialization" }
-            );
+            dataLogger.error("Error handling initialization failed", { error });
             throw error;
         }
     }
@@ -77,10 +65,7 @@ export class ErrorHandlerService {
             return;
         }
 
-        LoggingService.logInfo(
-            "error_handling_shutdown_start",
-            "Starting graceful shutdown of error handling components"
-        );
+        messageLogger.info("Starting graceful shutdown of error handling components");
 
         try {
 
@@ -89,10 +74,7 @@ export class ErrorHandlerService {
                 try {
                     await handler();
                 } catch (error) {
-                    LoggingService.logError(
-                        "shutdown_handler_failed",
-                        error as Error
-                    );
+                    dataLogger.error("Shutdown handler failed", { error });
                 }
             }
 
@@ -101,16 +83,9 @@ export class ErrorHandlerService {
 
             this.initialized = false;
 
-            LoggingService.logInfo(
-                "error_handling_shutdown_complete",
-                "Error handling shutdown completed"
-            );
-
+            messageLogger.info("Error handling shutdown completed");
         } catch (error) {
-            LoggingService.logError(
-                "error_handling_shutdown_failed",
-                error as Error
-            );
+            dataLogger.error("Error handling shutdown failed", { error });
         }
     }
 
@@ -125,8 +100,7 @@ export class ErrorHandlerService {
             }
         );
 
-        LoggingService.logInfo(
-            "circuit_breakers_initialized",
+        dataLogger.info(
             "Circuit breakers initialized for all services",
             { services: Object.keys(this.CIRCUIT_BREAKER_CONFIG) }
         );
@@ -150,8 +124,7 @@ export class ErrorHandlerService {
         try {
             const healthResult = await HealthCheckService.performHealthCheck(true);
 
-            LoggingService.logInfo(
-                "initial_health_check",
+            dataLogger.info(
                 `Initial health check completed: ${healthResult.status}`,
                 {
                     status: healthResult.status,
@@ -163,8 +136,7 @@ export class ErrorHandlerService {
             // Log warnings for unhealthy services
             Object.entries(healthResult.services).forEach(([serviceName, health]) => {
                 if (health.status !== "healthy") {
-                    LoggingService.logWarning(
-                        "service_not_healthy_on_startup",
+                    dataLogger.warn(
                         `Service ${serviceName} is not healthy on startup: ${health.message}`,
                         { serviceName, health }
                     );
@@ -173,19 +145,10 @@ export class ErrorHandlerService {
 
             // If system is completely unhealthy, log critical error but don't fail startup
             if (healthResult.status === "unhealthy") {
-                LoggingService.logError(
-                    "system_unhealthy_on_startup",
-                    new Error("System is unhealthy on startup"),
-                    { healthResult }
-                );
+                dataLogger.error("System is unhealthy on startup", { healthResult });
             }
-
         } catch (error) {
-            LoggingService.logError(
-                "initial_health_check_failed",
-                error as Error
-            );
-            // Don't fail initialization due to health check failure
+            dataLogger.error("Initial health check failed", { error });
         }
     }
 
@@ -195,10 +158,7 @@ export class ErrorHandlerService {
     private static setupProcessEventHandlers(): void {
         // Handle graceful shutdown
         const gracefulShutdown = async (signal: string) => {
-            LoggingService.logInfo(
-                "graceful_shutdown_initiated",
-                `Graceful shutdown initiated by ${signal}`
-            );
+            messageLogger.info(`Graceful shutdown initiated by ${signal}`);
 
             await this.shutdown();
             process.exit(0);
@@ -206,11 +166,7 @@ export class ErrorHandlerService {
 
         // Handle uncaught exceptions
         process.on("uncaughtException", (error: Error) => {
-            LoggingService.logError(
-                "uncaught_exception",
-                error,
-                { fatal: true }
-            );
+            dataLogger.error("Uncaught exception", { error, fatal: true });
 
             // Give time for logging to complete
             setTimeout(() => {
@@ -220,10 +176,12 @@ export class ErrorHandlerService {
 
         // Handle unhandled promise rejections
         process.on("unhandledRejection", (reason: unknown, promise: Promise<unknown>) => {
-            LoggingService.logError(
-                "unhandled_rejection",
-                reason instanceof Error ? reason : new Error(String(reason)),
-                { promise: promise.toString() }
+            dataLogger.error(
+                "Unhandled rejection",
+                {
+                    reason: reason instanceof Error ? reason : new Error(String(reason)),
+                    promise: promise.toString()
+                }
             );
         });
 
@@ -233,17 +191,10 @@ export class ErrorHandlerService {
 
         // Handle warnings
         process.on("warning", (warning: Error) => {
-            LoggingService.logWarning(
-                "process_warning",
-                warning.message,
-                { warning: warning.stack }
-            );
+            dataLogger.warn(warning.message, { warning: warning.stack });
         });
 
-        LoggingService.logInfo(
-            "process_handlers_setup",
-            "Process event handlers have been set up"
-        );
+        messageLogger.info("Process event handlers have been set up");
     }
 
     /**
@@ -257,8 +208,7 @@ export class ErrorHandlerService {
 
                 // Only log if status changed or if there are issues
                 if (healthResult.status !== "healthy") {
-                    LoggingService.logWarning(
-                        "periodic_health_check",
+                    dataLogger.warn(
                         `Periodic health check: ${healthResult.status}`,
                         {
                             status: healthResult.status,
@@ -268,10 +218,7 @@ export class ErrorHandlerService {
                     );
                 }
             } catch (error) {
-                LoggingService.logError(
-                    "periodic_health_check_failed",
-                    error as Error
-                );
+                dataLogger.error("Periodic health check failed", { error });
             }
         }, 300000); // 5 minutes
 
@@ -280,10 +227,7 @@ export class ErrorHandlerService {
             clearInterval(healthCheckInterval);
         });
 
-        LoggingService.logInfo(
-            "periodic_health_checks_setup",
-            "Periodic health checks have been set up"
-        );
+        messageLogger.info("Periodic health checks have been set up");
     }
 
     /**
@@ -312,22 +256,15 @@ export class ErrorHandlerService {
 
         // Log warnings
         warnings.forEach(warning => {
-            LoggingService.logWarning(
-                "config_validation_warning",
-                warning
-            );
+            messageLogger.warn(warning);
         });
 
         // Log errors
         errors.forEach(error => {
-            LoggingService.logError(
-                "config_validation_error",
-                new Error(error)
-            );
+            messageLogger.error(`Config validation error: ${error}`);
         });
 
-        LoggingService.logInfo(
-            "environment_validation_complete",
+        dataLogger.info(
             "Environment configuration validation completed",
             {
                 warnings: warnings.length,
@@ -360,10 +297,7 @@ export class ErrorHandlerService {
      * Forces reinitialization (for testing or recovery)
      */
     static async forceReinitialize(): Promise<void> {
-        LoggingService.logWarning(
-            "force_reinitialize",
-            "Forcing reinitialization of error handling components"
-        );
+        messageLogger.warn("Forcing reinitialization of error handling components");
 
         await this.shutdown();
         this.initialized = false;

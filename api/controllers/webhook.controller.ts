@@ -8,9 +8,9 @@ import {
 import { GitHubWebhookError, PRAnalysisError } from "../models/error.model";
 import { JobQueueService } from "../services/job-queue.service";
 import { WorkflowIntegrationService } from "../services/workflow-integration.service";
-import { LoggingService } from "../services/logging.service";
 import { OctokitService } from "../services/octokit.service";
 import { STATUS_CODES } from "../helper";
+import { dataLogger } from "../config/logger.config";
 
 /**
  * Handles GitHub PR webhook events
@@ -70,7 +70,7 @@ export const handlePRWebhook = async (req: Request, res: Response, next: NextFun
         } as APIResponse);
 
     } catch (error) {
-        LoggingService.logError("PR webhook processing failed", error);
+        dataLogger.error("PR webhook processing failed", { error });
 
         if (error instanceof PRAnalysisError) {
             return res.status(error.status).json({
@@ -181,7 +181,7 @@ export const getJobStatus = (req: Request, res: Response) => {
         } as APIResponse);
 
     } catch (error) {
-        LoggingService.logError("Error getting job status", { error });
+        dataLogger.error("Error getting job status", { error });
         res.status(STATUS_CODES.UNKNOWN).json({
             success: false,
             error: "Internal server error"
@@ -207,7 +207,7 @@ export const getQueueStats = (req: Request, res: Response) => {
         } as APIResponse);
 
     } catch (error) {
-        LoggingService.logError("Error getting queue stats", { error });
+        dataLogger.error("Error getting queue stats", { error });
         res.status(STATUS_CODES.UNKNOWN).json({
             success: false,
             error: "Internal server error"
@@ -230,7 +230,7 @@ export const getWorkflowStatus = (req: Request, res: Response) => {
         } as APIResponse);
 
     } catch (error) {
-        LoggingService.logError("Error getting workflow status", { error });
+        dataLogger.error("Error getting workflow status", { error });
         res.status(STATUS_CODES.UNKNOWN).json({
             success: false,
             error: "Internal server error",
@@ -305,7 +305,7 @@ export const triggerManualAnalysis = async (req: Request, res: Response, next: N
         } as APIResponse);
 
     } catch (error) {
-        LoggingService.logError("Error in manual analysis trigger", { error });
+        dataLogger.error("Error in manual analysis trigger", { error });
         next(error);
     }
 };

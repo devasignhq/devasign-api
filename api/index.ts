@@ -26,6 +26,7 @@ import { aiServicesRoutes } from "./routes/test_routes/ai-services.test.route";
 import { errorHandler } from "./middlewares/error.middleware";
 import { ErrorHandlerService } from "./services/error-handler.service";
 import { healthRoutes } from "./routes/health.route";
+import { dataLogger, messageLogger } from "./config/logger.config";
 
 const app = express();
 const PORT = process.env.NODE_ENV === "development"
@@ -95,7 +96,7 @@ app.post(
             res.status(201).json({ message: "Database cleared" });
         } catch (error) {
             res.status(400).json(error);
-            console.log(error);
+            dataLogger.error("Database clear operation failed", { error });
         }
     }) as RequestHandler
 );
@@ -166,7 +167,7 @@ prisma.$connect();
 if (process.env.GROQ_API_KEY && process.env.GITHUB_APP_ID && process.env.GITHUB_APP_PRIVATE_KEY) {
     // Initialize error handling system
     ErrorHandlerService.initialize().catch(error => {
-        console.error("Failed to initialize error handling system:", error);
+        dataLogger.error("Failed to initialize error handling system", { error });
         // Continue startup even if error handling initialization fails
     });
 
@@ -176,28 +177,28 @@ if (process.env.GROQ_API_KEY && process.env.GITHUB_APP_ID && process.env.GITHUB_
             const { WorkflowIntegrationService } = await import("./services/workflow-integration.service");
             const workflowService = WorkflowIntegrationService.getInstance();
             await workflowService.initialize();
-            console.log("Workflow Integration Service initialized successfully");
+            messageLogger.info("Workflow Integration Service initialized successfully");
         } catch (error) {
-            console.error("Failed to initialize Workflow Integration Service:", error);
+            dataLogger.error("Failed to initialize Workflow Integration Service", { error });
             // Continue startup even if workflow initialization fails
         }
     })();
 } else {
-    console.log("AI Review system disabled - missing required environment variables (GROQ_API_KEY, GITHUB_APP_ID, GITHUB_APP_PRIVATE_KEY)");
+    messageLogger.warn("AI Review system disabled - missing required environment variables (GROQ_API_KEY, GITHUB_APP_ID, GITHUB_APP_PRIVATE_KEY)");
 }
 
 const server = app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server is running on port ${PORT}`);
+    messageLogger.info(`Server is running on port ${PORT}`);
 });
 
 // Graceful shutdown handling
 process.on("SIGTERM", async () => {
-    console.log("SIGTERM received, starting graceful shutdown...");
+    messageLogger.info("SIGTERM received, starting graceful shutdown...");
 
     try {
         // Stop accepting new connections
         server.close(() => {
-            console.log("HTTP server closed");
+            messageLogger.info("HTTP server closed");
         });
 
         // Shutdown workflow integration service
@@ -207,23 +208,23 @@ process.on("SIGTERM", async () => {
 
         // Close database connection
         await prisma.$disconnect();
-        console.log("Database connection closed");
+        messageLogger.info("Database connection closed");
 
-        console.log("Graceful shutdown completed");
+        messageLogger.info("Graceful shutdown completed");
         process.exit(0);
     } catch (error) {
-        console.error("Error during graceful shutdown:", error);
+        dataLogger.error("Error during graceful shutdown", { error });
         process.exit(1);
     }
 });
 
 process.on("SIGINT", async () => {
-    console.log("SIGINT received, starting graceful shutdown...");
+    messageLogger.info("SIGINT received, starting graceful shutdown...");
 
     try {
         // Stop accepting new connections
         server.close(() => {
-            console.log("HTTP server closed");
+            messageLogger.info("HTTP server closed");
         });
 
         // Shutdown workflow integration service
@@ -233,12 +234,12 @@ process.on("SIGINT", async () => {
 
         // Close database connection
         await prisma.$disconnect();
-        console.log("Database connection closed");
+        messageLogger.info("Database connection closed");
 
-        console.log("Graceful shutdown completed");
+        messageLogger.info("Graceful shutdown completed");
         process.exit(0);
     } catch (error) {
-        console.error("Error during graceful shutdown:", error);
+        dataLogger.error("Error during graceful shutdown", { error });
         process.exit(1);
     }
 });

@@ -2,8 +2,8 @@ import { Request, Response, NextFunction } from "express";
 import crypto from "crypto";
 import { GitHubWebhookError } from "../models/error.model";
 import { OctokitService } from "../services/octokit.service";
-import { LoggingService } from "../services/logging.service";
 import { STATUS_CODES } from "../helper";
+import { dataLogger } from "../config/logger.config";
 
 /**
  * Middleware to validate GitHub webhook signatures
@@ -119,8 +119,7 @@ export const validatePRWebhookEvent = async (req: Request, res: Response, next: 
 
                 // Only process PRs targeting the default branch
                 if (targetBranch !== defaultBranch) {
-                    LoggingService.logInfo(
-                        "pr_webhook_skipped",
+                    dataLogger.info(
                         "PR skipped - not targeting default branch",
                         {
                             prNumber: pull_request.number,
@@ -146,8 +145,7 @@ export const validatePRWebhookEvent = async (req: Request, res: Response, next: 
                 }
             } catch (error) {
                 // Log the error but don't fail the webhook - continue processing
-                LoggingService.logWarning(
-                    "default_branch_validation_error",
+                dataLogger.warn(
                     "Failed to validate default branch, continuing with processing",
                     {
                         repositoryName: repository.full_name,

@@ -19,7 +19,6 @@ describe("Webhook API Integration Tests", () => {
     let mockWorkflowService: any;
     let mockJobQueueService: any;
     let mockOctokitService: any;
-    let mockLoggingService: any;
 
     const WEBHOOK_SECRET = "test-webhook-secret";
     const VALID_INSTALLATION_ID = "12345";
@@ -44,7 +43,6 @@ describe("Webhook API Integration Tests", () => {
         const { WorkflowIntegrationService } = await import("../../../api/services/workflow-integration.service");
         const { JobQueueService } = await import("../../../api/services/job-queue.service");
         const { OctokitService } = await import("../../../api/services/octokit.service");
-        const { LoggingService } = await import("../../../api/services/logging.service");
 
         mockWorkflowService = {
             getInstance: jest.fn().mockReturnThis(),
@@ -68,13 +66,6 @@ describe("Webhook API Integration Tests", () => {
             getDefaultBranch: jest.fn()
         };
         Object.assign(OctokitService, mockOctokitService);
-
-        mockLoggingService = {
-            logError: jest.fn(),
-            logInfo: jest.fn(),
-            logWarning: jest.fn()
-        };
-        Object.assign(LoggingService, mockLoggingService);
     });
 
     beforeEach(async () => {
@@ -492,19 +483,12 @@ describe("Webhook API Integration Tests", () => {
                 code: "GITHUB_API_ERROR",
                 timestamp: expect.any(String)
             });
-
-            expect(mockLoggingService.logError).toHaveBeenCalledWith(
-                "PR webhook processing failed",
-                expect.objectContaining({
-                    error: "API rate limit exceeded"
-                })
-            );
         });
 
         it("should handle PR analysis errors with context", async () => {
             const { PRAnalysisError } = await import("../../../api/models/error.model");
             mockWorkflowService.processWebhookWorkflow.mockRejectedValue(
-                new PRAnalysisError(1, VALID_REPO_NAME, "Failed to analyze PR changes")
+                new PRAnalysisError(1, VALID_REPO_NAME, "Failed to analyze PR changes", {})
             );
 
             const payload = createWebhookPayload();
@@ -569,14 +553,6 @@ describe("Webhook API Integration Tests", () => {
                 .expect(202);
 
             expect(response.body.success).toBe(true);
-            expect(mockLoggingService.logWarning).toHaveBeenCalledWith(
-                "default_branch_validation_error",
-                "Failed to validate default branch, continuing with processing",
-                expect.objectContaining({
-                    repositoryName: VALID_REPO_NAME,
-                    targetBranch: "main"
-                })
-            );
         });
     });
 

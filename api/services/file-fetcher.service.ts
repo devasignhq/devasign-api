@@ -1,10 +1,10 @@
 import { OctokitService } from "./octokit.service";
-import { LoggingService } from "./logging.service";
 import {
     RelevantFileRecommendation,
     FetchedFile,
     BatchProcessingConfig
 } from "../models/ai-review.model";
+import { dataLogger } from "../config/logger.config";
 
 /**
  * Service for fetching files based on AI recommendations
@@ -44,8 +44,7 @@ export class FileFetcherService {
         branch?: string
     ): Promise<FetchedFile[]> {
         const startTime = Date.now();
-        LoggingService.logInfo(
-            "file_fetching_started",
+        dataLogger.info(
             "Starting file fetching",
             {
                 installationId,
@@ -74,8 +73,7 @@ export class FileFetcherService {
             const successCount = processedFiles.filter(f => f.fetchSuccess).length;
             const failureCount = processedFiles.length - successCount;
 
-            LoggingService.logInfo(
-                "file_fetching_completed",
+            dataLogger.info(
                 "File fetching completed",
                 {
                     installationId,
@@ -91,10 +89,10 @@ export class FileFetcherService {
             return processedFiles;
 
         } catch (error) {
-            LoggingService.logError(
-                "file_fetching_failed",
-                error instanceof Error ? error : new Error(String(error)),
+            dataLogger.error(
+                "File fetching failed",
                 {
+                    error: error instanceof Error ? error : new Error(String(error)),
                     installationId,
                     repositoryName,
                     processingTime: Date.now() - startTime
@@ -138,8 +136,7 @@ export class FileFetcherService {
         const failedFiles = files.filter(f => !f.fetchSuccess);
 
         if (failedFiles.length > 0) {
-            LoggingService.logWarning(
-                "file_fetch_partial_failure",
+            dataLogger.warn(
                 "Some files failed to fetch",
                 {
                     totalFiles: files.length,
@@ -182,10 +179,10 @@ export class FileFetcherService {
                     if (result.status === "fulfilled") {
                         results.push(...result.value);
                     } else {
-                        LoggingService.logError(
-                            "batch_processing_failed",
-                            new Error(`Batch ${i + index} failed: ${result.reason}`),
+                        dataLogger.error(
+                            "Batch processing failed",
                             {
+                                error: new Error(`Batch ${i + index} failed: ${result.reason}`),
                                 batchIndex: i + index,
                                 batchSize: concurrentBatches[index].length
                             }
@@ -204,10 +201,10 @@ export class FileFetcherService {
                     }
                 });
             } catch (error) {
-                LoggingService.logError(
-                    "concurrent_batch_processing_failed",
-                    error instanceof Error ? error : new Error(String(error)),
+                dataLogger.error(
+                    "Concurrent batch processing failed",
                     {
+                        error: error instanceof Error ? error : new Error(String(error)),
                         batchIndex: i
                     }
                 );
@@ -228,8 +225,7 @@ export class FileFetcherService {
     ): Promise<FetchedFile[]> {
         const batchStartTime = Date.now();
 
-        LoggingService.logDebug(
-            "batch_processing_started",
+        dataLogger.debug(
             "Processing file batch",
             {
                 installationId,
@@ -276,8 +272,7 @@ export class FileFetcherService {
             const batchProcessingTime = Date.now() - batchStartTime;
             const successCount = results.filter(r => r.fetchSuccess).length;
 
-            LoggingService.logDebug(
-                "batch_processing_completed",
+            dataLogger.debug(
                 "Batch processing completed",
                 {
                     batchSize: batch.length,
@@ -291,8 +286,7 @@ export class FileFetcherService {
 
         } catch (error) {
             // If batch fetching fails, fall back to individual file fetching with retries
-            LoggingService.logWarning(
-                "batch_fetch_failed_fallback",
+            dataLogger.warn(
                 "Batch fetch failed, falling back to individual file fetching",
                 {
                     batchSize: batch.length,
@@ -326,8 +320,7 @@ export class FileFetcherService {
                 );
                 results.push(fetchedFile);
             } catch (error) {
-                LoggingService.logWarning(
-                    "file_fetch_failed_after_retries",
+                dataLogger.warn(
                     "File fetch failed after retries",
                     {
                         filePath: recommendation.filePath,
@@ -374,8 +367,7 @@ export class FileFetcherService {
                 const fetchTime = Date.now() - startTime;
                 const size = Buffer.byteLength(content, "utf8");
 
-                LoggingService.logDebug(
-                    "file_fetch_success",
+                dataLogger.debug(
                     "File fetched successfully",
                     {
                         filePath: recommendation.filePath,
@@ -401,8 +393,7 @@ export class FileFetcherService {
                 if (attempt === maxRetries - 1 || !isRetryable) {
                     // Last attempt failed or error is not retryable, will throw
                     if (!isRetryable) {
-                        LoggingService.logDebug(
-                            "file_fetch_non_retryable_error",
+                        dataLogger.debug(
                             "Non-retryable error encountered, not retrying",
                             {
                                 filePath: recommendation.filePath,
@@ -420,8 +411,7 @@ export class FileFetcherService {
                     maxDelay
                 );
 
-                LoggingService.logDebug(
-                    "file_fetch_retry",
+                dataLogger.debug(
                     "File fetch attempt failed, retrying",
                     {
                         filePath: recommendation.filePath,
@@ -504,12 +494,9 @@ export class FileFetcherService {
             this.defaultBatchConfig.retryConfig = { ...this.defaultBatchConfig.retryConfig, ...config.retryConfig };
         }
 
-        LoggingService.logInfo(
-            "batch_config_updated",
+        dataLogger.info(
             "Batch processing configuration updated",
-            {
-                newConfig: this.defaultBatchConfig
-            }
+            { newConfig: this.defaultBatchConfig }
         );
     }
 }

@@ -4,9 +4,9 @@ import {
     GitHubAPIError,
     TimeoutError
 } from "../models/error.model";
-import { LoggingService } from "./logging.service";
 import { CircuitBreakerService } from "./circuit-breaker.service";
 import { getFieldFromUnknownObject } from "../helper";
+import { dataLogger } from "../config/logger.config";
 
 /**
  * Retry Service for AI Review System
@@ -36,7 +36,6 @@ export class RetryService {
             retryCondition = RetryService.defaultRetryCondition
         } = options;
 
-        const timer = LoggingService.createTimer(`retry_${operationName}`);
         let lastError: Error | undefined;
 
         try {
@@ -56,11 +55,6 @@ export class RetryService {
                     fallback
                 );
 
-                timer.end({
-                    operationName,
-                    success: true
-                });
-
                 return result as T;
             }
 
@@ -75,43 +69,26 @@ export class RetryService {
                 retryCondition
             );
 
-            timer.end({
-                operationName,
-                success: true
-            });
-
             return result;
         } catch (error) {
             lastError = error as Error;
 
             // Log final failure
-            LoggingService.logError("retry_exhausted", lastError, {
-                operationName,
-                maxRetries,
-                totalDuration: timer.getCurrentDuration()
-            });
+            dataLogger.error(
+                "Retry exhausted", 
+                { error: lastError, operationName, maxRetries }
+            );
 
             // Use fallback if available
             if (fallback) {
-                LoggingService.logWarning("using_fallback", `Using fallback for ${operationName}`, {
-                    originalError: lastError.message
-                });
+                dataLogger.warn(
+                    `Using fallback for ${operationName}`, 
+                    { originalError: lastError.message }
+                );
                 const fallbackResult = await fallback();
-
-                timer.end({
-                    operationName,
-                    success: true,
-                    usedFallback: true
-                });
 
                 return fallbackResult as T;
             }
-
-            timer.end({
-                operationName,
-                success: false,
-                error: lastError.message
-            });
 
             throw lastError;
         }
@@ -139,11 +116,14 @@ export class RetryService {
 
                 // Log success if this was a retry
                 if (attempt > 0) {
-                    LoggingService.logInfo("retry_success", `${operationName} succeeded on attempt ${attempt + 1}`, {
-                        operationName,
-                        attempt: attempt + 1,
-                        totalAttempts: maxRetries
-                    });
+                    dataLogger.info(
+                        `${operationName} succeeded on attempt ${attempt + 1}`, 
+                        {
+                            operationName,
+                            attempt: attempt + 1,
+                            totalAttempts: maxRetries
+                        }
+                    );
                 }
 
                 return result;
@@ -151,33 +131,43 @@ export class RetryService {
                 lastError = error;
 
                 // Log the attempt
-                LoggingService.logWarning("retry_attempt_failed", `Attempt ${attempt + 1}/${maxRetries} failed for ${operationName}`, {
-                    operationName,
-                    attempt: attempt + 1,
-                    totalAttempts: maxRetries,
-                    error: getFieldFromUnknownObject<number>(error, "message"),
-                    errorCode: getFieldFromUnknownObject<number>(error, "code"),
-                    retryable: retryCondition(error as Error, attempt)
-                });
+                dataLogger.warn(
+                    `Attempt ${attempt + 1}/${maxRetries} failed for ${operationName}`, 
+                    {
+                        operationName,
+                        attempt: attempt + 1,
+                        totalAttempts: maxRetries,
+                        error: getFieldFromUnknownObject<number>(error, "message"),
+                        errorCode: getFieldFromUnknownObject<number>(error, "code"),
+                        retryable: retryCondition(error as Error, attempt)
+                    }
+                );
 
                 // Check if we should retry
                 if (!retryCondition(error as Error, attempt)) {
-                    LoggingService.logError("retry_aborted", lastError, {
-                        operationName,
-                        attempt: attempt + 1,
-                        reason: "Non-retryable error"
-                    });
+                    dataLogger.error(
+                        "Retry aborted", 
+                        {
+                            error: lastError,
+                            operationName,
+                            attempt: attempt + 1,
+                            reason: "Non-retryable error"
+                        }
+                    );
                     throw error;
                 }
 
                 // Don't wait after the last attempt
                 if (attempt < maxRetries - 1) {
                     const delay = RetryService.calculateDelay(error as Error, attempt, baseDelay, maxDelay);
-                    LoggingService.logInfo("retry_delay", `Waiting ${delay}ms before retry ${attempt + 2}/${maxRetries} for ${operationName}`, {
-                        operationName,
-                        delay,
-                        nextAttempt: attempt + 2
-                    });
+                    dataLogger.info(
+                        `Waiting ${delay}ms before retry ${attempt + 2}/${maxRetries} for ${operationName}`, 
+                        {
+                            operationName,
+                            delay,
+                            nextAttempt: attempt + 2
+                        }
+                    );
                     await RetryService.sleep(delay);
                 }
             }

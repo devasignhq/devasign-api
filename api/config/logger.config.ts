@@ -68,7 +68,6 @@ winston.loggers.add("data", {
     levels: logLevels,
     format: winston.format.combine(
         winston.format.timestamp({ format: "YYYY-MM-DD HH:mm:ss:ms" }),
-        winston.format.colorize({ all: true }),
         winston.format.errors({ stack: true }),
         winston.format.json(),
         winston.format.prettyPrint()

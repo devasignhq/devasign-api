@@ -1,11 +1,12 @@
 import { AIReviewError, ErrorClass, ErrorUtils } from "../models/error.model";
-import { LoggingService } from "../services/logging.service";
 import { Request, Response, ErrorRequestHandler } from "express";
 import { STATUS_CODES, getFieldFromUnknownObject } from "../helper";
+import { dataLogger } from "../config/logger.config";
 
 export const errorHandler = ((error: unknown, req: Request, res: Response) => {
     // Log the error
-    LoggingService.logError("api_error", error, {
+    dataLogger.error("api_error", {
+        error,
         url: req.url,
         method: req.method,
         userAgent: req.get("User-Agent"),

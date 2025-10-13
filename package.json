@@ -29,6 +29,7 @@
     "@stellar/typescript-wallet-sdk": "^1.9.0",
     "@types/express": "^5.0.0",
     "@types/node": "^22.13.10",
+    "@types/winston": "^2.4.4",
     "axios": "^1.8.3",
     "cors": "^2.8.5",
     "crypto-js": "^4.2.0",
@@ -45,7 +46,8 @@
     "nodemon": "^3.1.9",
     "octokit": "^3.2.2",
     "ts-node": "^10.9.2",
-    "typescript": "^5.8.2"
+    "typescript": "^5.8.2",
+    "winston": "^3.18.3"
   },
   "devDependencies": {
     "@eslint/js": "^9.36.0",

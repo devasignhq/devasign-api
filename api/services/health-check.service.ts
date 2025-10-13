@@ -1,7 +1,7 @@
 import { CircuitBreakerService } from "./circuit-breaker.service";
-import { LoggingService } from "./logging.service";
 import { prisma } from "../config/database.config";
 import { RetryService } from "./retry.service";
+import { dataLogger, messageLogger } from "../config/logger.config";
 
 /**
  * Health Check Service for AI Review System
@@ -21,27 +21,24 @@ export class HealthCheckService {
         }
 
         HealthCheckService.healthCheckInProgress = true;
-        const timer = LoggingService.createTimer("health_check");
 
         try {
             const result = await HealthCheckService.checkAllServices(includeDetailed);
             HealthCheckService.lastHealthCheck = result;
 
-            timer.end({
-                overallStatus: result.status,
-                servicesChecked: Object.keys(result.services).length
-            });
-
-            LoggingService.logHealthStatus("ai-review-system", result.status, {
-                services: result.services,
-                degradedMode: result.degradedMode
-            });
+            dataLogger.info(
+                "Health check successful", 
+                {
+                    services: result.services,
+                    status: result.status,
+                    degradedMode: result.degradedMode
+                }
+            );
 
             return result;
         } catch (error) {
             const errorResult = HealthCheckService.createUnhealthyResult(`Health check failed: ${error}`);
-            timer.end({ error: true });
-            LoggingService.logError("health_check_failed", error as Error);
+            dataLogger.error("Health check failed", { error });
             return errorResult;
         } finally {
             HealthCheckService.healthCheckInProgress = false;
@@ -69,8 +66,7 @@ export class HealthCheckService {
                 const [serviceName, health] = result.value;
                 services[serviceName] = health;
             } else {
-                // Handle rejected promises
-                console.error("Health check promise rejected:", result.reason);
+                messageLogger.error(`Health check promise rejected: ${result.reason}`);
             }
         }
 
