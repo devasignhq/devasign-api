@@ -1,5 +1,4 @@
 import { CircuitBreakerService } from "./circuit-breaker.service";
-import { HealthCheckService } from "./health-check.service";
 import { dataLogger, messageLogger } from "../config/logger.config";
 
 /**
@@ -60,9 +59,6 @@ export class ErrorRecoveryService {
                 break;
             case "circuit_breaker":
                 result = await ErrorRecoveryService.recoverFromCircuitBreakerFailure(context);
-                break;
-            case "health_check":
-                result = await ErrorRecoveryService.recoverFromHealthCheckFailure(context);
                 break;
             case "complete":
                 result = await ErrorRecoveryService.performCompleteSystemRecovery(context);
@@ -308,52 +304,6 @@ export class ErrorRecoveryService {
     }
 
     /**
-     * Recovers from health check failures
-     */
-    private static async recoverFromHealthCheckFailure(context?: Record<string, unknown>): Promise<RecoveryResult> {
-        dataLogger.info("Attempting to recover from health check failure", { context });
-
-        try {
-            // Perform fresh health check
-            const healthResult = await HealthCheckService.performHealthCheck(true);
-
-            if (healthResult.status === "healthy") {
-                return {
-                    success: true,
-                    strategy: "health_recovery",
-                    message: "System health recovered",
-                    timestamp: new Date(),
-                    details: { healthResult }
-                };
-            } else if (healthResult.status === "degraded") {
-                return {
-                    success: true,
-                    strategy: "degraded_mode",
-                    message: "System operating in degraded mode",
-                    timestamp: new Date(),
-                    details: { healthResult }
-                };
-            } else {
-                return {
-                    success: false,
-                    strategy: "health_recovery",
-                    message: "System still unhealthy",
-                    timestamp: new Date(),
-                    details: { healthResult }
-                };
-            }
-        } catch (error) {
-            return {
-                success: false,
-                strategy: "health_recovery",
-                message: `Health check recovery failed: ${error}`,
-                timestamp: new Date(),
-                error: String(error)
-            };
-        }
-    }
-
-    /**
      * Performs complete system recovery
      */
     private static async performCompleteSystemRecovery(context?: Record<string, unknown>): Promise<RecoveryResult> {
@@ -381,15 +331,6 @@ export class ErrorRecoveryService {
                     const missing = requiredEnvVars.filter(key => !process.env[key]);
                     if (missing.length > 0) {
                         throw new Error(`Missing environment variables: ${missing.join(", ")}`);
-                    }
-                }
-            },
-            {
-                name: "Perform Health Check",
-                action: async () => {
-                    const healthResult = await HealthCheckService.performHealthCheck(true);
-                    if (healthResult.status === "unhealthy") {
-                        throw new Error("System health check failed");
                     }
                 }
             }

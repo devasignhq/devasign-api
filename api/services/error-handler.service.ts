@@ -1,4 +1,3 @@
-import { HealthCheckService } from "./health-check.service";
 import { CircuitBreakerService } from "./circuit-breaker.service";
 import { dataLogger, messageLogger } from "../config/logger.config";
 
@@ -29,14 +28,8 @@ export class ErrorHandlerService {
             // Initialize circuit breakers
             this.initializeCircuitBreakers();
 
-            // Perform initial health check
-            await this.performInitialHealthCheck();
-
             // Set up process event handlers
             this.setupProcessEventHandlers();
-
-            // Set up periodic health checks
-            this.setupPeriodicHealthChecks();
 
             // Validate environment configuration
             this.validateEnvironmentConfiguration();
@@ -107,52 +100,6 @@ export class ErrorHandlerService {
     }
 
     /**
-     * Gets current error handling status
-     */
-    static getErrorHandlingStatus() {
-        return {
-            circuitBreakers: CircuitBreakerService.getCircuitStatus(),
-            systemHealth: HealthCheckService.getCachedHealthStatus(),
-            lastHealthCheck: HealthCheckService.getCachedHealthStatus()?.timestamp
-        };
-    }
-
-    /**
-     * Performs initial health check to validate system state
-     */
-    private static async performInitialHealthCheck(): Promise<void> {
-        try {
-            const healthResult = await HealthCheckService.performHealthCheck(true);
-
-            dataLogger.info(
-                `Initial health check completed: ${healthResult.status}`,
-                {
-                    status: healthResult.status,
-                    degradedMode: healthResult.degradedMode,
-                    services: Object.keys(healthResult.services)
-                }
-            );
-
-            // Log warnings for unhealthy services
-            Object.entries(healthResult.services).forEach(([serviceName, health]) => {
-                if (health.status !== "healthy") {
-                    dataLogger.warn(
-                        `Service ${serviceName} is not healthy on startup: ${health.message}`,
-                        { serviceName, health }
-                    );
-                }
-            });
-
-            // If system is completely unhealthy, log critical error but don't fail startup
-            if (healthResult.status === "unhealthy") {
-                dataLogger.error("System is unhealthy on startup", { healthResult });
-            }
-        } catch (error) {
-            dataLogger.error("Initial health check failed", { error });
-        }
-    }
-
-    /**
      * Sets up process event handlers for graceful shutdown
      */
     private static setupProcessEventHandlers(): void {
@@ -195,39 +142,6 @@ export class ErrorHandlerService {
         });
 
         messageLogger.info("Process event handlers have been set up");
-    }
-
-    /**
-     * Sets up periodic health checks
-     */
-    private static setupPeriodicHealthChecks(): void {
-        // Perform detailed health check every 5 minutes
-        const healthCheckInterval = setInterval(async () => {
-            try {
-                const healthResult = await HealthCheckService.performHealthCheck(false);
-
-                // Only log if status changed or if there are issues
-                if (healthResult.status !== "healthy") {
-                    dataLogger.warn(
-                        `Periodic health check: ${healthResult.status}`,
-                        {
-                            status: healthResult.status,
-                            degradedMode: healthResult.degradedMode,
-                            timestamp: healthResult.timestamp
-                        }
-                    );
-                }
-            } catch (error) {
-                dataLogger.error("Periodic health check failed", { error });
-            }
-        }, 300000); // 5 minutes
-
-        // Add to shutdown handlers
-        this.shutdownHandlers.push(() => {
-            clearInterval(healthCheckInterval);
-        });
-
-        messageLogger.info("Periodic health checks have been set up");
     }
 
     /**
@@ -281,7 +195,6 @@ export class ErrorHandlerService {
     static getInitializationStatus() {
         return {
             initialized: this.initialized,
-            healthStatus: HealthCheckService.getCachedHealthStatus(),
             circuitBreakers: CircuitBreakerService.getCircuitStatus()
         };
     }
