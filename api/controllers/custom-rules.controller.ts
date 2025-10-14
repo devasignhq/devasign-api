@@ -5,7 +5,9 @@ import { RuleEngineService } from "../services/rule-engine.service";
 import { NotFoundError, ValidationError } from "../models/error.model";
 import { STATUS_CODES } from "../helper";
 
-// Get all custom rules for an installation
+/** 
+ * Get all custom rules for an installation 
+ */ 
 export const getCustomRules = async (req: Request, res: Response, next: NextFunction) => {
     const { installationId } = req.params;
     const { active, ruleType, severity } = req.query;
@@ -43,6 +45,7 @@ export const getCustomRules = async (req: Request, res: Response, next: NextFunc
             where.severity = severity as RuleSeverity;
         }
 
+        // Fetch rules with sorting
         const rules = await prisma.aIReviewRule.findMany({
             where,
             orderBy: [
@@ -52,6 +55,7 @@ export const getCustomRules = async (req: Request, res: Response, next: NextFunc
             ]
         });
 
+        // Return success response
         res.status(STATUS_CODES.SUCCESS).json({
             success: true,
             data: rules,
@@ -62,7 +66,9 @@ export const getCustomRules = async (req: Request, res: Response, next: NextFunc
     }
 };
 
-// Get a specific custom rule
+/** 
+ * Get a specific custom rule
+ */ 
 export const getCustomRule = async (req: Request, res: Response, next: NextFunction) => {
     const { installationId, ruleId } = req.params;
     const { userId } = req.body;
@@ -82,6 +88,7 @@ export const getCustomRule = async (req: Request, res: Response, next: NextFunct
             throw new NotFoundError("Installation not found or access denied");
         }
 
+        // Fetch the rule and verify it belongs to the installation
         const rule = await prisma.aIReviewRule.findFirst({
             where: {
                 id: ruleId,
@@ -93,6 +100,7 @@ export const getCustomRule = async (req: Request, res: Response, next: NextFunct
             throw new NotFoundError("Custom rule not found");
         }
 
+        // Return success response
         res.status(STATUS_CODES.SUCCESS).json({
             success: true,
             data: rule
@@ -102,7 +110,9 @@ export const getCustomRule = async (req: Request, res: Response, next: NextFunct
     }
 };
 
-// Create a new custom rule
+/** 
+ * Create a new custom rule
+ */ 
 export const createCustomRule = async (req: Request, res: Response, next: NextFunction) => {
     const { installationId } = req.params;
     const { name, description, ruleType, severity, pattern, config, active = true } = req.body;
@@ -143,6 +153,7 @@ export const createCustomRule = async (req: Request, res: Response, next: NextFu
             throw new ValidationError(validationResult.error || "");
         }
 
+        // Create the rule
         const rule = await prisma.aIReviewRule.create({
             data: {
                 installationId,
@@ -156,6 +167,7 @@ export const createCustomRule = async (req: Request, res: Response, next: NextFu
             }
         });
 
+        // Return success response
         res.status(STATUS_CODES.POST).json({
             success: true,
             data: rule,
@@ -166,7 +178,9 @@ export const createCustomRule = async (req: Request, res: Response, next: NextFu
     }
 };
 
-// Update an existing custom rule
+/** 
+ * Update an existing custom rule
+ */
 export const updateCustomRule = async (req: Request, res: Response, next: NextFunction) => {
     const { installationId, ruleId } = req.params;
     const { name, description, ruleType, severity, pattern, config, active } = req.body;
@@ -242,11 +256,13 @@ export const updateCustomRule = async (req: Request, res: Response, next: NextFu
         if (config !== undefined) updateData.config = config;
         if (active !== undefined) updateData.active = active;
 
+        // Update the rule
         const updatedRule = await prisma.aIReviewRule.update({
             where: { id: ruleId },
             data: updateData
         });
 
+        // Return success response
         res.status(STATUS_CODES.SUCCESS).json({
             success: true,
             data: updatedRule,
@@ -257,7 +273,9 @@ export const updateCustomRule = async (req: Request, res: Response, next: NextFu
     }
 };
 
-// Delete a custom rule
+/** 
+ * Delete a custom rule
+ */
 export const deleteCustomRule = async (req: Request, res: Response, next: NextFunction) => {
     const { installationId, ruleId } = req.params;
     const { userId } = req.body;
@@ -289,10 +307,12 @@ export const deleteCustomRule = async (req: Request, res: Response, next: NextFu
             throw new NotFoundError("Custom rule not found");
         }
 
+        // Delete the rule
         await prisma.aIReviewRule.delete({
             where: { id: ruleId }
         });
 
+        // Return success response
         res.status(STATUS_CODES.SUCCESS).json({
             success: true,
             message: "Custom rule deleted successfully"
@@ -302,8 +322,9 @@ export const deleteCustomRule = async (req: Request, res: Response, next: NextFu
     }
 };
 
-
-// Get default rules (available to all installations)
+/** 
+ * Get default rules (available to all installations)
+ */
 export const getDefaultRules = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const defaultRules = RuleEngineService.getDefaultRules();
