@@ -18,19 +18,15 @@ class InstallationError extends ErrorClass {
     }
 }
 
+/**
+ * Get all installations accessible by the current user.
+ */
 export const getInstallations = async (req: Request, res: Response, next: NextFunction) => {
     const { page = 1, limit = 10} = req.query;
     const { userId } = req.body;
 
     try {
-        if (Number(limit) > 100) {
-            throw new ValidationError("Maximum limit is 100");
-        }
-        if (Number(page) < 1) {
-            throw new ValidationError("Page must be greater than 0");
-        }
-
-        // Build where clause based on filters
+        // Build where clause to filter for user installations
         const where: Prisma.InstallationWhereInput = {
             users: {
                 some: { userId: userId as string }
@@ -69,6 +65,7 @@ export const getInstallations = async (req: Request, res: Response, next: NextFu
             take: Number(limit)
         });
 
+        // Return paginated response
         res.status(STATUS_CODES.SUCCESS).json({
             data: installations,
             pagination: {
@@ -84,11 +81,15 @@ export const getInstallations = async (req: Request, res: Response, next: NextFu
     }
 };
 
+/**
+ * Get details of a specific installation by ID.
+ */
 export const getInstallation = async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;
     const { userId } = req.body;
 
     try {
+        // Get installation and verify it exists
         const installation = await prisma.installation.findUnique({
             where: { 
                 id,
@@ -149,6 +150,7 @@ export const getInstallation = async (req: Request, res: Response, next: NextFun
             throw new NotFoundError("Installation not found");
         }
         
+        // Check if user is a member of the installation
         const userIsTeamMember = installation.users.some(user => user.userId === userId);
         if (!userIsTeamMember) {
             throw new AuthorizationError("Not authorized to view this installation");
@@ -163,6 +165,7 @@ export const getInstallation = async (req: Request, res: Response, next: NextFun
             totalMembers: installation.users.length
         };
 
+        // Return installation details with stats
         res.status(STATUS_CODES.SUCCESS).json({
             ...installation,
             stats
@@ -172,10 +175,14 @@ export const getInstallation = async (req: Request, res: Response, next: NextFun
     }
 };
 
+/**
+ * Create a new installation.
+ */
 export const createInstallation = async (req: Request, res: Response, next: NextFunction) => {
     const { userId, installationId } = req.body;
 
     try {
+        // Verify user exists
         const user = await prisma.user.findUnique({
             where: { userId },            
             select: { username: true }
@@ -185,6 +192,7 @@ export const createInstallation = async (req: Request, res: Response, next: Next
             throw new NotFoundError("User not found");
         }
 
+        // Check if installation already exists
         const existingInstallation = await prisma.installation.findUnique({
             where: { id: installationId },
             select: { id: true }
@@ -194,16 +202,19 @@ export const createInstallation = async (req: Request, res: Response, next: Next
             throw new ValidationError("Installation already exists");
         }
 
+        // Fetch installation details from GitHub
         const githubInstallation = await OctokitService.getInstallationDetails(
             installationId,
             user.username
         );
 
+        // Create Stellar wallets for installation and escrow
         const installationWallet = await stellarService.createWallet();
         const escrowWallet = await stellarService.createWallet();
         const encryptedInstallationSecret = encrypt(installationWallet.secretKey);
         const encryptedEscrowSecret = encrypt(escrowWallet.secretKey); 
         
+        // Create installation
         const installation = await prisma.installation.create({
             data: {
                 id: installationId,
@@ -245,19 +256,21 @@ export const createInstallation = async (req: Request, res: Response, next: Next
         try {
             const masterAccountSecret = process.env.STELLAR_MASTER_SECRET_KEY!;
 
-            // Add trustline for installation wallet
+            // Add USDC trustline for installation wallet
             await stellarService.addTrustLineViaSponsor(
                 masterAccountSecret,
                 installationWallet.secretKey
             );
-            // Add trustline for installation escrow wallet
+            // Add USDC trustline for installation escrow wallet
             await stellarService.addTrustLineViaSponsor(
                 masterAccountSecret,
                 escrowWallet.secretKey
             );
             
+            // Return created installation
             res.status(STATUS_CODES.POST).json(installation);
         } catch (error) {
+            // If trustline addition fails, return installation but indicate partial success
             res.status(STATUS_CODES.PARTIAL_SUCCESS).json({ 
                 error, 
                 installation, 
@@ -269,6 +282,9 @@ export const createInstallation = async (req: Request, res: Response, next: Next
     }
 };
 
+/**
+ * Update an existing installation.
+ */
 export const updateInstallation = async (req: Request, res: Response, next: NextFunction) => {
     const { id: installationId } = req.params;
     const { 
@@ -279,6 +295,7 @@ export const updateInstallation = async (req: Request, res: Response, next: Next
     } = req.body;
 
     try {
+        // Get installation and verify it exists
         const installation = await prisma.installation.findUnique({
             where: { id: installationId },
             select: { 
@@ -290,12 +307,13 @@ export const updateInstallation = async (req: Request, res: Response, next: Next
             throw new NotFoundError("Installation not found");
         }
 
-        // Check authorization
+        // Check if user is a member of the installation
         const userIsTeamMember = installation.users.some(user => user.userId === userId);
         if (!userIsTeamMember) {
             throw new AuthorizationError("Not authorized to update this installation");
         }
 
+        // Update installation details
         const updatedInstallation = await prisma.installation.update({
             where: { id: installationId },
             data: { 
@@ -311,18 +329,22 @@ export const updateInstallation = async (req: Request, res: Response, next: Next
             }
         });
 
+        // Return updated installation
         res.status(STATUS_CODES.SUCCESS).json(updatedInstallation);
     } catch (error) {
         next(error);
     }
 };
 
+/**
+ * Delete an installation.
+ */
 export const deleteInstallation = async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;
     const { userId, walletAddress } = req.body;
 
     try {
-
+        // Get installation and verify it exists
         const installation = await prisma.installation.findUnique({
             where: { 
                 id,
@@ -363,10 +385,12 @@ export const deleteInstallation = async (req: Request, res: Response, next: Next
             refunded += task.bounty;
         });
 
+        // Delete installation
         await prisma.installation.delete({
             where: { id }
         });
 
+        // Return deletion confirmation
         res.status(STATUS_CODES.SUCCESS).json({ 
             message: "Installation deleted successfully", 
             refunded: `${refunded} USDC` 
@@ -376,11 +400,15 @@ export const deleteInstallation = async (req: Request, res: Response, next: Next
     }
 };
 
+/**
+ * Add a user to the installation team.
+ */
 export const addTeamMember = async (req: Request, res: Response, next: NextFunction) => {
     const { id: installationId } = req.params;
     const { userId, username, permissionCodes } = req.body;
 
     try {
+        // Get installation and verify it exists
         const installation = await prisma.installation.findUnique({
             where: { id: installationId },
             select: { 
@@ -426,6 +454,7 @@ export const addTeamMember = async (req: Request, res: Response, next: NextFunct
                 }
             });
 
+            // Assign permissions to user for this installation
             await prisma.userInstallationPermission.create({
                 data: {
                     user: {
@@ -454,34 +483,38 @@ export const addTeamMember = async (req: Request, res: Response, next: NextFunct
             result = { username, status: "not_found" };
         }
 
+        // Return result
         res.status(STATUS_CODES.SUCCESS).json(result);
     } catch (error) {
         next(error);
     }
 };
 
+/**
+ * Update permissions for a team member.
+ */
 export const updateTeamMemberPermissions = async (req: Request, res: Response, next: NextFunction) => {
     const { id: installationId, userId: memberId } = req.params;
     const { userId, permissionCodes } = req.body;
 
     try {
-        // Check if installation exists
+        // Get installation and verify it exists
         const installation = await prisma.installation.findUnique({
             where: { id: installationId },
             select: { users: { select: { userId: true } } }
         });
+
         if (!installation) {
             throw new NotFoundError("Installation not found");
         }
         
-        // TODO: check if user/actor has permission
         // Only allow if the acting user is a team member
         const userIsTeamMember = installation.users.some(user => user.userId === userId);
         if (!userIsTeamMember) {
             throw new AuthorizationError("Not authorized to update permissions for this installation");
         }
 
-        // Update UserInstallationPermission
+        // Update team member permissions
         await prisma.userInstallationPermission.update({
             where: { 
                 userId_installationId: {
@@ -498,6 +531,7 @@ export const updateTeamMemberPermissions = async (req: Request, res: Response, n
             }
         });
 
+        // Return success message
         res.status(STATUS_CODES.SUCCESS).json({ 
             message: "Permissions updated successfully" 
         });
@@ -506,21 +540,24 @@ export const updateTeamMemberPermissions = async (req: Request, res: Response, n
     }
 };
 
+/**
+ * Remove a user from the installation team.
+ */
 export const removeTeamMember = async (req: Request, res: Response, next: NextFunction) => {
     const { id: installationId, userId: memberId } = req.params;
     const { userId } = req.body;
 
     try {
-        // Check if installation exists
+        // Get installation and verify it exists
         const installation = await prisma.installation.findUnique({
             where: { id: installationId },
             select: { users: { select: { userId: true } } }
         });
+
         if (!installation) {
             throw new NotFoundError("Installation not found");
         }
 
-        // TODO: check if user/actor has permission
         // Only allow if the acting user is a team member
         const userIsTeamMember = installation.users.some(user => user.userId === userId);
         if (!userIsTeamMember) {
@@ -537,7 +574,7 @@ export const removeTeamMember = async (req: Request, res: Response, next: NextFu
             }
         });
 
-        // Delete UserInstallationPermission
+        // Delete user installation permissions
         await prisma.userInstallationPermission.delete({
             where: { 
                 userId_installationId: {
@@ -547,6 +584,7 @@ export const removeTeamMember = async (req: Request, res: Response, next: NextFu
             }
         });
 
+        // Return success message
         res.status(STATUS_CODES.SUCCESS).json({ 
             message: "Team member removed successfully" 
         });
