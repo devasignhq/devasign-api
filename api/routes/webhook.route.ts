@@ -14,16 +14,7 @@ import {
 
 export const webhookRoutes = Router();
 
-/**
- * GitHub webhook endpoint for PR events
- * 
- * This endpoint:
- * - Validates GitHub webhook signatures for security
- * - Filters for PR events (opened, synchronize, ready_for_review)
- * - Validates that PR is targeting the default branch
- * - Identifies PRs that link to issues
- * - Triggers AI review process for eligible PRs
- */
+// Handle GitHub PR review webhook
 webhookRoutes.post(
     "/github/pr-review",
     validateGitHubWebhook,
@@ -31,46 +22,17 @@ webhookRoutes.post(
     handlePRWebhook as RequestHandler
 );
 
-/**
- * Health check endpoint for webhook service
- */
-webhookRoutes.get(
-    "/health",
-    webhookHealthCheck as RequestHandler
-);
+// Webhook health check
+webhookRoutes.get("/health", webhookHealthCheck as RequestHandler);
 
-/**
- * Job status endpoint
- * Get status of a specific analysis job
- */
-webhookRoutes.get(
-    "/jobs/:jobId",
-    getJobData as RequestHandler
-);
+// Get job data by job ID
+webhookRoutes.get("/jobs/:jobId", getJobData as RequestHandler);
 
-/**
- * Queue statistics endpoint
- * Get current queue statistics and metrics
- */
-webhookRoutes.get(
-    "/queue/stats",
-    getQueueStats as RequestHandler
-);
+// Get queue statistics
+webhookRoutes.get("/queue/stats", getQueueStats as RequestHandler);
 
-/**
- * Workflow status endpoint
- * Get comprehensive workflow status and monitoring information
- */
-webhookRoutes.get(
-    "/workflow/status",
-    getWorkflowStatus as RequestHandler
-);
+// Get workflow status
+webhookRoutes.get("/workflow/status", getWorkflowStatus as RequestHandler);
 
-/**
- * Manual analysis trigger endpoint
- * Manually trigger PR analysis for a specific PR
- */
-webhookRoutes.post(
-    "/github/manual-analysis",
-    triggerManualAnalysis as RequestHandler
-);
+// Trigger manual analysis
+webhookRoutes.post("/github/manual-analysis", triggerManualAnalysis as RequestHandler);

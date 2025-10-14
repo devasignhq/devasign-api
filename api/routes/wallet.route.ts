@@ -17,10 +17,10 @@ export const walletRoutes = Router();
 // Get wallet info
 walletRoutes.get("/account", walletInstallationIdValidator, getWalletInfo as RequestHandler);
 
-// Withdraw crypto
+// Withdraw asset
 walletRoutes.post("/withdraw", withdrawAssetValidator, withdrawAsset as RequestHandler);
 
-// Swap between XLM and USDC
+// Swap assets (XLM and USDC)
 walletRoutes.post("/swap", swapAssetValidator, swapAsset as RequestHandler);
 
 // Get transactions

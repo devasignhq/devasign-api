@@ -36,7 +36,8 @@ export const localhostOnly = (req: Request, res: Response, next: NextFunction) =
     }
 
     // Deny access if not from localhost
-    return res.status(STATUS_CODES.UNAUTHORIZED).json({
+    res.status(STATUS_CODES.UNAUTHORIZED).json({
         error: "Access denied. This endpoint is only available from localhost."
     });
+    return;
 };
