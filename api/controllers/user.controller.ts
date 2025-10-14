@@ -13,6 +13,9 @@ class UserError extends ErrorClass {
     }
 }
 
+/**
+ * Get user details.
+ */
 export const getUser = async (req: Request, res: Response, next: NextFunction) => {
     const { userId } = req.body;
     const { view = "basic", setWallet } = req.query; // view: "basic" | "full"
@@ -47,6 +50,7 @@ export const getUser = async (req: Request, res: Response, next: NextFunction) =
             } : {})
         };
 
+        // Fetch user and handle not found
         let user = await prisma.user.findUnique({
             where: { userId },
             select: selectObject
@@ -56,10 +60,12 @@ export const getUser = async (req: Request, res: Response, next: NextFunction) =
             throw new NotFoundError("User not found");
         }
 
+        // If setWallet is true and user has no wallet, create one
         const walletStatus = { wallet: false, usdcTrustline: false };
     
         if ((!user.walletAddress || user.walletAddress === "") && setWallet === "true") {
             try {
+                // Create wallet
                 const userWallet = await stellarService.createWallet();
                 const encryptedUserSecret = encrypt(userWallet.secretKey);
         
@@ -76,8 +82,8 @@ export const getUser = async (req: Request, res: Response, next: NextFunction) =
                 user = updatedUser;
                 walletStatus.wallet = true;
         
-                // Fund wallet and add trustline in background
                 try {
+                    // Add USDC trustline to wallet
                     await stellarService.addTrustLineViaSponsor(
                         process.env.STELLAR_MASTER_SECRET_KEY!,
                         userWallet.secretKey
@@ -85,6 +91,8 @@ export const getUser = async (req: Request, res: Response, next: NextFunction) =
                     walletStatus.usdcTrustline = true;
                 } catch (walletError) {
                     dataLogger.warn("Failed to add USDC trustline", { walletError });
+
+                    // Return user info and notify user USDC trustline addition failed 
                     return res.status(STATUS_CODES.PARTIAL_SUCCESS).json({ 
                         user, 
                         error: walletError,
@@ -93,9 +101,11 @@ export const getUser = async (req: Request, res: Response, next: NextFunction) =
                     });
                 }
 
+                // Return user with new wallet
                 return res.status(STATUS_CODES.SUCCESS).json({ user, walletStatus });
             } catch (walletCreationError) {
                 dataLogger.warn("Failed to create wallet for existing user", { walletCreationError });
+                // Return user info and notify user wallet creation failed
                 return res.status(STATUS_CODES.PARTIAL_SUCCESS).json({ 
                     user, 
                     error: walletCreationError,
@@ -105,12 +115,16 @@ export const getUser = async (req: Request, res: Response, next: NextFunction) =
             }
         }
         
+        // Return user data
         res.status(STATUS_CODES.SUCCESS).json(user);
     } catch (error) {
         next(error);
     }
 };
 
+/**
+ * Create a new user.
+ */
 export const createUser = async (req: Request, res: Response, next: NextFunction) => {
     const { userId, gitHubUsername } = req.body;
     const { skipWallet } = req.query;
@@ -125,6 +139,7 @@ export const createUser = async (req: Request, res: Response, next: NextFunction
             throw new UserError("User already exists");
         }
 
+        // Fields to return
         const select = {
             userId: true,
             username: true,
@@ -134,6 +149,7 @@ export const createUser = async (req: Request, res: Response, next: NextFunction
             updatedAt: true
         };
 
+        // Create user without wallet (for the project maintainer app)
         if (skipWallet === "true") {
             const user = await prisma.user.create({
                 data: {
@@ -148,13 +164,15 @@ export const createUser = async (req: Request, res: Response, next: NextFunction
                 select
             });
         
+            // Return user
             return res.status(STATUS_CODES.POST).json(user);
         }
     
-        // Create wallet for contributor.devasign.com or when not skipping
+        // Create user wallet (for the contributor app)
         const userWallet = await stellarService.createWallet();
         const encryptedUserSecret = encrypt(userWallet.secretKey);
 
+        // Create user with wallet
         const user = await prisma.user.create({
             data: {
                 userId,
@@ -169,13 +187,16 @@ export const createUser = async (req: Request, res: Response, next: NextFunction
         });
 
         try {
+            // Add USDC trustline to wallet
             await stellarService.addTrustLineViaSponsor(
                 process.env.STELLAR_MASTER_SECRET_KEY!,
                 userWallet.secretKey
             );
             
+            // Return user
             res.status(STATUS_CODES.POST).json(user);
         } catch (error) {
+            // Return user info and notify user USDC trustline addition failed
             res.status(STATUS_CODES.PARTIAL_SUCCESS).json({ 
                 error, 
                 user, 
@@ -187,10 +208,14 @@ export const createUser = async (req: Request, res: Response, next: NextFunction
     }
 };
 
+/**
+ * Update user's GitHub username.
+ */
 export const updateUsername = async (req: Request, res: Response, next: NextFunction) => {
     const { userId, githubUsername } = req.body;
 
     try {
+        // Check if user exists
         const existingUser = await prisma.user.findUnique({
             where: { userId }
         });
@@ -199,6 +224,7 @@ export const updateUsername = async (req: Request, res: Response, next: NextFunc
             throw new NotFoundError("User not found");
         }
 
+        // Update username
         const user = await prisma.user.update({
             where: { userId },
             data: { username: githubUsername },
@@ -209,16 +235,21 @@ export const updateUsername = async (req: Request, res: Response, next: NextFunc
             }
         });
 
+        // Return updated user
         res.status(STATUS_CODES.SUCCESS).json(user);
     } catch (error) {
         next(error);
     }
 };
 
+/**
+ * Add a new entry in the user's address book.
+ */
 export const updateAddressBook = async (req: Request, res: Response, next: NextFunction) => {
     const { userId, address, name } = req.body;
 
     try {
+        // Fetch user and verify user exists
         const user = await prisma.user.findUnique({
             where: { userId },
             select: {
@@ -241,10 +272,12 @@ export const updateAddressBook = async (req: Request, res: Response, next: NextF
         const newAddress = { address, name };
         let updatedAddressBook = [...user.addressBook, newAddress];
 
+        // Ensure address book does not exceed 20 entries
         if (updatedAddressBook.length > 20) {
             updatedAddressBook = updatedAddressBook.slice(-20);
         }
 
+        // Update user's address book
         const updatedUser = await prisma.user.update({
             where: { userId },
             data: {
@@ -257,6 +290,7 @@ export const updateAddressBook = async (req: Request, res: Response, next: NextF
             }
         });
 
+        // Return updated user
         res.status(STATUS_CODES.SUCCESS).json(updatedUser);
     } catch (error) {
         next(error);
