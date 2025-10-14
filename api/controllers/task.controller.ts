@@ -28,11 +28,15 @@ class TaskError extends ErrorClass {
     }
 }
 
+/**
+ * Create a new task
+ */
 export const createTask = async (req: Request, res: Response, next: NextFunction) => {
     const { userId, payload: data } = req.body;
     const payload = data as CreateTask;
 
     try {
+        // Get installation and verify it exists
         const installation = await prisma.installation.findUnique({
             where: { id: payload.installationId },
             select: {
@@ -67,6 +71,7 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
                 (asset): asset is USDCBalance => "asset_code" in asset && asset.asset_code === "USDC"
             ))
         ) {
+            // Add USDC trustline if it does not exist
             await stellarService.addTrustLineViaSponsor(
                 decryptedInstallationWalletSecret,
                 decryptedEscrowWalletSecret
@@ -84,6 +89,7 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
 
         const { installationId, bountyLabelId, ...others } = payload;
 
+        // Format timeline if needed (ie 10 days -> 1.4 weeks)
         if (others.timeline && others.timelineType && others.timelineType === "DAY" && others.timeline > 6) {
             const weeks = Math.floor(others.timeline / 7);
             const days = others.timeline % 7;
@@ -91,6 +97,7 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
             others.timelineType = "WEEK" as $Enums.TimelineType;
         }
 
+        // Create task
         const task = await prisma.task.create({
             data: {
                 ...others,
@@ -104,7 +111,7 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
             }
         });
 
-
+        // Record bounty transaction
         const bountyTransactionStatus = {
             recorded: false,
             error: undefined
@@ -127,6 +134,7 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
         }
 
         try {
+            // Add bounty label to issue and post bounty comment on issue
             const bountyComment = await OctokitService.addBountyLabelAndCreateBountyComment(
                 installationId,
                 others.issue.id,
@@ -134,6 +142,7 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
                 OctokitService.customBountyMessage(others.bounty, task.id)
             );
 
+            // Update task with bounty comment id
             const updatedTask = await prisma.task.update({
                 where: { id: task.id },
                 data: {
@@ -145,23 +154,27 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
                 select: { issue: true }
             });
 
+            // Return task and notify user if bounty was not recorded 
             if (!bountyTransactionStatus.recorded) {
                 return res.status(STATUS_CODES.PARTIAL_SUCCESS).json({
                     error: bountyTransactionStatus.error,
                     transactionRecord: false,
-                    task: updatedTask,
+                    task: { ...task, ...updatedTask },
                     message: "Failed to record bounty transaction."
                 });
             }
 
+            // All operations successful
             res.status(STATUS_CODES.POST).json({ ...task, ...updatedTask });
         } catch (error) {
             let message = "Failed to either create bounty comment or add bounty label.";
 
+            // Update message if bounty transaction was not recorded
             if (!bountyTransactionStatus.recorded) {
                 message = "Failed to record bounty transaction and to either create bounty comment or add bounty label.";
             }
 
+            // Return task and notify user
             res.status(STATUS_CODES.PARTIAL_SUCCESS).json({
                 error,
                 transactionRecord: bountyTransactionStatus.recorded,
@@ -175,98 +188,11 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
 };
 
 // ? TODO: Add publishTaskToGithub route
+// ? TODO: Add createManyTasks route
 
-// ? Delete this
-export const createManyTasks = async (req: Request, res: Response, next: NextFunction) => {
-    const { userId, payload, installationId } = req.body;
-    const tasks = payload as CreateTask[];
-
-    try {
-        const user = await prisma.user.findUnique({
-            where: { userId },
-            select: { walletSecret: true, walletAddress: true }
-        });
-
-        if (!user) {
-            throw new NotFoundError("User not found");
-        }
-
-        // Calculate total bounty needed for all tasks
-        const totalBounty = tasks.reduce((sum: number, task: CreateTask) =>
-            sum + parseFloat(task.bounty), 0
-        );
-
-        // Check user balance
-        const accountInfo = await stellarService.getAccountInfo(user.walletAddress);
-        const usdcAsset = accountInfo.balances.find(
-            (asset): asset is USDCBalance => "asset_code" in asset && asset.asset_code === "USDC"
-        ) as USDCBalance;
-
-        if (parseFloat(usdcAsset.balance) < totalBounty) {
-            throw new TaskError("Insufficient balance for all tasks");
-        }
-
-        const decryptedUserSecret = decrypt(user.walletSecret);
-
-        // Get installation details once for all tasks
-        const installation = await prisma.installation.findUnique({
-            where: { id: installationId },
-            select: { escrowSecret: true, escrowAddress: true }
-        });
-
-        if (!installation) {
-            throw new NotFoundError("Installation not found");
-        }
-
-        // Ensure USDC trustline exists
-        const installationWallet = await stellarService.getAccountInfo(installation.escrowAddress!);
-        if (!installationWallet.balances.find(
-            (asset): asset is USDCBalance => "asset_code" in asset && asset.asset_code === "USDC"
-        )) {
-            await stellarService.addTrustLineViaSponsor(
-                decryptedUserSecret,
-                installation.escrowSecret!
-            );
-        }
-
-        // Transfer total bounty to escrow in one transaction
-        await stellarService.transferAsset(
-            decryptedUserSecret,
-            installation.escrowAddress!,
-            usdcAssetId,
-            usdcAssetId,
-            totalBounty.toString()
-        );
-
-        // TODO: find a way to refund user if creating tasks fails
-        // Create all tasks in a single transaction
-        const createdTasks = await prisma.$transaction(
-            tasks.map(task => {
-                const { installationId, ...others } = task;
-                return prisma.task.create({
-                    data: {
-                        ...others,
-                        bounty: parseFloat(task.bounty),
-                        installation: {
-                            connect: { id: installationId }
-                        },
-                        creator: {
-                            connect: { userId }
-                        }
-                    }
-                });
-            })
-        );
-
-        res.status(STATUS_CODES.POST).json({
-            message: `Successfully created ${createdTasks.length} tasks`,
-            tasks: createdTasks
-        });
-    } catch (error) {
-        next(error);
-    }
-};
-
+/**
+ * Get open tasks. Used in the task explorer page of the contributor app.
+ */
 export const getTasks = async (req: Request, res: Response, next: NextFunction) => {
     const {
         installationId,
@@ -278,6 +204,8 @@ export const getTasks = async (req: Request, res: Response, next: NextFunction) 
         issueTitle,
         issueLabels
     } = req.query;
+    
+    // Extract filters
     const filters = {
         repoUrl,
         issueTitle,
@@ -285,6 +213,7 @@ export const getTasks = async (req: Request, res: Response, next: NextFunction) 
     } as FilterTasks;
 
     try {
+        // Build where clause based on filters
         const where: Prisma.TaskWhereInput = { status: "OPEN" };
 
         if (installationId) {
@@ -354,6 +283,7 @@ export const getTasks = async (req: Request, res: Response, next: NextFunction) 
             take: Number(limit)
         });
 
+        // Return paginated tasks
         res.status(STATUS_CODES.SUCCESS).json({
             data: tasks,
             pagination: {
@@ -369,6 +299,9 @@ export const getTasks = async (req: Request, res: Response, next: NextFunction) 
     }
 };
 
+/**
+ * Get tasks for a specific installation. Used in the project maintainer app.
+ */
 export const getInstallationTasks = async (req: Request, res: Response, next: NextFunction) => {
     const {
         status,
@@ -382,6 +315,8 @@ export const getInstallationTasks = async (req: Request, res: Response, next: Ne
     } = req.query;
     const { installationId } = req.params;
     const { userId } = req.body;
+
+    // Extract filters
     const filters = {
         repoUrl,
         issueTitle,
@@ -389,6 +324,7 @@ export const getInstallationTasks = async (req: Request, res: Response, next: Ne
     } as FilterTasks;
 
     try {
+        // Build where clause based on filters
         const where: Prisma.TaskWhereInput = {
             installation: {
                 id: installationId,
@@ -497,6 +433,7 @@ export const getInstallationTasks = async (req: Request, res: Response, next: Ne
             take: Number(limit)
         });
 
+        // Return paginated tasks
         res.status(STATUS_CODES.SUCCESS).json({
             data: tasks,
             pagination: {
@@ -512,6 +449,9 @@ export const getInstallationTasks = async (req: Request, res: Response, next: Ne
     }
 };
 
+/**
+ * Get tasks assigned to a contributor. Used in the tasks page of the contributor app.
+ */
 export const getContributorTasks = async (req: Request, res: Response, next: NextFunction) => {
     const { userId } = req.body;
     const {
@@ -525,6 +465,8 @@ export const getContributorTasks = async (req: Request, res: Response, next: Nex
         issueTitle,
         issueLabels
     } = req.query;
+
+    // Extract filters
     const filters = {
         repoUrl,
         issueTitle,
@@ -532,6 +474,7 @@ export const getContributorTasks = async (req: Request, res: Response, next: Nex
     } as FilterTasks;
 
     try {
+        // Build where clause based on filters
         const where: Prisma.TaskWhereInput = { contributorId: userId };
 
         if (status) {
@@ -613,6 +556,7 @@ export const getContributorTasks = async (req: Request, res: Response, next: Nex
             take: Number(limit)
         });
 
+        // Return paginated tasks
         res.status(STATUS_CODES.SUCCESS).json({
             data: tasks,
             pagination: {
@@ -628,10 +572,14 @@ export const getContributorTasks = async (req: Request, res: Response, next: Nex
     }
 };
 
+/**
+ * Get details of a specific open task. Used in the task explorer page of the contributor app.
+ */
 export const getTask = async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;
 
     try {
+        // Fetch task and ensure it is open
         const task = await prisma.task.findUnique({
             where: { id, status: "OPEN" },
             select: {
@@ -662,17 +610,22 @@ export const getTask = async (req: Request, res: Response, next: NextFunction) =
             throw new NotFoundError("Task not found");
         }
 
+        // Return task
         res.status(STATUS_CODES.SUCCESS).json(task);
     } catch (error) {
         next(error);
     }
 };
 
+/**
+ * Get details of a specific installation task. Used in the project maintainer app.
+ */
 export const getInstallationTask = async (req: Request, res: Response, next: NextFunction) => {
     const { taskId, installationId } = req.params;
     const { userId } = req.body;
 
     try {
+        // Fetch task and ensure it belongs to the installation and user has access
         const task = await prisma.task.findUnique({
             where: {
                 id: taskId,
@@ -725,17 +678,22 @@ export const getInstallationTask = async (req: Request, res: Response, next: Nex
             throw new NotFoundError("Task not found");
         }
 
+        // Return task
         res.status(STATUS_CODES.SUCCESS).json(task);
     } catch (error) {
         next(error);
     }
 };
 
+/**
+ * Get details of a specific task assigned to a contributor. Used in the tasks page of the contributor app.
+ */
 export const getContributorTask = async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;
     const { userId } = req.body;
 
     try {
+        // Fetch task and ensure it is assigned to the contributor
         const task = await prisma.task.findUnique({
             where: { id, contributorId: userId },
             select: {
@@ -775,17 +733,22 @@ export const getContributorTask = async (req: Request, res: Response, next: Next
             throw new NotFoundError("Task not found");
         }
 
+        // Return task
         res.status(STATUS_CODES.SUCCESS).json(task);
     } catch (error) {
         next(error);
     }
 };
 
+/**
+ * Add bounty comment id to a task. Fallback if saving the bounty comment id during task creation failed.
+ */
 export const addBountyCommentId = async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;
     const { userId, bountyCommentId } = req.body;
 
     try {
+        // Fetch the task
         const task = await prisma.task.findUnique({
             where: { id },
             select: {
@@ -796,16 +759,20 @@ export const addBountyCommentId = async (req: Request, res: Response, next: Next
             }
         });
 
+        // Verify task exists
         if (!task) {
             throw new NotFoundError("Task not found");
         }
+        // Verify user is the creator
         if (task.creatorId !== userId) {
             throw new AuthorizationError("Only task creator can perform this action");
         }
+        // Verify task is still open
         if (task.status !== "OPEN") {
             throw new ValidationError("Only open tasks can be updated");
         }
 
+        // Update task with bounty comment id
         const updatedTask = await prisma.task.update({
             where: { id },
             data: {
@@ -814,17 +781,22 @@ export const addBountyCommentId = async (req: Request, res: Response, next: Next
             select: { id: true }
         });
 
+        // Return updated task
         res.status(STATUS_CODES.SUCCESS).json(updatedTask);
     } catch (error) {
         next(error);
     }
 };
 
+/**
+ * Update the bounty amount of an open task. Only allowed if there are no existing applications.
+ */
 export const updateTaskBounty = async (req: Request, res: Response, next: NextFunction) => {
     const { id: taskId } = req.params;
     const { userId, newBounty } = req.body;
 
     try {
+        // Fetch the task
         const task = await prisma.task.findUnique({
             where: { id: taskId },
             select: {
@@ -849,22 +821,28 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
             }
         });
 
+        // Verify task exists
         if (!task) {
             throw new NotFoundError("Task not found");
         }
+        // Verify user is the creator
         if (task.creatorId !== userId) {
             throw new AuthorizationError("Only task creator can perform this action");
         }
+        // Verify task is still open
         if (task.status !== "OPEN") {
             throw new ValidationError("Only open tasks can be updated");
         }
+        // Verify there are no existing applications
         if (task._count.taskActivities > 0) {
             throw new ValidationError("Cannot update the bounty amount for tasks with existing applications");
         }
+        // Verify new bounty is different
         if (task.bounty === newBounty) {
             throw new ValidationError("New bounty is the same as current bounty");
         }
 
+        // Handle fund transfers
         const bountyDifference = Number(newBounty) - task.bounty;
         const decryptedWalletSecret = decrypt(task.installation.walletSecret!);
         const additionalFundsTransaction = {
@@ -923,6 +901,7 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
             }
         });
 
+        // Record additional funds transaction if any
         if (additionalFundsTransaction.txHash) {
             try {
                 await prisma.transaction.create({
@@ -942,12 +921,14 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
         }
 
         try {
+            // Update bounty comment on GitHub to reflect new bounty amount
             await OctokitService.updateIssueComment(
                 task.installationId,
                 (task.issue as TaskIssue).bountyCommentId!,
                 OctokitService.customBountyMessage(newBounty as string, taskId)
             );
 
+            // Return updated task and notify user if recording additional funds transaction failed
             if (!additionalFundsTransaction.recorded && additionalFundsTransaction.txHash) {
                 return res.status(STATUS_CODES.PARTIAL_SUCCESS).json({
                     error: additionalFundsTransaction.error,
@@ -957,10 +938,12 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
                 });
             }
 
+            // All operations successful
             res.status(STATUS_CODES.SUCCESS).json(updatedTask);
         } catch (error) {
             let message = "Failed to update bounty amount on GitHub.";
 
+            // Update message if recording additional funds transaction also failed
             if (!additionalFundsTransaction.recorded && additionalFundsTransaction.txHash) {
                 message = "Failed to update bounty amount on GitHub and also record the additional bounty transaction.";
             }
@@ -969,6 +952,7 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
                 ? additionalFundsTransaction.recorded
                 : null;
 
+            // Return updated task and notify user of partial failures
             res.status(STATUS_CODES.PARTIAL_SUCCESS).json({
                 error,
                 transactionRecord,
@@ -981,12 +965,15 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
     }
 };
 
+/**
+ * Update task timeline
+ */
 export const updateTaskTimeline = async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;
     const { userId, newTimeline, newTimelineType } = req.body;
 
     try {
-        // Fetch the task and check if it exists and is open
+        // Fetch the task
         const task = await prisma.task.findUnique({
             where: { id },
             select: {
@@ -1002,15 +989,19 @@ export const updateTaskTimeline = async (req: Request, res: Response, next: Next
             }
         });
 
+        // Verify task exists
         if (!task) {
             throw new NotFoundError("Task not found");
         }
+        // Verify user is the creator
         if (task.creatorId !== userId) {
             throw new AuthorizationError("Only task creator can perform this action");
         }
+        // Verify task is still open
         if (task.status !== "OPEN") {
             throw new ValidationError("Only open tasks can be updated");
         }
+        // Verify there are no existing applications
         if (task._count.taskActivities > 0) {
             throw new ValidationError("Cannot update the timeline for tasks with existing applications");
         }
@@ -1025,6 +1016,7 @@ export const updateTaskTimeline = async (req: Request, res: Response, next: Next
             timelineType = "WEEK";
         }
 
+        // Update task timeline
         const updatedTask = await prisma.task.update({
             where: { id },
             data: {
@@ -1038,17 +1030,22 @@ export const updateTaskTimeline = async (req: Request, res: Response, next: Next
             }
         });
 
+        // Return updated task
         res.status(STATUS_CODES.SUCCESS).json(updatedTask);
     } catch (error) {
         next(error);
     }
 };
 
+/**
+ * Submit application for a task
+ */
 export const submitTaskApplication = async (req: Request, res: Response, next: NextFunction) => {
     const { id: taskId } = req.params;
     const { userId } = req.body;
 
     try {
+        // Fetch the task and check if it exists and is open
         const task = await prisma.task.findUnique({
             where: { id: taskId },
             select: { status: true }
@@ -1061,6 +1058,7 @@ export const submitTaskApplication = async (req: Request, res: Response, next: N
             throw new ValidationError("Task is not open");
         }
 
+        // Check if user has already applied
         const existingApplication = await prisma.taskActivity.findFirst({
             where: {
                 taskId,
@@ -1074,6 +1072,7 @@ export const submitTaskApplication = async (req: Request, res: Response, next: N
             throw new TaskError("You have already applied for this task!");
         }
 
+        // Create task application activity
         await prisma.taskActivity.create({
             data: {
                 task: {
@@ -1085,18 +1084,22 @@ export const submitTaskApplication = async (req: Request, res: Response, next: N
             }
         });
 
+        // Return success response
         res.status(STATUS_CODES.SUCCESS).json({ message: "Task application submitted" });
     } catch (error) {
         next(error);
     }
 };
 
+/**
+ * Accept a contributor's application for a task
+ */
 export const acceptTaskApplication = async (req: Request, res: Response, next: NextFunction) => {
     const { id: taskId, contributorId } = req.params;
     const { userId } = req.body;
 
     try {
-        // Fetch the task and check if it exists and is open
+        // Fetch the task
         const task = await prisma.task.findUnique({
             where: { id: taskId },
             select: {
@@ -1107,15 +1110,19 @@ export const acceptTaskApplication = async (req: Request, res: Response, next: N
             }
         });
 
+        // Verify task exists
         if (!task) {
             throw new NotFoundError("Task not found");
         }
+        // Verify user is the creator
         if (task.creatorId !== userId) {
             throw new AuthorizationError("Only task creator can perform this action");
         }
+        // Verify task is still open
         if (task.status !== "OPEN") {
             throw new ValidationError("Only open tasks can be assigned");
         }
+        // Verify task is not already assigned
         if (task.contributorId) {
             throw new ValidationError("Task has already has already been delegated to a contributor");
         }
@@ -1126,7 +1133,7 @@ export const acceptTaskApplication = async (req: Request, res: Response, next: N
             throw new TaskError("User did not apply for this task");
         }
 
-        // Assign the contributor and update status
+        // Assign the contributor and update task status
         const updatedTask = await prisma.task.update({
             where: { id: taskId },
             data: {
@@ -1143,11 +1150,13 @@ export const acceptTaskApplication = async (req: Request, res: Response, next: N
         });
 
         try {
-            // TODO: Add logic on frontend for retrying.
+            // Enable chat for the task
             await FirebaseService.createTask(taskId, userId, contributorId);
 
+            // Return success response
             res.status(STATUS_CODES.SUCCESS).json(updatedTask);
         } catch (error) {
+            // Return updated task but notify user of partial failure
             return res.status(STATUS_CODES.PARTIAL_SUCCESS).json({
                 error,
                 task: updatedTask,
@@ -1159,6 +1168,9 @@ export const acceptTaskApplication = async (req: Request, res: Response, next: N
     }
 };
 
+/**
+ * Request timeline extension for a task
+ */
 export const requestTimelineExtension = async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;
     const {
@@ -1171,6 +1183,7 @@ export const requestTimelineExtension = async (req: Request, res: Response, next
     } = req.body;
 
     try {
+        // Fetch the task
         const task = await prisma.task.findUnique({
             where: { id },
             select: {
@@ -1181,15 +1194,18 @@ export const requestTimelineExtension = async (req: Request, res: Response, next
             }
         });
 
+        // Verify task exists
         if (!task) {
             throw new NotFoundError("Task not found");
         }
+        // Verify task is in progress and user is the assigned contributor
         if (task.status !== "IN_PROGRESS" || task.contributorId !== userId) {
             throw new ValidationError(
                 "Requesting timeline extension can only be requested by the active contributor"
             );
         }
 
+        // Create request message in Firebase
         const body = `${githubUsername} is requesting for a ${requestedTimeline} ${(timelineType as string).toLowerCase()}(s) 
             time extension for this task. Kindly approve or reject it below.`;
 
@@ -1206,12 +1222,16 @@ export const requestTimelineExtension = async (req: Request, res: Response, next
             }
         });
 
+        // Return message
         res.status(STATUS_CODES.SUCCESS).json(message);
     } catch (error) {
         next(error);
     }
 };
 
+/**
+ * Reply to a timeline extension request
+ */
 export const replyTimelineExtensionRequest = async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;
     const {
@@ -1222,6 +1242,7 @@ export const replyTimelineExtensionRequest = async (req: Request, res: Response,
     } = req.body;
 
     try {
+        // Fetch the task
         const task = await prisma.task.findUnique({
             where: { id },
             select: {
@@ -1231,14 +1252,18 @@ export const replyTimelineExtensionRequest = async (req: Request, res: Response,
             }
         });
 
+        // Verify task exists
         if (!task) {
             throw new NotFoundError("Task not found");
         }
+        // Verify user is the creator
         if (task.creatorId !== userId) {
             throw new AuthorizationError("Only task creator can perform this action");
         }
 
+        // Update timeline if extension is accepted
         if (accept) {
+            // Calculate new timeline
             let newTimeline: number = task.timeline! + requestedTimeline,
                 newTimelineType: TimelineType = timelineType;
 
@@ -1287,6 +1312,7 @@ export const replyTimelineExtensionRequest = async (req: Request, res: Response,
                 newTimelineType = "WEEK";
             }
 
+            // Update task timeline and status
             const updatedTask = await prisma.task.update({
                 where: { id },
                 data: {
@@ -1303,6 +1329,7 @@ export const replyTimelineExtensionRequest = async (req: Request, res: Response,
             });
 
             // ? Add newTimeline and newTimelineType for clarity
+            // Create acceptance message
             const message = await FirebaseService.createMessage({
                 userId,
                 taskId: id,
@@ -1316,9 +1343,14 @@ export const replyTimelineExtensionRequest = async (req: Request, res: Response,
                 }
             });
 
-            return res.status(STATUS_CODES.SUCCESS).json({ message, task: updatedTask });
+            // Return message and updated task
+            return res.status(STATUS_CODES.SUCCESS).json({ 
+                message, 
+                task: updatedTask 
+            });
         }
 
+        // Create rejection message
         const message = await FirebaseService.createMessage({
             userId,
             taskId: id,
@@ -1332,17 +1364,22 @@ export const replyTimelineExtensionRequest = async (req: Request, res: Response,
             }
         });
 
+        // Return message
         res.status(STATUS_CODES.SUCCESS).json({ message });
     } catch (error) {
         next(error);
     }
 };
 
+/**
+ * Mark a task as complete
+ */
 export const markAsComplete = async (req: Request, res: Response, next: NextFunction) => {
     const { id: taskId } = req.params;
     const { userId, pullRequest, attachmentUrl } = req.body;
 
     try {
+        // Fetch the task
         const task = await prisma.task.findUnique({
             where: { id: taskId },
             select: {
@@ -1352,16 +1389,20 @@ export const markAsComplete = async (req: Request, res: Response, next: NextFunc
             }
         });
 
+        // Verify task exists
         if (!task) {
             throw new NotFoundError("Task not found");
         }
+        // Verify user is the assigned contributor
         if (task.contributorId !== userId) {
             throw new AuthorizationError("Only the active contributor can make this action");
         }
+        // Verify task is in progress
         if (task.status !== "IN_PROGRESS" && task.status !== "MARKED_AS_COMPLETED") {
             throw new ValidationError("Task is not active");
         }
 
+        // Create task submission
         const submission = await prisma.taskSubmission.create({
             data: {
                 user: { connect: { userId } },
@@ -1393,6 +1434,7 @@ export const markAsComplete = async (req: Request, res: Response, next: NextFunc
             }
         });
 
+        // Create submision activity
         await prisma.taskActivity.create({
             data: {
                 task: {
@@ -1407,17 +1449,22 @@ export const markAsComplete = async (req: Request, res: Response, next: NextFunc
             }
         });
 
+        // Return updated task
         res.status(STATUS_CODES.SUCCESS).json(updatedTask);
     } catch (error) {
         next(error);
     }
 };
 
+/**
+ * Validate and process task completion
+ */
 export const validateCompletion = async (req: Request, res: Response, next: NextFunction) => {
     const { id: taskId } = req.params;
     const { userId } = req.body;
 
     try {
+        // Fetch the task
         const task = await prisma.task.findUnique({
             where: { id: taskId },
             select: {
@@ -1443,19 +1490,24 @@ export const validateCompletion = async (req: Request, res: Response, next: Next
             }
         });
 
+        // Verify task exists
         if (!task) {
             throw new NotFoundError("Task not found");
         }
+        // Verify user is the creator
         if (task.creator.userId !== userId) {
             throw new AuthorizationError("Only task creator can perform this action");
         }
+        // Verify task is marked as completed
         if (task.status !== "MARKED_AS_COMPLETED") {
             throw new ValidationError("Task has not been marked as completed");
         }
+        // Verify task has a contributor
         if (!task.contributor) {
             throw new ValidationError("Contributor not found");
         }
 
+        // Transfer bounty from escrow to contributor
         const decryptedWalletSecret = decrypt(task.installation.walletSecret);
         const decryptedEscrowSecret = decrypt(task.installation.escrowSecret!);
 
@@ -1468,6 +1520,7 @@ export const validateCompletion = async (req: Request, res: Response, next: Next
             task.bounty.toString()
         );
 
+        // Update task as completed and settled
         const updatedTask = await prisma.task.update({
             where: { id: taskId },
             data: {
@@ -1505,12 +1558,14 @@ export const validateCompletion = async (req: Request, res: Response, next: Next
             });
 
             try {
+                // Disable chat for the task
                 await FirebaseService.updateTaskStatus(taskId);
-                // eslint-disable-next-line no-empty
-            } catch { }
+            } catch { /* empty */ }
 
+            // Return success response
             res.status(STATUS_CODES.SUCCESS).json(updatedTask);
         } catch (error) {
+            // Return updated task but notify user of partial failure
             res.status(STATUS_CODES.PARTIAL_SUCCESS).json({
                 error,
                 validated: true,
@@ -1523,6 +1578,9 @@ export const validateCompletion = async (req: Request, res: Response, next: Next
     }
 };
 
+/**
+ * Get task activities (applications, submissions, etc.) with pagination
+ */
 export const getTaskActivities = async (req: Request, res: Response, next: NextFunction) => {
     const {
         page = 1,
@@ -1584,6 +1642,7 @@ export const getTaskActivities = async (req: Request, res: Response, next: NextF
             take: Number(limit)
         });
 
+        // Return paginated activities
         res.status(STATUS_CODES.SUCCESS).json({
             data: activities,
             pagination: {
@@ -1599,6 +1658,9 @@ export const getTaskActivities = async (req: Request, res: Response, next: NextF
     }
 };
 
+/**
+ * Mark a task activity as viewed
+ */
 export const markActivityAsViewed = async (req: Request, res: Response, next: NextFunction) => {
     const { taskActivityId } = req.params;
     const { userId } = req.body;
@@ -1632,6 +1694,7 @@ export const markActivityAsViewed = async (req: Request, res: Response, next: Ne
             }
         });
 
+        // Return updated activity
         res.status(STATUS_CODES.SUCCESS).json({
             message: "Activity marked as viewed",
             activity: updatedActivity
@@ -1641,11 +1704,15 @@ export const markActivityAsViewed = async (req: Request, res: Response, next: Ne
     }
 };
 
+/**
+ * Delete a task
+ */
 export const deleteTask = async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;
     const { userId } = req.body;
 
     try {
+        // Fetch the task
         const task = await prisma.task.findUnique({
             where: { id },
             select: {
@@ -1665,22 +1732,24 @@ export const deleteTask = async (req: Request, res: Response, next: NextFunction
             }
         });
 
+        // Verify task exists
         if (!task) {
             throw new NotFoundError("Task not found");
         }
-
-        // Validations
+        // Verify user is the creator
         if (task.creatorId !== userId) {
             throw new AuthorizationError("Only task creator can perform this action");
         }
+        // Verify task is still open
         if (task.status !== "OPEN") {
             throw new ValidationError("Only open tasks can be deleted");
         }
+        // Verify task has no assigned contributor
         if (task.contributorId) {
             throw new ValidationError("Cannot delete task with assigned contributor");
         }
 
-        // Return bounty to wallet if it exists
+        // Return bounty to installation wallet if it exists
         if (task.bounty > 0) {
             const decryptedWalletSecret = decrypt(task.installation.walletSecret);
             const decryptedEscrowSecret = decrypt(task.installation.escrowSecret!);
@@ -1701,17 +1770,20 @@ export const deleteTask = async (req: Request, res: Response, next: NextFunction
         });
 
         try {
+            // Remove bounty label from issue and delete bounty comment
             await OctokitService.removeBountyLabelAndDeleteBountyComment(
                 task.installation.id,
                 (task.issue as TaskIssue).id,
                 (task.issue as TaskIssue).bountyCommentId!
             );
 
+            // Return success response
             res.status(STATUS_CODES.SUCCESS).json({
                 message: "Task deleted successfully",
                 refunded: `${task.bounty} USDC`
             });
         } catch (error) {
+            // Return success response but notify user of partial failure
             res.status(STATUS_CODES.PARTIAL_SUCCESS).json({
                 error,
                 data: {
