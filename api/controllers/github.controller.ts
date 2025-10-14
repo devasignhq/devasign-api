@@ -11,21 +11,30 @@ import { PRAnalysisError, GitHubAPIError, ErrorClass } from "../models/error.mod
 import { STATUS_CODES, getFieldFromUnknownObject } from "../helper";
 import { dataLogger, messageLogger } from "../config/logger.config";
 
+/**
+ * Retrieves repositories accessible by a specific GitHub App installation.
+ */
 export const getInstallationRepositories = async (req: Request, res: Response, next: NextFunction) => {
     const { installationId } = req.params;
     const { userId } = req.body;
 
     try {
+        // Validate user has access to this installation
         await validateUserInstallation(installationId, userId);
 
+        // Fetch repositories from GitHub API
         const repositories = await OctokitService.getInstallationRepositories(installationId);
 
+        // Return repositories in response
         res.status(STATUS_CODES.SUCCESS).json(repositories);
     } catch (error) {
         next(error);
     }
 };
 
+/**
+ * Retrieves issues from a specific repository with optional filters and pagination.
+ */
 export const getRepositoryIssues = async (req: Request, res: Response, next: NextFunction) => {
     const { installationId } = req.params;
     const {
@@ -41,8 +50,10 @@ export const getRepositoryIssues = async (req: Request, res: Response, next: Nex
     const { userId } = req.body;
 
     try {
+        // Validate user has access to this installation
         await validateUserInstallation(installationId, userId);
 
+        // Organize filters
         const filters: IssueFilters = {
             title: title as string,
             labels: labels ? labels as string[] : undefined,
@@ -51,6 +62,7 @@ export const getRepositoryIssues = async (req: Request, res: Response, next: Nex
             direction: direction as ("asc" | "desc")
         };
 
+        // Fetch issues from GitHub API
         const result = await OctokitService.getRepoIssuesWithSearch(
             repoUrl as string,
             installationId,
@@ -59,6 +71,7 @@ export const getRepositoryIssues = async (req: Request, res: Response, next: Nex
             parseInt(perPage as string)
         );
 
+        // Return issues with pagination in response
         res.status(STATUS_CODES.SUCCESS).json({
             issues: result.issues,
             hasMore: result.hasMore,
@@ -72,35 +85,46 @@ export const getRepositoryIssues = async (req: Request, res: Response, next: Nex
     }
 };
 
+/**
+ * Retrieves labels and milestones for a specific repository.
+ */
 export const getRepositoryResources = async (req: Request, res: Response, next: NextFunction) => {
     const { installationId } = req.params;
     const { repoUrl } = req.query;
     const { userId } = req.body;
 
     try {
+        // Validate user has access to this installation
         await validateUserInstallation(installationId, userId);
 
+        // Fetch labels and milestones
         const resources = await OctokitService.getRepoLabelsAndMilestones(
             repoUrl as string,
             installationId
         );
 
+        // Return labels and milestones
         res.status(STATUS_CODES.SUCCESS).json(resources);
     } catch (error) {
         next(error);
     }
 };
 
+/**
+ * Gets or creates a "bounty" label in the specified repository.
+ */
 export const getOrCreateBountyLabel = async (req: Request, res: Response, next: NextFunction) => {
     const { installationId } = req.params;
     const { repositoryId } = req.query;
     const { userId } = req.body;
 
     try {
+        // Validate user has access to this installation
         await validateUserInstallation(installationId, userId);
 
         let bountyLabel;
 
+        // Check if bounty label already exists
         try {
             bountyLabel = await OctokitService.getBountyLabel(
                 repositoryId as string,
@@ -108,15 +132,18 @@ export const getOrCreateBountyLabel = async (req: Request, res: Response, next: 
             );
         } catch { /* empty */ }
 
+        // If bounty label already exists, return it
         if (bountyLabel) {
             return res.status(200).json({ valid: true, bountyLabel });
         }
 
+        // If bounty label doesn't exist, create it
         bountyLabel = await OctokitService.createBountyLabel(
             repositoryId as string,
             installationId
         );
 
+        // Return bounty label
         res.status(STATUS_CODES.SUCCESS).json({ valid: true, bountyLabel });
     } catch (error) {
         next(error);
@@ -125,12 +152,6 @@ export const getOrCreateBountyLabel = async (req: Request, res: Response, next: 
 
 /**
  * Manual trigger for PR analysis
- * 
- * This endpoint allows authorized users to manually trigger AI analysis for a specific PR
- * - Validates user has access to the installation
- * - Fetches PR data from GitHub API
- * - Performs immediate analysis workflow
- * - Returns analysis results or queues for background processing
  */
 export const triggerManualPRAnalysis = async (req: Request, res: Response, next: NextFunction) => {
     const { installationId } = req.params;
@@ -143,7 +164,6 @@ export const triggerManualPRAnalysis = async (req: Request, res: Response, next:
 
         messageLogger.info(`Manual PR analysis triggered by user ${userId} for PR #${prNumber} in ${repositoryName}`);
 
-        // Fetch PR data from GitHub API
         const startTime = Date.now();
         let prData: PullRequestData;
 
@@ -164,6 +184,7 @@ export const triggerManualPRAnalysis = async (req: Request, res: Response, next:
                 } as APIResponse);
             }
 
+            // Extract linked issues from PR body
             const linkedIssues = await PRAnalysisService.extractLinkedIssues(
                 prDetails.body || "",
                 installationId,
@@ -200,6 +221,7 @@ export const triggerManualPRAnalysis = async (req: Request, res: Response, next:
                 prNumber
             );
             
+            // Create a formatted summary of the PR
             const changedFilesInfo = prData.changedFiles.map(file =>
                 `${file.filename} (${file.status}, +${file.additions}/-${file.deletions})${file.previousFilename ? ` (renamed from ${file.previousFilename})` : ""}`
             ).join("\n");
@@ -208,7 +230,6 @@ export const triggerManualPRAnalysis = async (req: Request, res: Response, next:
                 return `\n--- ${file.filename} (${file.status}) ---\n${file.patch}`;
             }).join("\n");
 
-            // Format linked issues
             const linkedIssuesInfo = prData.linkedIssues.map(issue => `- #${issue.number}:\n
                 title: ${issue.title}\n
                 body: ${issue.body}\n
@@ -241,6 +262,7 @@ ${codeChangesPreview}`;
             const errorStatus = getFieldFromUnknownObject<number>(error, "status");
             const errorMessage = getFieldFromUnknownObject<string>(error, "message");
 
+            // Handle 404 Not Found specifically
             if (errorStatus === 404) {
                 return res.status(STATUS_CODES.NOT_FOUND).json({
                     success: false,
@@ -268,13 +290,14 @@ ${codeChangesPreview}`;
             );
         }
 
-        // Validate PR data and check eligibility
+        // Check if PR is eligible for analysis
         try {
             if (!PRAnalysisService.shouldAnalyzePR(prData)) {
                 const reason = prData.isDraft ? "PR is in draft status" : "PR does not link to any issues";
 
                 PRAnalysisService.logAnalysisDecision(prData, false, reason);
 
+                // Return PR not eligible for analysis
                 return res.status(STATUS_CODES.SERVER_ERROR).json({
                     success: false,
                     error: `PR not eligible for analysis: ${reason}`,
@@ -292,6 +315,7 @@ ${codeChangesPreview}`;
             }
 
         } catch (error) {
+            // Handle PRAnalysisError specifically
             if (error instanceof PRAnalysisError) {
                 PRAnalysisService.logAnalysisDecision(prData, false, error.message);
 
@@ -353,6 +377,7 @@ ${codeChangesPreview}`;
     } catch (error) {
         dataLogger.error("Manual PR analysis trigger failed", { error });
 
+        // Handle known error types with specific responses
         if (error instanceof PRAnalysisError) {
             return res.status(error.status).json({
                 success: false,
