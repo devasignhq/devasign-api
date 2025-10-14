@@ -2,7 +2,7 @@ import { Router, RequestHandler } from "express";
 import {
     handlePRWebhook,
     webhookHealthCheck,
-    getJobStatus,
+    getJobData,
     getQueueStats,
     getWorkflowStatus,
     triggerManualAnalysis
@@ -45,7 +45,7 @@ webhookRoutes.get(
  */
 webhookRoutes.get(
     "/jobs/:jobId",
-    getJobStatus as RequestHandler
+    getJobData as RequestHandler
 );
 
 /**

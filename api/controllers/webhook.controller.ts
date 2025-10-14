@@ -14,12 +14,6 @@ import { dataLogger } from "../config/logger.config";
 
 /**
  * Handles GitHub PR webhook events
- * 
- * Complete end-to-end workflow implementation:
- * 1. Validates webhook payload and extracts PR data
- * 2. Checks if PR is eligible for analysis
- * 3. Queues PR for background AI analysis
- * 4. Returns immediate response while analysis runs asynchronously
  */
 export const handlePRWebhook = async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -72,6 +66,7 @@ export const handlePRWebhook = async (req: Request, res: Response, next: NextFun
     } catch (error) {
         dataLogger.error("PR webhook processing failed", { error });
 
+        // Handle specific PR analysis errors
         if (error instanceof PRAnalysisError) {
             return res.status(error.status).json({
                 success: false,
@@ -104,10 +99,12 @@ export const handlePRWebhook = async (req: Request, res: Response, next: NextFun
  */
 export const webhookHealthCheck = async (req: Request, res: Response) => {
     try {
+        // Get workflow service status
         const workflowService = WorkflowIntegrationService.getInstance();
         const healthCheck = await workflowService.healthCheck();
         const workflowStatus = workflowService.getWorkflowStatus();
 
+        // Return health check response
         const statusCode = healthCheck.healthy ? STATUS_CODES.SUCCESS : STATUS_CODES.SERVER_ERROR;
 
         res.status(statusCode).json({
@@ -122,6 +119,8 @@ export const webhookHealthCheck = async (req: Request, res: Response) => {
         } as APIResponse);
 
     } catch (error) {
+        // Log and return error response
+        dataLogger.error("Webhook health check failed", { error });
         res.status(STATUS_CODES.UNKNOWN).json({
             success: false,
             message: "Health check failed",
@@ -133,12 +132,13 @@ export const webhookHealthCheck = async (req: Request, res: Response) => {
 };
 
 /**
- * Gets job status for a specific job ID
+ * Gets job data for a specific job ID
  */
-export const getJobStatus = (req: Request, res: Response) => {
+export const getJobData = (req: Request, res: Response) => {
     try {
         const { jobId } = req.params;
 
+        // Validate job ID is provided
         if (!jobId) {
             return res.status(STATUS_CODES.SERVER_ERROR).json({
                 success: false,
@@ -146,16 +146,19 @@ export const getJobStatus = (req: Request, res: Response) => {
             });
         }
 
+        // Fetch job data from the job queue
         const jobQueue = JobQueueService.getInstance();
-        const job = jobQueue.getJobStatus(jobId);
+        const job = jobQueue.getJobData(jobId);
 
         if (!job) {
+            // Job not found
             return res.status(STATUS_CODES.NOT_FOUND).json({
                 success: false,
                 error: "Job not found"
             });
         }
 
+        // Return job data
         res.status(STATUS_CODES.SUCCESS).json({
             success: true,
             data: {
@@ -181,7 +184,8 @@ export const getJobStatus = (req: Request, res: Response) => {
         } as APIResponse);
 
     } catch (error) {
-        dataLogger.error("Error getting job status", { error });
+        // Log and return error response
+        dataLogger.error("Error getting job data", { error });
         res.status(STATUS_CODES.UNKNOWN).json({
             success: false,
             error: "Internal server error"
@@ -194,9 +198,11 @@ export const getJobStatus = (req: Request, res: Response) => {
  */
 export const getQueueStats = (req: Request, res: Response) => {
     try {
+        // Fetch queue statistics from the job queue
         const jobQueue = JobQueueService.getInstance();
         const stats = jobQueue.getQueueStats();
 
+        // Return queue statistics
         res.status(STATUS_CODES.SUCCESS).json({
             success: true,
             data: {
@@ -207,6 +213,7 @@ export const getQueueStats = (req: Request, res: Response) => {
         } as APIResponse);
 
     } catch (error) {
+        // Log and return error response
         dataLogger.error("Error getting queue stats", { error });
         res.status(STATUS_CODES.UNKNOWN).json({
             success: false,
@@ -220,9 +227,11 @@ export const getQueueStats = (req: Request, res: Response) => {
  */
 export const getWorkflowStatus = (req: Request, res: Response) => {
     try {
+        // Fetch workflow status from the integration service
         const workflowService = WorkflowIntegrationService.getInstance();
         const status = workflowService.getWorkflowStatus();
 
+        // Return workflow status
         res.status(STATUS_CODES.SUCCESS).json({
             success: true,
             data: status,
@@ -230,6 +239,7 @@ export const getWorkflowStatus = (req: Request, res: Response) => {
         } as APIResponse);
 
     } catch (error) {
+        // Log and return error response
         dataLogger.error("Error getting workflow status", { error });
         res.status(STATUS_CODES.UNKNOWN).json({
             success: false,
@@ -247,12 +257,14 @@ export const triggerManualAnalysis = async (req: Request, res: Response, next: N
         const { installationId, repositoryName, prNumber, reason } = req.body;
 
         if (!installationId || !repositoryName || !prNumber) {
+            // Missing required fields
             return res.status(STATUS_CODES.SERVER_ERROR).json({
                 success: false,
                 error: "Missing required fields: installationId, repositoryName, prNumber"
             });
         }
 
+        // Fetch PR details using Octokit
         const octokit = await OctokitService.getOctokit(installationId);
         const [owner, repo] = OctokitService.getOwnerAndRepo(repositoryName);
 
@@ -283,6 +295,7 @@ export const triggerManualAnalysis = async (req: Request, res: Response, next: N
         });
         
         if (!result.success) {
+            // Analysis could not be queued
             return res.status(STATUS_CODES.UNKNOWN).json({
                 success: false,
                 error: result.error,
@@ -290,6 +303,7 @@ export const triggerManualAnalysis = async (req: Request, res: Response, next: N
             } as APIResponse);
         }
 
+        // Return success response
         res.status(STATUS_CODES.BACKGROUND_JOB).json({
             success: true,
             message: "Manual analysis queued successfully",
@@ -305,6 +319,7 @@ export const triggerManualAnalysis = async (req: Request, res: Response, next: N
         } as APIResponse);
 
     } catch (error) {
+        // Log and pass error to middleware
         dataLogger.error("Error in manual analysis trigger", { error });
         next(error);
     }

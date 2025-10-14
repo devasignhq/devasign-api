@@ -54,7 +54,7 @@ describe("Webhook API Integration Tests", () => {
 
         mockJobQueueService = {
             getInstance: jest.fn().mockReturnThis(),
-            getJobStatus: jest.fn(),
+            getJobData: jest.fn(),
             getQueueStats: jest.fn(),
             getActiveJobsCount: jest.fn()
         };
@@ -101,7 +101,7 @@ describe("Webhook API Integration Tests", () => {
             lastProcessed: new Date().toISOString()
         });
 
-        mockJobQueueService.getJobStatus.mockReturnValue({
+        mockJobQueueService.getJobData.mockReturnValue({
             id: "test-job-123",
             status: "completed",
             data: { prNumber: 1, repositoryName: VALID_REPO_NAME },
@@ -691,8 +691,8 @@ describe("Webhook API Integration Tests", () => {
         });
     });
 
-    describe("GET /webhooks/jobs/:jobId - Job Status", () => {
-        it("should return job status for valid job ID", async () => {
+    describe("GET /webhooks/jobs/:jobId - Job Data", () => {
+        it("should return job data for valid job ID", async () => {
             const response = await request(app)
                 .get("/webhooks/jobs/test-job-123")
                 .expect(200);
@@ -720,7 +720,7 @@ describe("Webhook API Integration Tests", () => {
         });
 
         it("should return 404 for non-existent job", async () => {
-            mockJobQueueService.getJobStatus.mockReturnValue(null);
+            mockJobQueueService.getJobData.mockReturnValue(null);
 
             const response = await request(app)
                 .get("/webhooks/jobs/non-existent-job")

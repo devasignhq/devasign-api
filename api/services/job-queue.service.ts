@@ -101,9 +101,9 @@ export class JobQueueService extends EventEmitter {
     }
 
     /**
-     * Gets job status by ID
+     * Gets job data by ID
      */
-    public getJobStatus(jobId: string): Job | null {
+    public getJobData(jobId: string): Job | null {
         return this.jobs.get(jobId) || null;
     }
 

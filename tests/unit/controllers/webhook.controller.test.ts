@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import {
     handlePRWebhook,
     webhookHealthCheck,
-    getJobStatus,
+    getJobData,
     getQueueStats,
     getWorkflowStatus,
     triggerManualAnalysis,
@@ -62,7 +62,7 @@ describe("WebhookController", () => {
     };
 
     const mockJobQueueService = {
-        getJobStatus: jest.fn(),
+        getJobData: jest.fn(),
         getQueueStats: jest.fn(),
         getActiveJobsCount: jest.fn()
     };
@@ -294,7 +294,7 @@ describe("WebhookController", () => {
         });
     });
 
-    describe("getJobStatus", () => {
+    describe("getJobData", () => {
         const testParams = {
             jobId: "job-123"
         };
@@ -303,7 +303,7 @@ describe("WebhookController", () => {
             mockRequest.params = testParams;
         });
 
-        it("should return job status when job exists", async () => {
+        it("should return job data when job exists", async () => {
             const mockJob = {
                 id: "job-123",
                 status: "completed",
@@ -326,11 +326,11 @@ describe("WebhookController", () => {
                 }
             };
 
-            mockJobQueueService.getJobStatus.mockReturnValue(mockJob);
+            mockJobQueueService.getJobData.mockReturnValue(mockJob);
 
-            await getJobStatus(mockRequest as Request, mockResponse as Response);
+            await getJobData(mockRequest as Request, mockResponse as Response);
 
-            expect(mockJobQueueService.getJobStatus).toHaveBeenCalledWith("job-123");
+            expect(mockJobQueueService.getJobData).toHaveBeenCalledWith("job-123");
 
             expect(mockResponse.status).toHaveBeenCalledWith(200);
             expect(mockResponse.json).toHaveBeenCalledWith({
@@ -359,9 +359,9 @@ describe("WebhookController", () => {
         });
 
         it("should return 404 when job not found", async () => {
-            mockJobQueueService.getJobStatus.mockReturnValue(null);
+            mockJobQueueService.getJobData.mockReturnValue(null);
 
-            await getJobStatus(mockRequest as Request, mockResponse as Response);
+            await getJobData(mockRequest as Request, mockResponse as Response);
 
             expect(mockResponse.status).toHaveBeenCalledWith(404);
             expect(mockResponse.json).toHaveBeenCalledWith({
@@ -373,7 +373,7 @@ describe("WebhookController", () => {
         it("should return 400 when job ID is missing", async () => {
             mockRequest.params = {};
 
-            await getJobStatus(mockRequest as Request, mockResponse as Response);
+            await getJobData(mockRequest as Request, mockResponse as Response);
 
             expect(mockResponse.status).toHaveBeenCalledWith(400);
             expect(mockResponse.json).toHaveBeenCalledWith({
@@ -384,13 +384,13 @@ describe("WebhookController", () => {
 
         it("should handle errors gracefully", async () => {
             const error = new Error("Database connection failed");
-            mockJobQueueService.getJobStatus.mockImplementation(() => {
+            mockJobQueueService.getJobData.mockImplementation(() => {
                 throw error;
             });
 
-            await getJobStatus(mockRequest as Request, mockResponse as Response);
+            await getJobData(mockRequest as Request, mockResponse as Response);
 
-            expect(LoggingService.logError).toHaveBeenCalledWith("Error getting job status", { error });
+            expect(LoggingService.logError).toHaveBeenCalledWith("Error getting job data", { error });
 
             expect(mockResponse.status).toHaveBeenCalledWith(500);
             expect(mockResponse.json).toHaveBeenCalledWith({
