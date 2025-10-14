@@ -10,6 +10,7 @@ import { dataLogger } from "../config/logger.config";
  */
 export const validateGitHubWebhook = (req: Request, res: Response, next: NextFunction): void => {
     try {
+        // Get and validate signature and secret
         const signature = req.get("X-Hub-Signature-256");
         const secret = process.env.GITHUB_WEBHOOK_SECRET;
 
@@ -39,6 +40,7 @@ export const validateGitHubWebhook = (req: Request, res: Response, next: NextFun
             Buffer.from(expectedSignature)
         );
 
+        // If signatures don't match, reject the request
         if (!isValid) {
             throw new GitHubWebhookError("Invalid webhook signature");
         }
@@ -71,15 +73,7 @@ export const validateGitHubWebhook = (req: Request, res: Response, next: NextFun
 };
 
 /**
- * Middleware to validate webhook event types and default branch targeting
- * Only processes PR events that we care about and target the default branch
- * 
- * This middleware validates:
- * - Event type is 'pull_request'
- * - Action is one of: 'opened', 'synchronize', 'ready_for_review'
- * - PR is targeting the repository's default branch (main/master)
- * 
- * PRs targeting non-default branches are skipped with appropriate logging.
+ * Middleware to validate pull request webhook events
  */
 export const validatePRWebhookEvent = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
@@ -117,7 +111,7 @@ export const validatePRWebhookEvent = async (req: Request, res: Response, next: 
                 // Get the repository's default branch
                 const defaultBranch = await OctokitService.getDefaultBranch(installationId, repositoryName);
 
-                // Only process PRs targeting the default branch
+                // If the PR is not targeting the default branch, skip processing
                 if (targetBranch !== defaultBranch) {
                     dataLogger.info(
                         "PR skipped - not targeting default branch",
@@ -130,6 +124,7 @@ export const validatePRWebhookEvent = async (req: Request, res: Response, next: 
                         }
                     );
 
+                    // Respond with success but skip further processing
                     res.status(STATUS_CODES.SUCCESS).json({
                         success: true,
                         message: "PR not targeting default branch - skipping review",

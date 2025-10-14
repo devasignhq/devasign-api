@@ -1,6 +1,9 @@
 import { Request, Response, NextFunction } from "express";
 import { STATUS_CODES } from "../helper";
 
+/**
+ * Middleware to prevent caching on dynamic routes
+ */
 export const dynamicRoute = (req: Request, res: Response, next: NextFunction) => {
     res.set({
         "Cache-Control": "no-cache, no-store, must-revalidate",
@@ -10,7 +13,11 @@ export const dynamicRoute = (req: Request, res: Response, next: NextFunction) =>
     next();
 };
 
+/**
+ * Middleware to restrict access to localhost only
+ */
 export const localhostOnly = (req: Request, res: Response, next: NextFunction) => {
+    // Get origin and referer headers
     const origin = req.get("origin") || req.get("host");
     const referer = req.get("referer");
 
@@ -28,8 +35,8 @@ export const localhostOnly = (req: Request, res: Response, next: NextFunction) =
         return next();
     }
 
-    res.status(STATUS_CODES.UNAUTHORIZED).json({
+    // Deny access if not from localhost
+    return res.status(STATUS_CODES.UNAUTHORIZED).json({
         error: "Access denied. This endpoint is only available from localhost."
     });
-    return;
 };
