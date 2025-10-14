@@ -15,6 +15,9 @@ class WalletError extends ErrorClass {
     }
 }
 
+/**
+ * Withdraw assets from wallet.
+ */
 export const withdrawAsset = async (req: Request, res: Response, next: NextFunction) => {
     const {
         userId,
@@ -25,6 +28,7 @@ export const withdrawAsset = async (req: Request, res: Response, next: NextFunct
     } = req.body;
 
     try {
+        // Ensure amount is valid
         if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
             throw new ValidationError("Invalid amount specified");
         }
@@ -32,7 +36,9 @@ export const withdrawAsset = async (req: Request, res: Response, next: NextFunct
         let walletAddress = "";
         let walletSecret = "";
 
+        // Get wallet info based on installation or user
         if (installationId) {
+            // Check if user is part of the installation
             const installation = await prisma.installation.findFirst({
                 where: {
                     id: installationId,
@@ -51,9 +57,11 @@ export const withdrawAsset = async (req: Request, res: Response, next: NextFunct
                 );
             }
 
+            // Set wallet details
             walletAddress = installation.walletAddress;
             walletSecret = decrypt(installation.walletSecret);
         } else {
+            // Fetch user and verify user exists
             const user = await prisma.user.findUnique({
                 where: { userId },
                 select: { walletSecret: true, walletAddress: true }
@@ -63,6 +71,7 @@ export const withdrawAsset = async (req: Request, res: Response, next: NextFunct
                 throw new NotFoundError("User not found");
             }
 
+            // Set wallet details
             walletAddress = user.walletAddress;
             walletSecret = decrypt(user.walletSecret);
         }
@@ -71,6 +80,7 @@ export const withdrawAsset = async (req: Request, res: Response, next: NextFunct
         const accountInfo = await stellarService.getAccountInfo(walletAddress);
 
         if (assetType === "USDC") {
+            // USDC balance check
             const usdcAsset = accountInfo.balances.find(
                 (asset): asset is USDCBalance => "asset_code" in asset && asset.asset_code === "USDC"
             );
@@ -106,6 +116,7 @@ export const withdrawAsset = async (req: Request, res: Response, next: NextFunct
             }
         }
 
+        // Perform transfer
         const { txHash } = await stellarService.transferAsset(
             walletSecret,
             destinationAddress,
@@ -114,6 +125,7 @@ export const withdrawAsset = async (req: Request, res: Response, next: NextFunct
             amount
         );
 
+        // Record transaction
         const transactionPayload = {
             txHash,
             category: TransactionCategory.WITHDRAWAL,
@@ -128,12 +140,16 @@ export const withdrawAsset = async (req: Request, res: Response, next: NextFunct
 
         const withdrawal = await prisma.transaction.create({ data: transactionPayload });
 
+        // Return transaction details
         res.status(STATUS_CODES.SUCCESS).json(withdrawal);
     } catch (error) {
         next(error);
     }
 };
 
+/**
+ * Swap assets in wallet.
+ */
 export const swapAsset = async (req: Request, res: Response, next: NextFunction) => {
     const {
         userId,
@@ -144,6 +160,7 @@ export const swapAsset = async (req: Request, res: Response, next: NextFunction)
     } = req.body;
 
     try {
+        // Ensure amount is valid
         if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
             throw new ValidationError("Invalid amount specified");
         }
@@ -151,7 +168,9 @@ export const swapAsset = async (req: Request, res: Response, next: NextFunction)
         let walletAddress = "";
         let walletSecret = "";
 
+        // Get wallet info based on installation or user
         if (installationId) {
+            // Check if user is part of the installation
             const installation = await prisma.installation.findFirst({
                 where: {
                     id: installationId,
@@ -170,9 +189,11 @@ export const swapAsset = async (req: Request, res: Response, next: NextFunction)
                 );
             }
 
+            // Set wallet details
             walletAddress = installation.walletAddress;
             walletSecret = decrypt(installation.walletSecret);
         } else {
+            // Fetch user and verify user exists
             const user = await prisma.user.findUnique({
                 where: { userId },
                 select: { walletSecret: true, walletAddress: true }
@@ -182,6 +203,7 @@ export const swapAsset = async (req: Request, res: Response, next: NextFunction)
                 throw new NotFoundError("User not found");
             }
 
+            // Set wallet details
             walletAddress = user.walletAddress;
             walletSecret = decrypt(user.walletSecret);
         }
@@ -226,6 +248,7 @@ export const swapAsset = async (req: Request, res: Response, next: NextFunction)
             }
         }
 
+        // Perform swap
         let txHash = "";
         if (toAssetType === "USDC") {
             const result = await stellarService.swapAsset(walletSecret, amount);
@@ -240,6 +263,7 @@ export const swapAsset = async (req: Request, res: Response, next: NextFunction)
             txHash = result.txHash;
         }
 
+        // Record transaction
         const transactionPayload = {
             txHash,
             category: toAssetType === "USDC" 
@@ -258,19 +282,26 @@ export const swapAsset = async (req: Request, res: Response, next: NextFunction)
 
         const swap = await prisma.transaction.create({ data: transactionPayload });
 
+        // Return transaction details
         res.status(STATUS_CODES.SUCCESS).json(swap);
     } catch (error) {
         next(error);
     }
 };
 
+/**
+ * Get wallet info.
+ */
 export const getWalletInfo = async (req: Request, res: Response, next: NextFunction) => {
     const installationId = req.query.installationId as string;
     const { userId } = req.body;
 
     try {
         let walletAddress = "";
+
+        // Get wallet info based on installation or user
         if (installationId) {
+            // Check if user is part of the installation
             const installation = await prisma.installation.findFirst({
                 where: {
                     id: installationId,
@@ -289,8 +320,10 @@ export const getWalletInfo = async (req: Request, res: Response, next: NextFunct
                 );
             }
 
+            // Set wallet details
             walletAddress = installation.walletAddress;
         } else {
+            // Fetch user and verify user exists
             const user = await prisma.user.findUnique({
                 where: { userId },
                 select: { walletAddress: true }
@@ -300,17 +333,24 @@ export const getWalletInfo = async (req: Request, res: Response, next: NextFunct
                 throw new NotFoundError("User not found");
             }
 
+            // Set wallet details
             walletAddress = user.walletAddress;
         }
 
+        // Get account info from Stellar
         const accountInfo = await stellarService.getAccountInfo(walletAddress);
 
+        // Return account info
         res.status(STATUS_CODES.SUCCESS).json(accountInfo);
     } catch (error) {
         next(error);
     }
 };
 
+
+/**
+ * Get wallet transactions.
+ */
 export const getTransactions = async (req: Request, res: Response, next: NextFunction) => {
     const { userId } = req.body;
     const {
@@ -322,7 +362,10 @@ export const getTransactions = async (req: Request, res: Response, next: NextFun
     const installationId = req.query.installationId as string;
 
     try {
+        // Parse categories if provided
         const categoryList = (categories as string)?.split(",") as TransactionCategory[];
+
+        // Get transactions based on installation or user
         if (installationId) {
             // Check if user is part of the installation
             const userInstallation = await prisma.installation.findFirst({
@@ -341,6 +384,7 @@ export const getTransactions = async (req: Request, res: Response, next: NextFun
                 throw new AuthorizationError("User is not part of this installation.");
             }
         } else {
+            // Fetch user and verify user exists
             const user = await prisma.user.findUnique({
                 where: { userId },
                 select: { username: true }
@@ -360,6 +404,7 @@ export const getTransactions = async (req: Request, res: Response, next: NextFun
             whereClause.category = { in: categoryList };
         }
 
+        // Fetch transactions
         const transactions = await prisma.transaction.findMany({
             where: whereClause,
             orderBy: { doneAt: (sort as "asc" | "desc") || "desc" },
@@ -377,6 +422,7 @@ export const getTransactions = async (req: Request, res: Response, next: NextFun
             }
         });
 
+        // Return transactions with pagination info
         res.status(STATUS_CODES.SUCCESS).json({
             transactions,
             hasMore: transactions.length === take
@@ -386,6 +432,9 @@ export const getTransactions = async (req: Request, res: Response, next: NextFun
     }
 };
 
+/**
+ * Record wallet top-up transactions.
+ */
 export const recordWalletTopups = async (req: Request, res: Response, next: NextFunction) => {
     const { userId } = req.body;
     const installationId = req.query.installationId as string;
@@ -394,6 +443,7 @@ export const recordWalletTopups = async (req: Request, res: Response, next: Next
         let walletAddress: string;
         let escrowAddress = "";
 
+        // Get wallet info based on installation or user
         if (installationId) {
             // Check if user is part of the installation
             const installation = await prisma.installation.findFirst({
@@ -416,9 +466,11 @@ export const recordWalletTopups = async (req: Request, res: Response, next: Next
                 throw new AuthorizationError("User is not part of this installation.");
             }
 
+            // Set wallet details
             walletAddress = installation.walletAddress;
             escrowAddress = installation.escrowAddress;
         } else {
+            // Fetch user and verify user exists
             const user = await prisma.user.findUnique({
                 where: { userId },
                 select: { username: true, walletAddress: true }
@@ -428,6 +480,7 @@ export const recordWalletTopups = async (req: Request, res: Response, next: Next
                 throw new NotFoundError("User not found");
             }
 
+            // Set wallet details
             walletAddress = user.walletAddress;
         }
 
@@ -435,6 +488,7 @@ export const recordWalletTopups = async (req: Request, res: Response, next: Next
         const stellarTopups = await stellarService.getTopUpTransactions(walletAddress);
 
         if (stellarTopups.length === 0) {
+            // No topup transactions found
             return res.status(STATUS_CODES.SUCCESS).json({
                 message: "No new topup transactions found",
                 processed: 0
@@ -476,12 +530,14 @@ export const recordWalletTopups = async (req: Request, res: Response, next: Next
             const paymentTx = stellarTx as (HorizonApi.PaymentOperationResponse | HorizonApi.PathPaymentOperationResponse);
             const amount = parseFloat(paymentTx.amount);
             const asset = paymentTx.asset_type === "native" ? "XLM" : paymentTx.asset_code!;
+            // Determine source address, label 'Escrow Refunds' if payment is from escrow walet address
             const sourceAddress = installationId
                 ? escrowAddress === paymentTx.from
                     ? "Escrow Refunds"
                     : paymentTx.from
                 : paymentTx.from;
 
+            // Create transaction data
             const transactionData = {
                 txHash: stellarTx.transaction_hash,
                 category: TransactionCategory.TOP_UP,
@@ -495,6 +551,7 @@ export const recordWalletTopups = async (req: Request, res: Response, next: Next
                 )
             };
 
+            // Add to new transactions list
             newTransactions.push(transactionData);
             processed++;
         }
@@ -510,6 +567,7 @@ export const recordWalletTopups = async (req: Request, res: Response, next: Next
             );
         }
 
+        // Return details of recorded transactions
         res.status(STATUS_CODES.SUCCESS).json({
             message: `Successfully processed ${processed} topup transactions`,
             processed,
