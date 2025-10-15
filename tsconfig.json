@@ -13,7 +13,8 @@
         "moduleResolution": "node",
         "resolveJsonModule": true,
         "types": [
-            "node"
+            "node",
+            "jest"
         ],
         "allowSyntheticDefaultImports": true,
         "experimentalDecorators": true,
