@@ -12,6 +12,8 @@ requirements.txt
 /.kiro/*
 /dist/*
 
+package-lock.json
+
 # Test & log folders
 coverage
 logs
