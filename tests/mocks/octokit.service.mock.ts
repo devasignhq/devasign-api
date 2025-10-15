@@ -1,10 +1,10 @@
+import { IssueFilters } from "../../api/models";
 import {
     IssueDto,
     IssueLabel,
     IssueMilestone,
     RepositoryDto
 } from "../../api/models/github.model";
-import { IssueFilters } from "../../api/models/general.model";
 
 /**
  * Mock Octokit Service for testing
@@ -279,8 +279,8 @@ export class MockOctokitService {
      * Mock getRepoIssuesWithSearch method
      */
     static async getRepoIssuesWithSearch(
-        repoUrl: string,
-        installationId: string,
+        _repoUrl: string,
+        _installationId: string,
         filters?: IssueFilters,
         page = 1,
         perPage = 30
@@ -322,7 +322,7 @@ export class MockOctokitService {
     /**
      * Mock getRepoIssue method
      */
-    static async getRepoIssue(repoUrl: string, installationId: string, issueNumber: number) {
+    static async getRepoIssue(_repoUrl: string, _installationId: string, issueNumber: number) {
         await this.simulateNetworkDelay();
 
         if (this.shouldSimulateError) {
@@ -410,9 +410,9 @@ export class MockOctokitService {
      * Mock addBountyLabelAndCreateBountyComment method
      */
     static async addBountyLabelAndCreateBountyComment(
-        installationId: string,
-        issueId: string,
-        bountyLabelId: string,
+        _installationId: string,
+        _issueId: string,
+        _bountyLabelId: string,
         body: string
     ) {
         await this.simulateNetworkDelay();
@@ -434,7 +434,7 @@ export class MockOctokitService {
     /**
      * Mock updateIssueComment method
      */
-    static async updateIssueComment(installationId: string, commentId: string, body: string) {
+    static async updateIssueComment(_installationId: string, commentId: string, body: string) {
         await this.simulateNetworkDelay();
 
         if (this.shouldSimulateError) {
@@ -472,7 +472,7 @@ export class MockOctokitService {
     /**
      * Mock getPRFiles method
      */
-    static async getPRFiles(installationId: string, repoUrl: string, prNumber: number) {
+    static async getPRFiles(_installationId: string, repoUrl: string, prNumber: number) {
         await this.simulateNetworkDelay();
 
         if (this.shouldSimulateError) {
@@ -495,7 +495,7 @@ export class MockOctokitService {
     /**
      * Mock getPRDetails method
      */
-    static async getPRDetails(installationId: string, repoUrl: string, prNumber: number) {
+    static async getPRDetails(_installationId: string, repoUrl: string, prNumber: number) {
         await this.simulateNetworkDelay();
 
         if (this.shouldSimulateError) {
@@ -528,11 +528,11 @@ export class MockOctokitService {
      * Mock getFileContent method
      */
     static async getFileContent(
-        installationId: string,
+        _installationId: string,
         repoUrl: string,
         filePath: string,
         _ref?: string
-    ): Promise<string> {
+    ) {
         await this.simulateNetworkDelay();
 
         if (this.shouldSimulateError) {
@@ -541,6 +541,45 @@ export class MockOctokitService {
 
         const key = `${repoUrl}_${filePath}`;
         return this.mockData.fileContents.get(key) || `// Mock content for ${filePath}\nexport default function() {\n  return 'Hello World';\n}`;
+    }
+
+    /**
+     * Mock getAllFilePathsFromTree method
+     */
+    static async getAllFilePathsFromTree(
+        _installationId: string,
+        _repoUrl: string,
+        _branch?: string
+    ) {
+        await this.simulateNetworkDelay();
+
+        if (this.shouldSimulateError) {
+            this.throwMockError();
+        }
+
+        // Return mock file tree
+        return [
+            "src/index.ts",
+            "src/components/Button.tsx",
+            "src/utils/helpers.ts",
+            "src/services/api.ts",
+            "tests/unit/button.test.ts",
+            "README.md",
+            "package.json"
+        ];
+    }
+
+    /**
+     * Mock getDefaultBranch method
+     */
+    static async getDefaultBranch(_installationId: string, _repoUrl: string) {
+        await this.simulateNetworkDelay();
+
+        if (this.shouldSimulateError) {
+            this.throwMockError();
+        }
+
+        return "main";
     }
 
     /**
@@ -712,7 +751,9 @@ export const createOctokitServiceMock = () => {
         removeBountyLabelAndDeleteBountyComment: jest.fn().mockImplementation(MockOctokitService.removeBountyLabelAndDeleteBountyComment),
         getPRFiles: jest.fn().mockImplementation(MockOctokitService.getPRFiles),
         getPRDetails: jest.fn().mockImplementation(MockOctokitService.getPRDetails),
-        getFileContent: jest.fn().mockImplementation(MockOctokitService.getFileContent)
+        getFileContent: jest.fn().mockImplementation(MockOctokitService.getFileContent),
+        getAllFilePathsFromTree: jest.fn().mockImplementation(MockOctokitService.getAllFilePathsFromTree),
+        getDefaultBranch: jest.fn().mockImplementation(MockOctokitService.getDefaultBranch)
     };
 };
 
