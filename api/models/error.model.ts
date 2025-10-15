@@ -10,9 +10,9 @@ export class ErrorClass {
     public readonly status: number;
 
     constructor(
-        code: string, 
-        details: unknown, 
-        message: string, 
+        code: string,
+        details: unknown,
+        message: string,
         status: number = STATUS_CODES.SERVER_ERROR
     ) {
         this.code = code;
@@ -23,10 +23,13 @@ export class ErrorClass {
 
 }
 
+/**
+ * Resource not found error
+ */
 export class NotFoundError extends ErrorClass {
     constructor(message: string) {
         super(
-            "NOT_FOUND", 
+            "NOT_FOUND",
             null,
             message,
             STATUS_CODES.NOT_FOUND
@@ -34,23 +37,29 @@ export class NotFoundError extends ErrorClass {
     }
 }
 
+/**
+ * Not allowed to perform action or access resource error
+ */
 export class AuthorizationError extends ErrorClass {
     constructor(message: string) {
         super(
-            "UNAUTHORIZED", 
-            null, 
-            message, 
+            "UNAUTHORIZED",
+            null,
+            message,
             STATUS_CODES.UNAUTHORIZED
         );
     }
 }
 
+/**
+ * Request validation error
+ */
 export class ValidationError extends ErrorClass {
     constructor(message: string) {
         super(
-            "VALIDATION_ERROR", 
-            null, 
-            message, 
+            "VALIDATION_ERROR",
+            null,
+            message,
             STATUS_CODES.UNAUTHORIZED
         );
     }
@@ -67,10 +76,10 @@ export abstract class AIReviewError extends ErrorClass {
         // message: string,
         // code: string,
         // details?: unknown,
-        
-        code: string, 
-        details: unknown, 
-        message: string, 
+
+        code: string,
+        details: unknown,
+        message: string,
         retryable: boolean = false,
         status: number = STATUS_CODES.SERVER_ERROR
     ) {
@@ -101,11 +110,14 @@ export abstract class AIReviewError extends ErrorClass {
 // External Service Errors
 // ============================================================================
 
+/**
+ * Stellar service related errors
+ */
 export class StellarServiceError extends ErrorClass {
     constructor(message: string, details: unknown = null) {
         super(
-            "STELLAR_SERVICE_ERROR", 
-            details, 
+            "STELLAR_SERVICE_ERROR",
+            details,
             message,
             STATUS_CODES.STELLAR_ERROR
         );
@@ -118,10 +130,10 @@ export class StellarServiceError extends ErrorClass {
 export class GroqServiceError extends AIReviewError {
     constructor(message: string, details?: unknown, retryable: boolean = true) {
         super(
-            "GROQ_SERVICE_ERROR", 
-            details, 
-            message, 
-            retryable, 
+            "GROQ_SERVICE_ERROR",
+            details,
+            message,
+            retryable,
             STATUS_CODES.GROQ_API_ERROR
         );
     }
@@ -174,9 +186,9 @@ export class GitHubAPIError extends ErrorClass {
         rateLimitRemaining?: number
     ) {
         super(
-            "GITHUB_API_ERROR", 
-            details, 
-            message, 
+            "GITHUB_API_ERROR",
+            details,
+            message,
             STATUS_CODES.GITHUB_API_ERROR
         );
         this.statusCode = statusCode;
@@ -190,9 +202,9 @@ export class GitHubAPIError extends ErrorClass {
 export class GitHubWebhookError extends AIReviewError {
     constructor(message: string, details?: unknown) {
         super(
-            "GITHUB_WEBHOOK_ERROR", 
-            details, 
-            message, 
+            "GITHUB_WEBHOOK_ERROR",
+            details,
+            message,
             false,
             STATUS_CODES.GITHUB_API_ERROR
         );
