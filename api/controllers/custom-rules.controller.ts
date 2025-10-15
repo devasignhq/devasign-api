@@ -11,23 +11,8 @@ import { STATUS_CODES } from "../helper";
 export const getCustomRules = async (req: Request, res: Response, next: NextFunction) => {
     const { installationId } = req.params;
     const { active, ruleType, severity } = req.query;
-    const { userId } = req.body;
 
     try {
-        // Verify user has access to this installation
-        const installation = await prisma.installation.findFirst({
-            where: {
-                id: installationId,
-                users: {
-                    some: { userId: userId as string }
-                }
-            }
-        });
-
-        if (!installation) {
-            throw new NotFoundError("Installation not found or access denied");
-        }
-
         // Build where clause based on filters
         const where: Prisma.AIReviewRuleWhereInput = {
             installationId
@@ -71,23 +56,8 @@ export const getCustomRules = async (req: Request, res: Response, next: NextFunc
  */ 
 export const getCustomRule = async (req: Request, res: Response, next: NextFunction) => {
     const { installationId, ruleId } = req.params;
-    const { userId } = req.body;
 
     try {
-        // Verify user has access to this installation
-        const installation = await prisma.installation.findFirst({
-            where: {
-                id: installationId,
-                users: {
-                    some: { userId: userId as string }
-                }
-            }
-        });
-
-        if (!installation) {
-            throw new NotFoundError("Installation not found or access denied");
-        }
-
         // Fetch the rule and verify it belongs to the installation
         const rule = await prisma.aIReviewRule.findFirst({
             where: {
@@ -116,23 +86,8 @@ export const getCustomRule = async (req: Request, res: Response, next: NextFunct
 export const createCustomRule = async (req: Request, res: Response, next: NextFunction) => {
     const { installationId } = req.params;
     const { name, description, ruleType, severity, pattern, config, active = true } = req.body;
-    const { userId } = req.body;
 
     try {
-        // Verify user has access to this installation
-        const installation = await prisma.installation.findFirst({
-            where: {
-                id: installationId,
-                users: {
-                    some: { userId: userId as string }
-                }
-            }
-        });
-
-        if (!installation) {
-            throw new NotFoundError("Installation not found or access denied");
-        }
-
         // Check if rule name already exists for this installation
         const existingRule = await prisma.aIReviewRule.findFirst({
             where: {
@@ -184,23 +139,8 @@ export const createCustomRule = async (req: Request, res: Response, next: NextFu
 export const updateCustomRule = async (req: Request, res: Response, next: NextFunction) => {
     const { installationId, ruleId } = req.params;
     const { name, description, ruleType, severity, pattern, config, active } = req.body;
-    const { userId } = req.body;
 
     try {
-        // Verify user has access to this installation
-        const installation = await prisma.installation.findFirst({
-            where: {
-                id: installationId,
-                users: {
-                    some: { userId: userId as string }
-                }
-            }
-        });
-
-        if (!installation) {
-            throw new NotFoundError("Installation not found or access denied");
-        }
-
         // Check if rule exists
         const existingRule = await prisma.aIReviewRule.findFirst({
             where: {
@@ -278,23 +218,8 @@ export const updateCustomRule = async (req: Request, res: Response, next: NextFu
  */
 export const deleteCustomRule = async (req: Request, res: Response, next: NextFunction) => {
     const { installationId, ruleId } = req.params;
-    const { userId } = req.body;
 
     try {
-        // Verify user has access to this installation
-        const installation = await prisma.installation.findFirst({
-            where: {
-                id: installationId,
-                users: {
-                    some: { userId: userId as string }
-                }
-            }
-        });
-
-        if (!installation) {
-            throw new NotFoundError("Installation not found or access denied");
-        }
-
         // Check if rule exists
         const existingRule = await prisma.aIReviewRule.findFirst({
             where: {

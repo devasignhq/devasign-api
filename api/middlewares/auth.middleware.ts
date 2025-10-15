@@ -2,7 +2,7 @@ import { prisma } from "../config/database.config";
 import { firebaseAdmin } from "../config/firebase.config";
 import { STATUS_CODES, getFieldFromUnknownObject } from "../helper";
 import { Request, Response, NextFunction } from "express";
-import { AuthorizationError } from "../models/error.model";
+import { AuthorizationError, ErrorUtils } from "../models/error.model";
 
 /**
  * Middleware to validate user authorization token
@@ -40,20 +40,41 @@ export const validateUser = async (req: Request, res: Response, next: NextFuncti
 };
 
 /**
- * Helper to validate user belongs to a GitHub installation
+ * Middleware to validate user belongs to a GitHub installation
  */
-export const validateUserInstallation = async (installationId: string, userId: string) => {
-    // Check if user is part of the installation
-    const installation = await prisma.installation.findUnique({
-        where: {
-            id: installationId,
-            users: { some: { userId } }
-        },
-        select: { id: true }
-    });
+export const validateUserInstallation = async (req: Request, res: Response, next: NextFunction) => {
+    const { installationId } = req.params;
+    const { userId } = req.body;
+    
 
-    // If not, throw authorization error
-    if (!installation) {
-        throw new AuthorizationError("Only members of this installation are allowed access");
+    try {
+        // Check if user is part of the installation
+        const installation = await prisma.installation.findUnique({
+            where: {
+                id: installationId,
+                users: { some: { userId } }
+            },
+            select: { id: true }
+        });
+
+        // If not, throw authorization error
+        if (!installation) {
+            throw new AuthorizationError("Only members of this installation are allowed access");
+        }
+
+        next();
+    } catch (error) {
+        // Handle authorization error
+        if (error instanceof AuthorizationError) {
+            return res.status(error.status).json({ ...ErrorUtils.sanitizeError(error) });
+        }
+        
+        // Handle unknown errors
+        return res.status(STATUS_CODES.UNKNOWN).json({
+            message: "Failed to fetch installation details",
+            details: process.env.NODE_ENV === "development" 
+                ? { ...(typeof error === "object" ? error : { error }) } 
+                : null
+        });
     }
 };

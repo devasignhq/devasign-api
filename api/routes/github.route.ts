@@ -13,6 +13,7 @@ import {
     getOrCreateBountyLabelValidator,
     triggerManualPRAnalysisValidator
 } from "../validators/github.validator";
+import { validateUserInstallation } from "../middlewares/auth.middleware";
 
 export const githubRoutes = Router();
 
@@ -20,6 +21,7 @@ export const githubRoutes = Router();
 githubRoutes.get(
     "/installations/:installationId/repositories", 
     getInstallationRepositoriesValidator, 
+    validateUserInstallation as RequestHandler,
     getInstallationRepositories as RequestHandler
 );
 
@@ -27,6 +29,7 @@ githubRoutes.get(
 githubRoutes.get(
     "/installations/:installationId/issues", 
     getRepositoryIssuesValidator, 
+    validateUserInstallation as RequestHandler,
     getRepositoryIssues as RequestHandler
 );
 
@@ -34,6 +37,7 @@ githubRoutes.get(
 githubRoutes.get(
     "/installations/:installationId/resources", 
     getRepositoryResourcesValidator, 
+    validateUserInstallation as RequestHandler,
     getRepositoryResources as RequestHandler
 );
 
@@ -41,6 +45,7 @@ githubRoutes.get(
 githubRoutes.get(
     "/installations/:installationId/set-bounty-label", 
     getOrCreateBountyLabelValidator, 
+    validateUserInstallation as RequestHandler,
     getOrCreateBountyLabel as RequestHandler
 );
 
@@ -48,5 +53,6 @@ githubRoutes.get(
 githubRoutes.post(
     "/installations/:installationId/analyze-pr",
     triggerManualPRAnalysisValidator,
+    validateUserInstallation as RequestHandler,
     triggerManualPRAnalysis as RequestHandler
 );

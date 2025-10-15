@@ -1,7 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { OctokitService } from "../services/octokit.service";
 import { IssueFilters } from "../models";
-import { validateUserInstallation } from "../middlewares/auth.middleware";
 import { PRAnalysisService } from "../services/pr-analysis.service";
 import {
     PullRequestData,
@@ -16,12 +15,8 @@ import { dataLogger, messageLogger } from "../config/logger.config";
  */
 export const getInstallationRepositories = async (req: Request, res: Response, next: NextFunction) => {
     const { installationId } = req.params;
-    const { userId } = req.body;
 
     try {
-        // Validate user has access to this installation
-        await validateUserInstallation(installationId, userId);
-
         // Fetch repositories from GitHub API
         const repositories = await OctokitService.getInstallationRepositories(installationId);
 
@@ -47,12 +42,8 @@ export const getRepositoryIssues = async (req: Request, res: Response, next: Nex
         page = 1,
         perPage = 30
     } = req.query;
-    const { userId } = req.body;
 
     try {
-        // Validate user has access to this installation
-        await validateUserInstallation(installationId, userId);
-
         // Organize filters
         const filters: IssueFilters = {
             title: title as string,
@@ -91,12 +82,8 @@ export const getRepositoryIssues = async (req: Request, res: Response, next: Nex
 export const getRepositoryResources = async (req: Request, res: Response, next: NextFunction) => {
     const { installationId } = req.params;
     const { repoUrl } = req.query;
-    const { userId } = req.body;
 
     try {
-        // Validate user has access to this installation
-        await validateUserInstallation(installationId, userId);
-
         // Fetch labels and milestones
         const resources = await OctokitService.getRepoLabelsAndMilestones(
             repoUrl as string,
@@ -116,12 +103,8 @@ export const getRepositoryResources = async (req: Request, res: Response, next: 
 export const getOrCreateBountyLabel = async (req: Request, res: Response, next: NextFunction) => {
     const { installationId } = req.params;
     const { repositoryId } = req.query;
-    const { userId } = req.body;
 
     try {
-        // Validate user has access to this installation
-        await validateUserInstallation(installationId, userId);
-
         let bountyLabel;
 
         // Check if bounty label already exists
@@ -159,9 +142,6 @@ export const triggerManualPRAnalysis = async (req: Request, res: Response, next:
     const { userId } = req.body;
 
     try {
-        // Validate user has access to this installation
-        await validateUserInstallation(installationId, userId);
-
         messageLogger.info(`Manual PR analysis triggered by user ${userId} for PR #${prNumber} in ${repositoryName}`);
 
         const startTime = Date.now();

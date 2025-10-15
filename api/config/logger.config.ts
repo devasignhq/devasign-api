@@ -42,7 +42,7 @@ const transports = [
     ] : [])
 ];
 
-// Configure loggers
+// For logging messages
 winston.loggers.add("message", {
     level: LOG_LEVEL,
     levels: logLevels,
@@ -63,6 +63,7 @@ winston.loggers.add("message", {
     transports
 });
 
+// For logging objects and data with JSON formatting
 winston.loggers.add("data", {
     level: LOG_LEVEL,
     levels: logLevels,
