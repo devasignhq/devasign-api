@@ -5,6 +5,7 @@ import { encrypt, decrypt } from "../../helper";
 
 const router = Router();
 
+// Create test user
 router.post(
     "/users/:id",
     [
@@ -31,6 +32,7 @@ router.post(
     }) as RequestHandler
 );
 
+// Encrypt a text
 router.post("/encryption",
     [
         body("text").notEmpty().withMessage("Text to encrypt is required")
@@ -65,6 +67,7 @@ router.post("/encryption",
     }) as RequestHandler
 );
 
+// Decrypt a text
 router.post("/decryption",
     [
         body("text").notEmpty().withMessage("Text to decrypt is required")
@@ -98,72 +101,5 @@ router.post("/decryption",
         }
     }) as RequestHandler
 );
-
-router.get("/select",
-    [
-        body("select").isObject().withMessage("Text to encrypt is required")
-    ],
-    (async (req: Request, res: Response, next: NextFunction) => {
-        try {
-            const errors = validationResult(req);
-            if (!errors.isEmpty()) {
-                return res.status(400).json({ errors: errors.array() });
-            }
-
-            const { select } = req.body;
-
-            res.status(200).json({
-                message: "Successful",
-                data: select
-            });
-        } catch (error) {
-            next(createError(500, "Select test failed", { cause: error }));
-        }
-    }) as RequestHandler
-);
-
-// router.get('/github', 
-//     // [
-//     //     body('username').isString().withMessage('Text to encrypt is required'),
-//     // ],
-//     (async (req: Request, res: Response, next: NextFunction) => {
-//         try {
-//             const errors = validationResult(req);
-//             if (!errors.isEmpty()) {
-//                 return res.status(400).json({ errors: errors.array() });
-//             }
-
-//             // const { username } = req.body;
-
-//             const octokit = new Octokit({ auth: process.env.GITHUB_ACCESS_TOKEN });
-
-//             const response = await octokit.rest.issues.get({
-//                 owner: "calcom",
-//                 repo: "cal.com",
-//                 issue_number: 21050,
-//             });
-
-//             // const repoDetails = await getRepoDetails(repoUrl, process.env.GITHUB_ACCESS_TOKEN!);
-//             // if (!repoDetails.permissions || !repoDetails.permissions.admin) {
-//             //     res.status(200).json({
-//             //         message: 'Not an admin',
-//             //         data: repoDetails
-//             //     });
-//             // }
-
-//             // res.status(200).json({
-//             //     message: 'Successful',
-//             //     data: repoDetails
-//             // });
-//             res.status(200).json({
-//                 message: 'Successful',
-//                 data: response
-//             });
-//         } catch (error) {
-//             console.log(error)
-//             next(error);
-//         }
-//     }) as RequestHandler
-// );
 
 export const testRoutes = router;
