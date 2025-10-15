@@ -1,5 +1,5 @@
 import { Timestamp } from "firebase-admin/firestore";
-import { Message, MessageType } from "../../api/models/general.model";
+import { MessageType, Message } from "../../api/models";
 
 /**
  * Mock Firebase Service for testing
@@ -267,6 +267,53 @@ export const mockTimestamp = {
 };
 
 /**
+ * Simulates Firebase Admin SDK authentication
+ */
+export const mockFirebaseAuth = {
+    verifyIdToken: jest.fn(async (token: string) => {
+        // Simulate invalid token
+        if (token === "invalid_token" || token === "expired_token") {
+            throw new Error("Invalid or expired token");
+        }
+
+        // Return mock decoded token
+        return {
+            uid: "test_user_123",
+            email: "test@example.com",
+            email_verified: true,
+            name: "Test User",
+            picture: "https://example.com/avatar.jpg",
+            iss: "https://securetoken.google.com/test-project",
+            aud: "test-project",
+            auth_time: Math.floor(Date.now() / 1000),
+            user_id: "test_user_123",
+            sub: "test_user_123",
+            iat: Math.floor(Date.now() / 1000),
+            exp: Math.floor(Date.now() / 1000) + 3600,
+            firebase: {
+                identities: {
+                    email: ["test@example.com"]
+                },
+                sign_in_provider: "password"
+            }
+        };
+    })
+};
+
+/**
+ * Mock Firebase Admin instance
+ * Simulates Firebase Admin SDK
+ */
+export const mockFirebaseAdmin = {
+    auth: jest.fn(() => mockFirebaseAuth),
+    firestore: jest.fn(() => mockFirestoreDB),
+    credential: {
+        cert: jest.fn(() => ({}))
+    },
+    initializeApp: jest.fn()
+};
+
+/**
  * Test helper functions for Firebase mocking
  */
 export const FirebaseTestHelpers = {
@@ -296,6 +343,24 @@ export const FirebaseTestHelpers = {
     }),
 
     /**
+     * Creates a mock decoded token for testing
+     */
+    createMockDecodedToken: (overrides: any = {}) => ({
+        uid: "test_user_123",
+        email: "test@example.com",
+        email_verified: true,
+        name: "Test User",
+        iss: "https://securetoken.google.com/test-project",
+        aud: "test-project",
+        auth_time: Math.floor(Date.now() / 1000),
+        user_id: "test_user_123",
+        sub: "test_user_123",
+        iat: Math.floor(Date.now() / 1000),
+        exp: Math.floor(Date.now() / 1000) + 3600,
+        ...overrides
+    }),
+
+    /**
      * Sets up Firebase mocks for testing
      */
     setupFirebaseMocks: () => {
@@ -306,11 +371,14 @@ export const FirebaseTestHelpers = {
 
         // Mock Firebase config
         jest.mock("../../api/config/firebase.config", () => ({
-            firestoreDB: mockFirestoreDB
+            firestoreDB: mockFirestoreDB,
+            firebaseAdmin: mockFirebaseAdmin
         }));
 
         return {
             mockFirestoreDB,
+            mockFirebaseAdmin,
+            mockFirebaseAuth,
             mockTimestamp,
             mockMessagesCollection,
             mockTasksCollection
@@ -323,5 +391,26 @@ export const FirebaseTestHelpers = {
     resetFirebaseMocks: () => {
         MockFirebaseService.clearMockData();
         jest.clearAllMocks();
+    },
+
+    /**
+     * Simulates token verification failure
+     */
+    simulateAuthFailure: () => {
+        mockFirebaseAuth.verifyIdToken.mockRejectedValueOnce(
+            new Error("Invalid or expired token")
+        );
+    },
+
+    /**
+     * Simulates successful token verification with custom user
+     */
+    simulateAuthSuccess: (userData: any = {}) => {
+        mockFirebaseAuth.verifyIdToken.mockResolvedValueOnce({
+            uid: "test_user_123",
+            email: "test@example.com",
+            email_verified: true,
+            ...userData
+        });
     }
 };
