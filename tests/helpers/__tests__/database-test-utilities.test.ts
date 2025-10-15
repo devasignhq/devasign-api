@@ -1,4 +1,6 @@
-import { DatabaseTestHelper, DatabaseTestUtilities, TestDataFactory } from "../index";
+import { DatabaseTestHelper } from "../database-test-helper";
+import { DatabaseTestUtilities } from "../database-test-utilities";
+import { TestDataFactory } from "../test-data-factory";
 
 describe("DatabaseTestUtilities", () => {
     let dbUtils: DatabaseTestUtilities;

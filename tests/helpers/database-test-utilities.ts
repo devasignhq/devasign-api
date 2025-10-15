@@ -1,4 +1,4 @@
-import { PrismaClient, Prisma } from "@/generated/client";
+import { Prisma, PrismaClient } from "../../api/generated/client";
 import { TestDataFactory } from "./test-data-factory";
 
 /**
@@ -513,7 +513,6 @@ export class DatabaseTestUtilities {
             await this.client.transaction.deleteMany();
             await this.client.aIReviewResult.deleteMany();
             await this.client.aIReviewRule.deleteMany();
-            await this.client.contextAnalysisMetrics.deleteMany();
             await this.client.userInstallationPermission.deleteMany();
             await this.client.task.deleteMany();
             await this.client.contributionSummary.deleteMany();
@@ -546,7 +545,7 @@ export class DatabaseTestUtilities {
         let shouldRollback = false;
 
         try {
-            await this.client.$transaction(async (tx) => {
+            await this.client.$transaction(async (tx: any) => {
                 result = await fn(tx);
                 shouldRollback = true;
                 throw new Error("ROLLBACK_FOR_TEST_ISOLATION");
