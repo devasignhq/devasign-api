@@ -2,7 +2,6 @@ import { Timestamp } from "firebase-admin/firestore";
 import { MessageType, Message } from "../../api/models";
 
 /**
- * Mock Firebase Service for testing
  * Provides comprehensive mocks for FirebaseService methods
  */
 
@@ -47,12 +46,10 @@ export const mockTasksCollection = {
 };
 
 /**
- * Mock Firebase Service class
  * Simulates Firestore operations with realistic behavior
  */
 export class MockFirebaseService {
     /**
-     * Mock createMessage method
      * Simulates message creation in Firestore
      */
     static async createMessage({
@@ -85,7 +82,6 @@ export class MockFirebaseService {
     }
 
     /**
-     * Mock updateMessage method
      * Simulates message updates in Firestore
      */
     static async updateMessage(messageId: string, data: Partial<Message>) {
@@ -113,7 +109,6 @@ export class MockFirebaseService {
     }
 
     /**
-     * Mock getTaskMessages method
      * Simulates retrieving messages for a task
      */
     static async getTaskMessages(taskId: string) {
@@ -125,7 +120,6 @@ export class MockFirebaseService {
     }
 
     /**
-     * Mock createTask method
      * Simulates task creation in Firestore
      */
     static async createTask(
@@ -155,7 +149,6 @@ export class MockFirebaseService {
     }
 
     /**
-     * Mock updateTaskStatus method
      * Simulates task status updates in Firestore
      */
     static async updateTaskStatus(taskId: string) {
@@ -208,7 +201,6 @@ export class MockFirebaseService {
 }
 
 /**
- * Jest mock factory for FirebaseService
  * Creates comprehensive mocks with realistic Firebase response simulation
  */
 export const createFirebaseServiceMock = () => {
@@ -222,7 +214,6 @@ export const createFirebaseServiceMock = () => {
 };
 
 /**
- * Mock Firestore database configuration
  * Simulates Firebase Admin SDK behavior
  */
 export const mockFirestoreDB = {
@@ -248,7 +239,6 @@ export const mockFirestoreDB = {
 };
 
 /**
- * Mock Timestamp class for Firebase
  * Simulates Firebase Timestamp behavior
  */
 export const mockTimestamp = {
@@ -270,9 +260,9 @@ export const mockTimestamp = {
  * Simulates Firebase Admin SDK authentication
  */
 export const mockFirebaseAuth = {
-    verifyIdToken: jest.fn(async (token: string) => {
+    verifyIdToken: jest.fn((token: string, overrides?: any) => {
         // Simulate invalid token
-        if (token === "invalid_token" || token === "expired_token") {
+        if (token === "invalid_token" || token === "expired_token" || !token) {
             throw new Error("Invalid or expired token");
         }
 
@@ -295,22 +285,21 @@ export const mockFirebaseAuth = {
                     email: ["test@example.com"]
                 },
                 sign_in_provider: "password"
-            }
+            },
+            ...overrides
         };
     })
 };
 
 /**
- * Mock Firebase Admin instance
  * Simulates Firebase Admin SDK
  */
 export const mockFirebaseAdmin = {
-    auth: jest.fn(() => mockFirebaseAuth),
-    firestore: jest.fn(() => mockFirestoreDB),
+    auth: () => mockFirebaseAuth,
+    firestore: () => mockFirestoreDB,
     credential: {
-        cert: jest.fn(() => ({}))
-    },
-    initializeApp: jest.fn()
+        cert: () => jest.fn()
+    }
 };
 
 /**
