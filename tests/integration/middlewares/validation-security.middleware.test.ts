@@ -2,8 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import crypto from "crypto";
 import { dynamicRoute, localhostOnly } from "../../../api/middlewares";
 import { errorHandler } from "../../../api/middlewares/error.middleware";
-import { validateGitHubWebhook } from "../../../api/middlewares/webhook.middleware";
-// import { validateGitHubWebhook, validatePRWebhookEvent } from "../../../api/middlewares/webhook.middleware";
+import { validateGitHubWebhook, validatePRWebhookEvent } from "../../../api/middlewares/webhook.middleware";
 import {
     AIReviewError,
     AuthorizationError,
@@ -25,6 +24,7 @@ describe("Validation and Security Middleware", () => {
     let mockRequest: Partial<Request>;
     let mockResponse: Partial<Response>;
     let mockNext: NextFunction;
+    let mockOctokitService: jest.Mock;
 
     beforeEach(() => {
         mockRequest = {
@@ -370,195 +370,195 @@ describe("Validation and Security Middleware", () => {
             });
         });
 
-        // describe("validatePRWebhookEvent", async () => {
-        //     const { OctokitService } = await import("../../../api/services/octokit.service");
+        describe("validatePRWebhookEvent", () => {
+            beforeAll(async () => {
+                const { OctokitService } = await import("../../../api/services/octokit.service");
+                mockOctokitService = OctokitService.getDefaultBranch as jest.Mock;
+            });
 
-        //     beforeEach(() => {
-        //         jest.clearAllMocks();
-        //     });
+            it("should process valid pull_request event", async () => {
+                (mockRequest.get as jest.Mock).mockReturnValue("pull_request");
+                mockRequest.body = {
+                    action: "opened",
+                    pull_request: {
+                        number: 123,
+                        base: { ref: "main" }
+                    },
+                    repository: {
+                        full_name: "owner/repo"
+                    },
+                    installation: {
+                        id: 12345
+                    }
+                };
 
-        //     it("should process valid pull_request event", async () => {
-        //         (mockRequest.get as jest.Mock).mockReturnValue("pull_request");
-        //         mockRequest.body = {
-        //             action: "opened",
-        //             pull_request: {
-        //                 number: 123,
-        //                 base: { ref: "main" }
-        //             },
-        //             repository: {
-        //                 full_name: "owner/repo"
-        //             },
-        //             installation: {
-        //                 id: 12345
-        //             }
-        //         };
+                mockOctokitService.mockResolvedValue("main");
 
-        //         OctokitService.getDefaultBranch.mockResolvedValue("main");
+                await validatePRWebhookEvent(mockRequest as Request, mockResponse as Response, mockNext);
 
-        //         await validatePRWebhookEvent(mockRequest as Request, mockResponse as Response, mockNext);
+                expect(mockNext).toHaveBeenCalled();
+                expect(mockRequest.body.webhookMeta).toEqual({
+                    eventType: "pull_request",
+                    action: "opened",
+                    deliveryId: "pull_request",
+                    timestamp: expect.any(String)
+                });
+            });
 
-        //         expect(mockNext).toHaveBeenCalled();
-        //         expect(mockRequest.body.webhookMeta).toEqual({
-        //             eventType: "pull_request",
-        //             action: "opened",
-        //             deliveryId: "pull_request",
-        //             timestamp: expect.any(String)
-        //         });
-        //     });
+            it("should skip non-pull_request events", async () => {
+                (mockRequest.get as jest.Mock).mockReturnValue("push");
 
-        //     it("should skip non-pull_request events", async () => {
-        //         (mockRequest.get as jest.Mock).mockReturnValue("push");
+                await validatePRWebhookEvent(mockRequest as Request, mockResponse as Response, mockNext);
 
-        //         await validatePRWebhookEvent(mockRequest as Request, mockResponse as Response, mockNext);
+                expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.SUCCESS);
+                expect(mockResponse.json).toHaveBeenCalledWith({
+                    success: true,
+                    message: "Event type not processed",
+                    eventType: "push"
+                });
+                expect(mockNext).not.toHaveBeenCalled();
+            });
 
-        //         expect(mockResponse.status).toHaveBeenCalledWith(200);
-        //         expect(mockResponse.json).toHaveBeenCalledWith({
-        //             success: true,
-        //             message: "Event type not processed",
-        //             eventType: "push"
-        //         });
-        //         expect(mockNext).not.toHaveBeenCalled();
-        //     });
+            it("should skip invalid PR actions", async () => {
+                (mockRequest.get as jest.Mock).mockReturnValue("pull_request");
+                mockRequest.body = {
+                    action: "closed"
+                };
 
-        //     it("should skip invalid PR actions", async () => {
-        //         (mockRequest.get as jest.Mock).mockReturnValue("pull_request");
-        //         mockRequest.body = {
-        //             action: "closed"
-        //         };
+                await validatePRWebhookEvent(mockRequest as Request, mockResponse as Response, mockNext);
 
-        //         await validatePRWebhookEvent(mockRequest as Request, mockResponse as Response, mockNext);
+                expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.SUCCESS);
+                expect(mockResponse.json).toHaveBeenCalledWith({
+                    success: true,
+                    message: "PR action not processed",
+                    action: "closed"
+                });
+                expect(mockNext).not.toHaveBeenCalled();
+            });
 
-        //         expect(mockResponse.status).toHaveBeenCalledWith(200);
-        //         expect(mockResponse.json).toHaveBeenCalledWith({
-        //             success: true,
-        //             message: "PR action not processed",
-        //             action: "closed"
-        //         });
-        //         expect(mockNext).not.toHaveBeenCalled();
-        //     });
+            it("should skip PRs not targeting default branch", async () => {
+                (mockRequest.get as jest.Mock).mockReturnValue("pull_request");
+                mockRequest.body = {
+                    action: "opened",
+                    pull_request: {
+                        number: 123,
+                        base: { ref: "feature-branch" }
+                    },
+                    repository: {
+                        full_name: "owner/repo"
+                    },
+                    installation: {
+                        id: 12345
+                    }
+                };
 
-        //     it("should skip PRs not targeting default branch", async () => {
-        //         (mockRequest.get as jest.Mock).mockReturnValue("pull_request");
-        //         mockRequest.body = {
-        //             action: "opened",
-        //             pull_request: {
-        //                 number: 123,
-        //                 base: { ref: "feature-branch" }
-        //             },
-        //             repository: {
-        //                 full_name: "owner/repo"
-        //             },
-        //             installation: {
-        //                 id: 12345
-        //             }
-        //         };
+                mockOctokitService.mockResolvedValue("main");
 
-        //         OctokitService.getDefaultBranch.mockResolvedValue("main");
+                await validatePRWebhookEvent(mockRequest as Request, mockResponse as Response, mockNext);
 
-        //         await validatePRWebhookEvent(mockRequest as Request, mockResponse as Response, mockNext);
+                expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.SUCCESS);
+                expect(mockResponse.json).toHaveBeenCalledWith({
+                    success: true,
+                    message: "PR not targeting default branch - skipping review",
+                    data: {
+                        prNumber: 123,
+                        repositoryName: "owner/repo",
+                        targetBranch: "feature-branch",
+                        defaultBranch: "main",
+                        reason: "not_default_branch"
+                    }
+                });
+                expect(mockNext).not.toHaveBeenCalled();
+            });
 
-        //         expect(mockResponse.status).toHaveBeenCalledWith(200);
-        //         expect(mockResponse.json).toHaveBeenCalledWith({
-        //             success: true,
-        //             message: "PR not targeting default branch - skipping review",
-        //             data: {
-        //                 prNumber: 123,
-        //                 repositoryName: "owner/repo",
-        //                 targetBranch: "feature-branch",
-        //                 defaultBranch: "main",
-        //                 reason: "not_default_branch"
-        //             }
-        //         });
-        //         expect(mockNext).not.toHaveBeenCalled();
-        //     });
+            it("should continue processing if default branch validation fails", async () => {
+                (mockRequest.get as jest.Mock).mockReturnValue("pull_request");
+                mockRequest.body = {
+                    action: "opened",
+                    pull_request: {
+                        number: 123,
+                        base: { ref: "main" }
+                    },
+                    repository: {
+                        full_name: "owner/repo"
+                    },
+                    installation: {
+                        id: 12345
+                    }
+                };
 
-        //     it("should continue processing if default branch validation fails", async () => {
-        //         (mockRequest.get as jest.Mock).mockReturnValue("pull_request");
-        //         mockRequest.body = {
-        //             action: "opened",
-        //             pull_request: {
-        //                 number: 123,
-        //                 base: { ref: "main" }
-        //             },
-        //             repository: {
-        //                 full_name: "owner/repo"
-        //             },
-        //             installation: {
-        //                 id: 12345
-        //             }
-        //         };
+                mockOctokitService.mockRejectedValue(new Error("API error"));
 
-        //         OctokitService.getDefaultBranch.mockRejectedValue(new Error("API error"));
+                await validatePRWebhookEvent(mockRequest as Request, mockResponse as Response, mockNext);
 
-        //         await validatePRWebhookEvent(mockRequest as Request, mockResponse as Response, mockNext);
+                expect(mockNext).toHaveBeenCalled();
+                expect(mockRequest.body.webhookMeta).toBeDefined();
+            });
 
-        //         expect(mockNext).toHaveBeenCalled();
-        //         expect(mockRequest.body.webhookMeta).toBeDefined();
-        //     });
+            it("should handle synchronize action", async () => {
+                (mockRequest.get as jest.Mock).mockReturnValue("pull_request");
+                mockRequest.body = {
+                    action: "synchronize",
+                    pull_request: {
+                        number: 123,
+                        base: { ref: "main" }
+                    },
+                    repository: {
+                        full_name: "owner/repo"
+                    },
+                    installation: {
+                        id: 12345
+                    }
+                };
 
-        //     it("should handle synchronize action", async () => {
-        //         (mockRequest.get as jest.Mock).mockReturnValue("pull_request");
-        //         mockRequest.body = {
-        //             action: "synchronize",
-        //             pull_request: {
-        //                 number: 123,
-        //                 base: { ref: "main" }
-        //             },
-        //             repository: {
-        //                 full_name: "owner/repo"
-        //             },
-        //             installation: {
-        //                 id: 12345
-        //             }
-        //         };
+                mockOctokitService.mockResolvedValue("main");
 
-        //         OctokitService.getDefaultBranch.mockResolvedValue("main");
+                await validatePRWebhookEvent(mockRequest as Request, mockResponse as Response, mockNext);
 
-        //         await validatePRWebhookEvent(mockRequest as Request, mockResponse as Response, mockNext);
+                expect(mockNext).toHaveBeenCalled();
+                expect(mockRequest.body.webhookMeta.action).toBe("synchronize");
+            });
 
-        //         expect(mockNext).toHaveBeenCalled();
-        //         expect(mockRequest.body.webhookMeta.action).toBe("synchronize");
-        //     });
+            it("should handle ready_for_review action", async () => {
+                (mockRequest.get as jest.Mock).mockReturnValue("pull_request");
+                mockRequest.body = {
+                    action: "ready_for_review",
+                    pull_request: {
+                        number: 123,
+                        base: { ref: "main" }
+                    },
+                    repository: {
+                        full_name: "owner/repo"
+                    },
+                    installation: {
+                        id: 12345
+                    }
+                };
 
-        //     it("should handle ready_for_review action", async () => {
-        //         (mockRequest.get as jest.Mock).mockReturnValue("pull_request");
-        //         mockRequest.body = {
-        //             action: "ready_for_review",
-        //             pull_request: {
-        //                 number: 123,
-        //                 base: { ref: "main" }
-        //             },
-        //             repository: {
-        //                 full_name: "owner/repo"
-        //             },
-        //             installation: {
-        //                 id: 12345
-        //             }
-        //         };
+                mockOctokitService.mockResolvedValue("main");
 
-        //         OctokitService.getDefaultBranch.mockResolvedValue("main");
+                await validatePRWebhookEvent(mockRequest as Request, mockResponse as Response, mockNext);
 
-        //         await validatePRWebhookEvent(mockRequest as Request, mockResponse as Response, mockNext);
+                expect(mockNext).toHaveBeenCalled();
+                expect(mockRequest.body.webhookMeta.action).toBe("ready_for_review");
+            });
 
-        //         expect(mockNext).toHaveBeenCalled();
-        //         expect(mockRequest.body.webhookMeta.action).toBe("ready_for_review");
-        //     });
+            it("should handle unexpected errors", async () => {
+                const error = new Error("Unexpected error");
+                (mockRequest.get as jest.Mock).mockImplementation(() => {
+                    throw error;
+                });
 
-        //     it("should handle unexpected errors", async () => {
-        //         (mockRequest.get as jest.Mock).mockImplementation(() => {
-        //             throw new Error("Unexpected error");
-        //         });
+                await validatePRWebhookEvent(mockRequest as Request, mockResponse as Response, mockNext);
 
-        //         await validatePRWebhookEvent(mockRequest as Request, mockResponse as Response, mockNext);
-
-        //         expect(mockResponse.status).toHaveBeenCalledWith(500);
-        //         expect(mockResponse.json).toHaveBeenCalledWith({
-        //             success: false,
-        //             error: "Event validation failed",
-        //             code: "EVENT_VALIDATION_ERROR"
-        //         });
-        //         expect(mockNext).not.toHaveBeenCalled();
-        //     });
-        // });
+                expect(mockResponse.status).toHaveBeenCalledWith(500);
+                expect(mockResponse.json).toHaveBeenCalledWith({
+                    success: false,
+                    error,
+                    code: "EVENT_VALIDATION_ERROR"
+                });
+                expect(mockNext).not.toHaveBeenCalled();
+            });
+        });
     });
 });
