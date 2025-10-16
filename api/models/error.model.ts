@@ -4,6 +4,7 @@ import { STATUS_CODES } from "../helper";
  * Base error class for general api errors
  */
 export class ErrorClass {
+    public name = "ErrorClass";
     public code: string;
     public readonly message: string;
     public readonly details: unknown;
@@ -60,7 +61,7 @@ export class ValidationError extends ErrorClass {
             "VALIDATION_ERROR",
             null,
             message,
-            STATUS_CODES.UNAUTHORIZED
+            STATUS_CODES.SERVER_ERROR
         );
     }
 }
@@ -69,14 +70,10 @@ export class ValidationError extends ErrorClass {
 /**
  * Base error class for all AI review related errors
  */
-export abstract class AIReviewError extends ErrorClass {
+export class AIReviewError extends ErrorClass {
     public readonly retryable: boolean;
 
     constructor(
-        // message: string,
-        // code: string,
-        // details?: unknown,
-
         code: string,
         details: unknown,
         message: string,
@@ -183,10 +180,11 @@ export class GitHubAPIError extends ErrorClass {
         message: string,
         details: unknown = null,
         statusCode?: number,
-        rateLimitRemaining?: number
+        rateLimitRemaining?: number,
+        code?: string
     ) {
         super(
-            "GITHUB_API_ERROR",
+            code || "GITHUB_API_ERROR",
             details,
             message,
             STATUS_CODES.GITHUB_API_ERROR
@@ -240,7 +238,7 @@ export class TimeoutError extends AIReviewError {
     public readonly timeoutMs: number;
     public readonly operation: string;
 
-    constructor(operation: string, timeoutMs: number, details?: unknown) {
+    constructor(operation: string, timeoutMs: number, details: unknown = null) {
         super(
             "TIMEOUT_ERROR",
             details,
@@ -297,8 +295,8 @@ export class ErrorUtils {
      * Sanitizes error for client response (removes sensitive data)
      */
     static sanitizeError(error: ErrorClass) {
-        return process.env.NODE_ENV === "development" ?
-            { ...error } :
-            { message: error.message, code: error.code };
+        return (process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test") 
+            ? { ...error } 
+            : { message: error.message, code: error.code };
     }
 }
