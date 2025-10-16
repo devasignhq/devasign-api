@@ -1,9 +1,9 @@
-import { 
-    User, 
-    Task, 
-    Installation, 
-    SubscriptionPackage, 
-    Permission, 
+import {
+    User,
+    Task,
+    Installation,
+    SubscriptionPackage,
+    Permission,
     UserInstallationPermission,
     Transaction,
     TaskSubmission,
@@ -98,7 +98,7 @@ export class TestDataFactory {
     /**
      * Create a test installation with realistic data
      */
-    static installation(overrides: Partial<Installation> = {}): Omit<Installation, "createdAt" | "updatedAt"> {
+    static installation(overrides: Partial<Installation> = {}): Omit<Installation, "createdAt" | "updatedAt" | "subscriptionPackageId"> {
         const counter = this.installationCounter++;
         return {
             id: `test-installation-${counter}`,
@@ -115,7 +115,6 @@ export class TestDataFactory {
             walletSecret: `SINSTALL${counter.toString().padStart(45, "0")}`,
             escrowAddress: `GESCROW${counter.toString().padStart(46, "0")}`,
             escrowSecret: `SESCROW${counter.toString().padStart(46, "0")}`,
-            subscriptionPackageId: "test-package-id",
             ...overrides
         };
     }
@@ -123,7 +122,7 @@ export class TestDataFactory {
     /**
      * Create multiple test installations
      */
-    static installations(count: number, overrides: Partial<Installation> = {}): Array<Omit<Installation, "createdAt" | "updatedAt">> {
+    static installations(count: number, overrides: Partial<Installation> = {}): Array<Omit<Installation, "createdAt" | "updatedAt" | "subscriptionPackageId">> {
         return Array.from({ length: count }, () => this.installation(overrides));
     }
 

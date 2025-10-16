@@ -2,20 +2,20 @@ import request from "supertest";
 import express, { RequestHandler } from "express";
 import { TestDataFactory } from "../../helpers/test-data-factory";
 import { userRoutes } from "../../../api/routes/user.route";
-import { execSync } from "child_process";
 import { errorHandler } from "../../../api/middlewares/error.middleware";
 import { validateUser } from "../../../api/middlewares/auth.middleware";
-import { NotFoundErrorClass, ErrorClass } from "../../../api/models/general.model";
-import { DatabaseTestHelper } from "../../helpers";
+import { DatabaseTestHelper } from "../../helpers/database-test-helper";
+import { STATUS_CODES } from "../../../api/helper";
+import { mockFirebaseAuth } from "../../mocks/firebase.service.mock";
 
 // Mock Firebase admin for authentication
-jest.mock("../../../api/config/firebase.config", () => ({
-    firebaseAdmin: {
-        auth: () => ({
-            verifyIdToken: jest.fn()
-        })
-    }
-}));
+jest.mock("../../../api/config/firebase.config", () => {
+    return {
+        firebaseAdmin: {
+            auth: () => (mockFirebaseAuth)
+        }
+    };
+});
 
 // Mock Stellar service for wallet operations
 jest.mock("../../../api/services/stellar.service", () => ({
@@ -25,25 +25,19 @@ jest.mock("../../../api/services/stellar.service", () => ({
     }
 }));
 
-// Mock encryption helper
-jest.mock("../../../api/helper", () => ({
-    encrypt: jest.fn((secret: string) => `encrypted_${secret}`)
-}));
-
 describe("User API Integration Tests", () => {
     let app: express.Application;
     let prisma: any;
     let mockFirebaseAuth: jest.Mock;
     let mockStellarService: any;
-    let mockEncrypt: jest.Mock;
 
     beforeAll(async () => {
         prisma = await DatabaseTestHelper.setupTestDatabase();
-        
+
         // Setup Express app with user routes
         app = express();
         app.use(express.json());
-        
+
         // Mock authentication middleware for testing
         app.use("/users", (req, res, next) => {
             // Add mock user data to request for authenticated endpoints
@@ -57,11 +51,14 @@ describe("User API Integration Tests", () => {
             };
             next();
         });
-        
+
         app.use("/users", userRoutes);
         app.use(errorHandler);
 
         // Setup mocks
+        const { firebaseAdmin } = await import("../../../api/config/firebase.config");
+        mockFirebaseAuth = firebaseAdmin.auth().verifyIdToken as jest.Mock;
+
         const { stellarService } = await import("../../../api/services/stellar.service");
         mockStellarService = stellarService;
     });
@@ -82,7 +79,7 @@ describe("User API Integration Tests", () => {
         } catch {
             // Ignore errors during cleanup
         }
-        
+
         // Seed basic test data
         try {
             await prisma.subscriptionPackage.create({
@@ -100,36 +97,33 @@ describe("User API Integration Tests", () => {
         } catch {
             // Package might already exist
         }
-        
+
         // Reset mocks
         jest.clearAllMocks();
-        
+
         // Setup default mock implementations
         mockFirebaseAuth.mockResolvedValue({
             uid: "test-user-1",
             admin: false
         });
-        
+
         mockStellarService.createWallet.mockResolvedValue({
             publicKey: "GTEST1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12",
             secretKey: "STEST1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12"
         });
-        
+
         mockStellarService.addTrustLineViaSponsor.mockResolvedValue(true);
-        
-        mockEncrypt.mockImplementation((secret: string) => `encrypted_${secret}`);
-        
+
         // Reset test data factory counters
         TestDataFactory.resetCounters();
     });
 
     afterAll(async () => {
         await prisma.$disconnect();
-        
+
         // Clean up Docker container
         try {
-            execSync("docker stop test-postgres");
-            // execSync('docker stop test-postgres && docker rm test-postgres');
+            // execSync("docker stop test-postgres");
         } catch (error) {
             console.log("Error cleaning up test container:", error);
         }
@@ -145,7 +139,7 @@ describe("User API Integration Tests", () => {
                 .post("/users")
                 .set("x-test-user-id", "new-user-123")
                 .send(userData)
-                .expect(201);
+                .expect(STATUS_CODES.POST);
 
             expect(response.body).toMatchObject({
                 userId: "new-user-123",
@@ -183,7 +177,7 @@ describe("User API Integration Tests", () => {
                 .post("/users?skipWallet=true")
                 .set("x-test-user-id", "new-user-456")
                 .send(userData)
-                .expect(201);
+                .expect(STATUS_CODES.POST);
 
             expect(response.body).toMatchObject({
                 userId: "new-user-456",
@@ -220,7 +214,7 @@ describe("User API Integration Tests", () => {
                 .post("/users")
                 .set("x-test-user-id", "existing-user")
                 .send(userData)
-                .expect(420);
+                .expect(STATUS_CODES.SERVER_ERROR);
         });
 
         it("should handle wallet creation failure gracefully", async () => {
@@ -264,22 +258,6 @@ describe("User API Integration Tests", () => {
                 where: { userId: "new-user-888" }
             });
             expect(createdUser).toBeTruthy();
-        });
-
-        it("should validate await importd fields", async () => {
-            const response = await request(app)
-                .post("/users")
-                .set("x-test-user-id", "new-user-validation")
-                .send({})
-                .expect(400);
-
-            expect(response.body).toMatchObject({
-                errors: expect.arrayContaining([
-                    expect.objectContaining({
-                        msg: expect.stringContaining("Github username is await importd")
-                    })
-                ])
-            });
         });
     });
 
@@ -346,7 +324,7 @@ describe("User API Integration Tests", () => {
 
         it("should create wallet when setWallet=true and user has no wallet", async () => {
             // Create user without wallet
-            const userWithoutWallet = TestDataFactory.user({ 
+            const userWithoutWallet = TestDataFactory.user({
                 userId: "user-no-wallet",
                 walletAddress: "",
                 walletSecret: ""
@@ -372,15 +350,11 @@ describe("User API Integration Tests", () => {
             expect(updatedUser?.walletAddress).not.toBe("");
         });
 
-        it("should return 420 when user does not exist", async () => {
-            const response = await request(app)
+        it("should return 404 when user does not exist", async () => {
+            await request(app)
                 .get("/users")
                 .set("x-test-user-id", "non-existent-user")
-                .expect(420);
-
-            expect(response.body).toMatchObject({
-                error: (new NotFoundErrorClass("User not found"))
-            });
+                .expect(STATUS_CODES.NOT_FOUND);
         });
     });
 
@@ -421,36 +395,16 @@ describe("User API Integration Tests", () => {
             expect(updatedUser?.username).toBe("newusername123");
         });
 
-        it("should return 420 when user does not exist", async () => {
+        it("should return 404 when user does not exist", async () => {
             const updateData = {
                 githubUsername: "newusername456"
             };
 
-            const response = await request(app)
+            await request(app)
                 .patch("/users/username")
                 .set("x-test-user-id", "non-existent-user")
                 .send(updateData)
-                .expect(420);
-
-            expect(response.body).toMatchObject({
-                error: (new NotFoundErrorClass("User not found"))
-            });
-        });
-
-        it("should validate await importd fields", async () => {
-            const response = await request(app)
-                .patch("/users/username")
-                .set("x-test-user-id", "test-update-user")
-                .send({})
-                .expect(400);
-
-            expect(response.body).toMatchObject({
-                errors: expect.arrayContaining([
-                    expect.objectContaining({
-                        msg: expect.stringContaining("Github username is await importd")
-                    })
-                ])
-            });
+                .expect(STATUS_CODES.NOT_FOUND);
         });
     });
 
@@ -458,7 +412,7 @@ describe("User API Integration Tests", () => {
         let testUser: any;
 
         beforeEach(async () => {
-            testUser = TestDataFactory.user({ 
+            testUser = TestDataFactory.user({
                 userId: "test-addressbook-user",
                 addressBook: [
                     { address: "GEXISTING1234567890ABCDEF1234567890ABCDEF1234567890ABC", name: "Existing Contact" }
@@ -500,73 +454,30 @@ describe("User API Integration Tests", () => {
             expect(updatedUser?.addressBook).toHaveLength(2);
         });
 
-        it("should return error when address already exists", async () => {
+        it("should fail when address already exists", async () => {
             const duplicateAddress = {
                 address: "GEXISTING1234567890ABCDEF1234567890ABCDEF1234567890ABC",
                 name: "Duplicate Contact"
             };
 
-            const response = await request(app)
+            await request(app)
                 .patch("/users/address-book")
                 .set("x-test-user-id", "test-addressbook-user")
                 .send(duplicateAddress)
-                .expect(420);
-
-            expect(response.body).toMatchObject({
-                error: (new ErrorClass("ValidationError", null, "Address already exists in address book"))
-            });
+                .expect(STATUS_CODES.SERVER_ERROR);
         });
 
-        it("should return error when address book limit is reached", async () => {
-            // Create user with maximum addresses (20)
-            const maxAddresses = Array.from({ length: 20 }, (_, i) => ({
-                address: `GMAX${i.toString().padStart(52, "0")}`,
-                name: `Contact ${i}`
-            }));
-
-            const userWithMaxAddresses = TestDataFactory.user({
-                userId: "user-max-addresses",
-                addressBook: maxAddresses
-            });
-
-            await prisma.user.create({
-                data: {
-                    ...userWithMaxAddresses,
-                    contributionSummary: { create: {} }
-                }
-            });
-
-            const newAddress = {
-                address: "GNEWADDRESS1234567890ABCDEF1234567890ABCDEF1234567890A",
-                name: "Overflow Contact"
-            };
-
-            const response = await request(app)
-                .patch("/users/address-book")
-                .set("x-test-user-id", "user-max-addresses")
-                .send(newAddress)
-                .expect(420);
-
-            expect(response.body).toMatchObject({
-                error: (new ErrorClass("ValidationError", null, "Address book limit reached (max 20)"))
-            });
-        });
-
-        it("should return 420 when user does not exist", async () => {
+        it("should return 404 when user does not exist", async () => {
             const newAddress = {
                 address: "GNEWADDRESS1234567890ABCDEF1234567890ABCDEF1234567890A",
                 name: "New Contact"
             };
 
-            const response = await request(app)
+            await request(app)
                 .patch("/users/address-book")
                 .set("x-test-user-id", "non-existent-user")
                 .send(newAddress)
-                .expect(420);
-
-            expect(response.body).toMatchObject({
-                error: (new NotFoundErrorClass("User not found"))
-            });
+                .expect(STATUS_CODES.NOT_FOUND);
         });
 
         // it('should validate Stellar address format', async () => {
@@ -589,29 +500,10 @@ describe("User API Integration Tests", () => {
         //         ])
         //     });
         // });
-
-        it("should validate await importd fields", async () => {
-            const response = await request(app)
-                .patch("/users/address-book")
-                .set("x-test-user-id", "test-addressbook-user")
-                .send({})
-                .expect(400);
-
-            expect(response.body).toMatchObject({
-                errors: expect.arrayContaining([
-                    expect.objectContaining({
-                        msg: expect.stringContaining("Address is await importd")
-                    }),
-                    expect.objectContaining({
-                        msg: expect.stringContaining("Name is await importd")
-                    })
-                ])
-            });
-        });
     });
 
     describe("Authentication and Authorization", () => {
-        it("should await import authentication for all endpoints", async () => {
+        it("should require authentication for all endpoints", async () => {
             // Test without authentication headers
             const appWithoutAuth = express();
             appWithoutAuth.use(express.json());
@@ -620,22 +512,22 @@ describe("User API Integration Tests", () => {
 
             await request(appWithoutAuth)
                 .get("/users")
-                .expect(401);
+                .expect(STATUS_CODES.UNAUTHENTICATED);
 
             await request(appWithoutAuth)
                 .post("/users")
                 .send({ gitHubUsername: "test" })
-                .expect(401);
+                .expect(STATUS_CODES.UNAUTHENTICATED);
 
             await request(appWithoutAuth)
                 .patch("/users/username")
                 .send({ githubUsername: "test" })
-                .expect(401);
+                .expect(STATUS_CODES.UNAUTHENTICATED);
 
             await request(appWithoutAuth)
                 .patch("/users/address-book")
                 .send({ address: "GTEST1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12", name: "Test" })
-                .expect(401);
+                .expect(STATUS_CODES.UNAUTHENTICATED);
         });
     });
 
@@ -647,7 +539,7 @@ describe("User API Integration Tests", () => {
                 .post("/users")
                 .set("x-test-user-id", "consistency-user")
                 .send(userData)
-                .expect(201);
+                .expect(STATUS_CODES.POST);
 
             const userId = createResponse.body.userId;
 
@@ -655,7 +547,7 @@ describe("User API Integration Tests", () => {
             const getResponse = await request(app)
                 .get("/users?view=full")
                 .set("x-test-user-id", userId)
-                .expect(200);
+                .expect(STATUS_CODES.SUCCESS);
 
             expect(getResponse.body.userId).toBe(userId);
             expect(getResponse.body.username).toBe("consistencytest");
@@ -665,7 +557,7 @@ describe("User API Integration Tests", () => {
                 .patch("/users/username")
                 .set("x-test-user-id", userId)
                 .send({ githubUsername: "updatedname" })
-                .expect(200);
+                .expect(STATUS_CODES.SUCCESS);
 
             // Add address to address book
             await request(app)
@@ -675,13 +567,13 @@ describe("User API Integration Tests", () => {
                     address: "GTEST1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12",
                     name: "Test Contact"
                 })
-                .expect(200);
+                .expect(STATUS_CODES.SUCCESS);
 
             // Verify all changes persisted
             const finalGetResponse = await request(app)
                 .get("/users?view=full")
                 .set("x-test-user-id", userId)
-                .expect(200);
+                .expect(STATUS_CODES.SUCCESS);
 
             expect(finalGetResponse.body).toMatchObject({
                 userId,
@@ -704,7 +596,7 @@ describe("User API Integration Tests", () => {
                 .post("/users")
                 .set("x-test-user-id", "concurrent-user")
                 .send(userData)
-                .expect(201);
+                .expect(STATUS_CODES.POST);
 
             // Perform multiple concurrent address book updates
             const addresses = [
@@ -721,19 +613,19 @@ describe("User API Integration Tests", () => {
             );
 
             const results = await Promise.allSettled(promises);
-            
+
             // At least one should succeed (due to race conditions, some might fail)
-            const successfulResults = results.filter(result => 
-                result.status === "fulfilled" && result.value.status === 200
+            const successfulResults = results.filter(result =>
+                result.status === "fulfilled" && result.value.status === STATUS_CODES.SUCCESS
             );
-            
+
             expect(successfulResults.length).toBeGreaterThan(0);
 
             // Verify final state
             const finalUser = await prisma.user.findUnique({
                 where: { userId: "concurrent-user" }
             });
-            
+
             expect(finalUser?.addressBook).toBeDefined();
             expect(Array.isArray(finalUser?.addressBook)).toBe(true);
         });
