@@ -5,11 +5,10 @@ import {
     GitHubInstallation,
     GitHubPullRequest
 } from "../models/ai-review.model";
-import { GitHubWebhookError, PRAnalysisError } from "../models/error.model";
 import { JobQueueService } from "../services/job-queue.service";
 import { WorkflowIntegrationService } from "../services/workflow-integration.service";
 import { OctokitService } from "../services/octokit.service";
-import { STATUS_CODES } from "../helper";
+import { STATUS_CODES, getFieldFromUnknownObject } from "../helper";
 import { dataLogger } from "../config/logger.config";
 
 /**
@@ -38,8 +37,7 @@ export const handlePRWebhook = async (req: Request, res: Response, next: NextFun
                 message: result.reason,
                 data: {
                     prNumber: payload.pull_request.number,
-                    repositoryName: payload.repository.full_name,
-                    reason: result.reason
+                    repositoryName: payload.repository.full_name
                 },
                 timestamp: new Date().toISOString()
             } as APIResponse);
@@ -64,32 +62,6 @@ export const handlePRWebhook = async (req: Request, res: Response, next: NextFun
         } as APIResponse);
 
     } catch (error) {
-        dataLogger.error("PR webhook processing failed", { error });
-
-        // Handle specific PR analysis errors
-        if (error instanceof PRAnalysisError) {
-            return res.status(error.status).json({
-                success: false,
-                error: error.message,
-                code: error.code,
-                data: {
-                    prNumber: error.prNumber,
-                    repositoryName: error.repositoryName
-                },
-                timestamp: new Date().toISOString()
-            } as APIResponse);
-        }
-
-        if (error instanceof GitHubWebhookError) {
-            return res.status(error.status).json({
-                success: false,
-                error: error.message,
-                code: error.code,
-                timestamp: new Date().toISOString()
-            } as APIResponse);
-        }
-
-        // Pass unexpected errors to error middleware
         next(error);
     }
 };
@@ -186,9 +158,11 @@ export const getJobData = (req: Request, res: Response) => {
     } catch (error) {
         // Log and return error response
         dataLogger.error("Error getting job data", { error });
+
+        const errorMessage = getFieldFromUnknownObject<string>(error, "message");
         res.status(STATUS_CODES.UNKNOWN).json({
             success: false,
-            error: "Internal server error"
+            error: errorMessage || "Failed to get job data"
         });
     }
 };
@@ -215,9 +189,11 @@ export const getQueueStats = (req: Request, res: Response) => {
     } catch (error) {
         // Log and return error response
         dataLogger.error("Error getting queue stats", { error });
+
+        const errorMessage = getFieldFromUnknownObject<string>(error, "message");
         res.status(STATUS_CODES.UNKNOWN).json({
             success: false,
-            error: "Internal server error"
+            error: errorMessage || "Failed to fetch queue stats"
         });
     }
 };
@@ -241,9 +217,11 @@ export const getWorkflowStatus = (req: Request, res: Response) => {
     } catch (error) {
         // Log and return error response
         dataLogger.error("Error getting workflow status", { error });
+
+        const errorMessage = getFieldFromUnknownObject<string>(error, "message");
         res.status(STATUS_CODES.UNKNOWN).json({
             success: false,
-            error: "Internal server error",
+            error: errorMessage || "Failed to get workflow status",
             timestamp: new Date().toISOString()
         });
     }

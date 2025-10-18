@@ -204,7 +204,7 @@ export class GitHubWebhookError extends AIReviewError {
             details,
             message,
             false,
-            STATUS_CODES.GITHUB_API_ERROR
+            STATUS_CODES.SERVER_ERROR
         );
     }
 }
