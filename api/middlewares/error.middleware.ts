@@ -1,12 +1,12 @@
 import { ErrorClass, ErrorUtils } from "../models/error.model";
-import { Request, Response, ErrorRequestHandler } from "express";
+import { Request, Response, ErrorRequestHandler, NextFunction } from "express";
 import { STATUS_CODES, getFieldFromUnknownObject } from "../helper";
 import { dataLogger } from "../config/logger.config";
 
 /**
  * Centralized error handling middleware
  */
-export const errorHandler = ((error: unknown, req: Request, res: Response) => {
+export const errorHandler = ((error: unknown, req: Request, res: Response, _next: NextFunction) => {
     // Log the error
     dataLogger.error("api_error", {
         error,
@@ -24,7 +24,7 @@ export const errorHandler = ((error: unknown, req: Request, res: Response) => {
         const statusCode = getFieldFromUnknownObject<number>(error, "status") || STATUS_CODES.SERVER_ERROR;
 
         return res.status(statusCode).json({ 
-            ...ErrorUtils.sanitizeError(error as ErrorClass) 
+            ...ErrorUtils.sanitizeError(error as ErrorClass)
         });
     }
 
@@ -38,7 +38,7 @@ export const errorHandler = ((error: unknown, req: Request, res: Response) => {
 
     // Handle unknown errors
     res.status(STATUS_CODES.UNKNOWN).json({
-        message: "An unknown error occured",
+        message: getFieldFromUnknownObject<string>(error, "message") || "An unknown error occured",
         details: returnError ? error : null
     });
 }) as ErrorRequestHandler;
