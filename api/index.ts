@@ -21,7 +21,6 @@ import { walletRoutes } from "./routes/wallet.route";
 import { githubRoutes } from "./routes/github.route";
 import { webhookRoutes } from "./routes/webhook.route";
 import { customRulesRoutes } from "./routes/custom-rules.route";
-import { aiReviewTestRoutes } from "./routes/test_routes/ai-review.test.route";
 import { aiServicesRoutes } from "./routes/test_routes/ai-services.test.route";
 import { errorHandler } from "./middlewares/error.middleware";
 import { ErrorHandlerService } from "./services/error-handler.service";
@@ -156,7 +155,6 @@ app.use("/webhook", webhookRoutes);
 // Local host routes for testing purposes
 app.use("/stellar", dynamicRoute, localhostOnly, stellarRoutes);
 app.use("/test", dynamicRoute, localhostOnly, testRoutes);
-app.use("/ai-review-test", dynamicRoute, localhostOnly, aiReviewTestRoutes);
 app.use("/ai-services", dynamicRoute, localhostOnly, aiServicesRoutes);
 
 app.use(errorHandler);
