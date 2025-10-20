@@ -143,7 +143,7 @@ app.use(
     githubRoutes
 );
 app.use(
-    "/ai-rules",
+    "/custom-rules",
     dynamicRoute,
     validateUser as RequestHandler,
     customRulesRoutes
