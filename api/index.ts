@@ -26,6 +26,7 @@ import { errorHandler } from "./middlewares/error.middleware";
 import { ErrorHandlerService } from "./services/error-handler.service";
 import { healthRoutes } from "./routes/health.route";
 import { dataLogger, messageLogger } from "./config/logger.config";
+import { STATUS_CODES } from "./helper";
 
 const app = express();
 const PORT = process.env.NODE_ENV === "development"
@@ -62,9 +63,9 @@ app.use("/webhook/github/pr-review", express.raw({ type: "application/json" }));
 // JSON parser for all other routes
 app.use(express.json());
 
-// To be removed
+// To be removed. Used from development only.
 app.post(
-    "/clear-db",
+    "/reset-db",
     validateUser as RequestHandler,
     (async (req: Request, res: Response) => {
         try {
@@ -72,14 +73,13 @@ app.post(
             const { currentUser } = req.body;
 
             if (!currentUser?.admin && !currentUser?.custom_claims?.admin) {
-                return res.status(403).json({
+                return res.status(STATUS_CODES.UNAUTHORIZED).json({
                     error: "Access denied. Admin privileges required."
                 });
             }
 
             // Delete all records from each table in correct order
             // due to foreign key constraints
-
             await prisma.transaction.deleteMany();
             await prisma.taskSubmission.deleteMany();
             await prisma.taskActivity.deleteMany();
@@ -89,13 +89,17 @@ app.post(
             await prisma.installation.deleteMany();
             await prisma.user.deleteMany();
             await prisma.permission.deleteMany();
+            await prisma.aIReviewRule.deleteMany();
+            await prisma.aIReviewResult.deleteMany();
 
             // await prisma.subscriptionPackage.deleteMany();
 
-            res.status(201).json({ message: "Database cleared" });
+            res.status(STATUS_CODES.SUCCESS).json({ message: "Database cleared" });
         } catch (error) {
-            res.status(400).json(error);
             dataLogger.error("Database clear operation failed", { error });
+            res.status(STATUS_CODES.SERVER_ERROR).json({
+                message: "Database clear operation failed"
+            });
         }
     }) as RequestHandler
 );
@@ -104,13 +108,16 @@ app.get("/get-packages", validateUser as RequestHandler, async (_, res) => {
     try {
         const packages = await prisma.subscriptionPackage.findMany();
 
-        res.status(201).json(packages);
+        res.status(STATUS_CODES.SUCCESS).json(packages);
     } catch (error) {
-        res.status(500).json({ error, message: "Failed to fetch subscription packages" });
+        dataLogger.error("Failed to fetch subscription packages", { error });
+        res.status(STATUS_CODES.SERVER_ERROR).json({ 
+            message: "Failed to fetch subscription packages" 
+        });
     }
 });
 
-app.use("/health", healthRoutes);
+app.use("/health", dynamicRoute, healthRoutes);
 
 app.use(
     "/users",
