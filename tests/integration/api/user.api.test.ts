@@ -64,39 +64,9 @@ describe("User API Integration Tests", () => {
     });
 
     beforeEach(async () => {
-        // Reset database before each test - simple cleanup
-        try {
-            await prisma.transaction.deleteMany();
-            await prisma.taskSubmission.deleteMany();
-            await prisma.taskActivity.deleteMany();
-            await prisma.userInstallationPermission.deleteMany();
-            await prisma.task.deleteMany();
-            await prisma.contributionSummary.deleteMany();
-            await prisma.installation.deleteMany();
-            await prisma.user.deleteMany();
-            await prisma.permission.deleteMany();
-            await prisma.subscriptionPackage.deleteMany();
-        } catch {
-            // Ignore errors during cleanup
-        }
-
-        // Seed basic test data
-        try {
-            await prisma.subscriptionPackage.create({
-                data: {
-                    id: "test-package-id",
-                    name: "Test Package",
-                    description: "Test subscription package",
-                    maxTasks: 10,
-                    maxUsers: 5,
-                    paid: false,
-                    price: 0,
-                    active: true
-                }
-            });
-        } catch {
-            // Package might already exist
-        }
+        // Reset database
+        await DatabaseTestHelper.resetDatabase(prisma);
+        await DatabaseTestHelper.seedDatabase(prisma);
 
         // Reset mocks
         jest.clearAllMocks();
