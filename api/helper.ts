@@ -36,10 +36,15 @@ export function moneyFormat(
     dec?: number,
     noDecimals?: boolean
 ) {
-    const options: Intl.NumberFormatOptions = noDecimals ? {} : {
-        minimumFractionDigits: dec || 2,
-        maximumFractionDigits: dec || 2
+    const decimal = (noDecimals || dec === 0) 
+        ? 0
+        : dec || 2;
+
+    const options: Intl.NumberFormatOptions = {
+        minimumFractionDigits: decimal,
+        maximumFractionDigits: decimal
     };
+
     try {
         // Use default locale if none provided or invalid
         const locale = standard || "en-US";
@@ -70,7 +75,10 @@ export function moneyFormat(
  * const missing = getFieldFromUnknownObject<string>(data, "email"); // undefined
  */
 export function getFieldFromUnknownObject<T>(obj: unknown, field: string) {
-    if (typeof obj === "object" && field in obj!) {
+    if (typeof obj !== "object" || !obj) {
+        return undefined;
+    }
+    if (field in obj) {
         return (obj as Record<string, T>)[field];
     }
     return undefined;
