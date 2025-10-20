@@ -4,8 +4,7 @@ import {
     webhookHealthCheck,
     getJobData,
     getQueueStats,
-    getWorkflowStatus,
-    triggerManualAnalysis
+    getWorkflowStatus
 } from "../controllers/webhook.controller";
 import {
     validateGitHubWebhook,
@@ -33,6 +32,3 @@ webhookRoutes.get("/queue/stats", getQueueStats as RequestHandler);
 
 // Get workflow status
 webhookRoutes.get("/workflow/status", getWorkflowStatus as RequestHandler);
-
-// Trigger manual analysis
-webhookRoutes.post("/github/manual-analysis", triggerManualAnalysis as RequestHandler);

@@ -2,6 +2,11 @@ import { Router, Request, Response, NextFunction, RequestHandler } from "express
 import { body, validationResult } from "express-validator";
 import createError from "http-errors";
 import { GroqAIService } from "../../services/groq-ai.service";
+import { dataLogger } from "../../config/logger.config";
+import { STATUS_CODES } from "../../helper";
+import { GitHubPullRequest, GitHubInstallation, APIResponse } from "../../models/ai-review.model";
+import { OctokitService } from "../../services/octokit.service";
+import { WorkflowIntegrationService } from "../../services/workflow-integration.service";
 
 const router = Router();
 const groqService = new GroqAIService();
@@ -247,5 +252,79 @@ Respond with ONLY the JSON object above, modified for the actual code analysis.`
         }
     }) as RequestHandler
 );
+
+// Trigger manual analysis
+router.post("/github/manual-analysis", (async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { installationId, repositoryName, prNumber, reason } = req.body;
+
+        if (!installationId || !repositoryName || !prNumber) {
+            // Missing required fields
+            return res.status(STATUS_CODES.SERVER_ERROR).json({
+                success: false,
+                error: "Missing required fields: installationId, repositoryName, prNumber"
+            });
+        }
+
+        // Fetch PR details using Octokit
+        const octokit = await OctokitService.getOctokit(installationId);
+        const [owner, repo] = OctokitService.getOwnerAndRepo(repositoryName);
+
+        const { data: pull_request } = await octokit.rest.pulls.get({
+            owner,
+            repo,
+            pull_number: prNumber
+        });
+
+        const { data: installation } = await octokit.request(
+            "GET /app/installations/{installation_id}",
+            { installation_id: Number(installationId) }
+        );
+
+        const { data: repository } = await octokit.request(
+            "GET /repos/{owner}/{repo}", 
+            { owner, repo }
+        );
+
+        // Use the integrated workflow service for manual analysis
+        const workflowService = WorkflowIntegrationService.getInstance();
+        const result = await workflowService.processWebhookWorkflow({
+            action: "opened",
+            number: prNumber,
+            pull_request: pull_request as GitHubPullRequest,
+            repository,
+            installation: installation as GitHubInstallation
+        });
+        
+        if (!result.success) {
+            // Analysis could not be queued
+            return res.status(STATUS_CODES.UNKNOWN).json({
+                success: false,
+                error: result.error,
+                timestamp: new Date().toISOString()
+            } as APIResponse);
+        }
+
+        // Return success response
+        res.status(STATUS_CODES.BACKGROUND_JOB).json({
+            success: true,
+            message: "Manual analysis queued successfully",
+            data: {
+                jobId: result.jobId,
+                installationId,
+                repositoryName,
+                prNumber,
+                status: "queued",
+                reason: reason || "Manual trigger"
+            },
+            timestamp: new Date().toISOString()
+        } as APIResponse);
+
+    } catch (error) {
+        // Log and pass error to middleware
+        dataLogger.error("Error in manual analysis trigger", { error });
+        next(error);
+    }
+}) as RequestHandler);
 
 export const aiServicesRoutes = router;
