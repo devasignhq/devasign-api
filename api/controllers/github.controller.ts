@@ -329,7 +329,7 @@ ${codeChangesPreview}`;
         });
 
         // Return success response with PR analysis data
-        res.status(STATUS_CODES.SUCCESS).json({
+        res.status(STATUS_CODES.BACKGROUND_JOB).json({
             success: true,
             message: "PR analysis triggered successfully",
             data: {
