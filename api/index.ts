@@ -10,7 +10,7 @@ import helmet from "helmet";
 import cors from "cors";
 import morgan from "morgan";
 import { prisma } from "./config/database.config";
-import { validateUser } from "./middlewares/auth.middleware";
+import { validateAdmin, validateUser } from "./middlewares/auth.middleware";
 import { dynamicRoute, localhostOnly } from "./middlewares";
 import { userRoutes } from "./routes/user.route";
 import { installationRoutes } from "./routes/installation.route";
@@ -24,9 +24,9 @@ import { customRulesRoutes } from "./routes/custom-rules.route";
 import { aiServicesRoutes } from "./routes/test_routes/ai-services.test.route";
 import { errorHandler } from "./middlewares/error.middleware";
 import { ErrorHandlerService } from "./services/error-handler.service";
-import { healthRoutes } from "./routes/health.route";
 import { dataLogger, messageLogger } from "./config/logger.config";
 import { STATUS_CODES } from "./helper";
+import { adminRoutes } from "./routes/admin.route";
 
 const app = express();
 const PORT = process.env.NODE_ENV === "development"
@@ -117,7 +117,13 @@ app.get("/get-packages", validateUser as RequestHandler, async (_, res) => {
     }
 });
 
-app.use("/health", dynamicRoute, healthRoutes);
+app.use(
+    "/admin", 
+    dynamicRoute,
+    validateUser as RequestHandler,
+    validateAdmin as RequestHandler,
+    adminRoutes
+);
 
 app.use(
     "/users",
@@ -155,7 +161,6 @@ app.use(
     validateUser as RequestHandler,
     customRulesRoutes
 );
-
 // Webhook routes (no auth required for GitHub webhooks)
 app.use("/webhook", webhookRoutes);
 
