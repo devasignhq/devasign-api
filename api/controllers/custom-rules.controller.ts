@@ -21,11 +21,9 @@ export const getCustomRules = async (req: Request, res: Response, next: NextFunc
         if (active !== undefined) {
             where.active = active === "true";
         }
-
         if (ruleType) {
             where.ruleType = ruleType as RuleType;
         }
-
         if (severity) {
             where.severity = severity as RuleSeverity;
         }

@@ -47,9 +47,9 @@ export const webhookHealthCheck = async (req: Request, res: Response) => {
  * Gets job data for a specific job ID
  */
 export const getJobData = (req: Request, res: Response) => {
-    try {
-        const { jobId } = req.params;
+    const { jobId } = req.params;
 
+    try {
         // Validate job ID is provided
         if (!jobId) {
             return res.status(STATUS_CODES.SERVER_ERROR).json({
