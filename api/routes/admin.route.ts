@@ -13,16 +13,16 @@ import {
 export const adminRoutes = Router();
 
 // Webhook health check
-adminRoutes.get("/health", webhookHealthCheck as RequestHandler);
+adminRoutes.get("/webhook/health", webhookHealthCheck as RequestHandler);
 
 // Get job data by job ID
-adminRoutes.get("/jobs/:jobId", getJobData as RequestHandler);
+adminRoutes.get("/webhook/jobs/:jobId", getJobData as RequestHandler);
 
 // Get queue statistics
-adminRoutes.get("/queue/stats", getQueueStats as RequestHandler);
+adminRoutes.get("/webhook/queue/stats", getQueueStats as RequestHandler);
 
 // Get workflow status
-adminRoutes.get("/workflow/status", getWorkflowStatus as RequestHandler);
+adminRoutes.get("/webhook/workflow/status", getWorkflowStatus as RequestHandler);
 
 // Recover failed systems
 adminRoutes.get("/recover-system", systemRecovery as RequestHandler);
