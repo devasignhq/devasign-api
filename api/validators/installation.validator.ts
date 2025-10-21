@@ -38,6 +38,11 @@ export const createInstallationValidator = [
 ];
 
 export const updateInstallationValidator = [
+    param("installationId")
+        .exists()
+        .withMessage("Installation ID is required")
+        .isString()
+        .withMessage("Installation ID must be a string"),
     body("htmlUrl")
         .optional()
         .isString()
@@ -61,6 +66,11 @@ export const updateInstallationValidator = [
 ];
 
 export const deleteInstallationValidator = [
+    param("installationId")
+        .exists()
+        .withMessage("Installation ID is required")
+        .isString()
+        .withMessage("Installation ID must be a string"),
     body("walletAddress")
         .exists()
         .withMessage("Wallet address is required")
@@ -69,7 +79,7 @@ export const deleteInstallationValidator = [
 ];
 
 export const addTeamMemberValidator = [
-    param("id")
+    param("installationId")
         .exists()
         .withMessage("Installation ID is required")
         .isString()
@@ -94,7 +104,7 @@ export const addTeamMemberValidator = [
 ];
 
 export const updateTeamMemberPermissionsValidator = [
-    param("id")
+    param("installationId")
         .exists()
         .withMessage("Installation ID is required")
         .isString()
@@ -115,7 +125,7 @@ export const updateTeamMemberPermissionsValidator = [
 ];
 
 export const removeTeamMemberValidator = [
-    param("id")
+    param("installationId")
         .exists()
         .withMessage("Installation ID is required")
         .isString()

@@ -85,14 +85,14 @@ export const getInstallations = async (req: Request, res: Response, next: NextFu
  * Get details of a specific installation by ID.
  */
 export const getInstallation = async (req: Request, res: Response, next: NextFunction) => {
-    const { id } = req.params;
+    const { installationId } = req.params;
     const { userId } = req.body;
 
     try {
         // Get installation and verify it exists
         const installation = await prisma.installation.findUnique({
             where: { 
-                id,
+                id: installationId,
                 users: {
                     some: { userId: userId as string }
                 } 
@@ -286,7 +286,7 @@ export const createInstallation = async (req: Request, res: Response, next: Next
  * Update an existing installation.
  */
 export const updateInstallation = async (req: Request, res: Response, next: NextFunction) => {
-    const { id: installationId } = req.params;
+    const { installationId } = req.params;
     const { 
         userId,
         htmlUrl,
@@ -340,14 +340,14 @@ export const updateInstallation = async (req: Request, res: Response, next: Next
  * Delete an installation.
  */
 export const deleteInstallation = async (req: Request, res: Response, next: NextFunction) => {
-    const { id } = req.params;
+    const { installationId } = req.params;
     const { userId, walletAddress } = req.body;
 
     try {
         // Get installation and verify it exists
         const installation = await prisma.installation.findUnique({
             where: { 
-                id,
+                id: installationId,
                 users: {
                     some: { userId: userId as string }
                 }
@@ -387,7 +387,7 @@ export const deleteInstallation = async (req: Request, res: Response, next: Next
 
         // Delete installation
         await prisma.installation.delete({
-            where: { id }
+            where: { id: installationId }
         });
 
         // Return deletion confirmation
@@ -404,7 +404,7 @@ export const deleteInstallation = async (req: Request, res: Response, next: Next
  * Add a user to the installation team.
  */
 export const addTeamMember = async (req: Request, res: Response, next: NextFunction) => {
-    const { id: installationId } = req.params;
+    const { installationId } = req.params;
     const { userId, username, permissionCodes } = req.body;
 
     try {
@@ -494,7 +494,7 @@ export const addTeamMember = async (req: Request, res: Response, next: NextFunct
  * Update permissions for a team member.
  */
 export const updateTeamMemberPermissions = async (req: Request, res: Response, next: NextFunction) => {
-    const { id: installationId, userId: memberId } = req.params;
+    const { installationId, userId: memberId } = req.params;
     const { userId, permissionCodes } = req.body;
 
     try {
@@ -544,7 +544,7 @@ export const updateTeamMemberPermissions = async (req: Request, res: Response, n
  * Remove a user from the installation team.
  */
 export const removeTeamMember = async (req: Request, res: Response, next: NextFunction) => {
-    const { id: installationId, userId: memberId } = req.params;
+    const { installationId, userId: memberId } = req.params;
     const { userId } = req.body;
 
     try {

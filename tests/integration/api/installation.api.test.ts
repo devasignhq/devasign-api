@@ -269,7 +269,7 @@ describe("Installation API Integration Tests", () => {
         });
     });
 
-    describe("GET /installations/:id - Get Installation", () => {
+    describe("GET /installations/:installationId - Get Installation", () => {
         let testUser: any;
         let testInstallation: any;
 
@@ -335,7 +335,7 @@ describe("Installation API Integration Tests", () => {
         });
     });
 
-    describe("PATCH /installations/:id - Update Installation", () => {
+    describe("PATCH /installations/:installationId - Update Installation", () => {
         let testUser: any;
         let testInstallation: any;
 
@@ -407,7 +407,7 @@ describe("Installation API Integration Tests", () => {
         });
     });
 
-    describe("DELETE /installations/:id - Delete Installation", () => {
+    describe("DELETE /installations/:installationId - Delete Installation", () => {
         let testUser: any;
         let testInstallation: any;
 
@@ -478,7 +478,7 @@ describe("Installation API Integration Tests", () => {
         });
     });
 
-    describe("POST /installations/:id/team - Add Team Member", () => {
+    describe("POST /installations/:installationId/team - Add Team Member", () => {
         let testUser: any;
         let testInstallation: any;
 
@@ -564,7 +564,7 @@ describe("Installation API Integration Tests", () => {
         });
     });
 
-    describe("PATCH /installations/:id/team/:userId - Update Team Member Permissions", () => {
+    describe("PATCH /installations/:installationId/team/:userId - Update Team Member Permissions", () => {
         let testUser: any;
         let teamMember: any;
         let testInstallation: any;
@@ -633,7 +633,7 @@ describe("Installation API Integration Tests", () => {
         });
     });
 
-    describe("DELETE /installations/:id/team/:userId - Remove Team Member", () => {
+    describe("DELETE /installations/:installationId/team/:userId - Remove Team Member", () => {
         let testUser: any;
         let teamMember: any;
         let testInstallation: any;

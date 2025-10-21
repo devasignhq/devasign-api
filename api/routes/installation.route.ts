@@ -25,22 +25,22 @@ export const installationRoutes = Router();
 installationRoutes.get("/", getInstallationsValidator, getInstallations as RequestHandler);
 
 // Get a specific installation
-installationRoutes.get("/:id", getInstallation as RequestHandler);
+installationRoutes.get("/:installationId", getInstallation as RequestHandler);
 
 // Create a new installation
 installationRoutes.post("/", createInstallationValidator, createInstallation as RequestHandler);
 
 // Update an existing installation
-installationRoutes.patch("/:id", updateInstallationValidator, updateInstallation as RequestHandler);
+installationRoutes.patch("/:installationId", updateInstallationValidator, updateInstallation as RequestHandler);
 
 // Delete an installation
-installationRoutes.delete("/:id", deleteInstallationValidator, deleteInstallation as RequestHandler);
+installationRoutes.delete("/:installationId", deleteInstallationValidator, deleteInstallation as RequestHandler);
 
 // Add a team member to an installation
-installationRoutes.post("/:id/team", addTeamMemberValidator, addTeamMember as RequestHandler);
+installationRoutes.post("/:installationId/team", addTeamMemberValidator, addTeamMember as RequestHandler);
 
 // Update team member permissions
-installationRoutes.patch("/:id/team/:userId", updateTeamMemberPermissionsValidator, updateTeamMemberPermissions as RequestHandler);
+installationRoutes.patch("/:installationId/team/:userId", updateTeamMemberPermissionsValidator, updateTeamMemberPermissions as RequestHandler);
 
 // Remove a team member from an installation
-installationRoutes.delete("/:id/team/:userId", removeTeamMemberValidator, removeTeamMember as RequestHandler);
+installationRoutes.delete("/:installationId/team/:userId", removeTeamMemberValidator, removeTeamMember as RequestHandler);
