@@ -50,16 +50,16 @@ taskRoutes.get("/installation/:installationId", getInstallationTasksValidator, g
 taskRoutes.get("/contributor", getContributorTasksValidator, getContributorTasks as RequestHandler);
 
 // Get a specific task
-taskRoutes.get("/:id", getTask as RequestHandler);
+taskRoutes.get("/:taskId", getTask as RequestHandler);
 
 // Get a specific task for an installation
 taskRoutes.get("/installation/:installationId/:taskId", getInstallationTask as RequestHandler);
 
 // Get a specific task for a contributor
-taskRoutes.get("/contributor/:id", getContributorTask as RequestHandler);
+taskRoutes.get("/contributor/:taskId", getContributorTask as RequestHandler);
 
 // Get all activities for a task
-taskRoutes.get("/activities/:id", getTaskActivitiesValidator, getTaskActivities as RequestHandler);
+taskRoutes.get("/activities/:taskId", getTaskActivitiesValidator, getTaskActivities as RequestHandler);
 
 // Mark a task activity as viewed
 taskRoutes.patch("/activities/:taskActivityId/viewed", markActivityAsViewed as RequestHandler);
@@ -68,31 +68,31 @@ taskRoutes.patch("/activities/:taskActivityId/viewed", markActivityAsViewed as R
 taskRoutes.post("/", createTaskValidator, createTask as RequestHandler);
 
 // Add a bounty comment ID to a task
-taskRoutes.patch("/:id/issue-comment", addBountyCommentIdValidator, addBountyCommentId as RequestHandler);
+taskRoutes.patch("/:taskId/issue-comment", addBountyCommentIdValidator, addBountyCommentId as RequestHandler);
 
 // Update task bounty
-taskRoutes.patch("/:id/bounty", updateTaskBountyValidator, updateTaskBounty as RequestHandler);
+taskRoutes.patch("/:taskId/bounty", updateTaskBountyValidator, updateTaskBounty as RequestHandler);
 
 // Update task timeline
-taskRoutes.patch("/:id/timeline", updateTaskTimelineValidator, updateTaskTimeline as RequestHandler);
+taskRoutes.patch("/:taskId/timeline", updateTaskTimelineValidator, updateTaskTimeline as RequestHandler);
 
 // Delete a task
-taskRoutes.delete("/:id", deleteTaskValidator, deleteTask as RequestHandler);
+taskRoutes.delete("/:taskId", deleteTaskValidator, deleteTask as RequestHandler);
 
 // Submit a task application
-taskRoutes.post("/:id/apply", submitTaskApplicationValidator, submitTaskApplication as RequestHandler);
+taskRoutes.post("/:taskId/apply", submitTaskApplicationValidator, submitTaskApplication as RequestHandler);
 
 // Accept a task application
-taskRoutes.post("/:id/accept/:contributorId", acceptTaskApplicationValidator, acceptTaskApplication as RequestHandler);
+taskRoutes.post("/:taskId/accept/:contributorId", acceptTaskApplicationValidator, acceptTaskApplication as RequestHandler);
 
 // Mark a task as complete
-taskRoutes.post("/:id/complete", markAsCompleteValidator, markAsComplete as RequestHandler);
+taskRoutes.post("/:taskId/complete", markAsCompleteValidator, markAsComplete as RequestHandler);
 
 // Validate task completion
-taskRoutes.post("/:id/validate", validateCompletionValidator, validateCompletion as RequestHandler);
+taskRoutes.post("/:taskId/validate", validateCompletionValidator, validateCompletion as RequestHandler);
 
 // Request a timeline extension
-taskRoutes.post("/:id/timeline", requestTimelineExtensionValidator, requestTimelineExtension as RequestHandler);
+taskRoutes.post("/:taskId/timeline", requestTimelineExtensionValidator, requestTimelineExtension as RequestHandler);
 
 // Reply to a timeline extension request
-taskRoutes.post("/:id/timeline/reply", replyTimelineModificationValidator, replyTimelineExtensionRequest as RequestHandler);
+taskRoutes.post("/:taskId/timeline/reply", replyTimelineModificationValidator, replyTimelineExtensionRequest as RequestHandler);

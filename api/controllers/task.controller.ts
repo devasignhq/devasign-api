@@ -576,12 +576,12 @@ export const getContributorTasks = async (req: Request, res: Response, next: Nex
  * Get details of a specific open task. Used in the task explorer page of the contributor app.
  */
 export const getTask = async (req: Request, res: Response, next: NextFunction) => {
-    const { id } = req.params;
+    const { taskId } = req.params;
 
     try {
         // Fetch task and ensure it is open
         const task = await prisma.task.findUnique({
-            where: { id, status: "OPEN" },
+            where: { id: taskId, status: "OPEN" },
             select: {
                 id: true,
                 issue: true,
@@ -689,13 +689,13 @@ export const getInstallationTask = async (req: Request, res: Response, next: Nex
  * Get details of a specific task assigned to a contributor. Used in the tasks page of the contributor app.
  */
 export const getContributorTask = async (req: Request, res: Response, next: NextFunction) => {
-    const { id } = req.params;
+    const { taskId } = req.params;
     const { userId } = req.body;
 
     try {
         // Fetch task and ensure it is assigned to the contributor
         const task = await prisma.task.findUnique({
-            where: { id, contributorId: userId },
+            where: { id: taskId, contributorId: userId },
             select: {
                 id: true,
                 issue: true,
@@ -744,13 +744,13 @@ export const getContributorTask = async (req: Request, res: Response, next: Next
  * Add bounty comment id to a task. Fallback if saving the bounty comment id during task creation failed.
  */
 export const addBountyCommentId = async (req: Request, res: Response, next: NextFunction) => {
-    const { id } = req.params;
+    const { taskId } = req.params;
     const { userId, bountyCommentId } = req.body;
 
     try {
         // Fetch the task
         const task = await prisma.task.findUnique({
-            where: { id },
+            where: { id: taskId },
             select: {
                 id: true,
                 status: true,
@@ -774,7 +774,7 @@ export const addBountyCommentId = async (req: Request, res: Response, next: Next
 
         // Update task with bounty comment id
         const updatedTask = await prisma.task.update({
-            where: { id },
+            where: { id: taskId },
             data: {
                 issue: { ...(typeof task.issue === "object" && task.issue !== null ? task.issue : {}), bountyCommentId }
             },
@@ -792,7 +792,7 @@ export const addBountyCommentId = async (req: Request, res: Response, next: Next
  * Update the bounty amount of an open task. Only allowed if there are no existing applications.
  */
 export const updateTaskBounty = async (req: Request, res: Response, next: NextFunction) => {
-    const { id: taskId } = req.params;
+    const { taskId } = req.params;
     const { userId, newBounty } = req.body;
 
     try {
@@ -969,13 +969,13 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
  * Update task timeline
  */
 export const updateTaskTimeline = async (req: Request, res: Response, next: NextFunction) => {
-    const { id } = req.params;
+    const { taskId } = req.params;
     const { userId, newTimeline, newTimelineType } = req.body;
 
     try {
         // Fetch the task
         const task = await prisma.task.findUnique({
-            where: { id },
+            where: { id: taskId },
             select: {
                 status: true,
                 creatorId: true,
@@ -1018,7 +1018,7 @@ export const updateTaskTimeline = async (req: Request, res: Response, next: Next
 
         // Update task timeline
         const updatedTask = await prisma.task.update({
-            where: { id },
+            where: { id: taskId },
             data: {
                 timeline,
                 timelineType
@@ -1041,7 +1041,7 @@ export const updateTaskTimeline = async (req: Request, res: Response, next: Next
  * Submit application for a task
  */
 export const submitTaskApplication = async (req: Request, res: Response, next: NextFunction) => {
-    const { id: taskId } = req.params;
+    const { taskId } = req.params;
     const { userId } = req.body;
 
     try {
@@ -1095,7 +1095,7 @@ export const submitTaskApplication = async (req: Request, res: Response, next: N
  * Accept a contributor's application for a task
  */
 export const acceptTaskApplication = async (req: Request, res: Response, next: NextFunction) => {
-    const { id: taskId, contributorId } = req.params;
+    const { taskId, contributorId } = req.params;
     const { userId } = req.body;
 
     try {
@@ -1172,7 +1172,7 @@ export const acceptTaskApplication = async (req: Request, res: Response, next: N
  * Request timeline extension for a task
  */
 export const requestTimelineExtension = async (req: Request, res: Response, next: NextFunction) => {
-    const { id } = req.params;
+    const { taskId } = req.params;
     const {
         userId,
         githubUsername,
@@ -1185,7 +1185,7 @@ export const requestTimelineExtension = async (req: Request, res: Response, next
     try {
         // Fetch the task
         const task = await prisma.task.findUnique({
-            where: { id },
+            where: { id: taskId },
             select: {
                 status: true,
                 contributorId: true,
@@ -1211,7 +1211,7 @@ export const requestTimelineExtension = async (req: Request, res: Response, next
 
         const message = await FirebaseService.createMessage({
             userId,
-            taskId: id,
+            taskId,
             type: MessageType.TIMELINE_MODIFICATION,
             body,
             attachments: attachments || [],
@@ -1233,7 +1233,7 @@ export const requestTimelineExtension = async (req: Request, res: Response, next
  * Reply to a timeline extension request
  */
 export const replyTimelineExtensionRequest = async (req: Request, res: Response, next: NextFunction) => {
-    const { id } = req.params;
+    const { taskId } = req.params;
     const {
         userId,
         accept,
@@ -1244,7 +1244,7 @@ export const replyTimelineExtensionRequest = async (req: Request, res: Response,
     try {
         // Fetch the task
         const task = await prisma.task.findUnique({
-            where: { id },
+            where: { id: taskId },
             select: {
                 creatorId: true,
                 timeline: true,
@@ -1314,7 +1314,7 @@ export const replyTimelineExtensionRequest = async (req: Request, res: Response,
 
             // Update task timeline and status
             const updatedTask = await prisma.task.update({
-                where: { id },
+                where: { id: taskId },
                 data: {
                     timeline: newTimeline!,
                     timelineType: newTimelineType!,
@@ -1332,7 +1332,7 @@ export const replyTimelineExtensionRequest = async (req: Request, res: Response,
             // Create acceptance message
             const message = await FirebaseService.createMessage({
                 userId,
-                taskId: id,
+                taskId,
                 type: MessageType.TIMELINE_MODIFICATION,
                 body: `You’ve extended the timeline of this task by ${requestedTimeline} ${(timelineType as string).toLowerCase()}(s).`,
                 attachments: [],
@@ -1353,7 +1353,7 @@ export const replyTimelineExtensionRequest = async (req: Request, res: Response,
         // Create rejection message
         const message = await FirebaseService.createMessage({
             userId,
-            taskId: id,
+            taskId,
             type: MessageType.TIMELINE_MODIFICATION,
             body: "Timeline extension rejected.",
             attachments: [],
@@ -1375,7 +1375,7 @@ export const replyTimelineExtensionRequest = async (req: Request, res: Response,
  * Mark a task as complete
  */
 export const markAsComplete = async (req: Request, res: Response, next: NextFunction) => {
-    const { id: taskId } = req.params;
+    const { taskId } = req.params;
     const { userId, pullRequest, attachmentUrl } = req.body;
 
     try {
@@ -1460,7 +1460,7 @@ export const markAsComplete = async (req: Request, res: Response, next: NextFunc
  * Validate and process task completion
  */
 export const validateCompletion = async (req: Request, res: Response, next: NextFunction) => {
-    const { id: taskId } = req.params;
+    const { taskId } = req.params;
     const { userId } = req.body;
 
     try {
@@ -1587,7 +1587,7 @@ export const getTaskActivities = async (req: Request, res: Response, next: NextF
         limit = 10,
         sort
     } = req.query;
-    const { id: taskId } = req.params;
+    const { taskId } = req.params;
     const { userId } = req.body;
 
     try {
@@ -1708,13 +1708,13 @@ export const markActivityAsViewed = async (req: Request, res: Response, next: Ne
  * Delete a task
  */
 export const deleteTask = async (req: Request, res: Response, next: NextFunction) => {
-    const { id } = req.params;
+    const { taskId } = req.params;
     const { userId } = req.body;
 
     try {
         // Fetch the task
         const task = await prisma.task.findUnique({
-            where: { id },
+            where: { id: taskId },
             select: {
                 status: true,
                 bounty: true,
@@ -1766,7 +1766,7 @@ export const deleteTask = async (req: Request, res: Response, next: NextFunction
 
         // Delete task
         await prisma.task.delete({
-            where: { id }
+            where: { id: taskId }
         });
 
         try {

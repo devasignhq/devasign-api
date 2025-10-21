@@ -145,7 +145,7 @@ export const createTaskValidator = [
 ];
 
 export const addBountyCommentIdValidator = [
-    param("id")
+    param("taskId")
         .exists()
         .withMessage("Task ID is required"),
     body("bountyCommentId")
@@ -161,7 +161,7 @@ export const addBountyCommentIdValidator = [
 ];
 
 export const updateTaskBountyValidator = [
-    param("id")
+    param("taskId")
         .exists()
         .withMessage("Task ID is required"),
     body("newbounty")
@@ -174,7 +174,7 @@ export const updateTaskBountyValidator = [
 ];
 
 export const updateTaskTimelineValidator = [
-    param("id")
+    param("taskId")
         .exists()
         .withMessage("Task ID is required"),
     body("timeline")
@@ -195,7 +195,7 @@ export const updateTaskTimelineValidator = [
 ];
 
 export const markAsCompleteValidator = [
-    param("id")
+    param("taskId")
         .exists()
         .withMessage("Task ID is required"),
     body("pullRequest")
@@ -220,25 +220,25 @@ export const markAsCompleteValidator = [
 ];
 
 export const validateCompletionValidator = [
-    param("id")
+    param("taskId")
         .exists()
         .withMessage("Task ID is required")
 ];
 
 export const deleteTaskValidator = [
-    param("id")
+    param("taskId")
         .exists()
         .withMessage("Task ID is required")
 ];
 
 export const submitTaskApplicationValidator = [
-    param("id")
+    param("taskId")
         .exists()
         .withMessage("Task ID is required")
 ];
 
 export const acceptTaskApplicationValidator = [
-    param("id")
+    param("taskId")
         .exists()
         .withMessage("Task ID is required"),
     param("contributorId")
@@ -247,7 +247,7 @@ export const acceptTaskApplicationValidator = [
 ];
 
 export const requestTimelineExtensionValidator = [
-    param("id")
+    param("taskId")
         .exists()
         .withMessage("Task ID is required"),
     body("githubUsername")
@@ -288,7 +288,7 @@ export const requestTimelineExtensionValidator = [
 ];
 
 export const replyTimelineModificationValidator = [
-    param("id")
+    param("taskId")
         .exists()
         .withMessage("Task ID is required"),
     body("accept")
