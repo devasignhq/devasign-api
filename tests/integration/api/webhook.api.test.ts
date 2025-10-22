@@ -8,9 +8,9 @@ import { TestDataFactory } from "../../helpers/test-data-factory";
 import { STATUS_CODES } from "../../../api/helper";
 
 // Mock external services
-jest.mock("../../../api/services/workflow-integration.service");
-jest.mock("../../../api/services/job-queue.service");
-jest.mock("../../../api/services/pr-analysis.service");
+jest.mock("../../../api/services/ai-review/workflow-integration.service");
+jest.mock("../../../api/services/ai-review/job-queue.service");
+jest.mock("../../../api/services/ai-review/pr-analysis.service");
 jest.mock("../../../api/services/octokit.service");
 
 describe("Webhook API Integration Tests", () => {
@@ -40,8 +40,8 @@ describe("Webhook API Integration Tests", () => {
         app.use(errorHandler);
 
         // Setup mocks
-        const { WorkflowIntegrationService } = await import("../../../api/services/workflow-integration.service");
-        const { JobQueueService } = await import("../../../api/services/job-queue.service");
+        const { WorkflowIntegrationService } = await import("../../../api/services/ai-review/workflow-integration.service");
+        const { JobQueueService } = await import("../../../api/services/ai-review/job-queue.service");
         const { OctokitService } = await import("../../../api/services/octokit.service");
 
         mockWorkflowService = {

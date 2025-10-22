@@ -1,11 +1,11 @@
-import { ReviewResult } from "../models/ai-review.model";
-import { GitHubAPIError } from "../models/error.model";
-import { ReviewFormatterService } from "./review-formatter.service";
-import { OctokitService } from "./octokit.service";
-import { prisma } from "../config/database.config";
-import { getFieldFromUnknownObject } from "../helper";
-import { InstallationOctokit } from "../models/github.model";
-import { dataLogger, messageLogger } from "../config/logger.config";
+import { ReviewResult } from "../../models/ai-review.model";
+import { GitHubAPIError } from "../../models/error.model";
+import { ReviewFormatterService } from "./comment-formatter.service";
+import { OctokitService } from "../octokit.service";
+import { prisma } from "../../config/database.config";
+import { getFieldFromUnknownObject } from "../../helper";
+import { InstallationOctokit } from "../../models/github.model";
+import { dataLogger, messageLogger } from "../../config/logger.config";
 
 /**
  * GitHub Comment Service

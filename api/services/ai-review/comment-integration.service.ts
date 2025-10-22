@@ -1,8 +1,8 @@
-import { ReviewResult } from "../models/ai-review.model";
-import { ReviewFormatterService } from "./review-formatter.service";
-import { AIReviewCommentService } from "./ai-review-comment.service";
-import { GitHubAPIError } from "../models/error.model";
-import { dataLogger, messageLogger } from "../config/logger.config";
+import { ReviewResult } from "../../models/ai-review.model";
+import { ReviewFormatterService } from "./comment-formatter.service";
+import { AIReviewCommentService } from "./comment.service";
+import { GitHubAPIError } from "../../models/error.model";
+import { dataLogger, messageLogger } from "../../config/logger.config";
 
 /**
  * Integrates review formatting and GitHub comment posting

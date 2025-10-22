@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { APIResponse } from "../models/ai-review.model";
-import { JobQueueService } from "../services/job-queue.service";
-import { WorkflowIntegrationService } from "../services/workflow-integration.service";
+import { JobQueueService } from "../services/ai-review/job-queue.service";
+import { WorkflowIntegrationService } from "../services/ai-review/workflow-integration.service";
 import { STATUS_CODES, getFieldFromUnknownObject } from "../helper";
 import { dataLogger } from "../config/logger.config";
 import { ErrorRecoveryService } from "../services/error-recovery.service";

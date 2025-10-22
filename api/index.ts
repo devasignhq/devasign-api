@@ -137,7 +137,7 @@ ErrorHandlerService.initialize().catch(error => {
 // Initialize workflow integration service
 (async () => {
     try {
-        const { WorkflowIntegrationService } = await import("./services/workflow-integration.service");
+        const { WorkflowIntegrationService } = await import("./services/ai-review/workflow-integration.service");
         const workflowService = WorkflowIntegrationService.getInstance();
         await workflowService.initialize();
         messageLogger.info("Workflow Integration Service initialized successfully");
@@ -162,7 +162,7 @@ process.on("SIGTERM", async () => {
         });
 
         // Shutdown workflow integration service
-        const { WorkflowIntegrationService } = await import("./services/workflow-integration.service");
+        const { WorkflowIntegrationService } = await import("./services/ai-review/workflow-integration.service");
         const workflowService = WorkflowIntegrationService.getInstance();
         await workflowService.shutdown();
 
@@ -188,7 +188,7 @@ process.on("SIGINT", async () => {
         });
 
         // Shutdown workflow integration service
-        const { WorkflowIntegrationService } = await import("./services/workflow-integration.service");
+        const { WorkflowIntegrationService } = await import("./services/ai-review/workflow-integration.service");
         const workflowService = WorkflowIntegrationService.getInstance();
         await workflowService.shutdown();
 

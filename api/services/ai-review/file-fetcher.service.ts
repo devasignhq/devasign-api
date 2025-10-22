@@ -1,10 +1,10 @@
-import { OctokitService } from "./octokit.service";
+import { OctokitService } from "../octokit.service";
 import {
     RelevantFileRecommendation,
     FetchedFile,
     BatchProcessingConfig
-} from "../models/ai-review.model";
-import { dataLogger } from "../config/logger.config";
+} from "../../models/ai-review.model";
+import { dataLogger } from "../../config/logger.config";
 
 /**
  * Service for fetching files based on AI recommendations

@@ -17,7 +17,7 @@ jest.mock("../../../api/config/firebase.config", () => ({
 }));
 
 // Mock RuleEngineService
-jest.mock("../../../api/services/rule-engine.service", () => ({
+jest.mock("../../../api/services/ai-review/rule-engine.service", () => ({
     RuleEngineService: {
         validateCustomRule: jest.fn(),
         getDefaultRules: jest.fn()
@@ -53,7 +53,7 @@ describe("Custom Rules API Integration Tests", () => {
         app.use(errorHandler);
 
         // Setup mocks
-        const { RuleEngineService } = await import("../../../api/services/rule-engine.service");
+        const { RuleEngineService } = await import("../../../api/services/ai-review/rule-engine.service");
         mockRuleEngineService = RuleEngineService;
     });
 

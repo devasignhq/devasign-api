@@ -4,15 +4,15 @@ import {
     ChangedFile,
     GitHubWebhookPayload,
     ReviewResult
-} from "../models/ai-review.model";
-import { PRAnalysisError, GitHubAPIError, ErrorClass } from "../models/error.model";
-import { OctokitService } from "./octokit.service";
-import { GitHubComment, GitHubFile, IssueDto, IssueLabel } from "../models/github.model";
+} from "../../models/ai-review.model";
+import { PRAnalysisError, GitHubAPIError, ErrorClass } from "../../models/error.model";
+import { OctokitService } from "../octokit.service";
+import { GitHubComment, GitHubFile, IssueDto, IssueLabel } from "../../models/github.model";
 import { PullRequestContextAnalyzerService } from "./context-analyzer.service";
 import { GroqAIService } from "./groq-ai.service";
-import { getFieldFromUnknownObject } from "../helper";
+import { getFieldFromUnknownObject } from "../../helper";
 import { RuleEngineService } from "./rule-engine.service";
-import { dataLogger, messageLogger } from "../config/logger.config";
+import { dataLogger, messageLogger } from "../../config/logger.config";
 
 /**
  * Service for analyzing PR events and determining eligibility for AI review

@@ -1,8 +1,8 @@
-import { RuleType, RuleSeverity, AIReviewRule } from "../../prisma_client";
-import { getFieldFromUnknownObject } from "../helper";
-import { PullRequestData } from "../models/ai-review.model";
+import { RuleType, RuleSeverity, AIReviewRule } from "../../../prisma_client";
+import { getFieldFromUnknownObject } from "../../helper";
+import { PullRequestData } from "../../models/ai-review.model";
 import lodash from "lodash";
-import { dataLogger } from "../config/logger.config";
+import { dataLogger } from "../../config/logger.config";
 
 export interface DefaultRule {
     id: string;

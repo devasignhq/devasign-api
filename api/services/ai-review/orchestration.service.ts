@@ -1,10 +1,10 @@
-import { PullRequestData, ReviewResult } from "../models/ai-review.model";
-import { PRAnalysisError } from "../models/error.model";
-import { ReviewCommentIntegrationService } from "./review-comment-integration.service";
-import { ReviewStatus } from "../../prisma_client";
-import { prisma } from "../config/database.config";
+import { PullRequestData, ReviewResult } from "../../models/ai-review.model";
+import { PRAnalysisError } from "../../models/error.model";
+import { ReviewCommentIntegrationService } from "./comment-integration.service";
+import { ReviewStatus } from "../../../prisma_client";
+import { prisma } from "../../config/database.config";
 import { PRAnalysisService } from "./pr-analysis.service";
-import { dataLogger, messageLogger } from "../config/logger.config";
+import { dataLogger, messageLogger } from "../../config/logger.config";
 
 /**
  * AI Review Orchestration Service

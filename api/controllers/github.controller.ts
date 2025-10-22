@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { OctokitService } from "../services/octokit.service";
 import { IssueFilters } from "../models";
-import { PRAnalysisService } from "../services/pr-analysis.service";
+import { PRAnalysisService } from "../services/ai-review/pr-analysis.service";
 import {
     PullRequestData,
     APIResponse

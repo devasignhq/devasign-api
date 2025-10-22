@@ -1,8 +1,8 @@
 import { GroqAIService } from "./groq-ai.service";
-import { GroqServiceError, GroqRateLimitError } from "../models/error.model";
-import { FetchedFile, PullRequestData, RelevantFileRecommendation } from "../models/ai-review.model";
+import { GroqServiceError, GroqRateLimitError } from "../../models/error.model";
+import { FetchedFile, PullRequestData, RelevantFileRecommendation } from "../../models/ai-review.model";
 import { FileFetcherService } from "./file-fetcher.service";
-import { dataLogger, messageLogger } from "../config/logger.config";
+import { dataLogger, messageLogger } from "../../config/logger.config";
 
 /**
  * Uses AI to determine which files are most relevant for PR

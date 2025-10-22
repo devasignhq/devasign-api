@@ -1,12 +1,12 @@
 import { Router, Request, Response, NextFunction, RequestHandler } from "express";
 import { body, validationResult } from "express-validator";
 import createError from "http-errors";
-import { GroqAIService } from "../../services/groq-ai.service";
+import { GroqAIService } from "../../services/ai-review/groq-ai.service";
 import { dataLogger } from "../../config/logger.config";
 import { STATUS_CODES } from "../../helper";
 import { GitHubPullRequest, GitHubInstallation, APIResponse } from "../../models/ai-review.model";
 import { OctokitService } from "../../services/octokit.service";
-import { WorkflowIntegrationService } from "../../services/workflow-integration.service";
+import { WorkflowIntegrationService } from "../../services/ai-review/workflow-integration.service";
 
 const router = Router();
 const groqService = new GroqAIService();

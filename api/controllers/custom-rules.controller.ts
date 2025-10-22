@@ -1,7 +1,7 @@
 import { NextFunction, Request, Response } from "express";
 import { prisma } from "../config/database.config";
 import { RuleType, RuleSeverity, Prisma } from "../../prisma_client";
-import { RuleEngineService } from "../services/rule-engine.service";
+import { RuleEngineService } from "../services/ai-review/rule-engine.service";
 import { NotFoundError, ValidationError } from "../models/error.model";
 import { STATUS_CODES } from "../helper";
 

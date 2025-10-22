@@ -3,13 +3,13 @@ import {
     GitHubWebhookPayload,
     ReviewResult,
     ManualTriggerRequest
-} from "../models/ai-review.model";
+} from "../../models/ai-review.model";
 import { JobQueueService } from "./job-queue.service";
-import { AIReviewOrchestrationService } from "./ai-review-orchestration.service";
+import { AIReviewOrchestrationService } from "./orchestration.service";
 import { PRAnalysisService } from "./pr-analysis.service";
-import { PRAnalysisError } from "../models/error.model";
-import { ErrorHandlerService } from "./error-handler.service";
-import { dataLogger, messageLogger } from "../config/logger.config";
+import { PRAnalysisError } from "../../models/error.model";
+import { ErrorHandlerService } from "../error-handler.service";
+import { dataLogger, messageLogger } from "../../config/logger.config";
 
 /**
  * Workflow Integration Service

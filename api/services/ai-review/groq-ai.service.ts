@@ -4,15 +4,15 @@ import {
     AIReview,
     QualityMetrics,
     RelevantFileRecommendation
-} from "../models/ai-review.model";
+} from "../../models/ai-review.model";
 import {
     GroqServiceError,
     GroqRateLimitError,
     GroqContextLimitError,
     ErrorUtils
-} from "../models/error.model";
-import { getFieldFromUnknownObject } from "../helper";
-import { dataLogger, messageLogger } from "../config/logger.config";
+} from "../../models/error.model";
+import { getFieldFromUnknownObject } from "../../helper";
+import { dataLogger, messageLogger } from "../../config/logger.config";
 
 /**
  * Implements AI-powered code review.
