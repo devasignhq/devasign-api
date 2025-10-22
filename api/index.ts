@@ -1,11 +1,7 @@
 import dotenv from "dotenv";
 dotenv.config();
 
-import express, {
-    Request,
-    Response,
-    RequestHandler
-} from "express";
+import express, { RequestHandler } from "express";
 import helmet from "helmet";
 import cors from "cors";
 import morgan from "morgan";
@@ -62,47 +58,6 @@ app.use("/webhook/github/pr-review", express.raw({ type: "application/json" }));
 
 // JSON parser for all other routes
 app.use(express.json());
-
-// To be removed. Used from development only.
-app.post(
-    "/reset-db",
-    validateUser as RequestHandler,
-    (async (req: Request, res: Response) => {
-        try {
-            // Check if user has admin privileges
-            const { currentUser } = req.body;
-
-            if (!currentUser?.admin && !currentUser?.custom_claims?.admin) {
-                return res.status(STATUS_CODES.UNAUTHORIZED).json({
-                    error: "Access denied. Admin privileges required."
-                });
-            }
-
-            // Delete all records from each table in correct order
-            // due to foreign key constraints
-            await prisma.transaction.deleteMany();
-            await prisma.taskSubmission.deleteMany();
-            await prisma.taskActivity.deleteMany();
-            await prisma.userInstallationPermission.deleteMany();
-            await prisma.task.deleteMany();
-            await prisma.contributionSummary.deleteMany();
-            await prisma.installation.deleteMany();
-            await prisma.user.deleteMany();
-            await prisma.permission.deleteMany();
-            await prisma.aIReviewRule.deleteMany();
-            await prisma.aIReviewResult.deleteMany();
-
-            // await prisma.subscriptionPackage.deleteMany();
-
-            res.status(STATUS_CODES.SUCCESS).json({ message: "Database cleared" });
-        } catch (error) {
-            dataLogger.error("Database clear operation failed", { error });
-            res.status(STATUS_CODES.SERVER_ERROR).json({
-                message: "Database clear operation failed"
-            });
-        }
-    }) as RequestHandler
-);
 
 app.get("/get-packages", validateUser as RequestHandler, async (_, res) => {
     try {
@@ -173,29 +128,24 @@ app.use(errorHandler);
 
 prisma.$connect();
 
-// Initialize AI Review system (disabled until environment variables are configured)
-if (process.env.GROQ_API_KEY && process.env.GITHUB_APP_ID && process.env.GITHUB_APP_PRIVATE_KEY) {
-    // Initialize error handling system
-    ErrorHandlerService.initialize().catch(error => {
-        dataLogger.error("Failed to initialize error handling system", { error });
-        // Continue startup even if error handling initialization fails
-    });
+// Initialize error handling system
+ErrorHandlerService.initialize().catch(error => {
+    dataLogger.error("Failed to initialize error handling system", { error });
+    // Continue startup even if error handling initialization fails
+});
 
-    // Initialize workflow integration service
-    (async () => {
-        try {
-            const { WorkflowIntegrationService } = await import("./services/workflow-integration.service");
-            const workflowService = WorkflowIntegrationService.getInstance();
-            await workflowService.initialize();
-            messageLogger.info("Workflow Integration Service initialized successfully");
-        } catch (error) {
-            dataLogger.error("Failed to initialize Workflow Integration Service", { error });
-            // Continue startup even if workflow initialization fails
-        }
-    })();
-} else {
-    messageLogger.warn("AI Review system disabled - missing required environment variables (GROQ_API_KEY, GITHUB_APP_ID, GITHUB_APP_PRIVATE_KEY)");
-}
+// Initialize workflow integration service
+(async () => {
+    try {
+        const { WorkflowIntegrationService } = await import("./services/workflow-integration.service");
+        const workflowService = WorkflowIntegrationService.getInstance();
+        await workflowService.initialize();
+        messageLogger.info("Workflow Integration Service initialized successfully");
+    } catch (error) {
+        dataLogger.error("Failed to initialize Workflow Integration Service", { error });
+        // Continue startup even if workflow initialization fails
+    }
+})();
 
 const server = app.listen(PORT, "0.0.0.0", () => {
     messageLogger.info(`Server is running on port ${PORT}`);
