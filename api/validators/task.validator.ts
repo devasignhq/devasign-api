@@ -1,5 +1,5 @@
 import { body, query, param } from "express-validator";
-import { TimelineType } from "../generated/client";
+import { TimelineType } from "../../prisma_client";
 
 export const getTasksValidator = [
     query("installationId")

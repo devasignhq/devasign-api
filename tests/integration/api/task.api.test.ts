@@ -848,19 +848,6 @@ describe("Task API Integration Tests", () => {
                 .expect(STATUS_CODES.UNKNOWN);
         });
 
-        // it("should validate task data properly", async () => {
-        //     const invalidTaskData = {
-        //         installationId: "test-installation-1"
-        //         // Missing required fields
-        //     };
-
-        //     await request(app)
-        //         .post("/tasks")
-        //         .set("x-test-user-id", "creator-1")
-        //         .send({ payload: invalidTaskData })
-        //         .expect(STATUS_CODES.SERVER_ERROR);
-        // });
-
         it("should handle non-existent task operations", async () => {
             await request(app)
                 .get("/tasks/non-existent-task")

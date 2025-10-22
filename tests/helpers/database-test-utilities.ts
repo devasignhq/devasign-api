@@ -1,4 +1,4 @@
-import { Prisma, PrismaClient } from "../../api/generated/client";
+import { Prisma, PrismaClient } from "../../prisma_client";
 import { TestDataFactory } from "./test-data-factory";
 
 /**

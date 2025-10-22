@@ -1,5 +1,5 @@
 import { ReviewResult, FormattedReview, CodeSuggestion } from "../models/ai-review.model";
-import { RuleSeverity } from "../generated/client";
+import { RuleSeverity } from "../../prisma_client";
 
 /**
  * Review Formatter Service

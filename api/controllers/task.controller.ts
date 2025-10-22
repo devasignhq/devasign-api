@@ -11,7 +11,7 @@ import {
     FilterTasks
 } from "../models";
 import { HorizonApi } from "../models/horizonapi.model";
-import { $Enums, Prisma, TaskStatus, TimelineType } from "../generated/client";
+import { $Enums, Prisma, TaskStatus, TimelineType } from "../../prisma_client";
 import { OctokitService } from "../services/octokit.service";
 import {
     AuthorizationError,

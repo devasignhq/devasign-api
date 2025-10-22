@@ -4,7 +4,7 @@ import { usdcAssetId } from "../config/stellar.config";
 import { stellarService } from "../services/stellar.service";
 import { STATUS_CODES, decrypt, encrypt } from "../helper";
 import { OctokitService } from "../services/octokit.service";
-import { Prisma } from "../generated/client";
+import { Prisma } from "../../prisma_client";
 import {
     AuthorizationError,
     ErrorClass,

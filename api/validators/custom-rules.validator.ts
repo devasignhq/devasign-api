@@ -1,5 +1,5 @@
 import { body, param, query } from "express-validator";
-import { RuleType, RuleSeverity } from "../generated/client";
+import { RuleType, RuleSeverity } from "../../prisma_client";
 
 export const getCustomRulesValidator = [
     param("installationId")

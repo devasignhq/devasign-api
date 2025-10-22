@@ -2,7 +2,7 @@ import { NextFunction, Request, Response } from "express";
 import { prisma } from "../config/database.config";
 import { STATUS_CODES, decrypt } from "../helper";
 import { HorizonApi } from "../models/horizonapi.model";
-import { Prisma, TransactionCategory } from "../generated/client";
+import { Prisma, TransactionCategory } from "../../prisma_client";
 import { usdcAssetId, xlmAssetId } from "../config/stellar.config";
 import { stellarService } from "../services/stellar.service";
 import { AuthorizationError, ErrorClass, NotFoundError, ValidationError } from "../models/error.model";

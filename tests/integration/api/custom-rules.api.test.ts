@@ -5,7 +5,7 @@ import { customRulesRoutes } from "../../../api/routes/custom-rules.route";
 import { errorHandler } from "../../../api/middlewares/error.middleware";
 import { DatabaseTestHelper } from "../../helpers/database-test-helper";
 import { STATUS_CODES } from "../../../api/helper";
-import { RuleType, RuleSeverity } from "../../../api/generated/client";
+import { RuleType, RuleSeverity } from "../../../prisma_client";
 
 // Mock Firebase admin for authentication
 jest.mock("../../../api/config/firebase.config", () => ({

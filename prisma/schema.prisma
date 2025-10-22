@@ -5,10 +5,8 @@ datasource db {
 
 generator client {
     provider = "prisma-client-js"
-    output   = "../api/generated/client"
+    output   = "../prisma_client"
 }
-
-// Enum Definitions
 
 enum TaskStatus {
     OPEN

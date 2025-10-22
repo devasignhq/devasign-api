@@ -1,4 +1,4 @@
-import { TimelineType } from "../generated/client";
+import { TimelineType } from "../../prisma_client";
 import { IssueDto, IssueLabel } from "./github.model";
 
 /**

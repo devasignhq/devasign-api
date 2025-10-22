@@ -1,5 +1,5 @@
 import { execSync } from "child_process";
-import { PrismaClient } from "../../api/generated/client";
+import { PrismaClient } from "../../prisma_client";
 
 /**
  * DatabaseTestHelper provides utilities for managing test databases

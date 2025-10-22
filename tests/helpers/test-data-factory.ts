@@ -17,7 +17,7 @@ import {
     RuleType,
     RuleSeverity,
     ReviewStatus
-} from "../../api/generated/client";
+} from "../../prisma_client";
 
 /**
  * TestDataFactory provides factory methods for creating test data objects

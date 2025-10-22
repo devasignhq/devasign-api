@@ -1,4 +1,4 @@
-import { RuleType, RuleSeverity, AIReviewRule } from "../generated/client";
+import { RuleType, RuleSeverity, AIReviewRule } from "../../prisma_client";
 import { getFieldFromUnknownObject } from "../helper";
 import { PullRequestData } from "../models/ai-review.model";
 import lodash from "lodash";
