@@ -7,7 +7,7 @@ import cors from "cors";
 import morgan from "morgan";
 import { prisma } from "./config/database.config";
 import { validateAdmin, validateUser } from "./middlewares/auth.middleware";
-import { dynamicRoute, localhostOnly } from "./middlewares/routes.middleware";
+import { dynamicRoute, localhostOnly } from "./middlewares/request.middleware";
 import { errorHandler } from "./middlewares/error.middleware";
 import {
     adminRoutes,

@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import crypto from "crypto";
-import { dynamicRoute, localhostOnly } from "../../../api/middlewares/routes.middleware";
+import { dynamicRoute, localhostOnly } from "../../../api/middlewares/request.middleware";
 import { errorHandler } from "../../../api/middlewares/error.middleware";
 import { validateGitHubWebhook, validatePRWebhookEvent } from "../../../api/middlewares/webhook.middleware";
 import {
