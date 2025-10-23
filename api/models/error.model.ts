@@ -1,4 +1,4 @@
-import { STATUS_CODES } from "../helper";
+import { STATUS_CODES } from "../utilities/helper";
 
 /**
  * Base error class for general api errors
@@ -28,10 +28,10 @@ export class ErrorClass {
  * Resource not found error
  */
 export class NotFoundError extends ErrorClass {
-    constructor(message: string) {
+    constructor(message: string, details: unknown = null) {
         super(
             "NOT_FOUND",
-            null,
+            details,
             message,
             STATUS_CODES.NOT_FOUND
         );
@@ -42,10 +42,10 @@ export class NotFoundError extends ErrorClass {
  * Not allowed to perform action or access resource error
  */
 export class AuthorizationError extends ErrorClass {
-    constructor(message: string) {
+    constructor(message: string, details: unknown = null) {
         super(
             "UNAUTHORIZED",
-            null,
+            details,
             message,
             STATUS_CODES.UNAUTHORIZED
         );
@@ -56,10 +56,10 @@ export class AuthorizationError extends ErrorClass {
  * Request validation error
  */
 export class ValidationError extends ErrorClass {
-    constructor(message: string) {
+    constructor(message: string, details: unknown = null) {
         super(
             "VALIDATION_ERROR",
-            null,
+            details,
             message,
             STATUS_CODES.SERVER_ERROR
         );

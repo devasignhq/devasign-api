@@ -4,7 +4,7 @@ import { TestDataFactory } from "../../helpers/test-data-factory";
 import { customRulesRoutes } from "../../../api/routes/custom-rules.route";
 import { errorHandler } from "../../../api/middlewares/error.middleware";
 import { DatabaseTestHelper } from "../../helpers/database-test-helper";
-import { STATUS_CODES } from "../../../api/helper";
+import { STATUS_CODES } from "../../../api/utilities/helper";
 import { RuleType, RuleSeverity } from "../../../prisma_client";
 
 // Mock Firebase admin for authentication
@@ -19,7 +19,7 @@ jest.mock("../../../api/config/firebase.config", () => ({
 // Mock RuleEngineService
 jest.mock("../../../api/services/ai-review/rule-engine.service", () => ({
     RuleEngineService: {
-        validateCustomRule: jest.fn(),
+        validatePRReviewRule: jest.fn(),
         getDefaultRules: jest.fn()
     }
 }));
@@ -32,7 +32,7 @@ describe("Custom Rules API Integration Tests", () => {
     beforeAll(async () => {
         prisma = await DatabaseTestHelper.setupTestDatabase();
 
-        // Setup Express app with custom rules routes
+        // Setup Express app with pr review rules routes
         app = express();
         app.use(express.json());
 
@@ -85,7 +85,7 @@ describe("Custom Rules API Integration Tests", () => {
         jest.clearAllMocks();
 
         // Setup default mock implementations
-        mockRuleEngineService.validateCustomRule.mockReturnValue({
+        mockRuleEngineService.validatePRReviewRule.mockReturnValue({
             isValid: true,
             error: null
         });
@@ -125,7 +125,7 @@ describe("Custom Rules API Integration Tests", () => {
 
     describe("GET /custom-rules/:installationId - Get All Custom Rules", () => {
         beforeEach(async () => {
-            // Create test custom rules
+            // Create test pr review rules
             await prisma.aIReviewRule.createMany({
                 data: [
                     {
@@ -165,7 +165,7 @@ describe("Custom Rules API Integration Tests", () => {
             });
         });
 
-        it("should get all custom rules for installation", async () => {
+        it("should get all pr review rules for installation", async () => {
             const response = await request(app)
                 .get("/custom-rules/test-installation-1")
                 .set("x-test-user-id", "test-user-1")
@@ -305,7 +305,7 @@ describe("Custom Rules API Integration Tests", () => {
             });
         });
 
-        it("should get a specific custom rule", async () => {
+        it("should get a specific pr review rule", async () => {
             const response = await request(app)
                 .get("/custom-rules/test-installation-1/specific-rule-1")
                 .set("x-test-user-id", "test-user-1")
@@ -366,7 +366,7 @@ describe("Custom Rules API Integration Tests", () => {
     });
 
     describe("POST /custom-rules/:installationId - Create Custom Rule", () => {
-        it("should create a new custom rule successfully", async () => {
+        it("should create a new pr review rule successfully", async () => {
             const newRule = {
                 name: "New Test Rule",
                 description: "A new test rule for validation",
@@ -407,7 +407,7 @@ describe("Custom Rules API Integration Tests", () => {
             });
 
             expect(createdRule).toBeTruthy();
-            expect(mockRuleEngineService.validateCustomRule).toHaveBeenCalledWith(
+            expect(mockRuleEngineService.validatePRReviewRule).toHaveBeenCalledWith(
                 expect.objectContaining({
                     name: "New Test Rule",
                     ruleType: RuleType.CODE_QUALITY,
@@ -469,7 +469,7 @@ describe("Custom Rules API Integration Tests", () => {
         });
 
         it("should return error when rule validation fails", async () => {
-            mockRuleEngineService.validateCustomRule.mockReturnValue({
+            mockRuleEngineService.validatePRReviewRule.mockReturnValue({
                 isValid: false,
                 error: "Invalid pattern: regex compilation failed"
             });
@@ -557,7 +557,7 @@ describe("Custom Rules API Integration Tests", () => {
             });
         });
 
-        it("should update custom rule successfully", async () => {
+        it("should update pr review rule successfully", async () => {
             const updates = {
                 name: "Updated Name",
                 description: "Updated description",
@@ -670,7 +670,7 @@ describe("Custom Rules API Integration Tests", () => {
         });
 
         it("should return error when validation fails", async () => {
-            mockRuleEngineService.validateCustomRule.mockReturnValue({
+            mockRuleEngineService.validatePRReviewRule.mockReturnValue({
                 isValid: false,
                 error: "Invalid configuration"
             });
@@ -718,7 +718,7 @@ describe("Custom Rules API Integration Tests", () => {
             });
         });
 
-        it("should delete custom rule successfully", async () => {
+        it("should delete pr review rule successfully", async () => {
             const response = await request(app)
                 .delete("/custom-rules/test-installation-1/delete-rule-1")
                 .set("x-test-user-id", "test-user-1")

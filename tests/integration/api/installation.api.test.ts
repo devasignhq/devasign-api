@@ -4,7 +4,7 @@ import { TestDataFactory } from "../../helpers/test-data-factory";
 import { installationRoutes } from "../../../api/routes/installation.route";
 import { errorHandler } from "../../../api/middlewares/error.middleware";
 import { DatabaseTestHelper } from "../../helpers/database-test-helper";
-import { STATUS_CODES, encrypt } from "../../../api/helper";
+import { STATUS_CODES, encrypt } from "../../../api/utilities/helper";
 
 // Mock Firebase admin for authentication
 jest.mock("../../../api/config/firebase.config", () => ({

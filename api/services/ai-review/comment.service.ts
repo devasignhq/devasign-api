@@ -3,7 +3,7 @@ import { GitHubAPIError } from "../../models/error.model";
 import { ReviewFormatterService } from "./comment-formatter.service";
 import { OctokitService } from "../octokit.service";
 import { prisma } from "../../config/database.config";
-import { getFieldFromUnknownObject } from "../../helper";
+import { getFieldFromUnknownObject } from "../../utilities/helper";
 import { InstallationOctokit } from "../../models/github.model";
 import { dataLogger, messageLogger } from "../../config/logger.config";
 

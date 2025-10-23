@@ -5,7 +5,7 @@ import { webhookRoutes } from "../../../api/routes/webhook.route";
 import { errorHandler } from "../../../api/middlewares/error.middleware";
 import { DatabaseTestHelper } from "../../helpers/database-test-helper";
 import { TestDataFactory } from "../../helpers/test-data-factory";
-import { STATUS_CODES } from "../../../api/helper";
+import { STATUS_CODES } from "../../../api/utilities/helper";
 
 // Mock external services
 jest.mock("../../../api/services/ai-review/workflow-integration.service");

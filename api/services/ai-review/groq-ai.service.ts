@@ -11,7 +11,7 @@ import {
     GroqContextLimitError,
     ErrorUtils
 } from "../../models/error.model";
-import { getFieldFromUnknownObject } from "../../helper";
+import { getFieldFromUnknownObject } from "../../utilities/helper";
 import { dataLogger, messageLogger } from "../../config/logger.config";
 
 /**

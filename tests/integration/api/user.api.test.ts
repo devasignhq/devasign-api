@@ -5,7 +5,7 @@ import { userRoutes } from "../../../api/routes/user.route";
 import { errorHandler } from "../../../api/middlewares/error.middleware";
 import { validateUser } from "../../../api/middlewares/auth.middleware";
 import { DatabaseTestHelper } from "../../helpers/database-test-helper";
-import { STATUS_CODES } from "../../../api/helper";
+import { STATUS_CODES } from "../../../api/utilities/helper";
 import { mockFirebaseAuth } from "../../mocks/firebase.service.mock";
 
 // Mock Firebase admin for authentication

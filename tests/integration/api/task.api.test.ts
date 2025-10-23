@@ -5,7 +5,7 @@ import { taskRoutes } from "../../../api/routes/task.route";
 import { errorHandler } from "../../../api/middlewares/error.middleware";
 import { TaskStatus } from "@prisma/client";
 import { DatabaseTestHelper } from "../../helpers/database-test-helper";
-import { STATUS_CODES, encrypt } from "../../../api/helper";
+import { STATUS_CODES, encrypt } from "../../../api/utilities/helper";
 
 // Mock Firebase admin for authentication
 jest.mock("../../../api/config/firebase.config", () => ({

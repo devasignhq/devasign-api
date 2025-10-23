@@ -5,7 +5,7 @@ import {
     TimeoutError
 } from "../models/error.model";
 import { CircuitBreakerService } from "./circuit-breaker.service";
-import { getFieldFromUnknownObject } from "../helper";
+import { getFieldFromUnknownObject } from "../utilities/helper";
 import { dataLogger } from "../config/logger.config";
 
 /**

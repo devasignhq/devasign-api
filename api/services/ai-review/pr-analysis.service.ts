@@ -10,7 +10,7 @@ import { OctokitService } from "../octokit.service";
 import { GitHubComment, GitHubFile, IssueDto, IssueLabel } from "../../models/github.model";
 import { PullRequestContextAnalyzerService } from "./context-analyzer.service";
 import { GroqAIService } from "./groq-ai.service";
-import { getFieldFromUnknownObject } from "../../helper";
+import { getFieldFromUnknownObject } from "../../utilities/helper";
 import { RuleEngineService } from "./rule-engine.service";
 import { dataLogger, messageLogger } from "../../config/logger.config";
 

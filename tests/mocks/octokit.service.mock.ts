@@ -1,6 +1,6 @@
-import { IssueFilters } from "../../api/models";
 import {
     IssueDto,
+    IssueFilters,
     IssueLabel,
     IssueMilestone,
     RepositoryDto

@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import crypto from "crypto";
 import { GitHubWebhookError } from "../models/error.model";
 import { OctokitService } from "../services/octokit.service";
-import { STATUS_CODES } from "../helper";
+import { STATUS_CODES } from "../utilities/helper";
 import { dataLogger } from "../config/logger.config";
 
 /**

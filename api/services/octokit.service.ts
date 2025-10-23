@@ -1,14 +1,14 @@
 import { App } from "octokit";
-import { IssueFilters } from "../models";
 import {
     GitHubComment,
     InstallationOctokit,
     IssueDto,
+    IssueFilters,
     IssueLabel,
     IssueMilestone,
     RepositoryDto
 } from "../models/github.model";
-import { getFieldFromUnknownObject, moneyFormat } from "../helper";
+import { getFieldFromUnknownObject, moneyFormat } from "../utilities/helper";
 import { GitHubAPIError } from "../models/error.model";
 import { dataLogger, messageLogger } from "../config/logger.config";
 

@@ -13,7 +13,7 @@ jest.mock("../../../api/config/firebase.config", () => {
 });
 
 import { validateUser, validateUserInstallation } from "../../../api/middlewares/auth.middleware";
-import { STATUS_CODES } from "../../../api/helper";
+import { STATUS_CODES } from "../../../api/utilities/helper";
 
 describe("Authentication Middleware", () => {
     let mockRequest: Partial<Request>;

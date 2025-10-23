@@ -1,5 +1,5 @@
 import { RuleType, RuleSeverity, AIReviewRule } from "../../../prisma_client";
-import { getFieldFromUnknownObject } from "../../helper";
+import { getFieldFromUnknownObject } from "../../utilities/helper";
 import { PullRequestData } from "../../models/ai-review.model";
 import lodash from "lodash";
 import { dataLogger } from "../../config/logger.config";
@@ -120,9 +120,9 @@ export class RuleEngineService {
     }
 
     /**
-     * Validate a custom rule configuration
+     * Validate a pr review rule configuration
      */
-    static validateCustomRule(rule: Partial<AIReviewRule>): ValidationResult {
+    static validatePRReviewRule(rule: Partial<AIReviewRule>): ValidationResult {
         try {
             // Required fields validation
             if (!rule.name || rule.name.trim().length === 0) {
@@ -309,9 +309,9 @@ export class RuleEngineService {
             }
         }
 
-        // Evaluate custom rules
+        // Evaluate pr review rules
         for (const rule of customRules.filter(r => r.active)) {
-            const result = await this.evaluateCustomRule(rule, prData);
+            const result = await this.evaluatePRReviewRule(rule, prData);
             if (result.passed) {
                 passed.push({
                     ruleId: rule.id,
@@ -400,9 +400,9 @@ export class RuleEngineService {
     }
 
     /**
-     * Evaluate a custom rule against PR data
+     * Evaluate a pr review rule against PR data
      */
-    private static async evaluateCustomRule(rule: AIReviewRule, prData: PullRequestData): Promise<RuleEvaluationResult> {
+    private static async evaluatePRReviewRule(rule: AIReviewRule, prData: PullRequestData): Promise<RuleEvaluationResult> {
         try {
             // If rule has a pattern, use pattern matching
             if (rule.pattern) {
@@ -422,7 +422,7 @@ export class RuleEngineService {
 
             return await this.evaluateDefaultRule(defaultRule, prData);
         } catch (error) {
-            dataLogger.error(`Error evaluating custom rule ${rule.id}`, { error });
+            dataLogger.error(`Error evaluating pr review rule ${rule.id}`, { error });
             return { passed: true, details: "Custom rule evaluation failed" };
         }
     }

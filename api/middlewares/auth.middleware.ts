@@ -1,6 +1,6 @@
 import { prisma } from "../config/database.config";
 import { firebaseAdmin } from "../config/firebase.config";
-import { STATUS_CODES, getFieldFromUnknownObject } from "../helper";
+import { STATUS_CODES, getFieldFromUnknownObject } from "../utilities/helper";
 import { Request, Response, NextFunction } from "express";
 import { AuthorizationError, ErrorUtils } from "../models/error.model";
 

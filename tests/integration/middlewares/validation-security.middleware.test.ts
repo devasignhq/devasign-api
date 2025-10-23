@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import crypto from "crypto";
-import { dynamicRoute, localhostOnly } from "../../../api/middlewares";
+import { dynamicRoute, localhostOnly } from "../../../api/middlewares/routes.middleware";
 import { errorHandler } from "../../../api/middlewares/error.middleware";
 import { validateGitHubWebhook, validatePRWebhookEvent } from "../../../api/middlewares/webhook.middleware";
 import {
@@ -12,7 +12,7 @@ import {
     NotFoundError,
     ValidationError
 } from "../../../api/models/error.model";
-import { STATUS_CODES } from "../../../api/helper";
+import { STATUS_CODES } from "../../../api/utilities/helper";
 
 jest.mock("../../../api/services/octokit.service", () => ({
     OctokitService: {

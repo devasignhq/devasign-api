@@ -1,5 +1,5 @@
 import { Timestamp } from "firebase-admin/firestore";
-import { MessageType, Message } from "../../api/models";
+import { MessageType, Message } from "../../api/models/task.model";
 
 /**
  * Provides comprehensive mocks for FirebaseService methods

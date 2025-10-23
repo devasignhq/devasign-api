@@ -1,6 +1,6 @@
 import { ErrorClass, ErrorUtils } from "../models/error.model";
 import { Request, Response, ErrorRequestHandler, NextFunction } from "express";
-import { STATUS_CODES, getFieldFromUnknownObject } from "../helper";
+import { STATUS_CODES, getFieldFromUnknownObject } from "../utilities/helper";
 import { dataLogger } from "../config/logger.config";
 
 /**

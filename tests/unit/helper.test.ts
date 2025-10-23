@@ -1,4 +1,4 @@
-import { encrypt, decrypt, moneyFormat, getFieldFromUnknownObject } from "../../api/helper";
+import { encrypt, decrypt, moneyFormat, getFieldFromUnknownObject } from "../../api/utilities/helper";
 
 describe("Helper Functions Unit Tests", () => {
     describe("encrypt and decrypt", () => {
