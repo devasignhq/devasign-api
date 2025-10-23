@@ -151,7 +151,7 @@ export const swapAsset = async (req: Request, res: Response, next: NextFunction)
         installationId,
         toAssetType = "USDC",
         amount,
-        equivalentAmount
+        equivalentAmount // TODO: Remove. Calculate balance before and after swap
     } = req.body;
 
     try {

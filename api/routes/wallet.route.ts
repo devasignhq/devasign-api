@@ -7,32 +7,34 @@ import {
     recordWalletTopups
 } from "../controllers/wallet";
 import {
-    withdrawAssetValidator,
-    swapAssetValidator,
-    walletInstallationIdValidator
-} from "../validators/wallet.validator";
+    withdrawAssetSchema,
+    swapAssetSchema,
+    walletInstallationIdSchema,
+    getTransactionsSchema
+} from "../schemas/wallet.schema";
 import { ENDPOINTS } from "../utilities/data";
+import { validateRequestParameters } from "../middlewares/request.middleware";
 
 export const walletRoutes = Router();
 
 // Get wallet info
 walletRoutes.get(
     ENDPOINTS.WALLET.GET_ACCOUNT, 
-    walletInstallationIdValidator, 
+    validateRequestParameters(walletInstallationIdSchema), 
     getWalletInfo as RequestHandler
 );
 
 // Withdraw asset
 walletRoutes.post(
     ENDPOINTS.WALLET.WITHDRAW, 
-    withdrawAssetValidator, 
+    validateRequestParameters(withdrawAssetSchema), 
     withdrawAsset as RequestHandler
 );
 
 // Swap assets (XLM and USDC)
 walletRoutes.post(
     ENDPOINTS.WALLET.SWAP, 
-    swapAssetValidator, 
+    validateRequestParameters(swapAssetSchema), 
     swapAsset as RequestHandler
 );
 
@@ -42,13 +44,13 @@ walletRoutes.post(
 // Get transactions
 walletRoutes.get(
     ENDPOINTS.WALLET.TRANSACTIONS.GET_ALL, 
-    walletInstallationIdValidator, 
+    validateRequestParameters(getTransactionsSchema), 
     getTransactions as RequestHandler
 );
 
 // Record wallet topups
 walletRoutes.post(
     ENDPOINTS.WALLET.TRANSACTIONS.RECORD_TOPUPS, 
-    walletInstallationIdValidator, 
+    validateRequestParameters(walletInstallationIdSchema), 
     recordWalletTopups as RequestHandler
 );
