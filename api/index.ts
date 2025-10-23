@@ -7,22 +7,22 @@ import cors from "cors";
 import morgan from "morgan";
 import { prisma } from "./config/database.config";
 import { validateAdmin, validateUser } from "./middlewares/auth.middleware";
-import { dynamicRoute, localhostOnly } from "./middlewares";
-import { userRoutes } from "./routes/user.route";
-import { installationRoutes } from "./routes/installation.route";
-import { taskRoutes } from "./routes/task.route";
-import { stellarRoutes } from "./routes/test_routes/stellar.test.route";
-import { testRoutes } from "./routes/test_routes/general.test.route";
-import { walletRoutes } from "./routes/wallet.route";
-import { githubRoutes } from "./routes/github.route";
-import { webhookRoutes } from "./routes/webhook.route";
-import { customRulesRoutes } from "./routes/custom-rules.route";
-import { aiServicesRoutes } from "./routes/test_routes/ai-services.test.route";
+import { dynamicRoute, localhostOnly } from "./middlewares/routes.middleware";
 import { errorHandler } from "./middlewares/error.middleware";
+import {
+    adminRoutes,
+    userRoutes,
+    installationRoutes,
+    taskRoutes,
+    walletRoutes,
+    webhookRoutes,
+    stellarRoutes,
+    testRoutes,
+    aiServicesRoutes
+} from "./routes";
 import { ErrorHandlerService } from "./services/error-handler.service";
 import { dataLogger, messageLogger } from "./config/logger.config";
-import { STATUS_CODES } from "./helper";
-import { adminRoutes } from "./routes/admin.route";
+import { STATUS_CODES } from "./utilities/helper";
 
 const app = express();
 const PORT = process.env.NODE_ENV === "development"
@@ -103,18 +103,6 @@ app.use(
     dynamicRoute,
     validateUser as RequestHandler,
     walletRoutes
-);
-app.use(
-    "/github",
-    dynamicRoute,
-    validateUser as RequestHandler,
-    githubRoutes
-);
-app.use(
-    "/custom-rules",
-    dynamicRoute,
-    validateUser as RequestHandler,
-    customRulesRoutes
 );
 // Webhook routes (no auth required for GitHub webhooks)
 app.use("/webhook", webhookRoutes);

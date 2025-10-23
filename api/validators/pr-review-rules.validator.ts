@@ -1,7 +1,7 @@
 import { body, param, query } from "express-validator";
 import { RuleType, RuleSeverity } from "../../prisma_client";
 
-export const getCustomRulesValidator = [
+export const getPRReviewRulesValidator = [
     param("installationId")
         .exists()
         .withMessage("Installation ID is required")
@@ -21,7 +21,7 @@ export const getCustomRulesValidator = [
         .withMessage(`Severity must be one of: ${Object.values(RuleSeverity).join(", ")}`)
 ];
 
-export const createCustomRuleValidator = [
+export const createPRReviewRuleValidator = [
     param("installationId")
         .exists()
         .withMessage("Installation ID is required")
@@ -84,7 +84,7 @@ export const createCustomRuleValidator = [
         .withMessage("Active must be a boolean")
 ];
 
-export const updateCustomRuleValidator = [
+export const updatePRReviewRuleValidator = [
     param("installationId")
         .exists()
         .withMessage("Installation ID is required")
@@ -146,7 +146,7 @@ export const updateCustomRuleValidator = [
         .withMessage("Active must be a boolean")
 ];
 
-export const deleteCustomRuleValidator = [
+export const deletePRReviewRuleValidator = [
     param("installationId")
         .exists()
         .withMessage("Installation ID is required")
@@ -159,7 +159,7 @@ export const deleteCustomRuleValidator = [
         .withMessage("Rule ID must be a string")
 ];
 
-export const getCustomRuleValidator = [
+export const getPRReviewRuleValidator = [
     param("installationId")
         .exists()
         .withMessage("Installation ID is required")

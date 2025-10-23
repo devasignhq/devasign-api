@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import { STATUS_CODES } from "../helper";
+import { STATUS_CODES } from "../utilities/helper";
 
 /**
  * Middleware to prevent caching on dynamic routes

@@ -10,14 +10,6 @@ export enum MessageType {
 }
 
 /**
- * User's address book
- */
-export type AddressBook = {
-    name: string;
-    address: string;
-}
-
-/**
  * Task issue data structure extending GitHub issue with bounty information
  */
 export type TaskIssue = Omit<IssueDto, "labels"> & {
@@ -47,17 +39,6 @@ export type FilterTasks = {
 }
 
 /**
- * Filter criteria for querying GitHub issues
- */
-export class IssueFilters {
-    title?: string;
-    labels?: string[];
-    milestone?: string | "none" | "*";
-    sort?: "created" | "updated" | "comments" = "created";
-    direction?: "asc" | "desc" = "desc";
-}
-
-/**
  * Additional metadata for timeline modification messages
  */
 export type MessageMetadata = {
@@ -80,3 +61,4 @@ export type Message = {
     createdAt?: string;
     updatedAt?: string;
 }
+
