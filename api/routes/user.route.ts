@@ -6,39 +6,40 @@ import {
     getUser
 } from "../controllers/user";
 import {
-    createUserValidator,
-    getUserValidator,
-    updateAddressBookValidator,
-    updateUsernameValidator
-} from "../validators/user.validator";
+    createUserSchema,
+    getUserSchema,
+    updateAddressBookSchema,
+    updateUsernameSchema
+} from "../schemas/user.schema";
 import { ENDPOINTS } from "../utilities/data";
+import { validateRequestParameters } from "../middlewares/request.middleware";
 
 export const userRoutes = Router();
 
 // Create a new user
 userRoutes.post(
     ENDPOINTS.USER.CREATE,
-    createUserValidator,
+    validateRequestParameters(createUserSchema),
     createUser as RequestHandler
 );
 
 // Get user
 userRoutes.get(
     ENDPOINTS.USER.GET,
-    getUserValidator,
+    validateRequestParameters(getUserSchema),
     getUser as RequestHandler
 );
 
 // Update user username
 userRoutes.patch(
     ENDPOINTS.USER.UPDATE_USERNAME,
-    updateUsernameValidator,
+    validateRequestParameters(updateUsernameSchema),
     updateUsername as RequestHandler
 );
 
 // Update user's address book
 userRoutes.patch(
     ENDPOINTS.USER.UPDATE_ADDRESS_BOOK,
-    updateAddressBookValidator,
+    validateRequestParameters(updateAddressBookSchema),
     updateAddressBook as RequestHandler
 );
