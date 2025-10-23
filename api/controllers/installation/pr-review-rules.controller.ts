@@ -1,14 +1,14 @@
 import { NextFunction, Request, Response } from "express";
-import { prisma } from "../config/database.config";
-import { RuleType, RuleSeverity, Prisma } from "../../prisma_client";
-import { RuleEngineService } from "../services/ai-review/rule-engine.service";
-import { NotFoundError, ValidationError } from "../models/error.model";
-import { STATUS_CODES } from "../helper";
+import { prisma } from "../../config/database.config";
+import { RuleType, RuleSeverity, Prisma } from "../../../prisma_client";
+import { RuleEngineService } from "../../services/ai-review/rule-engine.service";
+import { NotFoundError, ValidationError } from "../../models/error.model";
+import { STATUS_CODES } from "../../utilities/helper";
 
 /** 
- * Get all custom rules for an installation 
+ * Get all pr review rules for an installation 
  */ 
-export const getCustomRules = async (req: Request, res: Response, next: NextFunction) => {
+export const getPRReviewRules = async (req: Request, res: Response, next: NextFunction) => {
     const { installationId } = req.params;
     const { active, ruleType, severity } = req.query;
 
@@ -50,9 +50,9 @@ export const getCustomRules = async (req: Request, res: Response, next: NextFunc
 };
 
 /** 
- * Get a specific custom rule
+ * Get a specific pr review rule
  */ 
-export const getCustomRule = async (req: Request, res: Response, next: NextFunction) => {
+export const getPRReviewRule = async (req: Request, res: Response, next: NextFunction) => {
     const { installationId, ruleId } = req.params;
 
     try {
@@ -79,9 +79,9 @@ export const getCustomRule = async (req: Request, res: Response, next: NextFunct
 };
 
 /** 
- * Create a new custom rule
+ * Create a new pr review rule
  */ 
-export const createCustomRule = async (req: Request, res: Response, next: NextFunction) => {
+export const createPRReviewRule = async (req: Request, res: Response, next: NextFunction) => {
     const { installationId } = req.params;
     const { name, description, ruleType, severity, pattern, config, active = true } = req.body;
 
@@ -99,7 +99,7 @@ export const createCustomRule = async (req: Request, res: Response, next: NextFu
         }
 
         // Validate rule configuration based on type
-        const validationResult = RuleEngineService.validateCustomRule({
+        const validationResult = RuleEngineService.validatePRReviewRule({
             name, description, ruleType, severity, pattern, config, active
         });
         if (!validationResult.isValid) {
@@ -132,9 +132,9 @@ export const createCustomRule = async (req: Request, res: Response, next: NextFu
 };
 
 /** 
- * Update an existing custom rule
+ * Update an existing pr review rule
  */
-export const updateCustomRule = async (req: Request, res: Response, next: NextFunction) => {
+export const updatePRReviewRule = async (req: Request, res: Response, next: NextFunction) => {
     const { installationId, ruleId } = req.params;
     const { name, description, ruleType, severity, pattern, config, active } = req.body;
 
@@ -178,7 +178,7 @@ export const updateCustomRule = async (req: Request, res: Response, next: NextFu
                 active: active !== undefined ? active : existingRule.active
             };
 
-            const validationResult = RuleEngineService.validateCustomRule(finalRule);
+            const validationResult = RuleEngineService.validatePRReviewRule(finalRule);
             if (!validationResult.isValid) {
                 throw new ValidationError(validationResult.error || "");
             }
@@ -212,9 +212,9 @@ export const updateCustomRule = async (req: Request, res: Response, next: NextFu
 };
 
 /** 
- * Delete a custom rule
+ * Delete a pr review rule
  */
-export const deleteCustomRule = async (req: Request, res: Response, next: NextFunction) => {
+export const deletePRReviewRule = async (req: Request, res: Response, next: NextFunction) => {
     const { installationId, ruleId } = req.params;
 
     try {

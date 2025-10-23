@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from "express";
-import { GitHubWebhookPayload, APIResponse } from "../models/ai-review.model";
-import { WorkflowIntegrationService } from "../services/ai-review/workflow-integration.service";
-import { STATUS_CODES } from "../helper";
+import { GitHubWebhookPayload, APIResponse } from "../../models/ai-review.model";
+import { WorkflowIntegrationService } from "../../services/ai-review/workflow-integration.service";
+import { STATUS_CODES } from "../../utilities/helper";
 
 /**
  * Handles GitHub PR webhook events

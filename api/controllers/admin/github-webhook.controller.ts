@@ -1,10 +1,9 @@
 import { Request, Response } from "express";
-import { APIResponse } from "../models/ai-review.model";
-import { JobQueueService } from "../services/ai-review/job-queue.service";
-import { WorkflowIntegrationService } from "../services/ai-review/workflow-integration.service";
-import { STATUS_CODES, getFieldFromUnknownObject } from "../helper";
-import { dataLogger } from "../config/logger.config";
-import { ErrorRecoveryService } from "../services/error-recovery.service";
+import { dataLogger } from "../../config/logger.config";
+import { STATUS_CODES, getFieldFromUnknownObject } from "../../utilities/helper";
+import { APIResponse } from "../../models/ai-review.model";
+import { JobQueueService } from "../../services/ai-review/job-queue.service";
+import { WorkflowIntegrationService } from "../../services/ai-review/workflow-integration.service";
 
 /**
  * Health check endpoint for webhook service
@@ -162,32 +161,6 @@ export const getWorkflowStatus = (req: Request, res: Response) => {
         res.status(STATUS_CODES.UNKNOWN).json({
             success: false,
             error: errorMessage || "Failed to get workflow status",
-            timestamp: new Date().toISOString()
-        });
-    }
-};
-
-/**
- * Recover failed systems
- */
-export const systemRecovery = async (req: Request, res: Response) => {
-    const { type = "complete", context } = req.body;
-
-    try {
-        // Attempt system recovery
-        const recoveryResult = await ErrorRecoveryService.attemptSystemRecovery(type, context);
-
-        // Return recovery result
-        const statusCode = recoveryResult.success ? STATUS_CODES.SUCCESS : STATUS_CODES.UNKNOWN;
-        res.status(statusCode).json({
-            recovery: recoveryResult,
-            timestamp: new Date().toISOString()
-        });
-    } catch (error) {
-        // Handle unexpected errors during recovery
-        res.status(STATUS_CODES.UNKNOWN).json({
-            error: "Recovery attempt failed",
-            details: String(error),
             timestamp: new Date().toISOString()
         });
     }

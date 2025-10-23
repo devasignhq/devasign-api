@@ -1,14 +1,11 @@
 import { Request, Response, NextFunction } from "express";
-import { OctokitService } from "../services/octokit.service";
-import { IssueFilters } from "../models";
-import { PRAnalysisService } from "../services/ai-review/pr-analysis.service";
-import {
-    PullRequestData,
-    APIResponse
-} from "../models/ai-review.model";
-import { PRAnalysisError, GitHubAPIError, ErrorClass } from "../models/error.model";
-import { STATUS_CODES, getFieldFromUnknownObject } from "../helper";
-import { dataLogger, messageLogger } from "../config/logger.config";
+import { OctokitService } from "../../services/octokit.service";
+import { IssueFilters } from "../../models/github.model";
+import { PRAnalysisService } from "../../services/ai-review/pr-analysis.service";
+import { PullRequestData, APIResponse } from "../../models/ai-review.model";
+import { PRAnalysisError, GitHubAPIError, ErrorClass } from "../../models/error.model";
+import { STATUS_CODES, getFieldFromUnknownObject } from "../../utilities/helper";
+import { dataLogger, messageLogger } from "../../config/logger.config";
 
 /**
  * Retrieves repositories accessible by a specific GitHub App installation.

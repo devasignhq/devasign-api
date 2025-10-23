@@ -1,16 +1,15 @@
 import { NextFunction, Request, Response } from "express";
-import { prisma } from "../config/database.config";
+import { prisma } from "../../config/database.config";
 import { InputJsonValue } from "@prisma/client/runtime/library";
-import { stellarService } from "../services/stellar.service";
-import { STATUS_CODES, encrypt } from "../helper";
-import { AddressBook } from "../models";
-import { NotFoundError, ErrorClass } from "../models/error.model";
-import { dataLogger } from "../config/logger.config";
+import { stellarService } from "../../services/stellar.service";
+import { STATUS_CODES, encrypt } from "../../utilities/helper";
+import { NotFoundError, ValidationError } from "../../models/error.model";
+import { dataLogger } from "../../config/logger.config";
 
-class UserError extends ErrorClass {
-    constructor(message: string, details: unknown = null) {
-        super("USER_ERROR", details, message);
-    }
+// User's address book
+export type AddressBook = {
+    name: string;
+    address: string;
 }
 
 /**
@@ -136,7 +135,7 @@ export const createUser = async (req: Request, res: Response, next: NextFunction
         });
 
         if (existingUser) {
-            throw new UserError("User already exists");
+            throw new ValidationError("User already exists");
         }
 
         // Fields to return
@@ -266,7 +265,7 @@ export const updateAddressBook = async (req: Request, res: Response, next: NextF
             entry => entry.address === address
         );
         if (addressExists) {
-            throw new UserError("Address already exists in address book");
+            throw new ValidationError("Address already exists in address book");
         }
 
         const newAddress = { address, name };
