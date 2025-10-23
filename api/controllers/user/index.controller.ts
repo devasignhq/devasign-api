@@ -14,6 +14,92 @@ export type AddressBook = {
 }
 
 /**
+ * Create a new user.
+ */
+export const createUser = async (req: Request, res: Response, next: NextFunction) => {
+    const { userId, githubUsername } = req.body;
+    const { skipWallet } = req.query;
+
+    try {
+        // Check if user already exists
+        const existingUser = await prisma.user.findUnique({
+            where: { userId }
+        });
+
+        if (existingUser) {
+            throw new ValidationError("User already exists");
+        }
+
+        // Fields to return
+        const select = {
+            userId: true,
+            username: true,
+            walletAddress: true,
+            contributionSummary: true,
+            createdAt: true,
+            updatedAt: true
+        };
+
+        // Create user without wallet (for the project maintainer app)
+        if (skipWallet === "true") {
+            const user = await prisma.user.create({
+                data: {
+                    userId,
+                    username: githubUsername,
+                    walletAddress: "",
+                    walletSecret: "",
+                    contributionSummary: {
+                        create: {}
+                    }
+                },
+                select
+            });
+        
+            // Return user
+            return res.status(STATUS_CODES.POST).json(user);
+        }
+    
+        // Create user wallet (for the contributor app)
+        const userWallet = await stellarService.createWallet();
+        const encryptedUserSecret = encrypt(userWallet.secretKey);
+
+        // Create user with wallet
+        const user = await prisma.user.create({
+            data: {
+                userId,
+                username: githubUsername,
+                walletAddress: userWallet.publicKey,
+                walletSecret: encryptedUserSecret,
+                contributionSummary: {
+                    create: {}
+                }
+            },
+            select
+        });
+
+        try {
+            // Add USDC trustline to wallet
+            await stellarService.addTrustLineViaSponsor(
+                process.env.STELLAR_MASTER_SECRET_KEY!,
+                userWallet.secretKey
+            );
+            
+            // Return user
+            res.status(STATUS_CODES.POST).json(user);
+        } catch (error) {
+            // Return user info and notify user USDC trustline addition failed
+            res.status(STATUS_CODES.PARTIAL_SUCCESS).json({ 
+                error, 
+                user, 
+                message: "Failed to add USDC trustline for wallet."
+            });
+        }
+    } catch (error) {
+        next(error);
+    }
+};
+
+/**
  * Get user details.
  */
 export const getUser = async (req: Request, res: Response, next: NextFunction) => {
@@ -123,111 +209,36 @@ export const getUser = async (req: Request, res: Response, next: NextFunction) =
 };
 
 /**
- * Create a new user.
- */
-export const createUser = async (req: Request, res: Response, next: NextFunction) => {
-    const { userId, gitHubUsername } = req.body;
-    const { skipWallet } = req.query;
-
-    try {
-        // Check if user already exists
-        const existingUser = await prisma.user.findUnique({
-            where: { userId }
-        });
-
-        if (existingUser) {
-            throw new ValidationError("User already exists");
-        }
-
-        // Fields to return
-        const select = {
-            userId: true,
-            username: true,
-            walletAddress: true,
-            contributionSummary: true,
-            createdAt: true,
-            updatedAt: true
-        };
-
-        // Create user without wallet (for the project maintainer app)
-        if (skipWallet === "true") {
-            const user = await prisma.user.create({
-                data: {
-                    userId,
-                    username: gitHubUsername,
-                    walletAddress: "",
-                    walletSecret: "",
-                    contributionSummary: {
-                        create: {}
-                    }
-                },
-                select
-            });
-        
-            // Return user
-            return res.status(STATUS_CODES.POST).json(user);
-        }
-    
-        // Create user wallet (for the contributor app)
-        const userWallet = await stellarService.createWallet();
-        const encryptedUserSecret = encrypt(userWallet.secretKey);
-
-        // Create user with wallet
-        const user = await prisma.user.create({
-            data: {
-                userId,
-                username: gitHubUsername,
-                walletAddress: userWallet.publicKey,
-                walletSecret: encryptedUserSecret,
-                contributionSummary: {
-                    create: {}
-                }
-            },
-            select
-        });
-
-        try {
-            // Add USDC trustline to wallet
-            await stellarService.addTrustLineViaSponsor(
-                process.env.STELLAR_MASTER_SECRET_KEY!,
-                userWallet.secretKey
-            );
-            
-            // Return user
-            res.status(STATUS_CODES.POST).json(user);
-        } catch (error) {
-            // Return user info and notify user USDC trustline addition failed
-            res.status(STATUS_CODES.PARTIAL_SUCCESS).json({ 
-                error, 
-                user, 
-                message: "Failed to add USDC trustline for wallet."
-            });
-        }
-    } catch (error) {
-        next(error);
-    }
-};
-
-/**
  * Update user's GitHub username.
  */
 export const updateUsername = async (req: Request, res: Response, next: NextFunction) => {
-    const { userId, githubUsername } = req.body;
+    const { userId, newUsername } = req.body;
 
     try {
         // Check if user exists
         const existingUser = await prisma.user.findUnique({
-            where: { userId }
+            where: { userId },
+            select: { userId }
         });
 
         if (!existingUser) {
             throw new NotFoundError("User not found");
         }
 
+        // Check if username exists
+        const existingUsername = await prisma.user.findUnique({
+            where: { username: newUsername },
+            select: { userId }
+        });
+
+        if (existingUsername) {
+            throw new ValidationError("Username in use");
+        }
+
         // Update username
         const user = await prisma.user.update({
             where: { userId },
-            data: { username: githubUsername },
+            data: { username: newUsername },
             select: {
                 userId: true,
                 username: true,

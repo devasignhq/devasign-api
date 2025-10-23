@@ -102,7 +102,7 @@ describe("User API Integration Tests", () => {
     describe("POST /users - Create User", () => {
         it("should create a new user with wallet successfully", async () => {
             const userData = {
-                gitHubUsername: "testuser123"
+                githubUsername: "testuser123"
             };
 
             const response = await request(app)
@@ -140,7 +140,7 @@ describe("User API Integration Tests", () => {
 
         it("should create a user without wallet when skipWallet=true", async () => {
             const userData = {
-                gitHubUsername: "testuser456"
+                githubUsername: "testuser456"
             };
 
             const response = await request(app)
@@ -177,7 +177,7 @@ describe("User API Integration Tests", () => {
             });
 
             const userData = {
-                gitHubUsername: "testuser789"
+                githubUsername: "testuser789"
             };
 
             await request(app)
@@ -191,7 +191,7 @@ describe("User API Integration Tests", () => {
             mockStellarService.createWallet.mockRejectedValue(new Error("Stellar network error"));
 
             const userData = {
-                gitHubUsername: "testuser999"
+                githubUsername: "testuser999"
             };
 
             await request(app)
@@ -205,7 +205,7 @@ describe("User API Integration Tests", () => {
             mockStellarService.addTrustLineViaSponsor.mockRejectedValue(new Error("Trustline creation failed"));
 
             const userData = {
-                gitHubUsername: "testuser888"
+                githubUsername: "testuser888"
             };
 
             const response = await request(app)
@@ -486,7 +486,7 @@ describe("User API Integration Tests", () => {
 
             await request(appWithoutAuth)
                 .post("/users")
-                .send({ gitHubUsername: "test" })
+                .send({ githubUsername: "test" })
                 .expect(STATUS_CODES.UNAUTHENTICATED);
 
             await request(appWithoutAuth)
@@ -504,7 +504,7 @@ describe("User API Integration Tests", () => {
     describe("Database Persistence and Consistency", () => {
         it("should maintain data consistency across operations", async () => {
             // Create user
-            const userData = { gitHubUsername: "consistencytest" };
+            const userData = { githubUsername: "consistencytest" };
             const createResponse = await request(app)
                 .post("/users")
                 .set("x-test-user-id", "consistency-user")
@@ -561,7 +561,7 @@ describe("User API Integration Tests", () => {
 
         it("should handle concurrent operations safely", async () => {
             // Create user first
-            const userData = { gitHubUsername: "concurrenttest" };
+            const userData = { githubUsername: "concurrenttest" };
             await request(app)
                 .post("/users")
                 .set("x-test-user-id", "concurrent-user")

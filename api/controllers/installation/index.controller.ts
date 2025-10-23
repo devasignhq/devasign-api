@@ -13,6 +13,113 @@ import {
 } from "../../models/error.model";
 
 /**
+ * Create a new installation.
+ */
+export const createInstallation = async (req: Request, res: Response, next: NextFunction) => {
+    const { userId, installationId } = req.body;
+
+    try {
+        // Verify user exists
+        const user = await prisma.user.findUnique({
+            where: { userId },            
+            select: { username: true }
+        });
+
+        if (!user) {
+            throw new NotFoundError("User not found");
+        }
+
+        // Check if installation already exists
+        const existingInstallation = await prisma.installation.findUnique({
+            where: { id: installationId },
+            select: { id: true }
+        });
+
+        if (existingInstallation) {
+            throw new ValidationError("Installation already exists");
+        }
+
+        // Fetch installation details from GitHub
+        const githubInstallation = await OctokitService.getInstallationDetails(
+            installationId,
+            user.username
+        );
+
+        // Create Stellar wallets for installation and escrow
+        const installationWallet = await stellarService.createWallet();
+        const escrowWallet = await stellarService.createWallet();
+        const encryptedInstallationSecret = encrypt(installationWallet.secretKey);
+        const encryptedEscrowSecret = encrypt(escrowWallet.secretKey); 
+        
+        // Create installation
+        const installation = await prisma.installation.create({
+            data: {
+                id: installationId,
+                htmlUrl: githubInstallation.html_url,
+                targetId: githubInstallation.target_id,
+                targetType: githubInstallation.target_type,
+                account: {
+                    login: "login" in githubInstallation.account! 
+                        ? githubInstallation.account!.login
+                        : githubInstallation.account!.name,
+                    nodeId: githubInstallation.account!.node_id,
+                    avatarUrl: githubInstallation.account!.avatar_url,
+                    htmlUrl: githubInstallation.account!.html_url
+                },
+                walletAddress: installationWallet.publicKey,
+                walletSecret: encryptedInstallationSecret,
+                escrowAddress: escrowWallet.publicKey,
+                escrowSecret: encryptedEscrowSecret,
+                users: {
+                    connect: { userId }
+                },
+                subscriptionPackage: {
+                    connect: { id: process.env.DEFAULT_SUBSCRIPTION_PACKAGE_ID! }
+                }
+            },
+            select: {
+                id: true,
+                htmlUrl: true,
+                targetId: true,
+                targetType: true,
+                account: true,
+                walletAddress: true,
+                subscriptionPackage: true,
+                createdAt: true,
+                updatedAt: true
+            }
+        });
+
+        try {
+            const masterAccountSecret = process.env.STELLAR_MASTER_SECRET_KEY!;
+
+            // Add USDC trustline for installation wallet
+            await stellarService.addTrustLineViaSponsor(
+                masterAccountSecret,
+                installationWallet.secretKey
+            );
+            // Add USDC trustline for installation escrow wallet
+            await stellarService.addTrustLineViaSponsor(
+                masterAccountSecret,
+                escrowWallet.secretKey
+            );
+            
+            // Return created installation
+            res.status(STATUS_CODES.POST).json(installation);
+        } catch (error) {
+            // If trustline addition fails, return installation but indicate partial success
+            res.status(STATUS_CODES.PARTIAL_SUCCESS).json({ 
+                error, 
+                installation, 
+                message: "Failed to add USDC trustlines."
+            });
+        }
+    } catch (error) {
+        next(error);
+    }
+};
+
+/**
  * Get all installations accessible by the current user.
  */
 export const getUserInstallations = async (req: Request, res: Response, next: NextFunction) => {
@@ -164,113 +271,6 @@ export const getUserInstallation = async (req: Request, res: Response, next: Nex
             ...installation,
             stats
         });
-    } catch (error) {
-        next(error);
-    }
-};
-
-/**
- * Create a new installation.
- */
-export const createInstallation = async (req: Request, res: Response, next: NextFunction) => {
-    const { userId, installationId } = req.body;
-
-    try {
-        // Verify user exists
-        const user = await prisma.user.findUnique({
-            where: { userId },            
-            select: { username: true }
-        });
-
-        if (!user) {
-            throw new NotFoundError("User not found");
-        }
-
-        // Check if installation already exists
-        const existingInstallation = await prisma.installation.findUnique({
-            where: { id: installationId },
-            select: { id: true }
-        });
-
-        if (existingInstallation) {
-            throw new ValidationError("Installation already exists");
-        }
-
-        // Fetch installation details from GitHub
-        const githubInstallation = await OctokitService.getInstallationDetails(
-            installationId,
-            user.username
-        );
-
-        // Create Stellar wallets for installation and escrow
-        const installationWallet = await stellarService.createWallet();
-        const escrowWallet = await stellarService.createWallet();
-        const encryptedInstallationSecret = encrypt(installationWallet.secretKey);
-        const encryptedEscrowSecret = encrypt(escrowWallet.secretKey); 
-        
-        // Create installation
-        const installation = await prisma.installation.create({
-            data: {
-                id: installationId,
-                htmlUrl: githubInstallation.html_url,
-                targetId: githubInstallation.target_id,
-                targetType: githubInstallation.target_type,
-                account: {
-                    login: "login" in githubInstallation.account! 
-                        ? githubInstallation.account!.login
-                        : githubInstallation.account!.name,
-                    nodeId: githubInstallation.account!.node_id,
-                    avatarUrl: githubInstallation.account!.avatar_url,
-                    htmlUrl: githubInstallation.account!.html_url
-                },
-                walletAddress: installationWallet.publicKey,
-                walletSecret: encryptedInstallationSecret,
-                escrowAddress: escrowWallet.publicKey,
-                escrowSecret: encryptedEscrowSecret,
-                users: {
-                    connect: { userId }
-                },
-                subscriptionPackage: {
-                    connect: { id: process.env.DEFAULT_SUBSCRIPTION_PACKAGE_ID! }
-                }
-            },
-            select: {
-                id: true,
-                htmlUrl: true,
-                targetId: true,
-                targetType: true,
-                account: true,
-                walletAddress: true,
-                subscriptionPackage: true,
-                createdAt: true,
-                updatedAt: true
-            }
-        });
-
-        try {
-            const masterAccountSecret = process.env.STELLAR_MASTER_SECRET_KEY!;
-
-            // Add USDC trustline for installation wallet
-            await stellarService.addTrustLineViaSponsor(
-                masterAccountSecret,
-                installationWallet.secretKey
-            );
-            // Add USDC trustline for installation escrow wallet
-            await stellarService.addTrustLineViaSponsor(
-                masterAccountSecret,
-                escrowWallet.secretKey
-            );
-            
-            // Return created installation
-            res.status(STATUS_CODES.POST).json(installation);
-        } catch (error) {
-            // If trustline addition fails, return installation but indicate partial success
-            res.status(STATUS_CODES.PARTIAL_SUCCESS).json({ 
-                error, 
-                installation, 
-                message: "Failed to add USDC trustlines."
-            });
-        }
     } catch (error) {
         next(error);
     }
