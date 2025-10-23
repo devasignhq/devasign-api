@@ -1,7 +1,7 @@
 import { Router, RequestHandler } from "express";
 import { handlePRWebhook } from "../controllers/webhook";
 import { validateGitHubWebhook, validatePRWebhookEvent } from "../middlewares/webhook.middleware";
-import { ENDPOINTS } from "../utilities/endpoints";
+import { ENDPOINTS } from "../utilities/data";
 
 export const webhookRoutes = Router();
 

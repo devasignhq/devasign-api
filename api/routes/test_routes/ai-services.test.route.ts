@@ -3,7 +3,7 @@ import { body, validationResult } from "express-validator";
 import createError from "http-errors";
 import { GroqAIService } from "../../services/ai-review/groq-ai.service";
 import { dataLogger } from "../../config/logger.config";
-import { STATUS_CODES } from "../../utilities/helper";
+import { STATUS_CODES } from "../../utilities/data";
 import { GitHubPullRequest, GitHubInstallation, APIResponse } from "../../models/ai-review.model";
 import { OctokitService } from "../../services/octokit.service";
 import { WorkflowIntegrationService } from "../../services/ai-review/workflow-integration.service";

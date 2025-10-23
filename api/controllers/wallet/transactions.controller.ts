@@ -1,6 +1,6 @@
 import { NextFunction, Request, Response } from "express";
 import { prisma } from "../../config/database.config";
-import { STATUS_CODES } from "../../utilities/helper";
+import { STATUS_CODES } from "../../utilities/data";
 import { HorizonApi } from "../../models/horizonapi.model";
 import { Prisma, TransactionCategory } from "../../../prisma_client";
 import { stellarService } from "../../services/stellar.service";

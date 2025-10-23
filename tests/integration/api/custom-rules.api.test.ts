@@ -4,7 +4,7 @@ import { TestDataFactory } from "../../helpers/test-data-factory";
 import { customRulesRoutes } from "../../../api/routes/custom-rules.route";
 import { errorHandler } from "../../../api/middlewares/error.middleware";
 import { DatabaseTestHelper } from "../../helpers/database-test-helper";
-import { STATUS_CODES } from "../../../api/utilities/helper";
+import { STATUS_CODES } from "../../../api/utilities/data";
 import { RuleType, RuleSeverity } from "../../../prisma_client";
 
 // Mock Firebase admin for authentication

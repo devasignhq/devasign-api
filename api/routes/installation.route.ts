@@ -44,7 +44,7 @@ import {
     getOrCreateBountyLabelValidator,
     triggerManualPRAnalysisValidator
 } from "../validators/github.validator";
-import { ENDPOINTS } from "../utilities/endpoints";
+import { ENDPOINTS } from "../utilities/data";
 
 export const installationRoutes = Router();
 

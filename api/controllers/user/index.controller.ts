@@ -2,7 +2,8 @@ import { NextFunction, Request, Response } from "express";
 import { prisma } from "../../config/database.config";
 import { InputJsonValue } from "@prisma/client/runtime/library";
 import { stellarService } from "../../services/stellar.service";
-import { STATUS_CODES, encrypt } from "../../utilities/helper";
+import { encrypt } from "../../utilities/helper";
+import { STATUS_CODES } from "../../utilities/data";
 import { NotFoundError, ValidationError } from "../../models/error.model";
 import { dataLogger } from "../../config/logger.config";
 

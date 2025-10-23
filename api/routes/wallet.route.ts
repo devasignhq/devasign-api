@@ -11,7 +11,7 @@ import {
     swapAssetValidator,
     walletInstallationIdValidator
 } from "../validators/wallet.validator";
-import { ENDPOINTS } from "../utilities/endpoints";
+import { ENDPOINTS } from "../utilities/data";
 
 export const walletRoutes = Router();
 

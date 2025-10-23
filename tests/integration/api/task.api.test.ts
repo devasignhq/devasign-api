@@ -3,9 +3,10 @@ import express from "express";
 import { TestDataFactory } from "../../helpers/test-data-factory";
 import { taskRoutes } from "../../../api/routes/task.route";
 import { errorHandler } from "../../../api/middlewares/error.middleware";
-import { TaskStatus } from "@prisma/client";
 import { DatabaseTestHelper } from "../../helpers/database-test-helper";
-import { STATUS_CODES, encrypt } from "../../../api/utilities/helper";
+import { encrypt } from "../../../api/utilities/helper";
+import { STATUS_CODES } from "../../../api/utilities/data";
+import { TaskStatus } from "../../../prisma_client";
 
 // Mock Firebase admin for authentication
 jest.mock("../../../api/config/firebase.config", () => ({

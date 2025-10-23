@@ -11,7 +11,7 @@ import {
     updateAddressBookValidator,
     updateUsernameValidator
 } from "../validators/user.validator";
-import { ENDPOINTS } from "../utilities/endpoints";
+import { ENDPOINTS } from "../utilities/data";
 
 export const userRoutes = Router();
 

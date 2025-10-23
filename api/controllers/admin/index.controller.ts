@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { STATUS_CODES } from "../../utilities/helper";
+import { STATUS_CODES } from "../../utilities/data";
 import { ErrorRecoveryService } from "../../services/error-recovery.service";
 import { prisma } from "../../config/database.config";
 import { dataLogger } from "../../config/logger.config";

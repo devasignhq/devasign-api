@@ -7,7 +7,7 @@ import {
     systemRecovery,
     resetDatabase
 } from "../controllers/admin";
-import { ENDPOINTS } from "../utilities/endpoints";
+import { ENDPOINTS } from "../utilities/data";
 
 export const adminRoutes = Router();
 

@@ -2,7 +2,8 @@ import { NextFunction, Request, Response } from "express";
 import { prisma } from "../../config/database.config";
 import { usdcAssetId } from "../../config/stellar.config";
 import { stellarService } from "../../services/stellar.service";
-import { STATUS_CODES, decrypt, encrypt } from "../../utilities/helper";
+import { decrypt, encrypt } from "../../utilities/helper";
+import { STATUS_CODES } from "../../utilities/data";
 import { OctokitService } from "../../services/octokit.service";
 import { Prisma } from "../../../prisma_client";
 import {

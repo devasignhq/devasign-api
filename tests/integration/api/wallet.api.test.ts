@@ -4,7 +4,8 @@ import { TestDataFactory } from "../../helpers/test-data-factory";
 import { walletRoutes } from "../../../api/routes/wallet.route";
 import { errorHandler } from "../../../api/middlewares/error.middleware";
 import { DatabaseTestHelper } from "../../helpers/database-test-helper";
-import { STATUS_CODES, encrypt } from "../../../api/utilities/helper";
+import { encrypt } from "../../../api/utilities/helper";
+import { STATUS_CODES } from "../../../api/utilities/data";
 import { TransactionCategory } from "../../../prisma_client";
 
 // Mock Firebase admin for authentication

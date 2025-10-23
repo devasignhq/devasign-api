@@ -1,6 +1,6 @@
 import { NextFunction, Request, Response } from "express";
 import { prisma } from "../../config/database.config";
-import { STATUS_CODES } from "../../utilities/helper";
+import { STATUS_CODES } from "../../utilities/data";
 import { FilterTasks } from "../../models/task.model";
 import { Prisma, TaskStatus } from "../../../prisma_client";
 import { NotFoundError } from "../../models/error.model";

@@ -1,6 +1,6 @@
 import { NextFunction, Request, Response } from "express";
 import { prisma } from "../../config/database.config";
-import { STATUS_CODES } from "../../utilities/helper";
+import { STATUS_CODES } from "../../utilities/data";
 import { NotFoundError } from "../../models/error.model";
 
 /**

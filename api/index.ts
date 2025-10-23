@@ -22,7 +22,7 @@ import {
 } from "./routes";
 import { ErrorHandlerService } from "./services/error-handler.service";
 import { dataLogger, messageLogger } from "./config/logger.config";
-import { STATUS_CODES } from "./utilities/helper";
+import { STATUS_CODES } from "./utilities/data";
 
 const app = express();
 const PORT = process.env.NODE_ENV === "development"

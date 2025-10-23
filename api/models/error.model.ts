@@ -1,4 +1,4 @@
-import { STATUS_CODES } from "../utilities/helper";
+import { STATUS_CODES } from "../utilities/data";
 
 /**
  * Base error class for general api errors

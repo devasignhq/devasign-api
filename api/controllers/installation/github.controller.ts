@@ -4,7 +4,8 @@ import { IssueFilters } from "../../models/github.model";
 import { PRAnalysisService } from "../../services/ai-review/pr-analysis.service";
 import { PullRequestData, APIResponse } from "../../models/ai-review.model";
 import { PRAnalysisError, GitHubAPIError, ErrorClass } from "../../models/error.model";
-import { STATUS_CODES, getFieldFromUnknownObject } from "../../utilities/helper";
+import { STATUS_CODES } from "../../utilities/data";
+import { getFieldFromUnknownObject } from "../../utilities/helper";
 import { dataLogger, messageLogger } from "../../config/logger.config";
 
 /**

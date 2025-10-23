@@ -40,7 +40,7 @@ import {
     getInstallationTasksValidator,
     getContributorTasksValidator
 } from "../validators/task.validator";
-import { ENDPOINTS } from "../utilities/endpoints";
+import { ENDPOINTS } from "../utilities/data";
 
 export const taskRoutes = Router(
 

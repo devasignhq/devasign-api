@@ -12,7 +12,7 @@ import {
     NotFoundError,
     ValidationError
 } from "../../../api/models/error.model";
-import { STATUS_CODES } from "../../../api/utilities/helper";
+import { STATUS_CODES } from "../../../api/utilities/data";
 
 jest.mock("../../../api/services/octokit.service", () => ({
     OctokitService: {
