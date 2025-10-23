@@ -5,26 +5,50 @@ import {
     getWalletInfo, 
     getTransactions,
     recordWalletTopups
-} from "../controllers/wallet.controller";
+} from "../controllers/wallet";
 import {
     withdrawAssetValidator,
     swapAssetValidator,
     walletInstallationIdValidator
 } from "../validators/wallet.validator";
+import { ENDPOINTS } from "../utilities/endpoints";
 
 export const walletRoutes = Router();
 
 // Get wallet info
-walletRoutes.get("/account", walletInstallationIdValidator, getWalletInfo as RequestHandler);
+walletRoutes.get(
+    ENDPOINTS.WALLET.GET_ACCOUNT, 
+    walletInstallationIdValidator, 
+    getWalletInfo as RequestHandler
+);
 
 // Withdraw asset
-walletRoutes.post("/withdraw", withdrawAssetValidator, withdrawAsset as RequestHandler);
+walletRoutes.post(
+    ENDPOINTS.WALLET.WITHDRAW, 
+    withdrawAssetValidator, 
+    withdrawAsset as RequestHandler
+);
 
 // Swap assets (XLM and USDC)
-walletRoutes.post("/swap", swapAssetValidator, swapAsset as RequestHandler);
+walletRoutes.post(
+    ENDPOINTS.WALLET.SWAP, 
+    swapAssetValidator, 
+    swapAsset as RequestHandler
+);
+
+// ============================================================================
+// ============================================================================
 
 // Get transactions
-walletRoutes.get("/transactions", walletInstallationIdValidator, getTransactions as RequestHandler);
+walletRoutes.get(
+    ENDPOINTS.WALLET.TRANSACTIONS.GET_ALL, 
+    walletInstallationIdValidator, 
+    getTransactions as RequestHandler
+);
 
 // Record wallet topups
-walletRoutes.post("/transactions/record-topups", walletInstallationIdValidator, recordWalletTopups as RequestHandler);
+walletRoutes.post(
+    ENDPOINTS.WALLET.TRANSACTIONS.RECORD_TOPUPS, 
+    walletInstallationIdValidator, 
+    recordWalletTopups as RequestHandler
+);

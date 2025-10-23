@@ -1,6 +1,6 @@
 import { Router, Request, Response, NextFunction, RequestHandler } from "express";
 import { body } from "express-validator";
-import { encrypt } from "../../helper";
+import { encrypt } from "../../utilities/helper";
 import { prisma } from "../../config/database.config";
 import { xlmAssetId, usdcAssetId } from "../../config/stellar.config";
 import { stellarService } from "../../services/stellar.service";
