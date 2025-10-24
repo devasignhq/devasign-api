@@ -122,8 +122,8 @@ export const createInstallation = async (req: Request, res: Response, next: Next
 /**
  * Get all installations accessible by the current user.
  */
-export const getUserInstallations = async (req: Request, res: Response, next: NextFunction) => {
-    const { page = 1, limit = 10} = req.query;
+export const getInstallations = async (req: Request, res: Response, next: NextFunction) => {
+    const { page = 1, limit = 10, sort } = req.query;
     const { userId } = req.body;
 
     try {
@@ -160,7 +160,7 @@ export const getUserInstallations = async (req: Request, res: Response, next: Ne
                 }
             },
             orderBy: {
-                createdAt: "desc"
+                createdAt: (sort as "asc" | "desc") || "desc"
             },
             skip,
             take: Number(limit)
@@ -185,7 +185,7 @@ export const getUserInstallations = async (req: Request, res: Response, next: Ne
 /**
  * Get details of a specific installation by ID.
  */
-export const getUserInstallation = async (req: Request, res: Response, next: NextFunction) => {
+export const getInstallation = async (req: Request, res: Response, next: NextFunction) => {
     const { installationId } = req.params;
     const { userId } = req.body;
 
