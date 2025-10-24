@@ -1,26 +1,20 @@
 import { Router, Request, Response, NextFunction, RequestHandler } from "express";
-import { body, query, validationResult } from "express-validator";
 import createError from "http-errors";
 import { encrypt, decrypt } from "../../utilities/helper";
+import { validateRequestParameters } from "../../middlewares/request.middleware";
+import {
+    createTestUserSchema,
+    encryptionSchema,
+    decryptionSchema
+} from "./test.schema";
 
 const router = Router();
 
 // Create test user
 router.post(
     "/users/:id",
-    [
-        query("id").notEmpty().withMessage("ID must be present"),
-        body("email").isEmail().withMessage("Email must be valid"),
-        body("password")
-            .isLength({ min: 6 })
-            .withMessage("Password must be at least 6 characters long"),
-        body("name").notEmpty().withMessage("Name is required")
-    ],
+    validateRequestParameters(createTestUserSchema),
     (async (req: Request, res: Response, next: NextFunction) => {
-        const errors = validationResult(req);
-        if (!errors.isEmpty()) {
-            return res.status(400).json({ errors: errors.array() });
-        }
 
         const { email, name } = req.body;
 
@@ -34,15 +28,9 @@ router.post(
 
 // Encrypt a text
 router.post("/encryption",
-    [
-        body("text").notEmpty().withMessage("Text to encrypt is required")
-    ],
+    validateRequestParameters(encryptionSchema),
     (async (req: Request, res: Response, next: NextFunction) => {
         try {
-            const errors = validationResult(req);
-            if (!errors.isEmpty()) {
-                return res.status(400).json({ errors: errors.array() });
-            }
 
             const { text } = req.body;
 
@@ -69,15 +57,9 @@ router.post("/encryption",
 
 // Decrypt a text
 router.post("/decryption",
-    [
-        body("text").notEmpty().withMessage("Text to decrypt is required")
-    ],
+    validateRequestParameters(decryptionSchema),
     (async (req: Request, res: Response, next: NextFunction) => {
         try {
-            const errors = validationResult(req);
-            if (!errors.isEmpty()) {
-                return res.status(400).json({ errors: errors.array() });
-            }
 
             const { text } = req.body;
 
