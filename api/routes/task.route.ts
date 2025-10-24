@@ -24,23 +24,28 @@ import {
     markActivityAsViewed
 } from "../controllers/task";
 import {
-    getTasksValidator,
-    createTaskValidator,
-    updateTaskBountyValidator,
-    requestTimelineExtensionValidator,
-    markAsCompleteValidator,
-    validateCompletionValidator,
-    deleteTaskValidator,
-    acceptTaskApplicationValidator,
-    replyTimelineModificationValidator,
-    submitTaskApplicationValidator,
-    getTaskActivitiesValidator,
-    updateTaskTimelineValidator,
-    addBountyCommentIdValidator,
-    getInstallationTasksValidator,
-    getContributorTasksValidator
-} from "../validators/task.validator";
+    getTasksSchema,
+    getTaskSchema,
+    createTaskSchema,
+    updateTaskBountySchema,
+    requestTimelineExtensionSchema,
+    markAsCompleteSchema,
+    validateCompletionSchema,
+    deleteTaskSchema,
+    acceptTaskApplicationSchema,
+    replyTimelineModificationSchema,
+    submitTaskApplicationSchema,
+    getTaskActivitiesSchema,
+    updateTaskTimelineSchema,
+    addBountyCommentIdSchema,
+    getInstallationTasksSchema,
+    getInstallationTaskSchema,
+    getContributorTasksSchema,
+    getContributorTaskSchema,
+    markActivityAsViewedSchema
+} from "../schemas/task.schema";
 import { ENDPOINTS } from "../utilities/data";
+import { validateRequestParameters } from "../middlewares/request.middleware";
 
 export const taskRoutes = Router(
 
@@ -49,27 +54,28 @@ export const taskRoutes = Router(
 // Get all tasks
 taskRoutes.get(
     ENDPOINTS.TASK.GET_ALL,
-    getTasksValidator,
+    validateRequestParameters(getTasksSchema),
     getTasks as RequestHandler
 );
 
 // Get a specific task
 taskRoutes.get(
     ENDPOINTS.TASK.GET_BY_ID,
+    validateRequestParameters(getTaskSchema),
     getTask as RequestHandler
 );
 
 // Create a new task
 taskRoutes.post(
     ENDPOINTS.TASK.CREATE,
-    createTaskValidator,
+    validateRequestParameters(createTaskSchema),
     createTask as RequestHandler
 );
 
 // Delete a task
 taskRoutes.delete(
     ENDPOINTS.TASK.DELETE,
-    deleteTaskValidator,
+    validateRequestParameters(deleteTaskSchema),
     deleteTask as RequestHandler
 );
 
@@ -79,13 +85,14 @@ taskRoutes.delete(
 // Get all tasks for an installation
 taskRoutes.get(
     ENDPOINTS.TASK.INSTALLATION.GET_TASKS,
-    getInstallationTasksValidator,
+    validateRequestParameters(getInstallationTasksSchema),
     getInstallationTasks as RequestHandler
 );
 
 // Get a specific task for an installation
 taskRoutes.get(
     ENDPOINTS.TASK.INSTALLATION.GET_TASK,
+    validateRequestParameters(getInstallationTaskSchema),
     getInstallationTask as RequestHandler
 );
 
@@ -95,30 +102,15 @@ taskRoutes.get(
 // Get all tasks for a contributor
 taskRoutes.get(
     ENDPOINTS.TASK.CONTRIBUTOR.GET_TASKS,
-    getContributorTasksValidator,
+    validateRequestParameters(getContributorTasksSchema),
     getContributorTasks as RequestHandler
 );
 
 // Get a specific task for a contributor
 taskRoutes.get(
     ENDPOINTS.TASK.CONTRIBUTOR.GET_TASK,
+    validateRequestParameters(getContributorTaskSchema),
     getContributorTask as RequestHandler
-);
-
-// ============================================================================
-// ============================================================================
-
-// Get all activities for a task
-taskRoutes.get(
-    ENDPOINTS.TASK.ACTIVITIES.GET_ALL,
-    getTaskActivitiesValidator,
-    getTaskActivities as RequestHandler
-);
-
-// Mark a task activity as viewed
-taskRoutes.patch(
-    ENDPOINTS.TASK.ACTIVITIES.MARK_VIEWED,
-    markActivityAsViewed as RequestHandler
 );
 
 // ============================================================================
@@ -127,62 +119,79 @@ taskRoutes.patch(
 // Add a bounty comment ID to a task
 taskRoutes.patch(
     ENDPOINTS.TASK["{TASKID}"].ADD_BOUNTY_COMMENT,
-    addBountyCommentIdValidator,
+    validateRequestParameters(addBountyCommentIdSchema),
     addBountyCommentId as RequestHandler
 );
 
 // Update task bounty
 taskRoutes.patch(
     ENDPOINTS.TASK["{TASKID}"].UPDATE_BOUNTY,
-    updateTaskBountyValidator,
+    validateRequestParameters(updateTaskBountySchema),
     updateTaskBounty as RequestHandler
 );
 
 // Update task timeline
 taskRoutes.patch(
     ENDPOINTS.TASK["{TASKID}"].UPDATE_TIMELINE,
-    updateTaskTimelineValidator,
+    validateRequestParameters(updateTaskTimelineSchema),
     updateTaskTimeline as RequestHandler
 );
 
 // Submit a task application
 taskRoutes.post(
     ENDPOINTS.TASK["{TASKID}"].APPLY,
-    submitTaskApplicationValidator,
+    validateRequestParameters(submitTaskApplicationSchema),
     submitTaskApplication as RequestHandler
 );
 
 // Accept a task application
 taskRoutes.post(
     ENDPOINTS.TASK["{TASKID}"].ACCEPT_APPLICATION,
-    acceptTaskApplicationValidator,
+    validateRequestParameters(acceptTaskApplicationSchema),
     acceptTaskApplication as RequestHandler
 );
 
 // Mark a task as complete
 taskRoutes.post(
     ENDPOINTS.TASK["{TASKID}"].MARK_COMPLETE,
-    markAsCompleteValidator,
+    validateRequestParameters(markAsCompleteSchema),
     markAsComplete as RequestHandler
 );
 
 // Validate task completion
 taskRoutes.post(
     ENDPOINTS.TASK["{TASKID}"].VALIDATE_COMPLETION,
-    validateCompletionValidator,
+    validateRequestParameters(validateCompletionSchema),
     validateCompletion as RequestHandler
 );
 
 // Request a timeline extension
 taskRoutes.post(
     ENDPOINTS.TASK["{TASKID}"].REQUEST_TIMELINE_EXTENSION,
-    requestTimelineExtensionValidator,
+    validateRequestParameters(requestTimelineExtensionSchema),
     requestTimelineExtension as RequestHandler
 );
 
 // Reply to a timeline extension request
 taskRoutes.post(
     ENDPOINTS.TASK["{TASKID}"].REPLY_TIMELINE_EXTENSION,
-    replyTimelineModificationValidator,
+    validateRequestParameters(replyTimelineModificationSchema),
     replyTimelineExtensionRequest as RequestHandler
+);
+
+// ============================================================================
+// ============================================================================
+
+// Get all activities for a task
+taskRoutes.get(
+    ENDPOINTS.TASK.ACTIVITIES.GET_ALL,
+    validateRequestParameters(getTaskActivitiesSchema),
+    getTaskActivities as RequestHandler
+);
+
+// Mark a task activity as viewed
+taskRoutes.patch(
+    ENDPOINTS.TASK.ACTIVITIES.MARK_VIEWED,
+    validateRequestParameters(markActivityAsViewedSchema),
+    markActivityAsViewed as RequestHandler
 );
