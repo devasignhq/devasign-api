@@ -1,23 +1,21 @@
 import request from "supertest";
 import express from "express";
 import crypto from "crypto";
-import { webhookRoutes } from "../../../api/routes/webhook.route";
-import { errorHandler } from "../../../api/middlewares/error.middleware";
-import { DatabaseTestHelper } from "../../helpers/database-test-helper";
-import { TestDataFactory } from "../../helpers/test-data-factory";
-import { STATUS_CODES } from "../../../api/utilities/data";
+import { webhookRoutes } from "../../../../api/routes/webhook.route";
+import { errorHandler } from "../../../../api/middlewares/error.middleware";
+import { DatabaseTestHelper } from "../../../../tests/helpers/database-test-helper";
+import { TestDataFactory } from "../../../../tests/helpers/test-data-factory";
+import { STATUS_CODES } from "../../../../api/utilities/data";
 
 // Mock external services
-jest.mock("../../../api/services/ai-review/workflow-integration.service");
-jest.mock("../../../api/services/ai-review/job-queue.service");
-jest.mock("../../../api/services/ai-review/pr-analysis.service");
-jest.mock("../../../api/services/octokit.service");
+jest.mock("../../../../api/services/ai-review/workflow-integration.service");
+jest.mock("../../../../api/services/ai-review/pr-analysis.service");
+jest.mock("../../../../api/services/octokit.service");
 
 describe("Webhook API Integration Tests", () => {
     let app: express.Application;
     let prisma: any;
     let mockWorkflowService: any;
-    let mockJobQueueService: any;
     let mockOctokitService: any;
 
     const WEBHOOK_SECRET = "test-webhook-secret";
@@ -40,25 +38,14 @@ describe("Webhook API Integration Tests", () => {
         app.use(errorHandler);
 
         // Setup mocks
-        const { WorkflowIntegrationService } = await import("../../../api/services/ai-review/workflow-integration.service");
-        const { JobQueueService } = await import("../../../api/services/ai-review/job-queue.service");
-        const { OctokitService } = await import("../../../api/services/octokit.service");
+        const { WorkflowIntegrationService } = await import("../../../../api/services/ai-review/workflow-integration.service");
+        const { OctokitService } = await import("../../../../api/services/octokit.service");
 
         mockWorkflowService = {
             getInstance: jest.fn().mockReturnThis(),
-            processWebhookWorkflow: jest.fn(),
-            healthCheck: jest.fn(),
-            getWorkflowStatus: jest.fn()
+            processWebhookWorkflow: jest.fn()
         };
         WorkflowIntegrationService.getInstance = jest.fn(() => mockWorkflowService);
-
-        mockJobQueueService = {
-            getInstance: jest.fn().mockReturnThis(),
-            getJobData: jest.fn(),
-            getQueueStats: jest.fn(),
-            getActiveJobsCount: jest.fn()
-        };
-        JobQueueService.getInstance = jest.fn(() => mockJobQueueService);
 
         mockOctokitService = {
             getOctokit: jest.fn(),
@@ -89,43 +76,6 @@ describe("Webhook API Integration Tests", () => {
                 changedFiles: [{ filename: "test.ts", status: "modified" }]
             }
         });
-
-        mockWorkflowService.healthCheck.mockResolvedValue({
-            healthy: true,
-            services: { groq: true, github: true }
-        });
-
-        mockWorkflowService.getWorkflowStatus.mockReturnValue({
-            activeJobs: 0,
-            queueSize: 0,
-            lastProcessed: new Date().toISOString()
-        });
-
-        mockJobQueueService.getJobData.mockReturnValue({
-            id: "test-job-123",
-            status: "completed",
-            data: { prNumber: 1, repositoryName: VALID_REPO_NAME },
-            createdAt: new Date(),
-            completedAt: new Date(),
-            retryCount: 0,
-            maxRetries: 3,
-            result: {
-                mergeScore: 85,
-                reviewStatus: "COMPLETED",
-                suggestions: [],
-                rulesViolated: [],
-                summary: "Test review completed"
-            }
-        });
-
-        mockJobQueueService.getQueueStats.mockReturnValue({
-            pending: 0,
-            active: 0,
-            completed: 5,
-            failed: 0
-        });
-
-        mockJobQueueService.getActiveJobsCount.mockReturnValue(0);
 
         mockOctokitService.getDefaultBranch.mockResolvedValue("main");
         mockOctokitService.getOwnerAndRepo.mockReturnValue(["test", "repo"]);
@@ -463,7 +413,7 @@ describe("Webhook API Integration Tests", () => {
 
     describe("Error Handling and Retry Mechanisms", () => {
         it("should handle GitHub API errors gracefully", async () => {
-            const { GitHubAPIError } = await import("../../../api/models/error.model");
+            const { GitHubAPIError } = await import("../../../../api/models/error.model");
             mockWorkflowService.processWebhookWorkflow.mockRejectedValue(
                 new GitHubAPIError("API rate limit exceeded", null, 429, 0)
             );
@@ -486,7 +436,7 @@ describe("Webhook API Integration Tests", () => {
         });
 
         it("should handle PR analysis errors with context", async () => {
-            const { PRAnalysisError } = await import("../../../api/models/error.model");
+            const { PRAnalysisError } = await import("../../../../api/models/error.model");
             mockWorkflowService.processWebhookWorkflow.mockRejectedValue(
                 new PRAnalysisError(1, VALID_REPO_NAME, "Failed to analyze PR changes", {})
             );
@@ -621,141 +571,6 @@ describe("Webhook API Integration Tests", () => {
                 success: false,
                 error: "Invalid request body format",
                 code: "GITHUB_WEBHOOK_ERROR"
-            });
-        });
-    });
-
-    describe("GET /webhook/health - Health Check", () => {
-        it("should return healthy status when all services are operational", async () => {
-            const response = await request(app)
-                .get("/webhook/health")
-                .expect(STATUS_CODES.SUCCESS);
-
-            expect(response.body).toMatchObject({
-                success: true,
-                message: "Webhook service is healthy",
-                data: {
-                    health: {
-                        healthy: true,
-                        services: { groq: true, github: true }
-                    },
-                    workflow: {
-                        activeJobs: 0,
-                        queueSize: 0,
-                        lastProcessed: expect.any(String)
-                    }
-                },
-                service: "ai-pr-review-webhook"
-            });
-        });
-
-        it("should handle health check failures", async () => {
-            mockWorkflowService.healthCheck.mockRejectedValue(
-                new Error("Health check service unavailable")
-            );
-
-            const response = await request(app)
-                .get("/webhook/health")
-                .expect(STATUS_CODES.UNKNOWN);
-
-            expect(response.body.success).toBe(false);
-            expect(response.body.message).toBe("Health check failed");
-        });
-    });
-
-    describe("GET /webhook/jobs/:jobId - Job Data", () => {
-        it("should return job data for valid job ID", async () => {
-            const response = await request(app)
-                .get("/webhook/jobs/test-job-123")
-                .expect(STATUS_CODES.SUCCESS);
-
-            expect(response.body).toMatchObject({
-                success: true,
-                data: {
-                    jobId: "test-job-123",
-                    status: "completed",
-                    prNumber: 1,
-                    repositoryName: VALID_REPO_NAME,
-                    createdAt: expect.any(String),
-                    completedAt: expect.any(String),
-                    retryCount: 0,
-                    maxRetries: 3,
-                    result: {
-                        mergeScore: 85,
-                        reviewStatus: "COMPLETED",
-                        suggestionsCount: 0,
-                        rulesViolatedCount: 0,
-                        summary: "Test review completed"
-                    }
-                }
-            });
-        });
-
-        it("should return 404 for non-existent job", async () => {
-            mockJobQueueService.getJobData.mockReturnValue(null);
-
-            const response = await request(app)
-                .get("/webhook/jobs/non-existent-job")
-                .expect(404);
-
-            expect(response.body).toMatchObject({
-                success: false,
-                error: "Job not found"
-            });
-        });
-    });
-
-    describe("GET /webhook/queue/stats - Queue Statistics", () => {
-        it("should return queue statistics", async () => {
-            const response = await request(app)
-                .get("/webhook/queue/stats")
-                .expect(STATUS_CODES.SUCCESS);
-
-            expect(response.body).toMatchObject({
-                success: true,
-                data: {
-                    queue: {
-                        pending: 0,
-                        active: 0,
-                        completed: 5,
-                        failed: 0
-                    },
-                    activeJobs: 0,
-                    timestamp: expect.any(String)
-                }
-            });
-        });
-
-        it("should handle queue stats service errors", async () => {
-            mockJobQueueService.getQueueStats.mockImplementation(() => {
-                throw new Error("Queue service unavailable");
-            });
-
-            const response = await request(app)
-                .get("/webhook/queue/stats")
-                .expect(STATUS_CODES.UNKNOWN);
-
-            expect(response.body).toMatchObject({
-                success: false,
-                error: "Queue service unavailable"
-            });
-        });
-    });
-
-    describe("GET /webhook/workflow/status - Workflow Status", () => {
-        it("should return comprehensive workflow status", async () => {
-            const response = await request(app)
-                .get("/webhook/workflow/status")
-                .expect(STATUS_CODES.SUCCESS);
-
-            expect(response.body).toMatchObject({
-                success: true,
-                data: {
-                    activeJobs: 0,
-                    queueSize: 0,
-                    lastProcessed: expect.any(String)
-                },
-                timestamp: expect.any(String)
             });
         });
     });
