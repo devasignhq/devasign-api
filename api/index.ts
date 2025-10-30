@@ -22,7 +22,7 @@ import {
 } from "./routes";
 import { ErrorHandlerService } from "./services/error-handler.service";
 import { dataLogger, messageLogger } from "./config/logger.config";
-import { STATUS_CODES } from "./utilities/data";
+import { ENDPOINTS, STATUS_CODES } from "./utilities/data";
 
 const app = express();
 const PORT = process.env.NODE_ENV === "development"
@@ -32,7 +32,7 @@ const PORT = process.env.NODE_ENV === "development"
 app.use(helmet());
 app.use(
     cors({
-        origin (origin, callback) {
+        origin(origin, callback) {
             // Allow requests with no origin (like mobile apps or curl requests)
             if (!origin) return callback(null, true);
 
@@ -54,7 +54,10 @@ app.use(
 app.use(morgan("dev"));
 
 // Raw body parser for webhook signature validation
-app.use("/webhook/github/pr-review", express.raw({ type: "application/json" }));
+app.use(
+    ENDPOINTS.WEBHOOK.PREFIX + ENDPOINTS.WEBHOOK.PR_REVIEW, 
+    express.raw({ type: "application/json" })
+);
 
 // JSON parser for all other routes
 app.use(express.json());
@@ -66,14 +69,14 @@ app.get("/get-packages", validateUser as RequestHandler, async (_, res) => {
         res.status(STATUS_CODES.SUCCESS).json(packages);
     } catch (error) {
         dataLogger.error("Failed to fetch subscription packages", { error });
-        res.status(STATUS_CODES.SERVER_ERROR).json({ 
-            message: "Failed to fetch subscription packages" 
+        res.status(STATUS_CODES.SERVER_ERROR).json({
+            message: "Failed to fetch subscription packages"
         });
     }
 });
 
 app.use(
-    "/admin", 
+    ENDPOINTS.ADMIN.PREFIX,
     dynamicRoute,
     validateUser as RequestHandler,
     validateAdmin as RequestHandler,
@@ -81,31 +84,31 @@ app.use(
 );
 
 app.use(
-    "/users",
+    ENDPOINTS.USER.PREFIX,
     dynamicRoute,
     validateUser as RequestHandler,
     userRoutes
 );
 app.use(
-    "/installations",
+    ENDPOINTS.INSTALLATION.PREFIX,
     dynamicRoute,
     validateUser as RequestHandler,
     installationRoutes
 );
 app.use(
-    "/tasks",
+    ENDPOINTS.TASK.PREFIX,
     dynamicRoute,
     validateUser as RequestHandler,
     taskRoutes
 );
 app.use(
-    "/wallet",
+    ENDPOINTS.WALLET.PREFIX,
     dynamicRoute,
     validateUser as RequestHandler,
     walletRoutes
 );
 // Webhook routes (no auth required for GitHub webhooks)
-app.use("/webhook", webhookRoutes);
+app.use(ENDPOINTS.WEBHOOK.PREFIX, webhookRoutes);
 
 // Local host routes for testing purposes
 app.use("/stellar", dynamicRoute, localhostOnly, stellarRoutes);
