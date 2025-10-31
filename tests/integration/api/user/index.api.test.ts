@@ -1,15 +1,16 @@
 import request from "supertest";
 import express, { RequestHandler } from "express";
-import { TestDataFactory } from "../../helpers/test-data-factory";
-import { userRoutes } from "../../../api/routes/user.route";
-import { errorHandler } from "../../../api/middlewares/error.middleware";
-import { validateUser } from "../../../api/middlewares/auth.middleware";
-import { DatabaseTestHelper } from "../../helpers/database-test-helper";
-import { STATUS_CODES } from "../../../api/utilities/data";
-import { mockFirebaseAuth } from "../../mocks/firebase.service.mock";
+import { TestDataFactory } from "../../../helpers/test-data-factory";
+import { userRoutes } from "../../../../api/routes/user.route";
+import { errorHandler } from "../../../../api/middlewares/error.middleware";
+import { validateUser } from "../../../../api/middlewares/auth.middleware";
+import { DatabaseTestHelper } from "../../../helpers/database-test-helper";
+import { ENDPOINTS, STATUS_CODES } from "../../../../api/utilities/data";
+import { mockFirebaseAuth } from "../../../mocks/firebase.service.mock";
+import { getEndpointWithPrefix } from "../../../helpers/test-utils";
 
 // Mock Firebase admin for authentication
-jest.mock("../../../api/config/firebase.config", () => {
+jest.mock("../../../../api/config/firebase.config", () => {
     return {
         firebaseAdmin: {
             auth: () => (mockFirebaseAuth)
@@ -18,7 +19,7 @@ jest.mock("../../../api/config/firebase.config", () => {
 });
 
 // Mock Stellar service for wallet operations
-jest.mock("../../../api/services/stellar.service", () => ({
+jest.mock("../../../../api/services/stellar.service", () => ({
     stellarService: {
         createWallet: jest.fn(),
         addTrustLineViaSponsor: jest.fn()
@@ -39,7 +40,7 @@ describe("User API Integration Tests", () => {
         app.use(express.json());
 
         // Mock authentication middleware for testing
-        app.use("/users", (req, res, next) => {
+        app.use(ENDPOINTS.USER.PREFIX, (req, res, next) => {
             // Add mock user data to request for authenticated endpoints
             req.body = {
                 ...req.body,
@@ -52,14 +53,14 @@ describe("User API Integration Tests", () => {
             next();
         });
 
-        app.use("/users", userRoutes);
+        app.use(ENDPOINTS.USER.PREFIX, userRoutes);
         app.use(errorHandler);
 
         // Setup mocks
-        const { firebaseAdmin } = await import("../../../api/config/firebase.config");
+        const { firebaseAdmin } = await import("../../../../api/config/firebase.config");
         mockFirebaseAuth = firebaseAdmin.auth().verifyIdToken as jest.Mock;
 
-        const { stellarService } = await import("../../../api/services/stellar.service");
+        const { stellarService } = await import("../../../../api/services/stellar.service");
         mockStellarService = stellarService;
     });
 
@@ -99,14 +100,14 @@ describe("User API Integration Tests", () => {
         }
     });
 
-    describe("POST /users - Create User", () => {
+    describe(`POST ${getEndpointWithPrefix(["USER", "CREATE"])} - Create User`, () => {
         it("should create a new user with wallet successfully", async () => {
             const userData = {
                 githubUsername: "testuser123"
             };
 
             const response = await request(app)
-                .post("/users")
+                .post(getEndpointWithPrefix(["USER", "CREATE"]))
                 .set("x-test-user-id", "new-user-123")
                 .send(userData)
                 .expect(STATUS_CODES.POST);
@@ -181,7 +182,7 @@ describe("User API Integration Tests", () => {
             };
 
             await request(app)
-                .post("/users")
+                .post(getEndpointWithPrefix(["USER", "CREATE"]))
                 .set("x-test-user-id", "existing-user")
                 .send(userData)
                 .expect(STATUS_CODES.SERVER_ERROR);
@@ -195,7 +196,7 @@ describe("User API Integration Tests", () => {
             };
 
             await request(app)
-                .post("/users")
+                .post(getEndpointWithPrefix(["USER", "CREATE"]))
                 .set("x-test-user-id", "new-user-999")
                 .send(userData)
                 .expect(500);
@@ -209,7 +210,7 @@ describe("User API Integration Tests", () => {
             };
 
             const response = await request(app)
-                .post("/users")
+                .post(getEndpointWithPrefix(["USER", "CREATE"]))
                 .set("x-test-user-id", "new-user-888")
                 .send(userData)
                 .expect(202);
@@ -231,7 +232,7 @@ describe("User API Integration Tests", () => {
         });
     });
 
-    describe("GET /users - Get User", () => {
+    describe(`GET ${getEndpointWithPrefix(["USER", "GET"])} - Get User`, () => {
         let testUser: any;
 
         beforeEach(async () => {
@@ -253,7 +254,7 @@ describe("User API Integration Tests", () => {
 
         it("should get user with basic view by default", async () => {
             const response = await request(app)
-                .get("/users")
+                .get(getEndpointWithPrefix(["USER", "GET"]))
                 .set("x-test-user-id", "test-get-user")
                 .expect(200);
 
@@ -322,13 +323,13 @@ describe("User API Integration Tests", () => {
 
         it("should return 404 when user does not exist", async () => {
             await request(app)
-                .get("/users")
+                .get(getEndpointWithPrefix(["USER", "GET"]))
                 .set("x-test-user-id", "non-existent-user")
                 .expect(STATUS_CODES.NOT_FOUND);
         });
     });
 
-    describe("PATCH /users/username - Update Username", () => {
+    describe(`PATCH ${getEndpointWithPrefix(["USER", "UPDATE_USERNAME"])} - Update Username`, () => {
         let testUser: any;
 
         beforeEach(async () => {
@@ -343,11 +344,11 @@ describe("User API Integration Tests", () => {
 
         it("should update username successfully", async () => {
             const updateData = {
-                githubUsername: "newusername123"
+                newUsername: "newusername123"
             };
 
             const response = await request(app)
-                .patch("/users/username")
+                .patch(getEndpointWithPrefix(["USER", "UPDATE_USERNAME"]))
                 .set("x-test-user-id", "test-update-user")
                 .send(updateData)
                 .expect(200);
@@ -367,25 +368,25 @@ describe("User API Integration Tests", () => {
 
         it("should return 404 when user does not exist", async () => {
             const updateData = {
-                githubUsername: "newusername456"
+                newUsername: "newusername456"
             };
 
             await request(app)
-                .patch("/users/username")
+                .patch(getEndpointWithPrefix(["USER", "UPDATE_USERNAME"]))
                 .set("x-test-user-id", "non-existent-user")
                 .send(updateData)
                 .expect(STATUS_CODES.NOT_FOUND);
         });
     });
 
-    describe("PATCH /users/address-book - Update Address Book", () => {
+    describe(`PATCH ${getEndpointWithPrefix(["USER", "UPDATE_ADDRESS_BOOK"])} - Update Address Book`, () => {
         let testUser: any;
 
         beforeEach(async () => {
             testUser = TestDataFactory.user({
                 userId: "test-addressbook-user",
                 addressBook: [
-                    { address: "GEXISTING1234567890ABCDEF1234567890ABCDEF1234567890ABC", name: "Existing Contact" }
+                    { address: "GBPOJZGQPO23FSADGDD3PQFRGLWTETJRK2IY4D5HEQXLDCDEHYFSAAII", name: "Existing Contact" }
                 ]
             });
             await prisma.user.create({
@@ -398,12 +399,12 @@ describe("User API Integration Tests", () => {
 
         it("should add new address to address book successfully", async () => {
             const newAddress = {
-                address: "GNEWADDRESS1234567890ABCDEF1234567890ABCDEF1234567890A",
+                address: "GNEWADDRESS1234567890ABCDEF1234567890ABCDEF1234567890A22",
                 name: "New Contact"
             };
 
             const response = await request(app)
-                .patch("/users/address-book")
+                .patch(getEndpointWithPrefix(["USER", "UPDATE_ADDRESS_BOOK"]))
                 .set("x-test-user-id", "test-addressbook-user")
                 .send(newAddress)
                 .expect(200);
@@ -411,8 +412,8 @@ describe("User API Integration Tests", () => {
             expect(response.body).toMatchObject({
                 userId: "test-addressbook-user",
                 addressBook: expect.arrayContaining([
-                    { address: "GEXISTING1234567890ABCDEF1234567890ABCDEF1234567890ABC", name: "Existing Contact" },
-                    { address: "GNEWADDRESS1234567890ABCDEF1234567890ABCDEF1234567890A", name: "New Contact" }
+                    { address: "GBPOJZGQPO23FSADGDD3PQFRGLWTETJRK2IY4D5HEQXLDCDEHYFSAAII", name: "Existing Contact" },
+                    { address: "GNEWADDRESS1234567890ABCDEF1234567890ABCDEF1234567890A22", name: "New Contact" }
                 ]),
                 updatedAt: expect.any(String)
             });
@@ -426,12 +427,12 @@ describe("User API Integration Tests", () => {
 
         it("should fail when address already exists", async () => {
             const duplicateAddress = {
-                address: "GEXISTING1234567890ABCDEF1234567890ABCDEF1234567890ABC",
+                address: "GBPOJZGQPO23FSADGDD3PQFRGLWTETJRK2IY4D5HEQXLDCDEHYFSAAII",
                 name: "Duplicate Contact"
             };
 
             await request(app)
-                .patch("/users/address-book")
+                .patch(getEndpointWithPrefix(["USER", "UPDATE_ADDRESS_BOOK"]))
                 .set("x-test-user-id", "test-addressbook-user")
                 .send(duplicateAddress)
                 .expect(STATUS_CODES.SERVER_ERROR);
@@ -439,37 +440,16 @@ describe("User API Integration Tests", () => {
 
         it("should return 404 when user does not exist", async () => {
             const newAddress = {
-                address: "GNEWADDRESS1234567890ABCDEF1234567890ABCDEF1234567890A",
+                address: "GNEWADDRESS1234567890ABCDEF1234567890ABCDEF1234567890A44",
                 name: "New Contact"
             };
 
             await request(app)
-                .patch("/users/address-book")
+                .patch(getEndpointWithPrefix(["USER", "UPDATE_ADDRESS_BOOK"]))
                 .set("x-test-user-id", "non-existent-user")
                 .send(newAddress)
                 .expect(STATUS_CODES.NOT_FOUND);
         });
-
-        // it('should validate Stellar address format', async () => {
-        //     const invalidAddress = {
-        //         address: 'INVALID_ADDRESS',
-        //         name: 'Invalid Contact'
-        //     };
-
-        //     const response = await request(app)
-        //         .patch('/users/address-book')
-        //         .set('x-test-user-id', 'test-addressbook-user')
-        //         .send(invalidAddress)
-        //         .expect(400);
-
-        //     expect(response.body).toMatchObject({
-        //         errors: expect.arrayContaining([
-        //             expect.objectContaining({
-        //                 msg: expect.stringContaining('Invalid Stellar address format')
-        //             })
-        //         ])
-        //     });
-        // });
     });
 
     describe("Authentication and Authorization", () => {
@@ -481,21 +461,21 @@ describe("User API Integration Tests", () => {
             appWithoutAuth.use(errorHandler);
 
             await request(appWithoutAuth)
-                .get("/users")
+                .get(getEndpointWithPrefix(["USER", "GET"]))
                 .expect(STATUS_CODES.UNAUTHENTICATED);
 
             await request(appWithoutAuth)
-                .post("/users")
+                .post(getEndpointWithPrefix(["USER", "CREATE"]))
                 .send({ githubUsername: "test" })
                 .expect(STATUS_CODES.UNAUTHENTICATED);
 
             await request(appWithoutAuth)
-                .patch("/users/username")
+                .patch(getEndpointWithPrefix(["USER", "UPDATE_USERNAME"]))
                 .send({ githubUsername: "test" })
                 .expect(STATUS_CODES.UNAUTHENTICATED);
 
             await request(appWithoutAuth)
-                .patch("/users/address-book")
+                .patch(getEndpointWithPrefix(["USER", "UPDATE_ADDRESS_BOOK"]))
                 .send({ address: "GTEST1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12", name: "Test" })
                 .expect(STATUS_CODES.UNAUTHENTICATED);
         });
@@ -506,7 +486,7 @@ describe("User API Integration Tests", () => {
             // Create user
             const userData = { githubUsername: "consistencytest" };
             const createResponse = await request(app)
-                .post("/users")
+                .post(getEndpointWithPrefix(["USER", "CREATE"]))
                 .set("x-test-user-id", "consistency-user")
                 .send(userData)
                 .expect(STATUS_CODES.POST);
@@ -515,7 +495,7 @@ describe("User API Integration Tests", () => {
 
             // Get user to verify creation
             const getResponse = await request(app)
-                .get("/users?view=full")
+                .get(`${getEndpointWithPrefix(["USER", "GET"])}?view=full`)
                 .set("x-test-user-id", userId)
                 .expect(STATUS_CODES.SUCCESS);
 
@@ -524,24 +504,24 @@ describe("User API Integration Tests", () => {
 
             // Update username
             await request(app)
-                .patch("/users/username")
+                .patch(getEndpointWithPrefix(["USER", "UPDATE_USERNAME"]))
                 .set("x-test-user-id", userId)
-                .send({ githubUsername: "updatedname" })
+                .send({ newUsername: "updatedname" })
                 .expect(STATUS_CODES.SUCCESS);
 
             // Add address to address book
             await request(app)
-                .patch("/users/address-book")
+                .patch(getEndpointWithPrefix(["USER", "UPDATE_ADDRESS_BOOK"]))
                 .set("x-test-user-id", userId)
                 .send({
-                    address: "GTEST1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12",
+                    address: "GBPOJZGQPO23FSADGDD3PQFRGLWTETJRK2IY4D5HEQXLDCDEHYFSAAII",
                     name: "Test Contact"
                 })
                 .expect(STATUS_CODES.SUCCESS);
 
             // Verify all changes persisted
             const finalGetResponse = await request(app)
-                .get("/users?view=full")
+                .get(`${getEndpointWithPrefix(["USER", "GET"])}?view=full`)
                 .set("x-test-user-id", userId)
                 .expect(STATUS_CODES.SUCCESS);
 
@@ -549,7 +529,7 @@ describe("User API Integration Tests", () => {
                 userId,
                 username: "updatedname",
                 addressBook: expect.arrayContaining([
-                    { address: "GTEST1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12", name: "Test Contact" }
+                    { address: "GBPOJZGQPO23FSADGDD3PQFRGLWTETJRK2IY4D5HEQXLDCDEHYFSAAII", name: "Test Contact" }
                 ]),
                 contributionSummary: expect.objectContaining({
                     tasksCompleted: 0,
@@ -563,21 +543,21 @@ describe("User API Integration Tests", () => {
             // Create user first
             const userData = { githubUsername: "concurrenttest" };
             await request(app)
-                .post("/users")
+                .post(getEndpointWithPrefix(["USER", "CREATE"]))
                 .set("x-test-user-id", "concurrent-user")
                 .send(userData)
                 .expect(STATUS_CODES.POST);
 
             // Perform multiple concurrent address book updates
             const addresses = [
-                { address: "GADDR1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF1", name: "Contact 1" },
-                { address: "GADDR1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF2", name: "Contact 2" },
-                { address: "GADDR1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF3", name: "Contact 3" }
+                { address: "GADDR1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF111", name: "Contact 1" },
+                { address: "GADDR1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF222", name: "Contact 2" },
+                { address: "GADDR1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF333", name: "Contact 3" }
             ];
 
             const promises = addresses.map(address =>
                 request(app)
-                    .patch("/users/address-book")
+                    .patch(getEndpointWithPrefix(["USER", "UPDATE_ADDRESS_BOOK"]))
                     .set("x-test-user-id", "concurrent-user")
                     .send(address)
             );
