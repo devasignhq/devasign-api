@@ -1,15 +1,16 @@
 import request from "supertest";
 import express from "express";
-import { TestDataFactory } from "../../helpers/test-data-factory";
-import { walletRoutes } from "../../../api/routes/wallet.route";
-import { errorHandler } from "../../../api/middlewares/error.middleware";
-import { DatabaseTestHelper } from "../../helpers/database-test-helper";
-import { encrypt } from "../../../api/utilities/helper";
-import { STATUS_CODES } from "../../../api/utilities/data";
-import { TransactionCategory } from "../../../prisma_client";
+import { TestDataFactory } from "../../../helpers/test-data-factory";
+import { walletRoutes } from "../../../../api/routes/wallet.route";
+import { errorHandler } from "../../../../api/middlewares/error.middleware";
+import { DatabaseTestHelper } from "../../../helpers/database-test-helper";
+import { encrypt } from "../../../../api/utilities/helper";
+import { ENDPOINTS, STATUS_CODES } from "../../../../api/utilities/data";
+import { TransactionCategory } from "../../../../prisma_client";
+import { getEndpointWithPrefix } from "../../../helpers/test-utils";
 
 // Mock Firebase admin for authentication
-jest.mock("../../../api/config/firebase.config", () => ({
+jest.mock("../../../../api/config/firebase.config", () => ({
     firebaseAdmin: {
         auth: () => ({
             verifyIdToken: jest.fn()
@@ -18,12 +19,11 @@ jest.mock("../../../api/config/firebase.config", () => ({
 }));
 
 // Mock Stellar service for wallet operations
-jest.mock("../../../api/services/stellar.service", () => ({
+jest.mock("../../../../api/services/stellar.service", () => ({
     stellarService: {
         getAccountInfo: jest.fn(),
         transferAsset: jest.fn(),
-        swapAsset: jest.fn(),
-        getTopUpTransactions: jest.fn()
+        swapAsset: jest.fn()
     }
 }));
 
@@ -40,7 +40,7 @@ describe("Wallet API Integration Tests", () => {
         app.use(express.json());
 
         // Mock authentication middleware for testing
-        app.use("/wallet", (req, res, next) => {
+        app.use(ENDPOINTS.WALLET.PREFIX, (req, res, next) => {
             req.body = {
                 ...req.body,
                 currentUser: {
@@ -52,11 +52,11 @@ describe("Wallet API Integration Tests", () => {
             next();
         });
 
-        app.use("/wallet", walletRoutes);
+        app.use(ENDPOINTS.WALLET.PREFIX, walletRoutes);
         app.use(errorHandler);
 
         // Setup mocks
-        const { stellarService } = await import("../../../api/services/stellar.service");
+        const { stellarService } = await import("../../../../api/services/stellar.service");
         mockStellarService = stellarService;
     });
 
@@ -91,8 +91,6 @@ describe("Wallet API Integration Tests", () => {
             txHash: "mock_swap_tx_hash_123"
         });
 
-        mockStellarService.getTopUpTransactions.mockResolvedValue([]);
-
         // Reset test data factory counters
         TestDataFactory.resetCounters();
     });
@@ -101,7 +99,7 @@ describe("Wallet API Integration Tests", () => {
         await prisma.$disconnect();
     });
 
-    describe("GET /wallet/account - Get Wallet Info", () => {
+    describe(`GET ${getEndpointWithPrefix(["WALLET", "GET_ACCOUNT"])} - Get Wallet Info`, () => {
         let testUser: any;
 
         beforeEach(async () => {
@@ -116,7 +114,7 @@ describe("Wallet API Integration Tests", () => {
 
         it("should get user wallet info", async () => {
             const response = await request(app)
-                .get("/wallet/account")
+                .get(getEndpointWithPrefix(["WALLET", "GET_ACCOUNT"]))
                 .set("x-test-user-id", "test-user-1")
                 .expect(STATUS_CODES.SUCCESS);
 
@@ -138,7 +136,7 @@ describe("Wallet API Integration Tests", () => {
         });
 
         it("should get installation wallet info", async () => {
-            const installation = TestDataFactory.installation({ id: "test-installation-1" });
+            const installation = TestDataFactory.installation({ id: "12345678" });
             await prisma.installation.create({
                 data: {
                     ...installation,
@@ -149,7 +147,7 @@ describe("Wallet API Integration Tests", () => {
             });
 
             const response = await request(app)
-                .get("/wallet/account?installationId=test-installation-1")
+                .get(`${getEndpointWithPrefix(["WALLET", "GET_ACCOUNT"])}?installationId=12345678`)
                 .set("x-test-user-id", "test-user-1")
                 .expect(STATUS_CODES.SUCCESS);
 
@@ -162,23 +160,23 @@ describe("Wallet API Integration Tests", () => {
 
         it("should return error when user not found", async () => {
             await request(app)
-                .get("/wallet/account")
+                .get(getEndpointWithPrefix(["WALLET", "GET_ACCOUNT"]))
                 .set("x-test-user-id", "non-existent-user")
                 .expect(STATUS_CODES.NOT_FOUND);
         });
 
         it("should return error when user not part of installation", async () => {
-            const installation = TestDataFactory.installation({ id: "test-installation-1" });
+            const installation = TestDataFactory.installation({ id: "12345678" });
             await prisma.installation.create({ data: installation });
 
             await request(app)
-                .get("/wallet/account?installationId=test-installation-1")
+                .get(`${getEndpointWithPrefix(["WALLET", "GET_ACCOUNT"])}?installationId=12345678`)
                 .set("x-test-user-id", "test-user-1")
                 .expect(STATUS_CODES.NOT_FOUND);
         });
     });
 
-    describe("POST /wallet/withdraw - Withdraw Asset", () => {
+    describe(`POST ${getEndpointWithPrefix(["WALLET", "WITHDRAW"])} - Withdraw Asset`, () => {
         let testUser: any;
 
         beforeEach(async () => {
@@ -196,13 +194,13 @@ describe("Wallet API Integration Tests", () => {
 
         it("should withdraw XLM successfully", async () => {
             const withdrawData = {
-                walletAddress: "GDEST1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12",
+                walletAddress: "GBPOJZGQPO23FSADGDD3PQFRGLWTETJRK2IY4D5HEQXLDCDEHYFSAAII",
                 assetType: "XLM",
                 amount: "50"
             };
 
             const response = await request(app)
-                .post("/wallet/withdraw")
+                .post(getEndpointWithPrefix(["WALLET", "WITHDRAW"]))
                 .set("x-test-user-id", "test-user-1")
                 .send(withdrawData)
                 .expect(STATUS_CODES.SUCCESS);
@@ -225,13 +223,13 @@ describe("Wallet API Integration Tests", () => {
 
         it("should withdraw USDC successfully", async () => {
             const withdrawData = {
-                walletAddress: "GDEST1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12",
+                walletAddress: "GBPOJZGQPO23FSADGDD3PQFRGLWTETJRK2IY4D5HEQXLDCDEHYFSAAII",
                 assetType: "USDC",
                 amount: "100"
             };
 
             const response = await request(app)
-                .post("/wallet/withdraw")
+                .post(getEndpointWithPrefix(["WALLET", "WITHDRAW"]))
                 .set("x-test-user-id", "test-user-1")
                 .send(withdrawData)
                 .expect(STATUS_CODES.SUCCESS);
@@ -255,13 +253,13 @@ describe("Wallet API Integration Tests", () => {
             });
 
             const withdrawData = {
-                walletAddress: "GDEST1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12",
+                walletAddress: "GBPOJZGQPO23FSADGDD3PQFRGLWTETJRK2IY4D5HEQXLDCDEHYFSAAII",
                 assetType: "XLM",
                 amount: "50"
             };
 
             await request(app)
-                .post("/wallet/withdraw")
+                .post(getEndpointWithPrefix(["WALLET", "WITHDRAW"]))
                 .set("x-test-user-id", "test-user-1")
                 .send(withdrawData)
                 .expect(STATUS_CODES.SERVER_ERROR);
@@ -279,13 +277,13 @@ describe("Wallet API Integration Tests", () => {
             });
 
             const withdrawData = {
-                walletAddress: "GDEST1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12",
+                walletAddress: "GBPOJZGQPO23FSADGDD3PQFRGLWTETJRK2IY4D5HEQXLDCDEHYFSAAII",
                 assetType: "USDC",
                 amount: "100"
             };
 
             await request(app)
-                .post("/wallet/withdraw")
+                .post(getEndpointWithPrefix(["WALLET", "WITHDRAW"]))
                 .set("x-test-user-id", "test-user-1")
                 .send(withdrawData)
                 .expect(STATUS_CODES.SERVER_ERROR);
@@ -293,13 +291,13 @@ describe("Wallet API Integration Tests", () => {
 
         it("should return error for invalid amount", async () => {
             const withdrawData = {
-                walletAddress: "GDEST1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12",
+                walletAddress: "GBPOJZGQPO23FSADGDD3PQFRGLWTETJRK2IY4D5HEQXLDCDEHYFSAAII",
                 assetType: "XLM",
                 amount: "-10"
             };
 
             await request(app)
-                .post("/wallet/withdraw")
+                .post(getEndpointWithPrefix(["WALLET", "WITHDRAW"]))
                 .set("x-test-user-id", "test-user-1")
                 .send(withdrawData)
                 .expect(STATUS_CODES.SERVER_ERROR);
@@ -307,7 +305,7 @@ describe("Wallet API Integration Tests", () => {
 
         it("should withdraw from installation wallet", async () => {
             const installation = TestDataFactory.installation({
-                id: "test-installation-1",
+                id: "12345678",
                 walletSecret: encrypt("SINSTALL000000000000000000000000000000000000000")
             });
             await prisma.installation.create({
@@ -320,14 +318,14 @@ describe("Wallet API Integration Tests", () => {
             });
 
             const withdrawData = {
-                installationId: "test-installation-1",
-                walletAddress: "GDEST1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12",
+                installationId: "12345678",
+                walletAddress: "GBPOJZGQPO23FSADGDD3PQFRGLWTETJRK2IY4D5HEQXLDCDEHYFSAAII",
                 assetType: "USDC",
                 amount: "100"
             };
 
             const response = await request(app)
-                .post("/wallet/withdraw")
+                .post(getEndpointWithPrefix(["WALLET", "WITHDRAW"]))
                 .set("x-test-user-id", "test-user-1")
                 .send(withdrawData)
                 .expect(STATUS_CODES.SUCCESS);
@@ -339,13 +337,13 @@ describe("Wallet API Integration Tests", () => {
 
             // Verify transaction was recorded for installation
             const transaction = await prisma.transaction.findFirst({
-                where: { installationId: "test-installation-1", category: TransactionCategory.WITHDRAWAL }
+                where: { installationId: "12345678", category: TransactionCategory.WITHDRAWAL }
             });
             expect(transaction).toBeTruthy();
         });
     });
 
-    describe("POST /wallet/swap - Swap Asset", () => {
+    describe(`POST ${getEndpointWithPrefix(["WALLET", "SWAP"])} - Swap Asset`, () => {
         let testUser: any;
 
         beforeEach(async () => {
@@ -369,7 +367,7 @@ describe("Wallet API Integration Tests", () => {
             };
 
             const response = await request(app)
-                .post("/wallet/swap")
+                .post(getEndpointWithPrefix(["WALLET", "SWAP"]))
                 .set("x-test-user-id", "test-user-1")
                 .send(swapData)
                 .expect(STATUS_CODES.SUCCESS);
@@ -399,7 +397,7 @@ describe("Wallet API Integration Tests", () => {
             };
 
             const response = await request(app)
-                .post("/wallet/swap")
+                .post(getEndpointWithPrefix(["WALLET", "SWAP"]))
                 .set("x-test-user-id", "test-user-1")
                 .send(swapData)
                 .expect(STATUS_CODES.SUCCESS);
@@ -429,245 +427,10 @@ describe("Wallet API Integration Tests", () => {
             };
 
             await request(app)
-                .post("/wallet/swap")
+                .post(getEndpointWithPrefix(["WALLET", "SWAP"]))
                 .set("x-test-user-id", "test-user-1")
                 .send(swapData)
                 .expect(STATUS_CODES.SERVER_ERROR);
-        });
-    });
-
-    describe("GET /wallet/transactions - Get Transactions", () => {
-        let testUser: any;
-
-        beforeEach(async () => {
-            testUser = TestDataFactory.user({ userId: "test-user-1" });
-            await prisma.user.create({
-                data: {
-                    ...testUser,
-                    contributionSummary: { create: {} }
-                }
-            });
-
-            // Create test transactions
-            const transactions = [
-                {
-                    txHash: `test-tx-hash-${Date.now()}`,
-                    category: TransactionCategory.TOP_UP,
-                    amount: 20,
-                    asset: "XLM",
-                    sourceAddress: "GDEST1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12",
-                    doneAt: new Date(),
-                    user: { connect: { userId: "test-user-1" } }
-                },
-                {
-                    txHash: `test-tx-hash-${Date.now()}`,
-                    category: TransactionCategory.TOP_UP,
-                    amount: 45,
-                    asset: "USDC",
-                    sourceAddress: "GDEST1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12",
-                    doneAt: new Date(),
-                    user: { connect: { userId: "test-user-1" } }
-                },
-                {
-                    txHash: `test-tx-hash-${Date.now()}`,
-                    category: TransactionCategory.WITHDRAWAL,
-                    amount: 67,
-                    asset: "XLM",
-                    destinationAddress: "GDEST1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12",
-                    user: { connect: { userId: "test-user-1" } }
-                }
-            ];
-
-            for (const transaction of transactions) {
-                await prisma.transaction.create({ data: transaction });
-            }
-        });
-
-        it("should get all transactions for user", async () => {
-            const response = await request(app)
-                .get("/wallet/transactions")
-                .set("x-test-user-id", "test-user-1")
-                .expect(STATUS_CODES.SUCCESS);
-
-            expect(response.body.transactions).toHaveLength(3);
-            expect(response.body.hasMore).toBe(false);
-        });
-
-        it("should filter transactions by category", async () => {
-            const response = await request(app)
-                .get("/wallet/transactions?categories=TOP_UP")
-                .set("x-test-user-id", "test-user-1")
-                .expect(STATUS_CODES.SUCCESS);
-
-            expect(response.body.transactions).toHaveLength(2);
-            expect(response.body.transactions.every((tx: any) =>
-                tx.category === TransactionCategory.TOP_UP
-            )).toBe(true);
-        });
-
-        it("should paginate transactions", async () => {
-            const response = await request(app)
-                .get("/wallet/transactions?page=1&limit=2")
-                .set("x-test-user-id", "test-user-1")
-                .expect(STATUS_CODES.SUCCESS);
-
-            expect(response.body.transactions).toHaveLength(2);
-            expect(response.body.hasMore).toBe(true);
-        });
-
-        it("should sort transactions", async () => {
-            const response = await request(app)
-                .get("/wallet/transactions?sort=asc")
-                .set("x-test-user-id", "test-user-1")
-                .expect(STATUS_CODES.SUCCESS);
-
-            const transactions = response.body.transactions;
-            expect(transactions).toHaveLength(3);
-        });
-
-        it("should get transactions for installation", async () => {
-            const installation = TestDataFactory.installation({ id: "test-installation-1" });
-            await prisma.installation.create({
-                data: {
-                    ...installation,
-                    users: {
-                        connect: { userId: "test-user-1" }
-                    }
-                }
-            });
-
-            const installationTx = {
-                txHash: `test-tx-hash-${Date.now()}`,
-                category: TransactionCategory.TOP_UP,
-                amount: 20,
-                asset: "XLM",
-                sourceAddress: "GDEST1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12",
-                doneAt: new Date(),
-                installation: { connect: { id: "test-installation-1" } }
-            };
-            await prisma.transaction.create({ data: installationTx });
-
-            const response = await request(app)
-                .get("/wallet/transactions?installationId=test-installation-1")
-                .set("x-test-user-id", "test-user-1")
-                .expect(STATUS_CODES.SUCCESS);
-
-            expect(response.body.transactions).toHaveLength(1);
-            expect(response.body.transactions[0].category).toBe(TransactionCategory.TOP_UP);
-        });
-    });
-
-    describe("POST /wallet/transactions/record-topups - Record Wallet Topups", () => {
-        let testUser: any;
-
-        beforeEach(async () => {
-            testUser = TestDataFactory.user({ userId: "test-user-1" });
-            await prisma.user.create({
-                data: {
-                    ...testUser,
-                    contributionSummary: { create: {} }
-                }
-            });
-        });
-
-        it("should record new topup transactions", async () => {
-            mockStellarService.getTopUpTransactions.mockResolvedValue([
-                {
-                    transaction_hash: "tx_hash_1",
-                    amount: "100.0000000",
-                    asset_type: "credit_alphanum12",
-                    asset_code: "USDC",
-                    from: "GSOURCE1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF",
-                    created_at: new Date().toISOString()
-                },
-                {
-                    transaction_hash: "tx_hash_2",
-                    amount: "50.0000000",
-                    asset_type: "native",
-                    from: "GSOURCE1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF",
-                    created_at: new Date().toISOString()
-                }
-            ]);
-
-            const response = await request(app)
-                .post("/wallet/transactions/record-topups")
-                .set("x-test-user-id", "test-user-1")
-                .send({})
-                .expect(STATUS_CODES.SUCCESS);
-
-            expect(response.body).toMatchObject({
-                message: "Successfully processed 2 topup transactions",
-                processed: 2,
-                transactions: expect.arrayContaining([
-                    expect.objectContaining({
-                        txHash: "tx_hash_1",
-                        amount: 100,
-                        asset: "USDC"
-                    }),
-                    expect.objectContaining({
-                        txHash: "tx_hash_2",
-                        amount: 50,
-                        asset: "XLM"
-                    })
-                ])
-            });
-
-            // Verify transactions were recorded
-            const transactions = await prisma.transaction.findMany({
-                where: { userId: "test-user-1", category: TransactionCategory.TOP_UP }
-            });
-            expect(transactions).toHaveLength(2);
-        });
-
-        it("should not record duplicate topup transactions", async () => {
-            // Create existing transaction
-            await prisma.transaction.create({
-                data: {
-                    txHash: "tx_hash_1",
-                    category: TransactionCategory.TOP_UP,
-                    amount: 100,
-                    asset: "USDC",
-                    sourceAddress: "GSOURCE1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF",
-                    userId: "test-user-1"
-                }
-            });
-
-            mockStellarService.getTopUpTransactions.mockResolvedValue([
-                {
-                    transaction_hash: "tx_hash_1",
-                    amount: "100.0000000",
-                    asset_type: "credit_alphanum12",
-                    asset_code: "USDC",
-                    from: "GSOURCE1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF",
-                    created_at: new Date().toISOString()
-                }
-            ]);
-
-            const response = await request(app)
-                .post("/wallet/transactions/record-topups")
-                .set("x-test-user-id", "test-user-1")
-                .send({})
-                .expect(STATUS_CODES.SUCCESS);
-
-            expect(response.body).toMatchObject({
-                message: "No new topup transactions found",
-                processed: 0
-            });
-        });
-
-        it("should return message when no topup transactions found", async () => {
-            mockStellarService.getTopUpTransactions.mockResolvedValue([]);
-
-            const response = await request(app)
-                .post("/wallet/transactions/record-topups")
-                .set("x-test-user-id", "test-user-1")
-                .send({})
-                .expect(STATUS_CODES.SUCCESS);
-
-            expect(response.body).toMatchObject({
-                message: "No new topup transactions found",
-                processed: 0
-            });
         });
     });
 
@@ -686,7 +449,7 @@ describe("Wallet API Integration Tests", () => {
             });
 
             await request(app)
-                .get("/wallet/account")
+                .get(getEndpointWithPrefix(["WALLET", "GET_ACCOUNT"]))
                 .set("x-test-user-id", "test-user-1")
                 .expect(STATUS_CODES.UNKNOWN);
         });
