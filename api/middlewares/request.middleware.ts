@@ -121,7 +121,11 @@ export const validateRequestParameters = ({
                         bodyResult.error.issues
                     );
                 }
-                req.body = bodyResult.data;
+                req.body = {
+                    currentUser: req.body.currentUser,
+                    userId: req.body.userId,
+                    ...bodyResult.data
+                };
             }
 
             next();
