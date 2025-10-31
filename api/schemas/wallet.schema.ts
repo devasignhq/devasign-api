@@ -15,7 +15,7 @@ export const withdrawAssetSchema = {
         amount: z.string().refine((val) => !isNaN(parseFloat(val)) && parseFloat(val) > 0, {
             message: "Amount must be a positive number"
         }),
-        installationId: installationIdSchema
+        installationId: installationIdSchema.optional()
     })
 };
 
@@ -28,7 +28,7 @@ export const swapAssetSchema = {
         equivalentAmount: z.string().refine((val) => !isNaN(parseFloat(val)) && parseFloat(val) > 0, {
             message: "Equivalent amount must be a positive number"
         }),
-        installationId: installationIdSchema
+        installationId: installationIdSchema.optional()
     })
 };
 
@@ -36,6 +36,10 @@ export const getTransactionsSchema = {
     query: z.object({
         ...walletInstallationIdSchema.query.shape,
         ...paginationSchema.shape,
-        categories: z.array(z.enum(TransactionCategory)).optional()
+        categories: z.string().optional().refine((val) => {
+            if (!val) return true;
+            const splitCategories = val.split(",");
+            return splitCategories.every(cat => Object.values(TransactionCategory).includes(cat as TransactionCategory));
+        }, { message: "Invalid transaction category" })
     })
 };
