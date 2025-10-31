@@ -218,7 +218,7 @@ export const updateUsername = async (req: Request, res: Response, next: NextFunc
         // Check if user exists
         const existingUser = await prisma.user.findUnique({
             where: { userId },
-            select: { userId }
+            select: { userId: true }
         });
 
         if (!existingUser) {
@@ -228,7 +228,7 @@ export const updateUsername = async (req: Request, res: Response, next: NextFunc
         // Check if username exists
         const existingUsername = await prisma.user.findUnique({
             where: { username: newUsername },
-            select: { userId }
+            select: { userId: true }
         });
 
         if (existingUsername) {

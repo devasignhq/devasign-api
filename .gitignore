@@ -8,6 +8,7 @@ prisma_client
 
 no_git
 requirements.txt
+test.js
 
 .kiro
 dist
