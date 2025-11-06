@@ -126,10 +126,10 @@ export const ENDPOINTS = {
         },
         /** Contributor-specific task endpoints */
         CONTRIBUTOR: {
-            /** GET /contributor - Get tasks for contributor */
-            GET_TASKS: "/contributor",
-            /** GET /contributor/:taskId - Get specific task for contributor */
-            GET_TASK: "/contributor/:taskId"
+            /** GET /contributor/tasks - Get tasks for contributor */
+            GET_TASKS: "/contributor/tasks",
+            /** GET /contributor/tasks/:taskId - Get specific task for contributor */
+            GET_TASK: "/contributor/tasks/:taskId"
         },
         /** Task-specific action endpoints (requires taskId parameter) */
         "{TASKID}": {

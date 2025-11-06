@@ -26,6 +26,7 @@ export const getInstallationTasksSchema = {
     }),
     query: z.object({
         ...paginationSchema.shape,
+        detailed: z.literal("true").optional(),
         status: z.enum(TaskStatus).optional(),
         repoUrl: z.string().min(1).max(500, "Repository URL must be between 1 and 500 characters").optional(),
         issueTitle: z.string().min(1).max(300, "Issue title must be between 1 and 300 characters").optional(),
@@ -39,6 +40,7 @@ export const getInstallationTasksSchema = {
 export const getContributorTasksSchema = {
     query: z.object({
         ...paginationSchema.shape,
+        detailed: z.literal("true").optional(),
         status: z.enum(TaskStatus).optional(),
         installationId: installationIdSchema.optional(),
         repoUrl: z.string().min(1).max(500, "Repository URL must be between 1 and 500 characters").optional(),
