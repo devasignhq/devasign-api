@@ -183,7 +183,7 @@ export const getInstallations = async (req: Request, res: Response, next: NextFu
 };
 
 /**
- * Get details of a specific installation by ID.
+ * Get details of a specific user installation by ID.
  */
 export const getInstallation = async (req: Request, res: Response, next: NextFunction) => {
     const { installationId } = req.params;
