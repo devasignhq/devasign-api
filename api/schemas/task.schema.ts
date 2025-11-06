@@ -110,7 +110,7 @@ export const addBountyCommentIdSchema = {
 export const updateTaskBountySchema = {
     params: taskIdSchema,
     body: z.object({
-        newbounty: z.string().refine((val) => !isNaN(parseFloat(val)) && parseFloat(val) > 0, {
+        newBounty: z.string().refine((val) => !isNaN(parseFloat(val)) && parseFloat(val) > 0, {
             message: "Bounty must be a positive number"
         })
     })
@@ -119,8 +119,8 @@ export const updateTaskBountySchema = {
 export const updateTaskTimelineSchema = {
     params: taskIdSchema,
     body: z.object({
-        timeline: z.coerce.number().int().min(1, "Timeline must be a positive integer"),
-        timelineType: z.enum(TimelineType)
+        newTimeline: z.coerce.number().int().min(1, "Timeline must be a positive integer"),
+        newTimelineType: z.enum(["DAY", "WEEK"])
     })
 };
 

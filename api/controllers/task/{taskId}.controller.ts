@@ -7,7 +7,7 @@ import { decrypt } from "../../utilities/helper";
 import { STATUS_CODES } from "../../utilities/data";
 import { MessageType, TaskIssue } from "../../models/task.model";
 import { HorizonApi } from "../../models/horizonapi.model";
-import { TimelineType } from "../../../prisma_client";
+import { TaskStatus, TimelineType } from "../../../prisma_client";
 import { OctokitService } from "../../services/octokit.service";
 import {
     AuthorizationError,
@@ -115,7 +115,7 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
             throw new ValidationError("Cannot update the bounty amount for tasks with existing applications");
         }
         // Verify new bounty is different
-        if (task.bounty === newBounty) {
+        if (task.bounty === Number(newBounty)) {
             throw new ValidationError("New bounty is the same as current bounty");
         }
 
@@ -776,7 +776,7 @@ export const validateCompletion = async (req: Request, res: Response, next: Next
             throw new AuthorizationError("Only task creator can perform this action");
         }
         // Verify task is marked as completed
-        if (task.status !== "MARKED_AS_COMPLETED") {
+        if (task.status !== TaskStatus.MARKED_AS_COMPLETED) {
             throw new ValidationError("Task has not been marked as completed");
         }
         // Verify task has a contributor
