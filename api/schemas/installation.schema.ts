@@ -112,7 +112,9 @@ export const getRepositoryResourcesSchema = {
 
 export const getOrCreateBountyLabelSchema = {
     params: z.object({
-        installationId: installationIdSchema,
+        installationId: installationIdSchema
+    }),
+    query: z.object({
         repositoryId: z.string().min(1, "Repository ID cannot be empty")
     })
 };
