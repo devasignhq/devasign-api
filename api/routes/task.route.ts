@@ -47,9 +47,7 @@ import {
 import { ENDPOINTS } from "../utilities/data";
 import { validateRequestParameters } from "../middlewares/request.middleware";
 
-export const taskRoutes = Router(
-
-);
+export const taskRoutes = Router();
 
 // Get all tasks
 taskRoutes.get(

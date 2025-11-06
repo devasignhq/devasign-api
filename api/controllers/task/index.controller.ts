@@ -247,6 +247,7 @@ export const getTasks = async (req: Request, res: Response, next: NextFunction) 
                 status: true,
                 contributorId: true,
                 creatorId: true,
+                installationId: true,
                 createdAt: true,
                 updatedAt: true,
                 ...(detailed ? {

@@ -10,6 +10,7 @@ export const getTasksSchema = {
     query: z.object({
         ...paginationSchema.shape,
         installationId: installationIdSchema.optional(),
+        detailed: z.literal("true").optional(),
         repoUrl: z.string().min(1).max(500, "Repository URL must be between 1 and 500 characters").optional(),
         issueTitle: z.string().min(1).max(300, "Issue title must be between 1 and 300 characters").optional(),
         issueLabels: z.union([
@@ -67,24 +68,23 @@ export const getContributorTaskSchema = {
 export const createTaskSchema = {
     body: z.object({
         payload: z.object({
-            repoUrl: z.string(),
             installationId: installationIdSchema,
             issue: z.object({
                 id: z.string(),
                 number: z.number(),
                 title: z.string(),
                 body: z.string().nullable().optional(),
-                url: z.string(),
+                url: z.url(),
                 state: z.string(),
                 labels: z.array(z.object({
                     id: z.number(),
                     name: z.string(),
                     color: z.string(),
-                    description: z.string().nullable()
+                    description: z.string().nullable().optional()
                 })),
                 locked: z.boolean(),
                 repository: z.object({
-                    url: z.string()
+                    url: z.url()
                 }),
                 createdAt: z.string(),
                 updatedAt: z.string(),
