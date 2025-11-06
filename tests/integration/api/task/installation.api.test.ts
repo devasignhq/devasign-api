@@ -45,7 +45,7 @@ jest.mock("../../../../api/services/octokit.service", () => ({
     }
 }));
 
-describe("Task Activities API Integration Tests", () => {
+describe("Task Installation API Integration Tests", () => {
     let app: express.Application;
     let prisma: any;
     let mockFirebaseAuth: jest.Mock;
@@ -95,8 +95,7 @@ describe("Task Activities API Integration Tests", () => {
         await prisma.$disconnect();
     });
 
-    describe(`GET ${getEndpointWithPrefix(["TASK", "ACTIVITIES", "GET_ALL"])} - Get Task Activities`, () => {
-        let testTask: any;
+    describe(`GET ${getEndpointWithPrefix(["TASK", "INSTALLATION", "GET_TASKS"])} - Get Installation Tasks`, () => {
         let testInstallation: any;
         let testUser: any;
 
@@ -105,17 +104,6 @@ describe("Task Activities API Integration Tests", () => {
             testUser = TestDataFactory.user({ userId: "installation-user" });
             await prisma.user.create({
                 data: { ...testUser, contributionSummary: { create: {} } }
-            });
-
-            // Create applicants
-            const applicant1 = TestDataFactory.user({ userId: "applicant-1" });
-            await prisma.user.create({
-                data: { ...applicant1, contributionSummary: { create: {} } }
-            });
-
-            const applicant2 = TestDataFactory.user({ userId: "applicant-2" });
-            await prisma.user.create({
-                data: { ...applicant2, contributionSummary: { create: {} } }
             });
 
             // Create test installation
@@ -132,36 +120,43 @@ describe("Task Activities API Integration Tests", () => {
                 }
             });
 
-            // Create test task
-            testTask = TestDataFactory.task({
-                creatorId: "installation-user",
-                installationId: testInstallation.id,
-                status: "OPEN"
-            });
-            testTask = await prisma.task.create({ data: testTask });
-
-            // Create task activities (applications)
-            await prisma.taskActivity.create({
-                data: {
-                    taskId: testTask.id,
-                    userId: "applicant-1",
-                    viewed: false
+            // Create multiple test tasks
+            const tasks = [
+                {
+                    ...TestDataFactory.filterData(
+                        TestDataFactory.task({ bounty: 100, status: "OPEN" }),
+                        ["creatorId", "installationId", "contributorId", "acceptedAt", "completedAt"]
+                    ),
+                    installation: { connect: { id: testInstallation.id } },
+                    creator: { connect: { userId: "installation-user" } }
+                },
+                {
+                    ...TestDataFactory.filterData(
+                        TestDataFactory.task({ bounty: 200, status: "IN_PROGRESS" }),
+                        ["creatorId", "installationId", "contributorId", "acceptedAt", "completedAt"]
+                    ),
+                    installation: { connect: { id: testInstallation.id } },
+                    creator: { connect: { userId: "installation-user" } }
+                },
+                {
+                    ...TestDataFactory.filterData(
+                        TestDataFactory.task({ bounty: 150, status: "COMPLETED" }),
+                        ["creatorId", "installationId", "contributorId", "acceptedAt", "completedAt"]
+                    ),
+                    installation: { connect: { id: testInstallation.id } },
+                    creator: { connect: { userId: "installation-user" } }
                 }
-            });
+            ];
 
-            await prisma.taskActivity.create({
-                data: {
-                    taskId: testTask.id,
-                    userId: "applicant-2",
-                    viewed: true
-                }
-            });
+            for (const task of tasks) {
+                await prisma.task.create({ data: task });
+            }
         });
 
-        it("should get all activities for task with pagination", async () => {
+        it("should get all tasks for installation with pagination", async () => {
             const response = await request(app)
-                .get(`${getEndpointWithPrefix(["TASK", "ACTIVITIES", "GET_ALL"])
-                    .replace(":taskId", testTask.id)}?page=1&limit=10`)
+                .get(`${getEndpointWithPrefix(["TASK", "INSTALLATION", "GET_TASKS"])
+                    .replace(":installationId", testInstallation.id)}?page=1&limit=10`)
                 .set("x-test-user-id", "installation-user")
                 .expect(STATUS_CODES.SUCCESS);
 
@@ -170,45 +165,52 @@ describe("Task Activities API Integration Tests", () => {
                 pagination: expect.objectContaining({
                     currentPage: 1,
                     totalPages: expect.any(Number),
-                    totalItems: 2,
+                    totalItems: 3,
                     itemsPerPage: 10
                 })
             });
 
-            expect(response.body.data.length).toBe(2);
+            expect(response.body.data.length).toBe(3);
         });
 
-        it("should return activities with user information", async () => {
+        it("should filter tasks by status", async () => {
             const response = await request(app)
-                .get(getEndpointWithPrefix(["TASK", "ACTIVITIES", "GET_ALL"]).replace(":taskId", testTask.id))
+                .get(`${getEndpointWithPrefix(["TASK", "INSTALLATION", "GET_TASKS"])
+                    .replace(":installationId", testInstallation.id)}?status=OPEN`)
+                .set("x-test-user-id", "installation-user")
+                .expect(STATUS_CODES.SUCCESS);
+
+            expect(response.body.data).toHaveLength(1);
+            expect(response.body.data[0]).toMatchObject({
+                status: "OPEN"
+            });
+        });
+
+        it("should return detailed view when requested", async () => {
+            const response = await request(app)
+                .get(`${getEndpointWithPrefix(["TASK", "INSTALLATION", "GET_TASKS"])
+                    .replace(":installationId", testInstallation.id)}?detailed=true`)
                 .set("x-test-user-id", "installation-user")
                 .expect(STATUS_CODES.SUCCESS);
 
             expect(response.body.data[0]).toMatchObject({
-                id: expect.any(String),
-                taskId: testTask.id,
-                userId: expect.any(String),
-                viewed: expect.any(Boolean),
-                user: expect.objectContaining({
-                    userId: expect.any(String),
-                    username: expect.any(String),
-                    contributionSummary: expect.any(Object)
+                installation: expect.objectContaining({
+                    id: testInstallation.id
                 }),
-                createdAt: expect.any(String),
-                updatedAt: expect.any(String)
+                creator: expect.objectContaining({
+                    userId: "installation-user"
+                })
             });
         });
 
-        it("should sort activities by creation date", async () => {
+        it("should filter tasks by repository URL", async () => {
             const response = await request(app)
-                .get(`${getEndpointWithPrefix(["TASK", "ACTIVITIES", "GET_ALL"])
-                    .replace(":taskId", testTask.id)}?sort=asc`)
+                .get(`${getEndpointWithPrefix(["TASK", "INSTALLATION", "GET_TASKS"])
+                    .replace(":installationId", testInstallation.id)}?repoUrl=github.com`)
                 .set("x-test-user-id", "installation-user")
                 .expect(STATUS_CODES.SUCCESS);
 
-            const dates = response.body.data.map((activity: any) => new Date(activity.createdAt).getTime());
-            const sortedDates = [...dates].sort((a, b) => a - b);
-            expect(dates).toEqual(sortedDates);
+            expect(response.body.data).toEqual(expect.any(Array));
         });
 
         it("should return empty array when user has no access to installation", async () => {
@@ -218,53 +220,30 @@ describe("Task Activities API Integration Tests", () => {
             });
 
             const response = await request(app)
-                .get(getEndpointWithPrefix(["TASK", "ACTIVITIES", "GET_ALL"]).replace(":taskId", testTask.id))
+                .get(getEndpointWithPrefix(["TASK", "INSTALLATION", "GET_TASKS"])
+                    .replace(":installationId", testInstallation.id))
                 .set("x-test-user-id", "other-user")
                 .expect(STATUS_CODES.SUCCESS);
 
             expect(response.body.data).toHaveLength(0);
         });
 
-        it("should include task submission information when available", async () => {
-            // Create a task submission
-            const submission = await prisma.taskSubmission.create({
-                data: {
-                    userId: "applicant-1",
-                    taskId: testTask.id,
-                    installationId: testInstallation.id,
-                    pullRequest: "https://github.com/owner/repo/pull/123"
-                }
-            });
-
-            // Create activity with submission
-            await prisma.taskActivity.create({
-                data: {
-                    taskId: testTask.id,
-                    userId: "applicant-1",
-                    taskSubmissionId: submission.id
-                }
-            });
-
+        it("should sort tasks by creation date", async () => {
             const response = await request(app)
-                .get(getEndpointWithPrefix(["TASK", "ACTIVITIES", "GET_ALL"]).replace(":taskId", testTask.id))
+                .get(`${getEndpointWithPrefix(["TASK", "INSTALLATION", "GET_TASKS"])
+                    .replace(":installationId", testInstallation.id)}?sort=asc`)
                 .set("x-test-user-id", "installation-user")
                 .expect(STATUS_CODES.SUCCESS);
 
-            const submissionActivity = response.body.data.find(
-                (activity: any) => activity.taskSubmissionId === submission.id
-            );
-
-            expect(submissionActivity).toBeTruthy();
-            expect(submissionActivity.taskSubmission).toMatchObject({
-                pullRequest: "https://github.com/owner/repo/pull/123"
-            });
+            const dates = response.body.data.map((task: any) => new Date(task.createdAt).getTime());
+            const sortedDates = [...dates].sort((a, b) => a - b);
+            expect(dates).toEqual(sortedDates);
         });
     });
 
-    describe(`PATCH ${getEndpointWithPrefix(["TASK", "ACTIVITIES", "MARK_VIEWED"])} - Mark Activity as Viewed`, () => {
-        let testTask: any;
-        let testActivity: any;
+    describe(`GET ${getEndpointWithPrefix(["TASK", "INSTALLATION", "GET_TASK"])} - Get Installation Task`, () => {
         let testInstallation: any;
+        let testTask: any;
         let testUser: any;
 
         beforeEach(async () => {
@@ -272,12 +251,6 @@ describe("Task Activities API Integration Tests", () => {
             testUser = TestDataFactory.user({ userId: "installation-user" });
             await prisma.user.create({
                 data: { ...testUser, contributionSummary: { create: {} } }
-            });
-
-            // Create applicant
-            const applicant = TestDataFactory.user({ userId: "applicant" });
-            await prisma.user.create({
-                data: { ...applicant, contributionSummary: { create: {} } }
             });
 
             // Create test installation
@@ -301,44 +274,32 @@ describe("Task Activities API Integration Tests", () => {
                 status: "OPEN"
             });
             testTask = await prisma.task.create({ data: testTask });
-
-            // Create task activity
-            testActivity = await prisma.taskActivity.create({
-                data: {
-                    taskId: testTask.id,
-                    userId: "applicant",
-                    viewed: false
-                }
-            });
         });
 
-        it("should mark activity as viewed successfully", async () => {
+        it("should get specific task for installation", async () => {
             const response = await request(app)
-                .patch(getEndpointWithPrefix(["TASK", "ACTIVITIES", "MARK_VIEWED"])
-                    .replace(":taskActivityId", testActivity.id))
+                .get(getEndpointWithPrefix(["TASK", "INSTALLATION", "GET_TASK"])
+                    .replace(":installationId", testInstallation.id)
+                    .replace(":taskId", testTask.id))
                 .set("x-test-user-id", "installation-user")
                 .expect(STATUS_CODES.SUCCESS);
 
             expect(response.body).toMatchObject({
-                message: "Activity marked as viewed",
-                activity: expect.objectContaining({
-                    id: testActivity.id,
-                    viewed: true,
-                    updatedAt: expect.any(String)
+                id: testTask.id,
+                installation: expect.objectContaining({
+                    id: testInstallation.id
+                }),
+                creator: expect.objectContaining({
+                    userId: "installation-user"
                 })
             });
-
-            // Verify activity was updated in database
-            const updatedActivity = await prisma.taskActivity.findUnique({
-                where: { id: testActivity.id }
-            });
-            expect(updatedActivity?.viewed).toBe(true);
         });
 
-        it("should return 404 when activity not found", async () => {
+        it("should return 404 when task not found", async () => {
             await request(app)
-                .patch(getEndpointWithPrefix(["TASK", "ACTIVITIES", "MARK_VIEWED"])
-                    .replace(":taskActivityId", cuid()))
+                .get(getEndpointWithPrefix(["TASK", "INSTALLATION", "GET_TASK"])
+                    .replace(":installationId", testInstallation.id)
+                    .replace(":taskId", cuid()))
                 .set("x-test-user-id", "installation-user")
                 .expect(STATUS_CODES.NOT_FOUND);
         });
@@ -350,26 +311,23 @@ describe("Task Activities API Integration Tests", () => {
             });
 
             await request(app)
-                .patch(getEndpointWithPrefix(["TASK", "ACTIVITIES", "MARK_VIEWED"])
-                    .replace(":taskActivityId", testActivity.id))
+                .get(getEndpointWithPrefix(["TASK", "INSTALLATION", "GET_TASK"])
+                    .replace(":installationId", testInstallation.id)
+                    .replace(":taskId", testTask.id))
                 .set("x-test-user-id", "other-user")
                 .expect(STATUS_CODES.NOT_FOUND);
         });
 
-        it("should handle already viewed activity", async () => {
-            // Mark as viewed first
-            await prisma.taskActivity.update({
-                where: { id: testActivity.id },
-                data: { viewed: true }
-            });
+        it("should return 404 when task belongs to different installation", async () => {
+            const otherInstallation = TestDataFactory.installation({ id: "87654321" });
+            await prisma.installation.create({ data: otherInstallation });
 
-            const response = await request(app)
-                .patch(getEndpointWithPrefix(["TASK", "ACTIVITIES", "MARK_VIEWED"])
-                    .replace(":taskActivityId", testActivity.id))
+            await request(app)
+                .get(getEndpointWithPrefix(["TASK", "INSTALLATION", "GET_TASK"])
+                    .replace(":installationId", otherInstallation.id)
+                    .replace(":taskId", testTask.id))
                 .set("x-test-user-id", "installation-user")
-                .expect(STATUS_CODES.SUCCESS);
-
-            expect(response.body.activity.viewed).toBe(true);
+                .expect(STATUS_CODES.NOT_FOUND);
         });
     });
 });

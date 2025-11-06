@@ -144,7 +144,7 @@ describe("Task {taskId} API Integration Tests", () => {
         await prisma.$disconnect();
     });
 
-    describe(`PATCH ${ENDPOINTS.TASK.PREFIX}${ENDPOINTS.TASK["{TASKID}"].ADD_BOUNTY_COMMENT} - Add Bounty Comment ID`, () => {
+    describe(`PATCH ${getEndpointWithPrefix(["TASK", "{TASKID}", "ADD_BOUNTY_COMMENT"])} - Add Bounty Comment ID`, () => {
         let testTask: any;
         let testUser: any;
 
@@ -213,7 +213,7 @@ describe("Task {taskId} API Integration Tests", () => {
         });
     });
 
-    describe(`PATCH ${ENDPOINTS.TASK.PREFIX}${ENDPOINTS.TASK["{TASKID}"].UPDATE_BOUNTY} - Update Task Bounty`, () => {
+    describe(`PATCH ${getEndpointWithPrefix(["TASK", "{TASKID}", "UPDATE_BOUNTY"])} - Update Task Bounty`, () => {
         let testTask: any;
         let testInstallation: any;
 
@@ -353,7 +353,7 @@ describe("Task {taskId} API Integration Tests", () => {
         });
     });
 
-    describe(`PATCH ${ENDPOINTS.TASK.PREFIX}${ENDPOINTS.TASK["{TASKID}"].UPDATE_TIMELINE} - Update Task Timeline`, () => {
+    describe(`PATCH ${getEndpointWithPrefix(["TASK", "{TASKID}", "UPDATE_TIMELINE"])} - Update Task Timeline`, () => {
         let testTask: any;
 
         beforeEach(async () => {
@@ -433,7 +433,7 @@ describe("Task {taskId} API Integration Tests", () => {
         });
     });
 
-    describe(`POST ${ENDPOINTS.TASK.PREFIX}${ENDPOINTS.TASK["{TASKID}"].APPLY} - Submit Task Application`, () => {
+    describe(`POST ${getEndpointWithPrefix(["TASK", "{TASKID}", "APPLY"])} - Submit Task Application`, () => {
         let testTask: any;
 
         beforeEach(async () => {
@@ -516,7 +516,7 @@ describe("Task {taskId} API Integration Tests", () => {
         });
     });
 
-    describe(`POST ${ENDPOINTS.TASK.PREFIX}${ENDPOINTS.TASK["{TASKID}"].ACCEPT_APPLICATION} - Accept Task Application`, () => {
+    describe(`POST ${getEndpointWithPrefix(["TASK", "{TASKID}", "ACCEPT_APPLICATION"])} - Accept Task Application`, () => {
         let testTask: any;
         const contributorId = cuid();
 
@@ -637,7 +637,7 @@ describe("Task {taskId} API Integration Tests", () => {
         });
     });
 
-    describe(`POST ${ENDPOINTS.TASK.PREFIX}${ENDPOINTS.TASK["{TASKID}"].REQUEST_TIMELINE_EXTENSION} - Request Timeline Extension`, () => {
+    describe(`POST ${getEndpointWithPrefix(["TASK", "{TASKID}", "REQUEST_TIMELINE_EXTENSION"])} - Request Timeline Extension`, () => {
         let testTask: any;
 
         beforeEach(async () => {
@@ -714,7 +714,7 @@ describe("Task {taskId} API Integration Tests", () => {
         });
     });
 
-    describe(`POST ${ENDPOINTS.TASK.PREFIX}${ENDPOINTS.TASK["{TASKID}"].REPLY_TIMELINE_EXTENSION} - Reply Timeline Extension`, () => {
+    describe(`POST ${getEndpointWithPrefix(["TASK", "{TASKID}", "REPLY_TIMELINE_EXTENSION"])} - Reply Timeline Extension`, () => {
         let testTask: any;
 
         beforeEach(async () => {
@@ -815,7 +815,7 @@ describe("Task {taskId} API Integration Tests", () => {
         });
     });
 
-    describe(`POST ${ENDPOINTS.TASK.PREFIX}${ENDPOINTS.TASK["{TASKID}"].MARK_COMPLETE} - Mark Task as Complete`, () => {
+    describe(`POST ${getEndpointWithPrefix(["TASK", "{TASKID}", "MARK_COMPLETE"])} - Mark Task as Complete`, () => {
         let testTask: any;
 
         beforeEach(async () => {
@@ -897,7 +897,7 @@ describe("Task {taskId} API Integration Tests", () => {
         });
     });
 
-    describe(`POST ${ENDPOINTS.TASK.PREFIX}${ENDPOINTS.TASK["{TASKID}"].VALIDATE_COMPLETION} - Validate Task Completion`, () => {
+    describe(`POST ${getEndpointWithPrefix(["TASK", "{TASKID}", "VALIDATE_COMPLETION"])} - Validate Task Completion`, () => {
         let testTask: any;
         let testInstallation: any;
 

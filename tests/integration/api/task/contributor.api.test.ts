@@ -95,7 +95,7 @@ describe("Task Contributor API Integration Tests", () => {
         await prisma.$disconnect();
     });
 
-    describe(`GET ${ENDPOINTS.TASK.PREFIX}${ENDPOINTS.TASK.CONTRIBUTOR.GET_TASKS} - Get Contributor Tasks`, () => {
+    describe(`GET ${getEndpointWithPrefix(["TASK", "CONTRIBUTOR", "GET_TASKS"])} - Get Contributor Tasks`, () => {
         let testContributor: any;
         let testInstallation: any;
 
@@ -241,7 +241,7 @@ describe("Task Contributor API Integration Tests", () => {
         });
     });
 
-    describe(`GET ${ENDPOINTS.TASK.PREFIX}${ENDPOINTS.TASK.CONTRIBUTOR.GET_TASK} - Get Contributor Task`, () => {
+    describe(`GET ${getEndpointWithPrefix(["TASK", "CONTRIBUTOR", "GET_TASK"])} - Get Contributor Task`, () => {
         let testContributor: any;
         let testTask: any;
 
