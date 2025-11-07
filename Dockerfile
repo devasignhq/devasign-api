@@ -1,5 +1,5 @@
-# Use the official Node.js 18 Alpine image for smaller size and better security
-FROM node:18-alpine AS base
+# Use the official Node.js 20 Alpine image for smaller size and better security
+FROM node:20-alpine AS base
 
 # Install dependencies needed for Prisma and native modules
 RUN apk add --no-cache libc6-compat openssl
@@ -12,10 +12,11 @@ COPY package*.json ./
 COPY prisma ./prisma/
 
 # Install dependencies
-RUN npm ci --only=production && npm cache clean --force
+# Using npm install instead of npm ci (temporary workaround)
+RUN npm install --omit=dev && npm cache clean --force
 
 # Build stage
-FROM node:18-alpine AS builder
+FROM node:20-alpine AS builder
 
 # Install dependencies needed for building
 RUN apk add --no-cache libc6-compat openssl
@@ -29,16 +30,17 @@ COPY prisma ./prisma/
 COPY api ./api/
 
 # Install all dependencies (including dev dependencies for building)
-RUN npm ci
+# Using npm install instead of npm ci (temporary workaround)
+RUN npm install
 
-# Generate Prisma client (this creates api/generated/client)
+# Generate Prisma client (this creates prisma_client folder in root directory)
 RUN npm run prisma-gen-acc
 
 # Build the application
 RUN npm run build
 
 # Production stage
-FROM node:18-alpine AS runner
+FROM node:20-alpine AS runner
 
 # Install dependencies needed for runtime
 RUN apk add --no-cache libc6-compat openssl
@@ -53,7 +55,7 @@ WORKDIR /app
 COPY --from=base --chown=nodejs:nodejs /app/node_modules ./node_modules
 COPY --from=base --chown=nodejs:nodejs /app/prisma ./prisma
 COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
-COPY --from=builder --chown=nodejs:nodejs /app/api/generated ./dist/generated
+COPY --from=builder --chown=nodejs:nodejs /app/prisma_client ./prisma_client
 COPY --from=builder --chown=nodejs:nodejs /app/package*.json ./
 
 # Switch to non-root user
