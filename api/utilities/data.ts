@@ -102,8 +102,8 @@ export const ENDPOINTS = {
             UPDATE: "/pr-review-rules/:installationId/:ruleId",
             /** DELETE /pr-review-rules/:installationId/:ruleId - Delete PR review rule */
             DELETE: "/pr-review-rules/:installationId/:ruleId",
-            /** GET /pr-review-rules/default - Get default PR review rules */
-            GET_DEFAULT: "/pr-review-rules/default"
+            /** GET /pr-review-rules/default/rules/get - Get default PR review rules */
+            GET_DEFAULT: "/pr-review-rules/default/rules/get"
         }
     },
     /** Task management endpoints */

@@ -137,7 +137,7 @@ export const getPRReviewRulesSchema = {
         installationId: installationIdSchema
     }),
     query: z.object({
-        active: z.coerce.boolean().optional(),
+        active: z.literal("true").optional(),
         ruleType: z.enum(RuleType).optional(),
         severity: z.enum(RuleSeverity).optional()
     })
