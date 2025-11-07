@@ -558,7 +558,7 @@ describe("Webhook API Integration Tests", () => {
             // Create a custom app that doesn't use express.raw middleware
             const testApp = express();
             testApp.use(express.json()); // This will parse JSON instead of keeping raw buffer
-            testApp.use("/webhook", webhookRoutes);
+            testApp.use(ENDPOINTS.WEBHOOK.PREFIX, webhookRoutes);
             testApp.use(errorHandler);
 
             const payload = createWebhookPayload();

@@ -555,7 +555,11 @@ describe("Installation PR Review Rules API Integration Tests", () => {
         it("should require authentication for PR review rules endpoints", async () => {
             const appWithoutAuth = express();
             appWithoutAuth.use(express.json());
-            appWithoutAuth.use("/installations", validateUser as RequestHandler, installationRoutes);
+            appWithoutAuth.use(
+                ENDPOINTS.INSTALLATION.PREFIX, 
+                validateUser as RequestHandler, 
+                installationRoutes
+            );
             appWithoutAuth.use(errorHandler);
 
             await request(appWithoutAuth)

@@ -180,7 +180,8 @@ describe("Task Activities API Integration Tests", () => {
 
         it("should return activities with user information", async () => {
             const response = await request(app)
-                .get(getEndpointWithPrefix(["TASK", "ACTIVITIES", "GET_ALL"]).replace(":taskId", testTask.id))
+                .get(getEndpointWithPrefix(["TASK", "ACTIVITIES", "GET_ALL"])
+                    .replace(":taskId", testTask.id))
                 .set("x-test-user-id", "installation-user")
                 .expect(STATUS_CODES.SUCCESS);
 
@@ -218,7 +219,8 @@ describe("Task Activities API Integration Tests", () => {
             });
 
             const response = await request(app)
-                .get(getEndpointWithPrefix(["TASK", "ACTIVITIES", "GET_ALL"]).replace(":taskId", testTask.id))
+                .get(getEndpointWithPrefix(["TASK", "ACTIVITIES", "GET_ALL"])
+                    .replace(":taskId", testTask.id))
                 .set("x-test-user-id", "other-user")
                 .expect(STATUS_CODES.SUCCESS);
 
@@ -246,7 +248,8 @@ describe("Task Activities API Integration Tests", () => {
             });
 
             const response = await request(app)
-                .get(getEndpointWithPrefix(["TASK", "ACTIVITIES", "GET_ALL"]).replace(":taskId", testTask.id))
+                .get(getEndpointWithPrefix(["TASK", "ACTIVITIES", "GET_ALL"])
+                    .replace(":taskId", testTask.id))
                 .set("x-test-user-id", "installation-user")
                 .expect(STATUS_CODES.SUCCESS);
 

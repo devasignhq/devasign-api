@@ -274,7 +274,8 @@ describe("Task Contributor API Integration Tests", () => {
 
         it("should get specific task for contributor", async () => {
             const response = await request(app)
-                .get(getEndpointWithPrefix(["TASK", "CONTRIBUTOR", "GET_TASK"]).replace(":taskId", testTask.id))
+                .get(getEndpointWithPrefix(["TASK", "CONTRIBUTOR", "GET_TASK"])
+                    .replace(":taskId", testTask.id))
                 .set("x-test-user-id", "contributor-user")
                 .expect(STATUS_CODES.SUCCESS);
 
@@ -294,7 +295,8 @@ describe("Task Contributor API Integration Tests", () => {
 
         it("should return 404 when task not found", async () => {
             await request(app)
-                .get(getEndpointWithPrefix(["TASK", "CONTRIBUTOR", "GET_TASK"]).replace(":taskId", cuid()))
+                .get(getEndpointWithPrefix(["TASK", "CONTRIBUTOR", "GET_TASK"])
+                    .replace(":taskId", cuid()))
                 .set("x-test-user-id", "contributor-user")
                 .expect(STATUS_CODES.NOT_FOUND);
         });
@@ -306,14 +308,16 @@ describe("Task Contributor API Integration Tests", () => {
             });
 
             await request(app)
-                .get(getEndpointWithPrefix(["TASK", "CONTRIBUTOR", "GET_TASK"]).replace(":taskId", testTask.id))
+                .get(getEndpointWithPrefix(["TASK", "CONTRIBUTOR", "GET_TASK"])
+                    .replace(":taskId", testTask.id))
                 .set("x-test-user-id", "other-user")
                 .expect(STATUS_CODES.NOT_FOUND);
         });
 
         it("should return task with all required fields", async () => {
             const response = await request(app)
-                .get(getEndpointWithPrefix(["TASK", "CONTRIBUTOR", "GET_TASK"]).replace(":taskId", testTask.id))
+                .get(getEndpointWithPrefix(["TASK", "CONTRIBUTOR", "GET_TASK"])
+                    .replace(":taskId", testTask.id))
                 .set("x-test-user-id", "contributor-user")
                 .expect(STATUS_CODES.SUCCESS);
 

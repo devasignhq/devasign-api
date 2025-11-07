@@ -167,7 +167,8 @@ describe("Task {taskId} API Integration Tests", () => {
 
         it("should add bounty comment ID to task successfully", async () => {
             const response = await request(app)
-                .patch(getEndpointWithPrefix(["TASK", "{TASKID}", "ADD_BOUNTY_COMMENT"]).replace(":taskId", testTask.id))
+                .patch(getEndpointWithPrefix(["TASK", "{TASKID}", "ADD_BOUNTY_COMMENT"])
+                    .replace(":taskId", testTask.id))
                 .set("x-test-user-id", "task-creator")
                 .send({ bountyCommentId: "123456789" })
                 .expect(STATUS_CODES.SUCCESS);
@@ -185,7 +186,8 @@ describe("Task {taskId} API Integration Tests", () => {
 
         it("should return error when user is not the creator", async () => {
             await request(app)
-                .patch(getEndpointWithPrefix(["TASK", "{TASKID}", "ADD_BOUNTY_COMMENT"]).replace(":taskId", testTask.id))
+                .patch(getEndpointWithPrefix(["TASK", "{TASKID}", "ADD_BOUNTY_COMMENT"])
+                    .replace(":taskId", testTask.id))
                 .set("x-test-user-id", "different-user")
                 .send({ bountyCommentId: "123456789" })
                 .expect(STATUS_CODES.UNAUTHORIZED);
@@ -198,7 +200,8 @@ describe("Task {taskId} API Integration Tests", () => {
             });
 
             await request(app)
-                .patch(getEndpointWithPrefix(["TASK", "{TASKID}", "ADD_BOUNTY_COMMENT"]).replace(":taskId", testTask.id))
+                .patch(getEndpointWithPrefix(["TASK", "{TASKID}", "ADD_BOUNTY_COMMENT"])
+                    .replace(":taskId", testTask.id))
                 .set("x-test-user-id", "task-creator")
                 .send({ bountyCommentId: "123456789" })
                 .expect(STATUS_CODES.SERVER_ERROR);
@@ -206,7 +209,8 @@ describe("Task {taskId} API Integration Tests", () => {
 
         it("should return 404 when task not found", async () => {
             await request(app)
-                .patch(getEndpointWithPrefix(["TASK", "{TASKID}", "ADD_BOUNTY_COMMENT"]).replace(":taskId", cuid()))
+                .patch(getEndpointWithPrefix(["TASK", "{TASKID}", "ADD_BOUNTY_COMMENT"])
+                    .replace(":taskId", cuid()))
                 .set("x-test-user-id", "task-creator")
                 .send({ bountyCommentId: "123456789" })
                 .expect(STATUS_CODES.NOT_FOUND);
@@ -241,7 +245,8 @@ describe("Task {taskId} API Integration Tests", () => {
 
         it("should increase task bounty successfully", async () => {
             const response = await request(app)
-                .patch(getEndpointWithPrefix(["TASK", "{TASKID}", "UPDATE_BOUNTY"]).replace(":taskId", testTask.id))
+                .patch(getEndpointWithPrefix(["TASK", "{TASKID}", "UPDATE_BOUNTY"])
+                    .replace(":taskId", testTask.id))
                 .set("x-test-user-id", "task-creator")
                 .send({ newBounty: "150" })
                 .expect(STATUS_CODES.SUCCESS);
@@ -257,7 +262,8 @@ describe("Task {taskId} API Integration Tests", () => {
 
         it("should decrease task bounty successfully", async () => {
             const response = await request(app)
-                .patch(getEndpointWithPrefix(["TASK", "{TASKID}", "UPDATE_BOUNTY"]).replace(":taskId", testTask.id))
+                .patch(getEndpointWithPrefix(["TASK", "{TASKID}", "UPDATE_BOUNTY"])
+                    .replace(":taskId", testTask.id))
                 .set("x-test-user-id", "task-creator")
                 .send({ newBounty: "50" })
                 .expect(STATUS_CODES.SUCCESS);
@@ -273,7 +279,8 @@ describe("Task {taskId} API Integration Tests", () => {
 
         it("should return error when user is not the creator", async () => {
             await request(app)
-                .patch(getEndpointWithPrefix(["TASK", "{TASKID}", "UPDATE_BOUNTY"]).replace(":taskId", testTask.id))
+                .patch(getEndpointWithPrefix(["TASK", "{TASKID}", "UPDATE_BOUNTY"])
+                    .replace(":taskId", testTask.id))
                 .set("x-test-user-id", "different-user")
                 .send({ newBounty: "150" })
                 .expect(STATUS_CODES.UNAUTHORIZED);
@@ -293,7 +300,8 @@ describe("Task {taskId} API Integration Tests", () => {
             });
 
             const response = await request(app)
-                .patch(getEndpointWithPrefix(["TASK", "{TASKID}", "UPDATE_BOUNTY"]).replace(":taskId", testTask.id))
+                .patch(getEndpointWithPrefix(["TASK", "{TASKID}", "UPDATE_BOUNTY"])
+                    .replace(":taskId", testTask.id))
                 .set("x-test-user-id", "task-creator")
                 .send({ newBounty: "150" })
                 .expect(STATUS_CODES.SERVER_ERROR);
@@ -303,7 +311,8 @@ describe("Task {taskId} API Integration Tests", () => {
 
         it("should return error when new bounty is same as current", async () => {
             const response = await request(app)
-                .patch(getEndpointWithPrefix(["TASK", "{TASKID}", "UPDATE_BOUNTY"]).replace(":taskId", testTask.id))
+                .patch(getEndpointWithPrefix(["TASK", "{TASKID}", "UPDATE_BOUNTY"])
+                    .replace(":taskId", testTask.id))
                 .set("x-test-user-id", "task-creator")
                 .send({ newBounty: "100" })
                 .expect(STATUS_CODES.SERVER_ERROR);
@@ -322,7 +331,8 @@ describe("Task {taskId} API Integration Tests", () => {
             });
 
             const response = await request(app)
-                .patch(getEndpointWithPrefix(["TASK", "{TASKID}", "UPDATE_BOUNTY"]).replace(":taskId", testTask.id))
+                .patch(getEndpointWithPrefix(["TASK", "{TASKID}", "UPDATE_BOUNTY"])
+                    .replace(":taskId", testTask.id))
                 .set("x-test-user-id", "task-creator")
                 .send({ newBounty: "200" })
                 .expect(STATUS_CODES.SERVER_ERROR);
@@ -336,7 +346,8 @@ describe("Task {taskId} API Integration Tests", () => {
             );
 
             const response = await request(app)
-                .patch(getEndpointWithPrefix(["TASK", "{TASKID}", "UPDATE_BOUNTY"]).replace(":taskId", testTask.id))
+                .patch(getEndpointWithPrefix(["TASK", "{TASKID}", "UPDATE_BOUNTY"])
+                    .replace(":taskId", testTask.id))
                 .set("x-test-user-id", "task-creator")
                 .send({ newBounty: "150" })
                 .expect(STATUS_CODES.PARTIAL_SUCCESS);
@@ -377,7 +388,8 @@ describe("Task {taskId} API Integration Tests", () => {
 
         it("should update task timeline successfully", async () => {
             const response = await request(app)
-                .patch(getEndpointWithPrefix(["TASK", "{TASKID}", "UPDATE_TIMELINE"]).replace(":taskId", testTask.id))
+                .patch(getEndpointWithPrefix(["TASK", "{TASKID}", "UPDATE_TIMELINE"])
+                    .replace(":taskId", testTask.id))
                 .set("x-test-user-id", "task-creator")
                 .send({ newTimeline: 2, newTimelineType: "WEEK" })
                 .expect(STATUS_CODES.SUCCESS);
@@ -391,7 +403,8 @@ describe("Task {taskId} API Integration Tests", () => {
 
         it("should convert days > 6 to weeks", async () => {
             const response = await request(app)
-                .patch(getEndpointWithPrefix(["TASK", "{TASKID}", "UPDATE_TIMELINE"]).replace(":taskId", testTask.id))
+                .patch(getEndpointWithPrefix(["TASK", "{TASKID}", "UPDATE_TIMELINE"])
+                    .replace(":taskId", testTask.id))
                 .set("x-test-user-id", "task-creator")
                 .send({ newTimeline: 14, newTimelineType: "DAY" })
                 .expect(STATUS_CODES.SUCCESS);
@@ -404,7 +417,8 @@ describe("Task {taskId} API Integration Tests", () => {
 
         it("should return error when user is not the creator", async () => {
             await request(app)
-                .patch(getEndpointWithPrefix(["TASK", "{TASKID}", "UPDATE_TIMELINE"]).replace(":taskId", testTask.id))
+                .patch(getEndpointWithPrefix(["TASK", "{TASKID}", "UPDATE_TIMELINE"])
+                    .replace(":taskId", testTask.id))
                 .set("x-test-user-id", "different-user")
                 .send({ newTimeline: 2, newTimelineType: "WEEK" })
                 .expect(STATUS_CODES.UNAUTHORIZED);
@@ -424,7 +438,8 @@ describe("Task {taskId} API Integration Tests", () => {
             });
 
             const response = await request(app)
-                .patch(getEndpointWithPrefix(["TASK", "{TASKID}", "UPDATE_TIMELINE"]).replace(":taskId", testTask.id))
+                .patch(getEndpointWithPrefix(["TASK", "{TASKID}", "UPDATE_TIMELINE"])
+                    .replace(":taskId", testTask.id))
                 .set("x-test-user-id", "task-creator")
                 .send({ newTimeline: 2, newTimelineType: "WEEK" })
                 .expect(STATUS_CODES.SERVER_ERROR);
@@ -460,7 +475,8 @@ describe("Task {taskId} API Integration Tests", () => {
 
         it("should submit task application successfully", async () => {
             const response = await request(app)
-                .post(getEndpointWithPrefix(["TASK", "{TASKID}", "APPLY"]).replace(":taskId", testTask.id))
+                .post(getEndpointWithPrefix(["TASK", "{TASKID}", "APPLY"])
+                    .replace(":taskId", testTask.id))
                 .set("x-test-user-id", "applicant")
                 .expect(STATUS_CODES.SUCCESS);
 
@@ -487,7 +503,8 @@ describe("Task {taskId} API Integration Tests", () => {
             });
 
             const response = await request(app)
-                .post(getEndpointWithPrefix(["TASK", "{TASKID}", "APPLY"]).replace(":taskId", testTask.id))
+                .post(getEndpointWithPrefix(["TASK", "{TASKID}", "APPLY"])
+                    .replace(":taskId", testTask.id))
                 .set("x-test-user-id", "applicant")
                 .expect(STATUS_CODES.SERVER_ERROR);
 
@@ -501,7 +518,8 @@ describe("Task {taskId} API Integration Tests", () => {
             });
 
             const response = await request(app)
-                .post(getEndpointWithPrefix(["TASK", "{TASKID}", "APPLY"]).replace(":taskId", testTask.id))
+                .post(getEndpointWithPrefix(["TASK", "{TASKID}", "APPLY"])
+                    .replace(":taskId", testTask.id))
                 .set("x-test-user-id", "applicant")
                 .expect(STATUS_CODES.SERVER_ERROR);
 
@@ -510,7 +528,8 @@ describe("Task {taskId} API Integration Tests", () => {
 
         it("should return 404 when task not found", async () => {
             await request(app)
-                .post(getEndpointWithPrefix(["TASK", "{TASKID}", "APPLY"]).replace(":taskId", cuid()))
+                .post(getEndpointWithPrefix(["TASK", "{TASKID}", "APPLY"])
+                    .replace(":taskId", cuid()))
                 .set("x-test-user-id", "applicant")
                 .expect(STATUS_CODES.NOT_FOUND);
         });
@@ -667,7 +686,8 @@ describe("Task {taskId} API Integration Tests", () => {
 
         it("should request timeline extension successfully", async () => {
             await request(app)
-                .post(getEndpointWithPrefix(["TASK", "{TASKID}", "REQUEST_TIMELINE_EXTENSION"]).replace(":taskId", testTask.id))
+                .post(getEndpointWithPrefix(["TASK", "{TASKID}", "REQUEST_TIMELINE_EXTENSION"])
+                    .replace(":taskId", testTask.id))
                 .set("x-test-user-id", "contributor")
                 .send({
                     githubUsername: "contributor",
@@ -684,7 +704,8 @@ describe("Task {taskId} API Integration Tests", () => {
 
         it("should return error when user is not the contributor", async () => {
             await request(app)
-                .post(getEndpointWithPrefix(["TASK", "{TASKID}", "REQUEST_TIMELINE_EXTENSION"]).replace(":taskId", testTask.id))
+                .post(getEndpointWithPrefix(["TASK", "{TASKID}", "REQUEST_TIMELINE_EXTENSION"])
+                    .replace(":taskId", testTask.id))
                 .set("x-test-user-id", "different-user")
                 .send({
                     githubUsername: "different-user",
@@ -702,7 +723,8 @@ describe("Task {taskId} API Integration Tests", () => {
             });
 
             await request(app)
-                .post(getEndpointWithPrefix(["TASK", "{TASKID}", "REQUEST_TIMELINE_EXTENSION"]).replace(":taskId", testTask.id))
+                .post(getEndpointWithPrefix(["TASK", "{TASKID}", "REQUEST_TIMELINE_EXTENSION"])
+                    .replace(":taskId", testTask.id))
                 .set("x-test-user-id", "contributor")
                 .send({
                     githubUsername: "contributor",
@@ -744,7 +766,8 @@ describe("Task {taskId} API Integration Tests", () => {
 
         it("should accept timeline extension successfully", async () => {
             const response = await request(app)
-                .post(getEndpointWithPrefix(["TASK", "{TASKID}", "REPLY_TIMELINE_EXTENSION"]).replace(":taskId", testTask.id))
+                .post(getEndpointWithPrefix(["TASK", "{TASKID}", "REPLY_TIMELINE_EXTENSION"])
+                    .replace(":taskId", testTask.id))
                 .set("x-test-user-id", "task-creator")
                 .send({
                     accept: true,
@@ -765,7 +788,8 @@ describe("Task {taskId} API Integration Tests", () => {
 
         it("should reject timeline extension successfully", async () => {
             const response = await request(app)
-                .post(getEndpointWithPrefix(["TASK", "{TASKID}", "REPLY_TIMELINE_EXTENSION"]).replace(":taskId", testTask.id))
+                .post(getEndpointWithPrefix(["TASK", "{TASKID}", "REPLY_TIMELINE_EXTENSION"])
+                    .replace(":taskId", testTask.id))
                 .set("x-test-user-id", "task-creator")
                 .send({
                     accept: false,
@@ -787,7 +811,8 @@ describe("Task {taskId} API Integration Tests", () => {
 
         it("should return error when user is not the creator", async () => {
             await request(app)
-                .post(getEndpointWithPrefix(["TASK", "{TASKID}", "REPLY_TIMELINE_EXTENSION"]).replace(":taskId", testTask.id))
+                .post(getEndpointWithPrefix(["TASK", "{TASKID}", "REPLY_TIMELINE_EXTENSION"])
+                    .replace(":taskId", testTask.id))
                 .set("x-test-user-id", "different-user")
                 .send({
                     accept: true,
@@ -799,7 +824,8 @@ describe("Task {taskId} API Integration Tests", () => {
 
         it("should handle day to week conversion when accepting", async () => {
             const response = await request(app)
-                .post(getEndpointWithPrefix(["TASK", "{TASKID}", "REPLY_TIMELINE_EXTENSION"]).replace(":taskId", testTask.id))
+                .post(getEndpointWithPrefix(["TASK", "{TASKID}", "REPLY_TIMELINE_EXTENSION"])
+                    .replace(":taskId", testTask.id))
                 .set("x-test-user-id", "task-creator")
                 .send({
                     accept: true,
@@ -843,7 +869,8 @@ describe("Task {taskId} API Integration Tests", () => {
 
         it("should mark task as complete successfully", async () => {
             const response = await request(app)
-                .post(getEndpointWithPrefix(["TASK", "{TASKID}", "MARK_COMPLETE"]).replace(":taskId", testTask.id))
+                .post(getEndpointWithPrefix(["TASK", "{TASKID}", "MARK_COMPLETE"])
+                    .replace(":taskId", testTask.id))
                 .set("x-test-user-id", "contributor")
                 .send({
                     pullRequest: "https://github.com/owner/repo/pull/123",
@@ -873,7 +900,8 @@ describe("Task {taskId} API Integration Tests", () => {
 
         it("should return error when user is not the contributor", async () => {
             await request(app)
-                .post(getEndpointWithPrefix(["TASK", "{TASKID}", "MARK_COMPLETE"]).replace(":taskId", testTask.id))
+                .post(getEndpointWithPrefix(["TASK", "{TASKID}", "MARK_COMPLETE"])
+                    .replace(":taskId", testTask.id))
                 .set("x-test-user-id", "different-user")
                 .send({
                     pullRequest: "https://github.com/owner/repo/pull/123"
@@ -888,7 +916,8 @@ describe("Task {taskId} API Integration Tests", () => {
             });
 
             await request(app)
-                .post(getEndpointWithPrefix(["TASK", "{TASKID}", "MARK_COMPLETE"]).replace(":taskId", testTask.id))
+                .post(getEndpointWithPrefix(["TASK", "{TASKID}", "MARK_COMPLETE"])
+                    .replace(":taskId", testTask.id))
                 .set("x-test-user-id", "contributor")
                 .send({
                     pullRequest: "https://github.com/owner/repo/pull/123"
@@ -934,7 +963,8 @@ describe("Task {taskId} API Integration Tests", () => {
 
         it("should validate task completion successfully", async () => {
             const response = await request(app)
-                .post(getEndpointWithPrefix(["TASK", "{TASKID}", "VALIDATE_COMPLETION"]).replace(":taskId", testTask.id))
+                .post(getEndpointWithPrefix(["TASK", "{TASKID}", "VALIDATE_COMPLETION"])
+                    .replace(":taskId", testTask.id))
                 .set("x-test-user-id", "task-creator")
                 .expect(STATUS_CODES.SUCCESS);
 
@@ -961,7 +991,8 @@ describe("Task {taskId} API Integration Tests", () => {
 
         it("should return error when user is not the creator", async () => {
             await request(app)
-                .post(getEndpointWithPrefix(["TASK", "{TASKID}", "VALIDATE_COMPLETION"]).replace(":taskId", testTask.id))
+                .post(getEndpointWithPrefix(["TASK", "{TASKID}", "VALIDATE_COMPLETION"])
+                    .replace(":taskId", testTask.id))
                 .set("x-test-user-id", "different-user")
                 .expect(STATUS_CODES.UNAUTHORIZED);
         });
@@ -973,7 +1004,8 @@ describe("Task {taskId} API Integration Tests", () => {
             });
 
             await request(app)
-                .post(getEndpointWithPrefix(["TASK", "{TASKID}", "VALIDATE_COMPLETION"]).replace(":taskId", testTask.id))
+                .post(getEndpointWithPrefix(["TASK", "{TASKID}", "VALIDATE_COMPLETION"])
+                    .replace(":taskId", testTask.id))
                 .set("x-test-user-id", "task-creator")
                 .expect(STATUS_CODES.SERVER_ERROR);
         });
@@ -985,7 +1017,8 @@ describe("Task {taskId} API Integration Tests", () => {
             });
 
             const response = await request(app)
-                .post(getEndpointWithPrefix(["TASK", "{TASKID}", "VALIDATE_COMPLETION"]).replace(":taskId", testTask.id))
+                .post(getEndpointWithPrefix(["TASK", "{TASKID}", "VALIDATE_COMPLETION"])
+                    .replace(":taskId", testTask.id))
                 .set("x-test-user-id", "task-creator")
                 .expect(STATUS_CODES.PARTIAL_SUCCESS);
 
@@ -998,7 +1031,8 @@ describe("Task {taskId} API Integration Tests", () => {
 
         it("should return 404 when task not found", async () => {
             await request(app)
-                .post(getEndpointWithPrefix(["TASK", "{TASKID}", "VALIDATE_COMPLETION"]).replace(":taskId", cuid()))
+                .post(getEndpointWithPrefix(["TASK", "{TASKID}", "VALIDATE_COMPLETION"])
+                    .replace(":taskId", cuid()))
                 .set("x-test-user-id", "task-creator")
                 .expect(STATUS_CODES.NOT_FOUND);
         });

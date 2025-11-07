@@ -362,7 +362,8 @@ describe("Installation API Integration Tests", () => {
 
         it("should get installation by ID successfully", async () => {
             const response = await request(app)
-                .get(getEndpointWithPrefix(["INSTALLATION", "GET_BY_ID"]).replace(":installationId", "12345678"))
+                .get(getEndpointWithPrefix(["INSTALLATION", "GET_BY_ID"])
+                    .replace(":installationId", "12345678"))
                 .set("x-test-user-id", "user-1")
                 .expect(STATUS_CODES.SUCCESS);
 
@@ -392,7 +393,8 @@ describe("Installation API Integration Tests", () => {
 
         it("should return 404 when installation not found", async () => {
             await request(app)
-                .get(getEndpointWithPrefix(["INSTALLATION", "GET_BY_ID"]).replace(":installationId", "99999999"))
+                .get(getEndpointWithPrefix(["INSTALLATION", "GET_BY_ID"])
+                    .replace(":installationId", "99999999"))
                 .set("x-test-user-id", "user-1")
                 .expect(STATUS_CODES.NOT_FOUND);
         });
@@ -404,7 +406,8 @@ describe("Installation API Integration Tests", () => {
             });
 
             await request(app)
-                .get(getEndpointWithPrefix(["INSTALLATION", "GET_BY_ID"]).replace(":installationId", "12345678"))
+                .get(getEndpointWithPrefix(["INSTALLATION", "GET_BY_ID"])
+                    .replace(":installationId", "12345678"))
                 .set("x-test-user-id", "user-2")
                 .expect(STATUS_CODES.NOT_FOUND);
         });
@@ -443,7 +446,8 @@ describe("Installation API Integration Tests", () => {
             };
 
             const response = await request(app)
-                .patch(getEndpointWithPrefix(["INSTALLATION", "UPDATE"]).replace(":installationId", "12345678"))
+                .patch(getEndpointWithPrefix(["INSTALLATION", "UPDATE"])
+                    .replace(":installationId", "12345678"))
                 .set("x-test-user-id", "user-1")
                 .send(updateData)
                 .expect(STATUS_CODES.SUCCESS);
@@ -466,7 +470,8 @@ describe("Installation API Integration Tests", () => {
 
         it("should return 404 when installation not found", async () => {
             await request(app)
-                .patch(getEndpointWithPrefix(["INSTALLATION", "UPDATE"]).replace(":installationId", "99999999"))
+                .patch(getEndpointWithPrefix(["INSTALLATION", "UPDATE"])
+                    .replace(":installationId", "99999999"))
                 .set("x-test-user-id", "user-1")
                 .send({ htmlUrl: "https://github.com/test" })
                 .expect(STATUS_CODES.NOT_FOUND);
@@ -479,7 +484,8 @@ describe("Installation API Integration Tests", () => {
             });
 
             await request(app)
-                .patch(getEndpointWithPrefix(["INSTALLATION", "UPDATE"]).replace(":installationId", "12345678"))
+                .patch(getEndpointWithPrefix(["INSTALLATION", "UPDATE"])
+                    .replace(":installationId", "12345678"))
                 .set("x-test-user-id", "user-2")
                 .send({ htmlUrl: "https://github.com/test" })
                 .expect(STATUS_CODES.UNAUTHORIZED);
@@ -512,7 +518,8 @@ describe("Installation API Integration Tests", () => {
 
         it("should delete installation successfully", async () => {
             const response = await request(app)
-                .delete(getEndpointWithPrefix(["INSTALLATION", "DELETE"]).replace(":installationId", "12345678"))
+                .delete(getEndpointWithPrefix(["INSTALLATION", "DELETE"])
+                    .replace(":installationId", "12345678"))
                 .set("x-test-user-id", "user-1")
                 .send({ walletAddress: "GBPOJZGQPO23FSADGDD3PQFRGLWTETJRK2IY4D5HEQXLDCDEHYFSAAII" })
                 .expect(STATUS_CODES.SUCCESS);
@@ -538,7 +545,8 @@ describe("Installation API Integration Tests", () => {
             await prisma.task.create({ data: task });
 
             await request(app)
-                .delete(getEndpointWithPrefix(["INSTALLATION", "DELETE"]).replace(":installationId", "12345678"))
+                .delete(getEndpointWithPrefix(["INSTALLATION", "DELETE"])
+                    .replace(":installationId", "12345678"))
                 .set("x-test-user-id", "user-1")
                 .send({ walletAddress: "GBPOJZGQPO23FSADGDD3PQFRGLWTETJRK2IY4D5HEQXLDCDEHYFSAAII" })
                 .expect(STATUS_CODES.SERVER_ERROR);
@@ -546,7 +554,8 @@ describe("Installation API Integration Tests", () => {
 
         it("should return 404 when installation not found", async () => {
             await request(app)
-                .delete(getEndpointWithPrefix(["INSTALLATION", "DELETE"]).replace(":installationId", "99999999"))
+                .delete(getEndpointWithPrefix(["INSTALLATION", "DELETE"])
+                    .replace(":installationId", "99999999"))
                 .set("x-test-user-id", "user-1")
                 .send({ walletAddress: "GBPOJZGQPO23FSADGDD3PQFRGLWTETJRK2IY4D5HEQXLDCDEHYFSAAII" })
                 .expect(STATUS_CODES.NOT_FOUND);
@@ -557,7 +566,11 @@ describe("Installation API Integration Tests", () => {
         it("should require authentication for all endpoints", async () => {
             const appWithoutAuth = express();
             appWithoutAuth.use(express.json());
-            appWithoutAuth.use("/installations", validateUser as RequestHandler, installationRoutes);
+            appWithoutAuth.use(
+                ENDPOINTS.INSTALLATION.PREFIX,
+                validateUser as RequestHandler,
+                installationRoutes
+            );
             appWithoutAuth.use(errorHandler);
 
             await request(appWithoutAuth)

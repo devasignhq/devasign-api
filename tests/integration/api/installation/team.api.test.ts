@@ -440,7 +440,11 @@ describe("Installation Team API Integration Tests", () => {
         it("should require authentication for all team endpoints", async () => {
             const appWithoutAuth = express();
             appWithoutAuth.use(express.json());
-            appWithoutAuth.use("/installations", validateUser as RequestHandler, installationRoutes);
+            appWithoutAuth.use(
+                ENDPOINTS.INSTALLATION.PREFIX, 
+                validateUser as RequestHandler, 
+                installationRoutes
+            );
             appWithoutAuth.use(errorHandler);
             const manageTasksCode = cuid();
 
