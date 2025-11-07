@@ -1,9 +1,19 @@
 import { Router, Request, Response, NextFunction, RequestHandler } from "express";
-import { body } from "express-validator";
-import { encrypt } from "../../helper";
+import { encrypt } from "../../utilities/helper";
 import { prisma } from "../../config/database.config";
 import { xlmAssetId, usdcAssetId } from "../../config/stellar.config";
 import { stellarService } from "../../services/stellar.service";
+import { validateRequestParameters } from "../../middlewares/request.middleware";
+import {
+    createWalletViaSponsorSchema,
+    addTrustLineSchema,
+    addTrustLineViaSponsorSchema,
+    fundWalletSchema,
+    transferAssetSchema,
+    transferAssetViaSponsorSchema,
+    swapAssetSchema,
+    getAccountInfoSchema
+} from "./test.schema";
 
 const router = Router();
 
@@ -24,9 +34,7 @@ router.post("/wallet", async (_req: Request, res: Response, next: NextFunction) 
 
 // Create a new wallet via sponsor
 router.post("/wallet/sponsor",
-    [
-        body("sponsorSecret").notEmpty().withMessage("Secret key is required")
-    ],
+    validateRequestParameters(createWalletViaSponsorSchema),
     async (req: Request, res: Response, next: NextFunction) => {
         try {
             const { sponsorSecret } = req.body;
@@ -43,9 +51,7 @@ router.post("/wallet/sponsor",
 
 // Add trustline for USDC
 router.post("/trustline",
-    [
-        body("secretKey").notEmpty().withMessage("Secret key is required")
-    ],
+    validateRequestParameters(addTrustLineSchema),
     async (req: Request, res: Response, next: NextFunction) => {
         try {
             const { secretKey } = req.body;
@@ -61,10 +67,7 @@ router.post("/trustline",
 
 // Add trustline for USDC via sponsor
 router.post("/trustline/sponsor",
-    [
-        body("sponsorSecret").notEmpty().withMessage("Sponsor key is required"),
-        body("accountSecret").notEmpty().withMessage("Account key is required")
-    ],
+    validateRequestParameters(addTrustLineViaSponsorSchema),
     async (req: Request, res: Response, next: NextFunction) => {
         try {
             const { sponsorSecret, accountSecret } = req.body;
@@ -80,7 +83,7 @@ router.post("/trustline/sponsor",
 
 // Fund a wallet
 router.post("/fund",
-    body("publicKey").notEmpty().withMessage("Public key is required"),
+    validateRequestParameters(fundWalletSchema),
     async (req: Request, res: Response, next: NextFunction) => {
         try {
             await stellarService.fundWallet(req.body.publicKey);
@@ -95,11 +98,7 @@ router.post("/fund",
 
 // Transfer assets
 router.post("/transfer",
-    [
-        body("sourceSecret").notEmpty().withMessage("Source secret key is required"),
-        body("destinationAddress").notEmpty().withMessage("Destination public key is required"),
-        body("amount").notEmpty().withMessage("Amount is required")
-    ],
+    validateRequestParameters(transferAssetSchema),
     async (req: Request, res: Response, next: NextFunction) => {
         try {
             const { sourceSecret, destinationAddress, amount } = req.body;
@@ -122,12 +121,7 @@ router.post("/transfer",
 
 // Transfer assets via sponsor
 router.post("/transfer/sponsor",
-    [
-        body("sponsorSecret").notEmpty().withMessage("Sponsor key is required"),
-        body("accountSecret").notEmpty().withMessage("Account key is required"),
-        body("destinationAddress").notEmpty().withMessage("Destination public key is required"),
-        body("amount").notEmpty().withMessage("Amount is required")
-    ],
+    validateRequestParameters(transferAssetViaSponsorSchema),
     async (req: Request, res: Response, next: NextFunction) => {
         try {
             const { sponsorSecret, accountSecret, destinationAddress, amount } = req.body;
@@ -151,10 +145,7 @@ router.post("/transfer/sponsor",
 
 // Swap assets
 router.post("/swap",
-    [
-        body("sourceSecret").notEmpty().withMessage("Source secret key is required"),
-        body("amount").notEmpty().withMessage("Amount is required")
-    ],
+    validateRequestParameters(swapAssetSchema),
     async (req: Request, res: Response, next: NextFunction) => {
         try {
             const { sourceSecret, amount } = req.body;
@@ -170,77 +161,37 @@ router.post("/swap",
 );
 
 // Get account info
-router.get("/account/:publicKey", async (req: Request, res: Response, next: NextFunction) => {
-    try {
-        const accountInfo = await stellarService.getAccountInfo(req.params.publicKey);
-        res.status(200).json({
-            message: "Account info retrieved successfully",
-            data: accountInfo
-        });
-    } catch (error) {
-        next(error);
+router.get("/account/:publicKey",
+    validateRequestParameters(getAccountInfoSchema),
+    async (req: Request, res: Response, next: NextFunction) => {
+        try {
+            const accountInfo = await stellarService.getAccountInfo(req.params.publicKey);
+            res.status(200).json({
+                message: "Account info retrieved successfully",
+                data: accountInfo
+            });
+        } catch (error) {
+            next(error);
+        }
     }
-});
-
-// Stream
-router.get("/stream/:publicKey", async (req: Request, res: Response, next: NextFunction) => {
-    try {
-        const accountToWatch = "GD6LFE72VUGGPYDAWOEL5I34JODO746PSEFBUCDZECXTVWB6VFLOPFUM";
-        const accountInfo = await stellarService.buildPaymentTransactionStream(accountToWatch);
-
-        console.log("--- Transaction Stream ---");
-
-        accountInfo({
-            onmessage: (payment: any) => {
-                // The 'payment' object contains details about the payment operation.
-                // We are interested in incoming payments, so we check the 'to' address.
-                if (payment.type === "payment" && payment.to === accountToWatch) {
-                    // Check if it's a native asset (XLM) or a credit asset
-                    const assetType = payment.asset_type;
-                    const assetCode = payment.asset_code || "XLM"; // Use XLM for native
-                    const assetIssuer = payment.asset_issuer || ""; // Issuer for credit assets
-
-                    console.log("--- Incoming Payment ---");
-                    console.log(`Transaction ID: ${payment.transaction_hash}`);
-                    console.log(`From: ${payment.from}`);
-                    console.log(`To: ${payment.to}`);
-                    console.log(`Amount: ${payment.amount} ${assetCode}`);
-                    if (assetType !== "native") {
-                        console.log(`Asset Issuer: ${assetIssuer}`);
-                    }
-                    console.log(`Timestamp: ${payment.created_at}`);
-                    console.log("------------------------");
-                }
-            },
-            onerror: (error: any) => {
-                console.error("Error in stream:", error);
-                // Implement reconnection logic here if needed
-            }
-        });
-
-        console.log("--- Transaction Stream ---222");
-
-        res.status(200).json({
-            message: "Transaction stream started successfully"
-        });
-    } catch (error) {
-        next(error);
-    }
-});
+);
 
 // Top ups
-router.get("/topup/:publicKey", async (req: Request, res: Response, next: NextFunction) => {
-    try {
-        const transactions = await stellarService.getTopUpTransactions(req.params.publicKey);
+router.get("/topup/:publicKey",
+    validateRequestParameters(getAccountInfoSchema),
+    async (req: Request, res: Response, next: NextFunction) => {
+        try {
+            const transactions = await stellarService.getTopUpTransactions(req.params.publicKey);
 
-        res.status(200).json({
-            message: "Top up transactions retrieved successfully",
-            data: transactions
-        });
-    } catch (error) {
-        next(error);
+            res.status(200).json({
+                message: "Top up transactions retrieved successfully",
+                data: transactions
+            });
+        } catch (error) {
+            next(error);
+        }
     }
-});
+);
 
 // Update all user wallets (for testnet resets)
 router.patch("/wallets/users/update-all",
@@ -248,8 +199,8 @@ router.patch("/wallets/users/update-all",
         try {
             // Get all users
             const allUsers = await prisma.user.findMany({
-                select: { 
-                    userId: true, 
+                select: {
+                    userId: true,
                     username: true,
                     walletAddress: true
                 }
@@ -270,7 +221,7 @@ router.patch("/wallets/users/update-all",
             for (const user of allUsers) {
                 // Skip users who don't have a wallet address
                 if (!user.walletAddress) continue;
-                
+
                 try {
                     // Create new wallet
                     const newWallet = await stellarService.createWallet();
@@ -327,14 +278,14 @@ router.patch("/wallets/installations/update-all",
         try {
             // Get all installations
             const allInstallations = await prisma.installation.findMany({
-                select: { 
-                    id: true, 
+                select: {
+                    id: true,
                     account: true,
                     walletAddress: true,
                     escrowAddress: true
                 }
             });
-        
+
             if (allInstallations.length === 0) {
                 return res.status(200).json({
                     message: "No installations found to update",

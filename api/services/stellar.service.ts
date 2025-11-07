@@ -7,13 +7,13 @@ import {
     SponsoringBuilder
 } from "@stellar/typescript-wallet-sdk";
 import { 
-    StellarServiceError,
     stellar,
     account,
     usdcAssetId,
     xlmAssetId
 } from "../config/stellar.config";
 import { HorizonApi } from "../models/horizonapi.model";
+import { StellarServiceError } from "../models/error.model";
 
 // TODO: Go deeper in error handling (ie swapAsset: "No trustline present")
 export class StellarService {

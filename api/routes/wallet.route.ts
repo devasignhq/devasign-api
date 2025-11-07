@@ -5,26 +5,52 @@ import {
     getWalletInfo, 
     getTransactions,
     recordWalletTopups
-} from "../controllers/wallet.controller";
+} from "../controllers/wallet";
 import {
-    withdrawAssetValidator,
-    swapAssetValidator,
-    walletInstallationIdValidator
-} from "../validators/wallet.validator";
+    withdrawAssetSchema,
+    swapAssetSchema,
+    walletInstallationIdSchema,
+    getTransactionsSchema
+} from "../schemas/wallet.schema";
+import { ENDPOINTS } from "../utilities/data";
+import { validateRequestParameters } from "../middlewares/request.middleware";
 
 export const walletRoutes = Router();
 
 // Get wallet info
-walletRoutes.get("/account", walletInstallationIdValidator, getWalletInfo as RequestHandler);
+walletRoutes.get(
+    ENDPOINTS.WALLET.GET_ACCOUNT, 
+    validateRequestParameters(walletInstallationIdSchema), 
+    getWalletInfo as RequestHandler
+);
 
-// Withdraw crypto
-walletRoutes.post("/withdraw", withdrawAssetValidator, withdrawAsset as RequestHandler);
+// Withdraw asset
+walletRoutes.post(
+    ENDPOINTS.WALLET.WITHDRAW, 
+    validateRequestParameters(withdrawAssetSchema), 
+    withdrawAsset as RequestHandler
+);
 
-// Swap between XLM and USDC
-walletRoutes.post("/swap", swapAssetValidator, swapAsset as RequestHandler);
+// Swap assets (XLM and USDC)
+walletRoutes.post(
+    ENDPOINTS.WALLET.SWAP, 
+    validateRequestParameters(swapAssetSchema), 
+    swapAsset as RequestHandler
+);
+
+// ============================================================================
+// ============================================================================
 
 // Get transactions
-walletRoutes.get("/transactions", walletInstallationIdValidator, getTransactions as RequestHandler);
+walletRoutes.get(
+    ENDPOINTS.WALLET.TRANSACTIONS.GET_ALL, 
+    validateRequestParameters(getTransactionsSchema), 
+    getTransactions as RequestHandler
+);
 
 // Record wallet topups
-walletRoutes.post("/transactions/record-topups", walletInstallationIdValidator, recordWalletTopups as RequestHandler);
+walletRoutes.post(
+    ENDPOINTS.WALLET.TRANSACTIONS.RECORD_TOPUPS, 
+    validateRequestParameters(walletInstallationIdSchema), 
+    recordWalletTopups as RequestHandler
+);

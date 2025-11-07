@@ -61,6 +61,17 @@ export type IssueMilestone = {
     title: string;
 }
 
+/**
+ * Filter criteria for querying GitHub issues
+ */
+export class IssueFilters {
+    title?: string;
+    labels?: string[];
+    milestone?: string | "none" | "*";
+    sort?: "created" | "updated" | "comments" = "created";
+    direction?: "asc" | "desc" = "desc";
+}
+
 export type GitHubComment = {
     id: string;
     body: string;

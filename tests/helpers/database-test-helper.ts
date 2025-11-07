@@ -1,5 +1,5 @@
 import { execSync } from "child_process";
-import { PrismaClient } from "../../api/generated/client";
+import { PrismaClient } from "../../prisma_client";
 
 /**
  * DatabaseTestHelper provides utilities for managing test databases
@@ -111,8 +111,7 @@ export class DatabaseTestHelper {
      */
     private static async runMigrations(): Promise<void> {
         try {
-            // For PostgreSQL, use db push for tests to avoid migration files
-            execSync("npx prisma db push --force-reset", {
+            execSync("npx prisma migrate deploy", {
                 stdio: "pipe",
                 env: { ...process.env, DATABASE_URL: process.env.DATABASE_URL }
             });
@@ -155,55 +154,20 @@ export class DatabaseTestHelper {
      */
     static async resetDatabase(client: PrismaClient): Promise<void> {
         try {
-            // Get all table names from the schema
-            const tables = await client.$queryRaw<Array<{ tablename: string }>>`
-                SELECT tablename FROM pg_tables WHERE schemaname = 'public'
-            `;
-
-            // Disable foreign key checks and truncate all tables
-            await client.$executeRaw`SET session_replication_role = replica;`;
-
-            for (const table of tables) {
-                if (table.tablename !== "_prisma_migrations") {
-                    await client.$executeRawUnsafe(`TRUNCATE TABLE "${table.tablename}" CASCADE;`);
-                }
-            }
-
-            await client.$executeRaw`SET session_replication_role = DEFAULT;`;
+            await client.transaction.deleteMany();
+            await client.taskSubmission.deleteMany();
+            await client.taskActivity.deleteMany();
+            await client.userInstallationPermission.deleteMany();
+            await client.task.deleteMany();
+            await client.contributionSummary.deleteMany();
+            await client.installation.deleteMany();
+            await client.user.deleteMany();
+            await client.permission.deleteMany();
+            await client.subscriptionPackage.deleteMany();
 
             console.log("✅ Database reset completed");
-        } catch {
-            // Fallback for SQLite or if the above doesn't work
-            try {
-                await client.$executeRaw`PRAGMA foreign_keys = OFF;`;
-
-                // For SQLite, delete from tables in reverse dependency order
-                const deleteOrder = [
-                    "TaskActivity",
-                    "TaskSubmission",
-                    "Transaction",
-                    "AIReviewResult",
-                    "AIReviewRule",
-                    "ContextAnalysisMetrics",
-                    "UserInstallationPermission",
-                    "Task",
-                    "ContributionSummary",
-                    "User",
-                    "Installation",
-                    "SubscriptionPackage",
-                    "Permission"
-                ];
-
-                for (const table of deleteOrder) {
-                    await client.$executeRawUnsafe(`DELETE FROM "${table}";`);
-                }
-
-                await client.$executeRaw`PRAGMA foreign_keys = ON;`;
-                console.log("✅ Database reset completed (SQLite fallback)");
-            } catch (fallbackError) {
-                console.error("❌ Failed to reset database:", fallbackError);
-                throw fallbackError;
-            }
+        } catch (error) {
+            console.error("❌ Failed to reset database:", error);
         }
     }
 

@@ -1,9 +1,9 @@
-import { 
-    User, 
-    Task, 
-    Installation, 
-    SubscriptionPackage, 
-    Permission, 
+import {
+    User,
+    Task,
+    Installation,
+    SubscriptionPackage,
+    Permission,
     UserInstallationPermission,
     Transaction,
     TaskSubmission,
@@ -17,7 +17,7 @@ import {
     RuleType,
     RuleSeverity,
     ReviewStatus
-} from "../../api/generated/client";
+} from "../../prisma_client";
 
 /**
  * TestDataFactory provides factory methods for creating test data objects
@@ -56,24 +56,7 @@ export class TestDataFactory {
     static task(overrides: Partial<Task> = {}): Omit<Task, "id" | "createdAt" | "updatedAt"> {
         const counter = this.taskCounter++;
         return {
-            issue: {
-                id: counter,
-                number: counter,
-                title: `Test Issue ${counter}`,
-                body: `This is a test issue description for task ${counter}`,
-                html_url: `https://github.com/test/repo/issues/${counter}`,
-                state: "open",
-                user: {
-                    login: "testuser",
-                    avatar_url: "https://github.com/testuser.png"
-                },
-                labels: [
-                    { name: "bug", color: "ff0000" },
-                    { name: "good first issue", color: "00ff00" }
-                ],
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString()
-            },
+            issue: this.githubIssue(),
             timeline: 1,
             timelineType: TimelineType.WEEK,
             bounty: 100.0,
@@ -83,7 +66,7 @@ export class TestDataFactory {
             completedAt: null,
             creatorId: `test-user-${counter}`,
             contributorId: null,
-            installationId: `test-installation-${counter}`,
+            installationId: `12345${Math.random().toString().slice(-3)}`,
             ...overrides
         };
     }
@@ -98,10 +81,10 @@ export class TestDataFactory {
     /**
      * Create a test installation with realistic data
      */
-    static installation(overrides: Partial<Installation> = {}): Omit<Installation, "createdAt" | "updatedAt"> {
+    static installation(overrides: Partial<Installation> = {}): Omit<Installation, "createdAt" | "updatedAt" | "subscriptionPackageId"> {
         const counter = this.installationCounter++;
         return {
-            id: `test-installation-${counter}`,
+            id: `12345${Math.random().toString().slice(-3)}`,
             htmlUrl: `https://github.com/test/repo${counter}`,
             targetId: counter,
             targetType: "Repository",
@@ -115,7 +98,6 @@ export class TestDataFactory {
             walletSecret: `SINSTALL${counter.toString().padStart(45, "0")}`,
             escrowAddress: `GESCROW${counter.toString().padStart(46, "0")}`,
             escrowSecret: `SESCROW${counter.toString().padStart(46, "0")}`,
-            subscriptionPackageId: "test-package-id",
             ...overrides
         };
     }
@@ -123,7 +105,7 @@ export class TestDataFactory {
     /**
      * Create multiple test installations
      */
-    static installations(count: number, overrides: Partial<Installation> = {}): Array<Omit<Installation, "createdAt" | "updatedAt">> {
+    static installations(count: number, overrides: Partial<Installation> = {}): Array<Omit<Installation, "createdAt" | "updatedAt" | "subscriptionPackageId">> {
         return Array.from({ length: count }, () => this.installation(overrides));
     }
 
@@ -161,7 +143,7 @@ export class TestDataFactory {
     static userInstallationPermission(overrides: Partial<UserInstallationPermission> = {}): Omit<UserInstallationPermission, "id" | "assignedAt"> {
         return {
             userId: "test-user-1",
-            installationId: "test-installation-1",
+            installationId: `12345${Math.random().toString().slice(-3)}`,
             permissionCodes: ["VIEW_TASKS", "APPLY_TASKS"],
             assignedBy: "test-admin-user",
             ...overrides
@@ -184,7 +166,7 @@ export class TestDataFactory {
             assetTo: null,
             fromAmount: null,
             toAmount: null,
-            installationId: "test-installation-1",
+            installationId: `12345${Math.random().toString().slice(-3)}`,
             userId: "test-user-1",
             ...overrides
         };
@@ -197,7 +179,7 @@ export class TestDataFactory {
         return {
             userId: "test-user-1",
             taskId: "test-task-1",
-            installationId: "test-installation-1",
+            installationId: `12345${Math.random().toString().slice(-3)}`,
             pullRequest: "https://github.com/test/repo/pull/1",
             attachmentUrl: null,
             ...overrides
@@ -222,7 +204,7 @@ export class TestDataFactory {
      */
     static aiReviewRule(overrides: Partial<AIReviewRule> = {}): Omit<AIReviewRule, "id" | "createdAt" | "updatedAt"> {
         return {
-            installationId: "test-installation-1",
+            installationId: `12345${Math.random().toString().slice(-3)}`,
             name: "Test Code Quality Rule",
             description: "A test rule for code quality checks",
             ruleType: RuleType.CODE_QUALITY,
@@ -243,7 +225,7 @@ export class TestDataFactory {
      */
     static aiReviewResult(overrides: Partial<AIReviewResult> = {}): Omit<AIReviewResult, "id" | "createdAt" | "updatedAt"> {
         return {
-            installationId: "test-installation-1",
+            installationId: `12345${Math.random().toString().slice(-3)}`,
             prNumber: 1,
             prUrl: "https://github.com/test/repo/pull/1",
             repositoryName: "test/repo",
@@ -337,11 +319,11 @@ export class TestDataFactory {
     static githubIssue(overrides: any = {}) {
         const counter = Date.now();
         return {
-            id: counter,
+            id: counter.toString(),
             number: counter % 1000,
             title: `Test GitHub Issue ${counter}`,
             body: "This is a test GitHub issue created for testing purposes.",
-            html_url: `https://github.com/test/repo/issues/${counter % 1000}`,
+            url: `https://github.com/test/repo/issues/${counter % 1000}`,
             state: "open",
             user: {
                 login: "testuser",
@@ -350,14 +332,16 @@ export class TestDataFactory {
                 html_url: "https://github.com/testuser"
             },
             labels: [
-                { name: "bug", color: "ff0000" },
-                { name: "enhancement", color: "00ff00" }
+                { id: 1, name: "bug", color: "ff0000" },
+                { id: 2, name: "enhancement", color: "00ff00" }
             ],
-            assignees: [],
-            milestone: null,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-            closed_at: null,
+            locked: false,
+            repository: {
+                url: "https://github.com/user/repo"
+            },
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            bountyCommentId: "12345655",
             ...overrides
         };
     }
@@ -412,6 +396,22 @@ export class TestDataFactory {
         this.userCounter = 1;
         this.taskCounter = 1;
         this.installationCounter = 1;
+    }
+
+    /**
+     * Remove certain fields from an object
+     */
+    static filterData(data: Record<string, unknown>, omitFields: string[]) {
+        const filteredData = data;
+        const dataKeys = Object.keys(data);
+
+        for (const key of dataKeys) {
+            if (omitFields.includes(key)) {
+                delete filteredData[key];
+            }
+        }
+
+        return filteredData;
     }
 
     /**

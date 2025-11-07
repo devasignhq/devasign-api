@@ -1,6 +1,5 @@
 import { CircuitBreakerService } from "./circuit-breaker.service";
-import { LoggingService } from "./logging.service";
-import { HealthCheckService } from "./health-check.service";
+import { dataLogger, messageLogger } from "../config/logger.config";
 
 /**
  * Error Recovery Service for AI Review System
@@ -25,8 +24,7 @@ export class ErrorRecoveryService {
         context?: Record<string, unknown>
     ): Promise<RecoveryResult> {
         if (ErrorRecoveryService.recoveryInProgress) {
-            LoggingService.logWarning(
-                "recovery_already_in_progress",
+            dataLogger.warn(
                 "System recovery is already in progress",
                 { failureType, context }
             );
@@ -42,11 +40,8 @@ export class ErrorRecoveryService {
         ErrorRecoveryService.lastRecoveryAttempt = new Date();
         ErrorRecoveryService.recoveryAttempts++;
 
-        const timer = LoggingService.createTimer(`recovery_${failureType}`);
-
         try {
-            LoggingService.logInfo(
-                "recovery_attempt_started",
+            dataLogger.info(
                 `Starting recovery attempt for ${failureType}`,
                 {
                     failureType,
@@ -65,9 +60,6 @@ export class ErrorRecoveryService {
             case "circuit_breaker":
                 result = await ErrorRecoveryService.recoverFromCircuitBreakerFailure(context);
                 break;
-            case "health_check":
-                result = await ErrorRecoveryService.recoverFromHealthCheckFailure(context);
-                break;
             case "complete":
                 result = await ErrorRecoveryService.performCompleteSystemRecovery(context);
                 break;
@@ -80,30 +72,19 @@ export class ErrorRecoveryService {
                 };
             }
 
-            timer.end({
-                success: result.success,
-                strategy: result.strategy,
-                failureType
-            });
-
-            LoggingService.logInfo(
-                "recovery_attempt_completed",
+            dataLogger.info(
                 `Recovery attempt completed: ${result.success ? "SUCCESS" : "FAILED"}`,
                 {
                     failureType,
-                    result,
-                    duration: timer.getCurrentDuration()
+                    result
                 }
             );
 
             return result;
         } catch (error) {
-            timer.end({ error: true, failureType });
-
-            LoggingService.logError(
-                "recovery_attempt_failed",
-                error as Error,
-                { failureType, context, attempt: ErrorRecoveryService.recoveryAttempts }
+            dataLogger.error(
+                "Recovery attempt failed",
+                { error, failureType, context, attempt: ErrorRecoveryService.recoveryAttempts }
             );
 
             return {
@@ -166,11 +147,7 @@ export class ErrorRecoveryService {
      * Recovers Groq AI service
      */
     private static async recoverGroqService(context?: Record<string, unknown>): Promise<RecoveryResult> {
-        LoggingService.logInfo(
-            "groq_service_recovery",
-            "Attempting to recover Groq AI service",
-            context
-        );
+        dataLogger.info("Attempting to recover Groq AI service", { context });
 
         // Reset circuit breaker for Groq
         const circuit = CircuitBreakerService.getCircuit("groq");
@@ -212,11 +189,7 @@ export class ErrorRecoveryService {
      * Recovers GitHub service
      */
     private static async recoverGitHubService(context?: Record<string, unknown>): Promise<RecoveryResult> {
-        LoggingService.logInfo(
-            "github_service_recovery",
-            "Attempting to recover GitHub service",
-            context
-        );
+        dataLogger.info("Attempting to recover GitHub service", { context });
 
         // Reset circuit breaker for GitHub
         const circuit = CircuitBreakerService.getCircuit("github");
@@ -258,11 +231,7 @@ export class ErrorRecoveryService {
      * Recovers database service
      */
     private static async recoverDatabaseService(context?: Record<string, unknown>): Promise<RecoveryResult> {
-        LoggingService.logInfo(
-            "database_service_recovery",
-            "Attempting to recover database service",
-            context
-        );
+        dataLogger.info("Attempting to recover database service", { context });
 
         // Reset circuit breaker for database
         const circuit = CircuitBreakerService.getCircuit("database");
@@ -296,10 +265,9 @@ export class ErrorRecoveryService {
     private static async recoverFromCircuitBreakerFailure(context?: Record<string, unknown>): Promise<RecoveryResult> {
         const serviceName = (context?.serviceName || "") as string;
 
-        LoggingService.logInfo(
-            "circuit_breaker_recovery",
+        dataLogger.info(
             `Attempting to recover circuit breaker for ${serviceName}`,
-            context
+            { context }
         );
 
         if (!serviceName) {
@@ -336,64 +304,10 @@ export class ErrorRecoveryService {
     }
 
     /**
-     * Recovers from health check failures
-     */
-    private static async recoverFromHealthCheckFailure(context?: Record<string, unknown>): Promise<RecoveryResult> {
-        LoggingService.logInfo(
-            "health_check_recovery",
-            "Attempting to recover from health check failure",
-            context
-        );
-
-        try {
-            // Perform fresh health check
-            const healthResult = await HealthCheckService.performHealthCheck(true);
-
-            if (healthResult.status === "healthy") {
-                return {
-                    success: true,
-                    strategy: "health_recovery",
-                    message: "System health recovered",
-                    timestamp: new Date(),
-                    details: { healthResult }
-                };
-            } else if (healthResult.status === "degraded") {
-                return {
-                    success: true,
-                    strategy: "degraded_mode",
-                    message: "System operating in degraded mode",
-                    timestamp: new Date(),
-                    details: { healthResult }
-                };
-            } else {
-                return {
-                    success: false,
-                    strategy: "health_recovery",
-                    message: "System still unhealthy",
-                    timestamp: new Date(),
-                    details: { healthResult }
-                };
-            }
-        } catch (error) {
-            return {
-                success: false,
-                strategy: "health_recovery",
-                message: `Health check recovery failed: ${error}`,
-                timestamp: new Date(),
-                error: String(error)
-            };
-        }
-    }
-
-    /**
      * Performs complete system recovery
      */
     private static async performCompleteSystemRecovery(context?: Record<string, unknown>): Promise<RecoveryResult> {
-        LoggingService.logInfo(
-            "complete_system_recovery",
-            "Attempting complete system recovery",
-            context
-        );
+        dataLogger.info("Attempting complete system recovery", { context });
 
         const recoverySteps: Array<{ name: string; action: () => Promise<void> }> = [
             {
@@ -419,15 +333,6 @@ export class ErrorRecoveryService {
                         throw new Error(`Missing environment variables: ${missing.join(", ")}`);
                     }
                 }
-            },
-            {
-                name: "Perform Health Check",
-                action: async () => {
-                    const healthResult = await HealthCheckService.performHealthCheck(true);
-                    if (healthResult.status === "unhealthy") {
-                        throw new Error("System health check failed");
-                    }
-                }
             }
         ];
 
@@ -437,20 +342,16 @@ export class ErrorRecoveryService {
             try {
                 await step.action();
                 results.push({ step: step.name, success: true });
-                LoggingService.logInfo(
-                    "recovery_step_success",
-                    `Recovery step completed: ${step.name}`
-                );
+                messageLogger.info(`Recovery step completed: ${step.name}`);
             } catch (error) {
                 results.push({
                     step: step.name,
                     success: false,
                     error: String(error)
                 });
-                LoggingService.logError(
-                    "recovery_step_failed",
-                    error as Error,
-                    { step: step.name }
+                dataLogger.error(
+                    "Recovery step failed",
+                    { error: error as Error, step: step.name }
                 );
             }
         }
@@ -501,10 +402,7 @@ export class ErrorRecoveryService {
         ErrorRecoveryService.lastRecoveryAttempt = undefined;
         ErrorRecoveryService.recoveryAttempts = 0;
 
-        LoggingService.logInfo(
-            "recovery_state_reset",
-            "Recovery state has been reset"
-        );
+        messageLogger.info("Recovery state has been reset");
     }
 
     /**

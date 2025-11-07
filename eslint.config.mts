@@ -4,18 +4,17 @@ import tseslint from "typescript-eslint";
 import { defineConfig, globalIgnores } from "eslint/config";
 
 export default defineConfig([
-    { 
-        files: ["**/*.{js,mjs,cjs,ts,mts,cts}"], 
-        plugins: { js }, 
-        extends: ["js/recommended"], 
+    {
+        files: ["**/*.{js,mjs,cjs,ts,mts,cts}"],
+        plugins: { js },
+        extends: ["js/recommended"],
         languageOptions: { globals: globals.browser },
         rules: {
             ...js.configs.recommended.rules,
 
             "no-useless-escape": "off",
             "no-case-declarations": "off",
-            "no-console": "off",
-            // "no-console": "warn",
+            "no-console": "warn",
             "no-debugger": "error",
             "no-duplicate-imports": "error",
             "no-unused-expressions": "error",
@@ -30,7 +29,7 @@ export default defineConfig([
             "indent": ["error", 4],
             "max-len": ["warn", { code: 300, ignoreUrls: true }],
             "eol-last": ["error", "always"],
-            
+
             // Configure TypeScript unused vars rule to ignore variables starting with underscore
             "@typescript-eslint/no-unused-vars": [
                 "error",

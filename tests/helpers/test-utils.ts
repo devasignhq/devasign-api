@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { ENDPOINTS } from "../../api/utilities/data";
 
 /**
  * Creates a mock Express request object for testing
@@ -158,3 +159,24 @@ export function suppressConsole(): { restore: () => void } {
         }
     };
 }
+
+const record = (value: any) => {
+    return value as Record<string, any>;
+};
+const getEndpoint = (path: string[]) => {
+    let result: any = ENDPOINTS;
+    for (const value of path) {
+        result = record(result)[value];
+    }
+    return result as string;
+};
+
+/**
+ * Gets the full url of an endpoint
+ */
+export const getEndpointWithPrefix = (path: string[]): string => {
+    const prefix = record(ENDPOINTS)[path[0]].PREFIX;
+    const endpoint = getEndpoint(path);
+
+    return prefix + endpoint;
+};

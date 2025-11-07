@@ -1,14 +1,16 @@
 import { Request, Response, NextFunction } from "express";
 import crypto from "crypto";
-import { GitHubWebhookError } from "../models/ai-review.errors";
+import { GitHubWebhookError } from "../models/error.model";
 import { OctokitService } from "../services/octokit.service";
-import { LoggingService } from "../services/logging.service";
+import { STATUS_CODES } from "../utilities/data";
+import { dataLogger } from "../config/logger.config";
 
 /**
  * Middleware to validate GitHub webhook signatures
  */
 export const validateGitHubWebhook = (req: Request, res: Response, next: NextFunction): void => {
     try {
+        // Get and validate signature and secret
         const signature = req.get("X-Hub-Signature-256");
         const secret = process.env.GITHUB_WEBHOOK_SECRET;
 
@@ -38,6 +40,7 @@ export const validateGitHubWebhook = (req: Request, res: Response, next: NextFun
             Buffer.from(expectedSignature)
         );
 
+        // If signatures don't match, reject the request
         if (!isValid) {
             throw new GitHubWebhookError("Invalid webhook signature");
         }
@@ -52,7 +55,7 @@ export const validateGitHubWebhook = (req: Request, res: Response, next: NextFun
         next();
     } catch (error) {
         if (error instanceof GitHubWebhookError) {
-            res.status(401).json({
+            res.status(error.status).json({
                 success: false,
                 error: error.message,
                 code: error.code
@@ -60,7 +63,7 @@ export const validateGitHubWebhook = (req: Request, res: Response, next: NextFun
             return;
         }
 
-        res.status(500).json({
+        res.status(STATUS_CODES.UNKNOWN).json({
             success: false,
             error: "Webhook validation failed",
             code: "WEBHOOK_VALIDATION_ERROR"
@@ -70,15 +73,7 @@ export const validateGitHubWebhook = (req: Request, res: Response, next: NextFun
 };
 
 /**
- * Middleware to validate webhook event types and default branch targeting
- * Only processes PR events that we care about and target the default branch
- * 
- * This middleware validates:
- * - Event type is 'pull_request'
- * - Action is one of: 'opened', 'synchronize', 'ready_for_review'
- * - PR is targeting the repository's default branch (main/master)
- * 
- * PRs targeting non-default branches are skipped with appropriate logging.
+ * Middleware to validate pull request webhook events
  */
 export const validatePRWebhookEvent = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
@@ -87,7 +82,7 @@ export const validatePRWebhookEvent = async (req: Request, res: Response, next: 
 
         // Only process pull_request events
         if (eventType !== "pull_request") {
-            res.status(200).json({
+            res.status(STATUS_CODES.SUCCESS).json({
                 success: true,
                 message: "Event type not processed",
                 eventType
@@ -98,7 +93,7 @@ export const validatePRWebhookEvent = async (req: Request, res: Response, next: 
         // Only process specific PR actions
         const validActions = ["opened", "synchronize", "ready_for_review"];
         if (!validActions.includes(action)) {
-            res.status(200).json({
+            res.status(STATUS_CODES.SUCCESS).json({
                 success: true,
                 message: "PR action not processed",
                 action
@@ -116,10 +111,9 @@ export const validatePRWebhookEvent = async (req: Request, res: Response, next: 
                 // Get the repository's default branch
                 const defaultBranch = await OctokitService.getDefaultBranch(installationId, repositoryName);
 
-                // Only process PRs targeting the default branch
+                // If the PR is not targeting the default branch, skip processing
                 if (targetBranch !== defaultBranch) {
-                    LoggingService.logInfo(
-                        "pr_webhook_skipped",
+                    dataLogger.info(
                         "PR skipped - not targeting default branch",
                         {
                             prNumber: pull_request.number,
@@ -130,7 +124,8 @@ export const validatePRWebhookEvent = async (req: Request, res: Response, next: 
                         }
                     );
 
-                    res.status(200).json({
+                    // Respond with success but skip further processing
+                    res.status(STATUS_CODES.SUCCESS).json({
                         success: true,
                         message: "PR not targeting default branch - skipping review",
                         data: {
@@ -145,8 +140,7 @@ export const validatePRWebhookEvent = async (req: Request, res: Response, next: 
                 }
             } catch (error) {
                 // Log the error but don't fail the webhook - continue processing
-                LoggingService.logWarning(
-                    "default_branch_validation_error",
+                dataLogger.warn(
                     "Failed to validate default branch, continuing with processing",
                     {
                         repositoryName: repository.full_name,
@@ -167,7 +161,7 @@ export const validatePRWebhookEvent = async (req: Request, res: Response, next: 
 
         next();
     } catch (error) {
-        res.status(500).json({
+        res.status(STATUS_CODES.UNKNOWN).json({
             success: false,
             error,
             code: "EVENT_VALIDATION_ERROR"

@@ -1,4 +1,4 @@
-import { RuleType, RuleSeverity, ReviewStatus } from "../generated/client";
+import { RuleType, RuleSeverity, ReviewStatus } from "../../prisma_client";
 import { IssueLabel, GitHubComment } from "./github.model";
 
 // ============================================================================

@@ -342,9 +342,14 @@ export const GroqAITestHelpers = {
                 title: "Implement user authentication",
                 linkType: "closes",
                 body: "",
-                url: ""
+                url: "",
+                labels: [
+                    { id: 1, name: "bug", description: "Fix bug", color: "#FFFFFF" }
+                ],
+                comments: []
             }
         ],
+        formattedPullRequest: "",
         ...overrides
     }),
 

@@ -1,6 +1,6 @@
 import { firestoreDB } from "../config/firebase.config";
 import { Timestamp } from "firebase-admin/firestore";
-import { Message, MessageMetadata, MessageType } from "../models";
+import { Message, MessageMetadata, MessageType } from "../models/task.model";
 
 export const messagesCollection = firestoreDB.collection("messages");
 export const tasksCollection = firestoreDB.collection("tasks");

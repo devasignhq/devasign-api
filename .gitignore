@@ -4,13 +4,17 @@ node_modules
 .env.test
 
 prisma/migrations
-/api/generated/client
+prisma_client
 
-/no-git/*
+no_git
 requirements.txt
+test.js
 
-/.kiro/*
-/dist/*
+.kiro
+dist
 
-# Testing folders
+package-lock.json
+
+# Test & log folders
 coverage
+logs
