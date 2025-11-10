@@ -67,12 +67,14 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
         }
 
         // Transfer to escrow
+        const repoName = OctokitService.getOwnerAndRepo(payload.issue.url);
         const { txHash } = await stellarService.transferAsset(
             decryptedInstallationWalletSecret,
             installation.escrowAddress!,
             usdcAssetId,
             usdcAssetId,
-            payload.bounty
+            payload.bounty,
+            `LOCK:${repoName[0]}/${repoName[1]}#${payload.issue.number}`
         );
 
         const { installationId, bountyLabelId, ...others } = payload;
@@ -375,10 +377,13 @@ export const deleteTask = async (req: Request, res: Response, next: NextFunction
             throw new ValidationError("Cannot delete task with assigned contributor");
         }
 
+        const taskIssue = task.issue as TaskIssue;
+
         // Return bounty to installation wallet if it exists
         if (task.bounty > 0) {
             const decryptedWalletSecret = decrypt(task.installation.walletSecret);
             const decryptedEscrowSecret = decrypt(task.installation.escrowSecret!);
+            const repoName = OctokitService.getOwnerAndRepo(taskIssue.url);
 
             await stellarService.transferAssetViaSponsor(
                 decryptedWalletSecret,
@@ -386,7 +391,8 @@ export const deleteTask = async (req: Request, res: Response, next: NextFunction
                 task.installation.walletAddress,
                 usdcAssetId,
                 usdcAssetId,
-                task.bounty.toString()
+                task.bounty.toString(),
+                `DEL:${repoName[0]}/${repoName[1]}#${taskIssue.number}`
             );
         }
 
@@ -399,8 +405,8 @@ export const deleteTask = async (req: Request, res: Response, next: NextFunction
             // Remove bounty label from issue and delete bounty comment
             await OctokitService.removeBountyLabelAndDeleteBountyComment(
                 task.installation.id,
-                (task.issue as TaskIssue).id,
-                (task.issue as TaskIssue).bountyCommentId!
+                taskIssue.id,
+                taskIssue.bountyCommentId!
             );
 
             // Return success response

@@ -133,6 +133,8 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
             recorded: boolean; 
             error?: unknown 
         };
+        const taskIssue = task.issue as TaskIssue;
+        const repoName = OctokitService.getOwnerAndRepo(taskIssue.url);
 
         if (bountyDifference > 0) {
             // Additional funds needed - transfer from wallet to escrow
@@ -150,7 +152,8 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
                 task.installation.escrowAddress!,
                 usdcAssetId,
                 usdcAssetId,
-                bountyDifference.toString()
+                bountyDifference.toString(),
+                `ADD:${repoName[0]}/${repoName[1]}#${taskIssue.number}`
             );
 
             additionalFundsTransaction.txHash = txHash;
@@ -164,7 +167,8 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
                 task.installation.walletAddress!,
                 usdcAssetId,
                 usdcAssetId,
-                Math.abs(bountyDifference).toString()
+                Math.abs(bountyDifference).toString(),
+                `SUB:${repoName[0]}/${repoName[1]}#${taskIssue.number}`
             );
         }
 
@@ -787,6 +791,8 @@ export const validateCompletion = async (req: Request, res: Response, next: Next
         // Transfer bounty from escrow to contributor
         const decryptedWalletSecret = decrypt(task.installation.walletSecret);
         const decryptedEscrowSecret = decrypt(task.installation.escrowSecret!);
+        const taskIssue = task.issue as TaskIssue;
+        const repoName = OctokitService.getOwnerAndRepo(taskIssue.url);
 
         const transactionResponse = await stellarService.transferAssetViaSponsor(
             decryptedWalletSecret,
@@ -794,7 +800,8 @@ export const validateCompletion = async (req: Request, res: Response, next: Next
             task.contributor!.walletAddress,
             usdcAssetId,
             usdcAssetId,
-            task.bounty.toString()
+            task.bounty.toString(),
+            `PAID:${repoName[0]}/${repoName[1]}#${taskIssue.number}`
         );
 
         // Update task as completed and settled
