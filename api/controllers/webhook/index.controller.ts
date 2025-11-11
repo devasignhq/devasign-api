@@ -2,11 +2,40 @@ import { Request, Response, NextFunction } from "express";
 import { GitHubWebhookPayload, APIResponse } from "../../models/ai-review.model";
 import { WorkflowIntegrationService } from "../../services/ai-review/workflow-integration.service";
 import { STATUS_CODES } from "../../utilities/data";
+import { prisma } from "../../config/database.config";
+import { dataLogger } from "../../config/logger.config";
+import { usdcAssetId } from "../../config/stellar.config";
+import { PRAnalysisService } from "../../services/ai-review/pr-analysis.service";
+import { OctokitService } from "../../services/octokit.service";
+import { stellarService } from "../../services/stellar.service";
+import { decrypt } from "../../utilities/helper";
+import { TaskStatus } from "../../../prisma_client";
+import { TaskIssue } from "../../models/task.model";
 
 /**
  * Handles GitHub PR webhook events
  */
 export const handlePRWebhook = async (req: Request, res: Response, next: NextFunction) => {
+    const { action, pull_request } = req.body;
+
+    // Handle PR review events
+    const validPRReviewActions = ["opened", "synchronize", "ready_for_review"];
+    if (validPRReviewActions.includes(action)) {
+        handlePRReview(req, res, next);
+        return;
+    }
+
+    // Handle PR merged events for bounty payout
+    if (action === "closed" && pull_request.merged) {
+        handleBountyPayout(req, res, next);
+        return;
+    }
+};
+
+/**
+ * Handles GitHub PR analysis
+ */
+export const handlePRReview = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const payload: GitHubWebhookPayload = req.body;
 
@@ -52,6 +81,193 @@ export const handlePRWebhook = async (req: Request, res: Response, next: NextFun
             },
             timestamp: new Date().toISOString()
         } as APIResponse);
+
+    } catch (error) {
+        next(error);
+    }
+};
+
+/**
+ * Handles GitHub PR merge event and bounty disbursement
+ */
+export const handleBountyPayout = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { pull_request, repository, installation } = req.body;
+
+        const prNumber = pull_request.number;
+        const prUrl = pull_request.html_url;
+        const repositoryName = repository.full_name;
+        const installationId = installation.id.toString();
+
+        // Extract linked issues from PR body
+        const linkedIssues = await PRAnalysisService.extractLinkedIssues(
+            pull_request.body || "",
+            installationId,
+            repositoryName
+        );
+
+        // No linked issues found
+        if (linkedIssues.length === 0) {
+            dataLogger.info("No linked issues found", {
+                prNumber,
+                repositoryName,
+                prUrl
+            });
+
+            return res.status(STATUS_CODES.SUCCESS).json({
+                success: true,
+                message: "No linked issues found - no payment triggered",
+                data: { prNumber, repositoryName, prUrl }
+            });
+        }
+
+        // Find related task for the merged PR
+        const relatedTask = await prisma.task.findFirst({
+            where: {
+                installationId,
+                status: TaskStatus.MARKED_AS_COMPLETED,
+                contributor: {
+                    username: pull_request.user.login
+                },
+                issue: {
+                    path: ["number"],
+                    equals: linkedIssues[0].number
+                }
+            },
+            select: {
+                id: true,
+                bounty: true,
+                issue: true,
+                contributor: {
+                    select: {
+                        userId: true,
+                        username: true,
+                        walletAddress: true
+                    }
+                },
+                installation: {
+                    select: {
+                        id: true,
+                        walletSecret: true,
+                        escrowSecret: true
+                    }
+                }
+            }
+        });
+
+        // No matching task found
+        if (!relatedTask) {
+            dataLogger.info("No matching tasks found", {
+                prNumber,
+                repositoryName,
+                prUrl,
+                linkedIssues: linkedIssues.map(i => i.number)
+            });
+
+            return res.status(STATUS_CODES.SUCCESS).json({
+                success: true,
+                message: "No matching tasks found",
+                data: { prNumber, repositoryName, prUrl, linkedIssues: linkedIssues.map(i => i.number) }
+            });
+        }
+        
+        try {
+            // Transfer bounty from escrow to contributor
+            const decryptedWalletSecret = decrypt(relatedTask.installation.walletSecret);
+            const decryptedEscrowSecret = decrypt(relatedTask.installation.escrowSecret!);
+            const taskIssue = relatedTask.issue as TaskIssue;
+            const repoName = OctokitService.getOwnerAndRepo(taskIssue.url);
+
+            if (!relatedTask.contributor || !relatedTask.contributor.walletAddress) {
+                return res.status(STATUS_CODES.SUCCESS).json({
+                    success: true,
+                    message: "No wallet address found for contributor",
+                    data: { prNumber, repositoryName, prUrl, linkedIssues: linkedIssues.map(i => i.number) }
+                });
+            }
+
+            const transactionResponse = await stellarService.transferAssetViaSponsor(
+                decryptedWalletSecret,
+                decryptedEscrowSecret,
+                relatedTask.contributor.walletAddress,
+                usdcAssetId,
+                usdcAssetId,
+                relatedTask.bounty.toString(),
+                `PAID:${repoName[0]}/${repoName[1]}#${taskIssue.number}`
+            );
+
+            // Update task as completed and settled
+            await prisma.task.update({
+                where: { id: relatedTask.id },
+                data: {
+                    status: "COMPLETED",
+                    completedAt: new Date(),
+                    settled: true
+                }
+            });
+
+            // Record transaction for contributor
+            await prisma.transaction.create({
+                data: {
+                    txHash: transactionResponse.txHash,
+                    category: "BOUNTY",
+                    amount: parseFloat(relatedTask.bounty.toString()),
+                    task: { connect: { id: relatedTask.id } },
+                    user: { connect: { userId: relatedTask.contributor.userId } }
+                }
+            });
+
+            // Update contribution summary
+            try {
+                await prisma.contributionSummary.update({
+                    where: { userId: relatedTask.contributor.userId },
+                    data: {
+                        tasksCompleted: { increment: 1 },
+                        totalEarnings: { increment: relatedTask.bounty }
+                    }
+                });
+            } catch (error) {
+                dataLogger.warn("Failed to update contribution summary", {
+                    taskId: relatedTask.id,
+                    userId: relatedTask.contributor.userId,
+                    error: error instanceof Error ? error.message : String(error)
+                });
+            }
+
+            // Disable chat for the task
+            try {
+                const { FirebaseService } = await import("../../services/firebase.service");
+                await FirebaseService.updateTaskStatus(relatedTask.id);
+            } catch (error) {
+                dataLogger.warn("Failed to disable chat", {
+                    taskId: relatedTask.id,
+                    error: error instanceof Error ? error.message : String(error)
+                });
+            }
+
+            dataLogger.info("Payment processed successfully", {
+                taskId: relatedTask.id,
+                contributorId: relatedTask.contributor.userId,
+                amount: relatedTask.bounty,
+                txHash: transactionResponse.txHash
+            });
+        } catch (error) {
+            dataLogger.error("Failed to process payment for task", {
+                taskId: relatedTask.id,
+                error: error instanceof Error ? error.message : String(error)
+            });
+        }
+
+        res.status(STATUS_CODES.SUCCESS).json({
+            success: true,
+            message: "PR merged - Payment processed successfully",
+            data: {
+                prNumber,
+                repositoryName,
+                prUrl,
+                linkedIssues: linkedIssues.map(i => i.number)
+            }
+        });
 
     } catch (error) {
         next(error);

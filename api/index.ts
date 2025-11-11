@@ -55,7 +55,7 @@ app.use(morgan("dev"));
 
 // Raw body parser for webhook signature validation
 app.use(
-    ENDPOINTS.WEBHOOK.PREFIX + ENDPOINTS.WEBHOOK.PR_REVIEW, 
+    ENDPOINTS.WEBHOOK.PREFIX + ENDPOINTS.WEBHOOK.PR_EVENT, 
     express.raw({ type: "application/json" })
 );
 

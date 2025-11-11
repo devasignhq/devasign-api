@@ -14,6 +14,7 @@ import {
     NotFoundError,
     ValidationError
 } from "../../models/error.model";
+import { dataLogger } from "../../config/logger.config";
 
 type USDCBalance = HorizonApi.BalanceLineAsset<"credit_alphanum12">;
 
@@ -844,7 +845,12 @@ export const validateCompletion = async (req: Request, res: Response, next: Next
             try {
                 // Disable chat for the task
                 await FirebaseService.updateTaskStatus(taskId);
-            } catch { /* empty */ }
+            } catch (error) {
+                dataLogger.warn("Failed to disable chat", {
+                    taskId,
+                    error: error instanceof Error ? error.message : String(error)
+                });
+            }
 
             // Return success response
             res.status(STATUS_CODES.SUCCESS).json(updatedTask);

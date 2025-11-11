@@ -73,13 +73,13 @@ export const validateGitHubWebhook = (req: Request, res: Response, next: NextFun
 };
 
 /**
- * Middleware to validate pull request webhook events
+ * Middleware to validate pull request events
  */
 export const validatePRWebhookEvent = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    try {
-        const eventType = req.get("X-GitHub-Event");
-        const { action, pull_request, repository, installation } = req.body;
+    const eventType = req.get("X-GitHub-Event");
+    const { action, pull_request, repository, installation } = req.body;
 
+    try {
         // Only process pull_request events
         if (eventType !== "pull_request") {
             res.status(STATUS_CODES.SUCCESS).json({
@@ -91,7 +91,7 @@ export const validatePRWebhookEvent = async (req: Request, res: Response, next: 
         }
 
         // Only process specific PR actions
-        const validActions = ["opened", "synchronize", "ready_for_review"];
+        const validActions = ["opened", "synchronize", "ready_for_review", "closed"];
         if (!validActions.includes(action)) {
             res.status(STATUS_CODES.SUCCESS).json({
                 success: true,
@@ -101,56 +101,67 @@ export const validatePRWebhookEvent = async (req: Request, res: Response, next: 
             return;
         }
 
-        // Validate that PR is targeting the default branch
-        if (pull_request && repository && installation) {
-            try {
-                const installationId = installation.id.toString();
-                const repositoryName = repository.full_name;
-                const targetBranch = pull_request.base.ref;
-
-                // Get the repository's default branch
-                const defaultBranch = await OctokitService.getDefaultBranch(installationId, repositoryName);
-
-                // If the PR is not targeting the default branch, skip processing
-                if (targetBranch !== defaultBranch) {
-                    dataLogger.info(
-                        "PR skipped - not targeting default branch",
-                        {
-                            prNumber: pull_request.number,
-                            repositoryName,
-                            targetBranch,
-                            defaultBranch,
-                            reason: "not_default_branch"
-                        }
-                    );
-
-                    // Respond with success but skip further processing
-                    res.status(STATUS_CODES.SUCCESS).json({
-                        success: true,
-                        message: "PR not targeting default branch - skipping review",
-                        data: {
-                            prNumber: pull_request.number,
-                            repositoryName,
-                            targetBranch,
-                            defaultBranch,
-                            reason: "not_default_branch"
-                        }
-                    });
-                    return;
+        if (!pull_request || !repository || !installation) {
+            res.status(STATUS_CODES.BAD_PAYLOAD).json({
+                success: false,
+                error: "Missing required webhook data",
+                validation: {
+                    pull_request: Boolean(pull_request), 
+                    repository: Boolean(repository), 
+                    installation: Boolean(installation)
                 }
-            } catch (error) {
-                // Log the error but don't fail the webhook - continue processing
-                dataLogger.warn(
-                    "Failed to validate default branch, continuing with processing",
-                    {
-                        repositoryName: repository.full_name,
-                        targetBranch: pull_request.base.ref,
-                        error: error instanceof Error ? error.message : String(error)
-                    }
-                );
-            }
+            });
+            return;
         }
 
+        // Validate that PR is targeting the default branch
+        try {
+            const installationId = installation.id.toString();
+            const repositoryName = repository.full_name;
+            const targetBranch = pull_request.base.ref;
+
+            // Get the repository's default branch
+            const defaultBranch = await OctokitService.getDefaultBranch(installationId, repositoryName);
+
+            // If the PR is not targeting the default branch, skip processing
+            if (targetBranch !== defaultBranch) {
+                dataLogger.info(
+                    "PR skipped - not targeting default branch",
+                    {
+                        prNumber: pull_request.number,
+                        repositoryName,
+                        targetBranch,
+                        defaultBranch,
+                        reason: "not_default_branch"
+                    }
+                );
+
+                // Respond with success but skip further processing
+                res.status(STATUS_CODES.SUCCESS).json({
+                    success: true,
+                    message: "PR not targeting default branch - skipping review",
+                    data: {
+                        prNumber: pull_request.number,
+                        repositoryName,
+                        targetBranch,
+                        defaultBranch,
+                        reason: "not_default_branch"
+                    }
+                });
+                return;
+            }
+        } catch (error) {
+            // Log the error but don't fail the webhook - continue processing
+            dataLogger.warn(
+                "Failed to validate default branch, continuing with processing",
+                {
+                    repositoryName: repository.full_name,
+                    targetBranch: pull_request.base.ref,
+                    error: error instanceof Error ? error.message : String(error)
+                }
+            );
+        }
+            
         // Add event metadata to request for use in controller
         req.body.webhookMeta = {
             eventType,

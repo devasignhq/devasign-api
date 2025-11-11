@@ -7,7 +7,7 @@ export const webhookRoutes = Router();
 
 // Handle GitHub PR review webhook
 webhookRoutes.post(
-    ENDPOINTS.WEBHOOK.PR_REVIEW,
+    ENDPOINTS.WEBHOOK.PR_EVENT,
     validateGitHubWebhook,
     validatePRWebhookEvent,
     handlePRWebhook as RequestHandler

@@ -35,7 +35,7 @@ describe("Webhook API Integration Tests", () => {
 
         // Use raw middleware for webhook signature validation
         app.use(
-            getEndpointWithPrefix(["WEBHOOK", "PR_REVIEW"]), 
+            getEndpointWithPrefix(["WEBHOOK", "PR_EVENT"]), 
             express.raw({ type: "application/json" })
         );
         app.use(ENDPOINTS.WEBHOOK.PREFIX, webhookRoutes);
@@ -139,14 +139,14 @@ describe("Webhook API Integration Tests", () => {
         };
     };
 
-    describe(`POST ${getEndpointWithPrefix(["WEBHOOK", "PR_REVIEW"])} - GitHub Webhook Processing`, () => {
+    describe(`POST ${getEndpointWithPrefix(["WEBHOOK", "PR_EVENT"])} - GitHub Webhook Processing`, () => {
         it("should process valid PR webhook with realistic payload successfully", async () => {
             const payload = createWebhookPayload();
             const payloadString = JSON.stringify(payload);
             const signature = createWebhookSignature(payloadString);
 
             const response = await request(app)
-                .post(getEndpointWithPrefix(["WEBHOOK", "PR_REVIEW"]))
+                .post(getEndpointWithPrefix(["WEBHOOK", "PR_EVENT"]))
                 .set("X-GitHub-Event", "pull_request")
                 .set("X-Hub-Signature-256", signature)
                 .set("X-GitHub-Delivery", "test-delivery-123")
@@ -205,7 +205,7 @@ describe("Webhook API Integration Tests", () => {
             const signature = createWebhookSignature(payloadString);
 
             const response = await request(app)
-                .post(getEndpointWithPrefix(["WEBHOOK", "PR_REVIEW"]))
+                .post(getEndpointWithPrefix(["WEBHOOK", "PR_EVENT"]))
                 .set("X-GitHub-Event", "pull_request")
                 .set("X-Hub-Signature-256", signature)
                 .set("X-GitHub-Delivery", "test-delivery-123")
@@ -235,7 +235,7 @@ describe("Webhook API Integration Tests", () => {
             const signature = createWebhookSignature(payloadString);
 
             const response = await request(app)
-                .post(getEndpointWithPrefix(["WEBHOOK", "PR_REVIEW"]))
+                .post(getEndpointWithPrefix(["WEBHOOK", "PR_EVENT"]))
                 .set("X-GitHub-Event", "pull_request")
                 .set("X-Hub-Signature-256", signature)
                 .send(payloadString)
@@ -253,7 +253,7 @@ describe("Webhook API Integration Tests", () => {
                 .digest("hex")}`;
 
             const response = await request(app)
-                .post(getEndpointWithPrefix(["WEBHOOK", "PR_REVIEW"]))
+                .post(getEndpointWithPrefix(["WEBHOOK", "PR_EVENT"]))
                 .set("X-GitHub-Event", "pull_request")
                 .set("X-Hub-Signature-256", invalidSignature)
                 .set("Content-Type", "application/json")
@@ -269,7 +269,7 @@ describe("Webhook API Integration Tests", () => {
             const payloadString = JSON.stringify(payload);
 
             const response = await request(app)
-                .post(getEndpointWithPrefix(["WEBHOOK", "PR_REVIEW"]))
+                .post(getEndpointWithPrefix(["WEBHOOK", "PR_EVENT"]))
                 .set("X-GitHub-Event", "pull_request")
                 .set("Content-Type", "application/json")
                 .send(payloadString)
@@ -285,7 +285,7 @@ describe("Webhook API Integration Tests", () => {
             const signature = createWebhookSignature(payloadString);
 
             const response = await request(app)
-                .post(getEndpointWithPrefix(["WEBHOOK", "PR_REVIEW"]))
+                .post(getEndpointWithPrefix(["WEBHOOK", "PR_EVENT"]))
                 .set("X-GitHub-Event", "issues")
                 .set("X-Hub-Signature-256", signature)
                 .set("Content-Type", "application/json")
@@ -307,7 +307,7 @@ describe("Webhook API Integration Tests", () => {
             const signature = createWebhookSignature(payloadString);
 
             const response = await request(app)
-                .post(getEndpointWithPrefix(["WEBHOOK", "PR_REVIEW"]))
+                .post(getEndpointWithPrefix(["WEBHOOK", "PR_EVENT"]))
                 .set("X-GitHub-Event", "pull_request")
                 .set("X-Hub-Signature-256", signature)
                 .set("Content-Type", "application/json")
@@ -334,7 +334,7 @@ describe("Webhook API Integration Tests", () => {
             const signature = createWebhookSignature(payloadString);
 
             const response = await request(app)
-                .post(getEndpointWithPrefix(["WEBHOOK", "PR_REVIEW"]))
+                .post(getEndpointWithPrefix(["WEBHOOK", "PR_EVENT"]))
                 .set("X-GitHub-Event", "pull_request")
                 .set("X-Hub-Signature-256", signature)
                 .set("Content-Type", "application/json")
@@ -361,7 +361,7 @@ describe("Webhook API Integration Tests", () => {
             const signature = createWebhookSignature(invalidJson);
 
             const response = await request(app)
-                .post(getEndpointWithPrefix(["WEBHOOK", "PR_REVIEW"]))
+                .post(getEndpointWithPrefix(["WEBHOOK", "PR_EVENT"]))
                 .set("X-GitHub-Event", "pull_request")
                 .set("X-Hub-Signature-256", signature)
                 .send(invalidJson)
@@ -376,7 +376,7 @@ describe("Webhook API Integration Tests", () => {
             const signature = createWebhookSignature(payloadString);
 
             const response = await request(app)
-                .post(getEndpointWithPrefix(["WEBHOOK", "PR_REVIEW"]))
+                .post(getEndpointWithPrefix(["WEBHOOK", "PR_EVENT"]))
                 .set("X-GitHub-Event", "pull_request")
                 .set("X-Hub-Signature-256", signature)
                 .set("X-GitHub-Delivery", "test-delivery-123")
@@ -398,7 +398,7 @@ describe("Webhook API Integration Tests", () => {
             const signature = createWebhookSignature(payloadString);
 
             const response = await request(app)
-                .post(getEndpointWithPrefix(["WEBHOOK", "PR_REVIEW"]))
+                .post(getEndpointWithPrefix(["WEBHOOK", "PR_EVENT"]))
                 .set("X-GitHub-Event", "pull_request")
                 .set("X-Hub-Signature-256", signature)
                 .set("X-GitHub-Delivery", "test-delivery-123")
@@ -427,7 +427,7 @@ describe("Webhook API Integration Tests", () => {
             const signature = createWebhookSignature(payloadString);
 
             const response = await request(app)
-                .post(getEndpointWithPrefix(["WEBHOOK", "PR_REVIEW"]))
+                .post(getEndpointWithPrefix(["WEBHOOK", "PR_EVENT"]))
                 .set("X-GitHub-Event", "pull_request")
                 .set("X-Hub-Signature-256", signature)
                 .set("X-GitHub-Delivery", "test-delivery-123")
@@ -450,7 +450,7 @@ describe("Webhook API Integration Tests", () => {
             const signature = createWebhookSignature(payloadString);
 
             const response = await request(app)
-                .post(getEndpointWithPrefix(["WEBHOOK", "PR_REVIEW"]))
+                .post(getEndpointWithPrefix(["WEBHOOK", "PR_EVENT"]))
                 .set("X-GitHub-Event", "pull_request")
                 .set("X-Hub-Signature-256", signature)
                 .set("X-GitHub-Delivery", "test-delivery-123")
@@ -474,7 +474,7 @@ describe("Webhook API Integration Tests", () => {
             const signature = createWebhookSignature(payloadString);
 
             const response = await request(app)
-                .post(getEndpointWithPrefix(["WEBHOOK", "PR_REVIEW"]))
+                .post(getEndpointWithPrefix(["WEBHOOK", "PR_EVENT"]))
                 .set("X-GitHub-Event", "pull_request")
                 .set("X-Hub-Signature-256", signature)
                 .set("X-GitHub-Delivery", "test-delivery-123")
@@ -496,7 +496,7 @@ describe("Webhook API Integration Tests", () => {
 
             // Should still process the webhook despite default branch validation error
             const response = await request(app)
-                .post(getEndpointWithPrefix(["WEBHOOK", "PR_REVIEW"]))
+                .post(getEndpointWithPrefix(["WEBHOOK", "PR_EVENT"]))
                 .set("X-GitHub-Event", "pull_request")
                 .set("X-Hub-Signature-256", signature)
                 .set("X-GitHub-Delivery", "test-delivery-123")
@@ -516,7 +516,7 @@ describe("Webhook API Integration Tests", () => {
             const payloadString = JSON.stringify(payload);
 
             const response = await request(app)
-                .post(getEndpointWithPrefix(["WEBHOOK", "PR_REVIEW"]))
+                .post(getEndpointWithPrefix(["WEBHOOK", "PR_EVENT"]))
                 .set("X-GitHub-Event", "pull_request")
                 .set("X-Hub-Signature-256", "sha256=test")
                 .send(payloadString)
@@ -541,7 +541,7 @@ describe("Webhook API Integration Tests", () => {
             const invalidSignature = validSignature.replace(/[0-9]/g, "a");
 
             const response = await request(app)
-                .post(getEndpointWithPrefix(["WEBHOOK", "PR_REVIEW"]))
+                .post(getEndpointWithPrefix(["WEBHOOK", "PR_EVENT"]))
                 .set("X-GitHub-Event", "pull_request")
                 .set("X-Hub-Signature-256", invalidSignature)
                 .set("Content-Type", "application/json")
@@ -565,7 +565,7 @@ describe("Webhook API Integration Tests", () => {
             const signature = createWebhookSignature(JSON.stringify(payload));
 
             const response = await request(testApp)
-                .post(getEndpointWithPrefix(["WEBHOOK", "PR_REVIEW"]))
+                .post(getEndpointWithPrefix(["WEBHOOK", "PR_EVENT"]))
                 .set("X-GitHub-Event", "pull_request")
                 .set("X-Hub-Signature-256", signature)
                 .send(payload)
@@ -607,7 +607,7 @@ describe("Webhook API Integration Tests", () => {
                 });
 
                 return request(app)
-                    .post(getEndpointWithPrefix(["WEBHOOK", "PR_REVIEW"]))
+                    .post(getEndpointWithPrefix(["WEBHOOK", "PR_EVENT"]))
                     .set("X-GitHub-Event", "pull_request")
                     .set("X-Hub-Signature-256", signature)
                     .set("X-GitHub-Delivery", `test-delivery-${i + 1}`)

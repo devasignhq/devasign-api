@@ -180,8 +180,8 @@ export const ENDPOINTS = {
     /** Webhook endpoints */
     WEBHOOK: {
         PREFIX: "/webhook",
-        /** POST /github/pr-review - GitHub PR review webhook */
-        PR_REVIEW: "/github/pr-review"
+        /** POST /github/pr-event - GitHub PR events webhook */
+        PR_EVENT: "/github/pr-event"
     },
     /** Administrative endpoints */
     ADMIN: {
