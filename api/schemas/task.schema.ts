@@ -1,6 +1,11 @@
 import * as z from "zod";
 import { TaskStatus, TimelineType } from "../../prisma_client";
-import { cuidSchema, installationIdSchema, paginationSchema } from "./index.schema";
+import {
+    cuidSchema,
+    installationIdSchema,
+    paginationSchema,
+    userIdSchema
+} from "./index.schema";
 
 export const taskIdSchema = z.object({
     taskId: cuidSchema
@@ -152,7 +157,7 @@ export const submitTaskApplicationSchema = {
 export const acceptTaskApplicationSchema = {
     params: z.object({
         taskId: cuidSchema,
-        contributorId: cuidSchema
+        contributorId: userIdSchema
     })
 };
 
