@@ -12,7 +12,7 @@ import { getFieldFromUnknownObject, moneyFormat } from "../utilities/helper";
 import { GitHubAPIError } from "../models/error.model";
 import { dataLogger, messageLogger } from "../config/logger.config";
 
-const commentCTA = `${process.env.CONTRIBUTOR_APP_URL!  }/application`;
+const commentCTA = `${process.env.CONTRIBUTOR_APP_URL!}/application`;
 
 export class OctokitService {
     private static githubApp = new App({
@@ -21,12 +21,11 @@ export class OctokitService {
     });
 
     public static customBountyMessage = (bounty: string, taskId: string) => {
-        return `\n\n\n## 💵 ${moneyFormat(bounty)} USDC Bounty\n\n
-        ### Steps to solve:\n
-        1. **Accept task**: Follow the CTA and apply to solve this issue.\n
-        2. **Submit work**: If your application was accepted, you'll be required to submit the link to your pull request and an optional link to a reference that will give more credibility to the work done.\n
-        3. **Receive payment**: When your pull request is approved, 100% of the bounty is instantly transferred to your wallet.\n\n
-        **To work on this task, [Apply here](${commentCTA}?taskId=${taskId})**`;
+        return `\n\n\n## 💵 ${moneyFormat(bounty)} USDC Bounty\n\n### Steps to solve:\n
+1. **Accept task**: Follow the CTA and apply to solve this issue.\n
+2. **Submit work**: If your application was accepted, you'll be required to submit the link to your pull request and an optional link to a reference that will give more credibility to the work done.\n
+3. **Receive payment**: When your pull request is approved, 100% of the bounty is instantly transferred to your wallet.\n\n
+**To work on this task, [Apply here](${commentCTA}?taskId=${taskId})**`;
     };
 
     /**
