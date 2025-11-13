@@ -94,8 +94,15 @@ export const getRepositoryIssuesSchema = {
     }),
     query: z.object({
         repoUrl: z.string().regex(/^https:\/\/github\.com\/[\w\-\.]+\/[\w\-\.]+$/, "Repository URL must be a valid GitHub repository URL"),
-        labels: z.string().optional(),
-        milestone: z.string().optional(),
+        title: z.string().optional(),
+        labels: z.array(z.string()).optional(),
+        milestone: z.union([
+            z.string(),
+            z.literal("none"),
+            z.literal("*")
+        ]).optional(),
+        sort: z.enum(["created", "updated", "comments"]).optional(),
+        direction: z.enum(["asc", "desc"]).optional(),
         page: z.coerce.number().int().min(1, "Page must be a positive integer").optional(),
         perPage: z.coerce.number().int().min(1).max(100, "Per page must be between 1 and 100").optional()
     })
