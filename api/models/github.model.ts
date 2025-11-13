@@ -49,7 +49,7 @@ export type IssueDto = {
 }
 
 export type IssueLabel = {
-    id: number;
+    id: string;
     name: string;
     color: string;
     description: string | null;

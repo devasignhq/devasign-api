@@ -193,7 +193,7 @@ export const handleBountyPayout = async (req: Request, res: Response, next: Next
                 usdcAssetId,
                 usdcAssetId,
                 relatedTask.bounty.toString(),
-                `PAID:${repoName[0]}/${repoName[1]}#${taskIssue.number}`
+                `PAID:${repoName[1]}#${taskIssue.number}`
             );
 
             // Update task as completed and settled

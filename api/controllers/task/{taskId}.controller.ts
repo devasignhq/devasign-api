@@ -154,7 +154,7 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
                 usdcAssetId,
                 usdcAssetId,
                 bountyDifference.toString(),
-                `ADD:${repoName[0]}/${repoName[1]}#${taskIssue.number}`
+                `ADD:${repoName[1]}#${taskIssue.number}`
             );
 
             additionalFundsTransaction.txHash = txHash;
@@ -169,7 +169,7 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
                 usdcAssetId,
                 usdcAssetId,
                 Math.abs(bountyDifference).toString(),
-                `SUB:${repoName[0]}/${repoName[1]}#${taskIssue.number}`
+                `SUB:${repoName[1]}#${taskIssue.number}`
             );
         }
 
@@ -802,7 +802,7 @@ export const validateCompletion = async (req: Request, res: Response, next: Next
             usdcAssetId,
             usdcAssetId,
             task.bounty.toString(),
-            `PAID:${repoName[0]}/${repoName[1]}#${taskIssue.number}`
+            `PAID:${repoName[1]}#${taskIssue.number}`
         );
 
         // Update task as completed and settled

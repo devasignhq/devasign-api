@@ -74,7 +74,7 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
             usdcAssetId,
             usdcAssetId,
             payload.bounty,
-            `LOCK:${repoName[0]}/${repoName[1]}#${payload.issue.number}`
+            `LK:${repoName[1]}#${payload.issue.number}`
         );
 
         const { installationId, bountyLabelId, ...others } = payload;
@@ -392,7 +392,7 @@ export const deleteTask = async (req: Request, res: Response, next: NextFunction
                 usdcAssetId,
                 usdcAssetId,
                 task.bounty.toString(),
-                `DEL:${repoName[0]}/${repoName[1]}#${taskIssue.number}`
+                `DEL:${repoName[1]}#${taskIssue.number}`
             );
         }
 

@@ -79,7 +79,7 @@ export const createTaskSchema = {
                 url: z.url(),
                 state: z.string(),
                 labels: z.array(z.object({
-                    id: z.number(),
+                    id: z.string(),
                     name: z.string(),
                     color: z.string(),
                     description: z.string().nullable().optional()
