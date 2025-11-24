@@ -51,13 +51,22 @@ enum ReviewStatus {
     FAILED
 }
 
-// Model Definitions
+model Wallet {
+    address             String         @id @unique
+    encryptedDEK        String
+    encryptedSecret     String
+    iv                  String
+    authTag             String
+    user                User?          @relation(fields: [userId], references: [userId])
+    userId              String?        @unique
+    installationWallets Installation[] @relation("InstallationWallet")
+    installationEscrows Installation[] @relation("InstallationEscrow")
+}
 
 model User {
     userId                      String                       @id
     username                    String                       @unique
-    walletAddress               String
-    walletSecret                String
+    wallet                      Wallet?
     contributionSummary         ContributionSummary?
     addressBook                 Json[]                       @default([])
     createdAt                   DateTime                     @default(now())
@@ -80,9 +89,6 @@ model ContributionSummary {
     totalEarnings  Float  @default(0.0)
     user           User   @relation(fields: [userId], references: [userId], onDelete: Cascade)
     userId         String @unique
-    // averageRating  Float  @default(0.0)
-    // installationIds     String[]  @default([])
-    // installations       Installation[] @relation(fields: [installationIds], references: [id])
 }
 
 model SubscriptionPackage {
@@ -105,10 +111,10 @@ model Installation {
     targetId                    Int
     targetType                  String
     account                     Json // { login String nodeId String avatarUrl String htmlUrl String }
+    wallet                      Wallet                       @relation("InstallationWallet", fields: [walletAddress], references: [address])
     walletAddress               String
-    walletSecret                String
+    escrow                      Wallet                       @relation("InstallationEscrow", fields: [escrowAddress], references: [address])
     escrowAddress               String
-    escrowSecret                String
     subscriptionPackage         SubscriptionPackage?         @relation(fields: [subscriptionPackageId], references: [id], onDelete: SetNull)
     subscriptionPackageId       String?
     createdAt                   DateTime                     @default(now())
