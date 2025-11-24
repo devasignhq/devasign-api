@@ -23,9 +23,11 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@google-cloud/kms": "^5.2.1",
     "@octokit/rest": "^22.0.0",
     "@prisma/client": "^6.6.0",
     "@prisma/extension-accelerate": "^1.2.2",
+    "@stellar/stellar-sdk": "^14.3.3",
     "@stellar/typescript-wallet-sdk": "^1.9.0",
     "@types/express": "^5.0.0",
     "@types/node": "^22.13.10",
