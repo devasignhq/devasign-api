@@ -8,7 +8,7 @@ import { usdcAssetId } from "../../config/stellar.config";
 import { PRAnalysisService } from "../../services/ai-review/pr-analysis.service";
 import { OctokitService } from "../../services/octokit.service";
 import { stellarService } from "../../services/stellar.service";
-import { decrypt } from "../../utilities/helper";
+import { decryptWallet } from "../../utilities/helper";
 import { TaskStatus } from "../../../prisma_client";
 import { TaskIssue } from "../../models/task.model";
 
@@ -142,14 +142,14 @@ export const handleBountyPayout = async (req: Request, res: Response, next: Next
                     select: {
                         userId: true,
                         username: true,
-                        walletAddress: true
+                        wallet: { select: { address: true } }
                     }
                 },
                 installation: {
                     select: {
                         id: true,
-                        walletSecret: true,
-                        escrowSecret: true
+                        wallet: true,
+                        escrow: true
                     }
                 }
             }
@@ -170,15 +170,15 @@ export const handleBountyPayout = async (req: Request, res: Response, next: Next
                 data: { prNumber, repositoryName, prUrl, linkedIssues: linkedIssues.map(i => i.number) }
             });
         }
-        
+
         try {
             // Transfer bounty from escrow to contributor
-            const decryptedWalletSecret = decrypt(relatedTask.installation.walletSecret);
-            const decryptedEscrowSecret = decrypt(relatedTask.installation.escrowSecret!);
+            const decryptedWalletSecret = await decryptWallet(relatedTask.installation.wallet);
+            const decryptedEscrowSecret = await decryptWallet(relatedTask.installation.escrow);
             const taskIssue = relatedTask.issue as TaskIssue;
             const repoName = OctokitService.getOwnerAndRepo(taskIssue.url);
 
-            if (!relatedTask.contributor || !relatedTask.contributor.walletAddress) {
+            if (!relatedTask.contributor || !relatedTask.contributor.wallet || !relatedTask.contributor.wallet.address) {
                 return res.status(STATUS_CODES.SUCCESS).json({
                     success: true,
                     message: "No wallet address found for contributor",
@@ -189,7 +189,7 @@ export const handleBountyPayout = async (req: Request, res: Response, next: Next
             const transactionResponse = await stellarService.transferAssetViaSponsor(
                 decryptedWalletSecret,
                 decryptedEscrowSecret,
-                relatedTask.contributor.walletAddress,
+                relatedTask.contributor.wallet.address,
                 usdcAssetId,
                 usdcAssetId,
                 relatedTask.bounty.toString(),
@@ -273,3 +273,4 @@ export const handleBountyPayout = async (req: Request, res: Response, next: Next
         next(error);
     }
 };
+
