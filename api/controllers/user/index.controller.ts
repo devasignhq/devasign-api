@@ -2,10 +2,11 @@ import { NextFunction, Request, Response } from "express";
 import { prisma } from "../../config/database.config";
 import { InputJsonValue } from "@prisma/client/runtime/library";
 import { stellarService } from "../../services/stellar.service";
-import { encrypt } from "../../utilities/helper";
+import { encryptWallet } from "../../utilities/helper";
 import { STATUS_CODES } from "../../utilities/data";
 import { NotFoundError, ValidationError } from "../../models/error.model";
 import { dataLogger } from "../../config/logger.config";
+import { Prisma } from "../../../prisma_client";
 
 // User's address book
 export type AddressBook = {
@@ -31,10 +32,10 @@ export const createUser = async (req: Request, res: Response, next: NextFunction
         }
 
         // Fields to return
-        const select = {
+        const select: Prisma.UserSelect = {
             userId: true,
             username: true,
-            walletAddress: true,
+            wallet: { select: { address: true } },
             contributionSummary: true,
             createdAt: true,
             updatedAt: true
@@ -46,30 +47,32 @@ export const createUser = async (req: Request, res: Response, next: NextFunction
                 data: {
                     userId,
                     username: githubUsername,
-                    walletAddress: "",
-                    walletSecret: "",
                     contributionSummary: {
                         create: {}
                     }
                 },
                 select
             });
-        
+
             // Return user
             return res.status(STATUS_CODES.POST).json(user);
         }
-    
+
         // Create user wallet (for the contributor app)
         const userWallet = await stellarService.createWallet();
-        const encryptedUserSecret = encrypt(userWallet.secretKey);
+        const encryptedUserSecret = await encryptWallet(userWallet.secretKey);
 
         // Create user with wallet
         const user = await prisma.user.create({
             data: {
                 userId,
                 username: githubUsername,
-                walletAddress: userWallet.publicKey,
-                walletSecret: encryptedUserSecret,
+                wallet: {
+                    create: {
+                        address: userWallet.publicKey,
+                        ...encryptedUserSecret
+                    }
+                },
                 contributionSummary: {
                     create: {}
                 }
@@ -83,14 +86,14 @@ export const createUser = async (req: Request, res: Response, next: NextFunction
                 process.env.STELLAR_MASTER_SECRET_KEY!,
                 userWallet.secretKey
             );
-            
+
             // Return user
             res.status(STATUS_CODES.POST).json(user);
         } catch (error) {
             // Return user info and notify user USDC trustline addition failed
-            res.status(STATUS_CODES.PARTIAL_SUCCESS).json({ 
-                error, 
-                user, 
+            res.status(STATUS_CODES.PARTIAL_SUCCESS).json({
+                error,
+                user,
                 message: "Failed to add USDC trustline for wallet."
             });
         }
@@ -108,10 +111,10 @@ export const getUser = async (req: Request, res: Response, next: NextFunction) =
 
     try {
         // Base selection - always included
-        const baseSelect = {
+        const baseSelect: Prisma.UserSelect = {
             userId: true,
             username: true,
-            walletAddress: true,
+            wallet: { select: { address: true } },
             addressBook: true,
             createdAt: true,
             updatedAt: true
@@ -141,33 +144,37 @@ export const getUser = async (req: Request, res: Response, next: NextFunction) =
             where: { userId },
             select: selectObject
         });
-    
+
         if (!user) {
             throw new NotFoundError("User not found");
         }
 
         // If setWallet is true and user has no wallet, create one
         const walletStatus = { wallet: false, usdcTrustline: false };
-    
-        if ((!user.walletAddress || user.walletAddress === "") && setWallet === "true") {
+
+        if ((!user.wallet || !user.wallet.address) && setWallet === "true") {
             try {
                 // Create wallet
                 const userWallet = await stellarService.createWallet();
-                const encryptedUserSecret = encrypt(userWallet.secretKey);
-        
+                const encryptedUserSecret = await encryptWallet(userWallet.secretKey);
+
                 // Update user with wallet information
                 const updatedUser = await prisma.user.update({
                     where: { userId },
                     data: {
-                        walletAddress: userWallet.publicKey,
-                        walletSecret: encryptedUserSecret
+                        wallet: {
+                            create: {
+                                address: userWallet.publicKey,
+                                ...encryptedUserSecret
+                            }
+                        }
                     },
                     select: selectObject
                 });
-                
+
                 user = updatedUser;
                 walletStatus.wallet = true;
-        
+
                 try {
                     // Add USDC trustline to wallet
                     await stellarService.addTrustLineViaSponsor(
@@ -179,8 +186,8 @@ export const getUser = async (req: Request, res: Response, next: NextFunction) =
                     dataLogger.warn("Failed to add USDC trustline", { walletError });
 
                     // Return user info and notify user USDC trustline addition failed 
-                    return res.status(STATUS_CODES.PARTIAL_SUCCESS).json({ 
-                        user, 
+                    return res.status(STATUS_CODES.PARTIAL_SUCCESS).json({
+                        user,
                         error: walletError,
                         walletStatus,
                         message: "Created wallet but failed to add USDC trustline for wallet"
@@ -192,15 +199,15 @@ export const getUser = async (req: Request, res: Response, next: NextFunction) =
             } catch (walletCreationError) {
                 dataLogger.warn("Failed to create wallet for existing user", { walletCreationError });
                 // Return user info and notify user wallet creation failed
-                return res.status(STATUS_CODES.PARTIAL_SUCCESS).json({ 
-                    user, 
+                return res.status(STATUS_CODES.PARTIAL_SUCCESS).json({
+                    user,
                     error: walletCreationError,
                     walletStatus,
                     message: "Failed to create wallet"
                 });
             }
         }
-        
+
         // Return user data
         res.status(STATUS_CODES.SUCCESS).json(user);
     } catch (error) {
