@@ -3,7 +3,7 @@ import { prisma } from "../../config/database.config";
 import { FirebaseService } from "../../services/firebase.service";
 import { usdcAssetId } from "../../config/stellar.config";
 import { stellarService } from "../../services/stellar.service";
-import { decrypt } from "../../utilities/helper";
+import { decryptWallet } from "../../utilities/helper";
 import { STATUS_CODES } from "../../utilities/data";
 import { MessageType, TaskIssue } from "../../models/task.model";
 import { HorizonApi } from "../../models/horizonapi.model";
@@ -85,10 +85,8 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
                 creatorId: true,
                 installation: {
                     select: {
-                        escrowAddress: true,
-                        escrowSecret: true,
-                        walletAddress: true,
-                        walletSecret: true
+                        wallet: true,
+                        escrow: true
                     }
                 },
                 _count: {
@@ -122,24 +120,24 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
 
         // Handle fund transfers
         const bountyDifference = Number(newBounty) - task.bounty;
-        const decryptedWalletSecret = decrypt(task.installation.walletSecret!);
+        const decryptedWalletSecret = await decryptWallet(task.installation.wallet);
         const additionalFundsTransaction = {
             txHash: "",
             amount: "",
             recorded: false,
             error: undefined
-        } as { 
-            txHash: string; 
-            amount: string; 
-            recorded: boolean; 
-            error?: unknown 
+        } as {
+            txHash: string;
+            amount: string;
+            recorded: boolean;
+            error?: unknown
         };
         const taskIssue = task.issue as TaskIssue;
         const repoName = OctokitService.getOwnerAndRepo(taskIssue.url);
 
         if (bountyDifference > 0) {
             // Additional funds needed - transfer from wallet to escrow
-            const accountInfo = await stellarService.getAccountInfo(task.installation.walletAddress!);
+            const accountInfo = await stellarService.getAccountInfo(task.installation.wallet.address);
             const usdcAsset = accountInfo.balances.find(
                 (asset): asset is USDCBalance => "asset_code" in asset && asset.asset_code === "USDC"
             );
@@ -150,7 +148,7 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
 
             const { txHash } = await stellarService.transferAsset(
                 decryptedWalletSecret,
-                task.installation.escrowAddress!,
+                task.installation.escrow.address,
                 usdcAssetId,
                 usdcAssetId,
                 bountyDifference.toString(),
@@ -161,11 +159,11 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
             additionalFundsTransaction.amount = bountyDifference.toString();
         } else {
             // Excess funds - return from escrow to wallet
-            const decryptedEscrowSecret = decrypt(task.installation.escrowSecret!);
+            const decryptedEscrowSecret = await decryptWallet(task.installation.escrow);
             await stellarService.transferAssetViaSponsor(
                 decryptedWalletSecret,
                 decryptedEscrowSecret,
-                task.installation.walletAddress!,
+                task.installation.wallet.address,
                 usdcAssetId,
                 usdcAssetId,
                 Math.abs(bountyDifference).toString(),
@@ -431,6 +429,12 @@ export const acceptTaskApplication = async (req: Request, res: Response, next: N
             }
         });
 
+        // Update contribution summary
+        await prisma.contributionSummary.update({
+            where: { userId: contributorId },
+            data: { activeTasks: { increment: 1 } }
+        });
+
         try {
             // Enable chat for the task
             await FirebaseService.createTask(taskId, userId, contributorId);
@@ -610,7 +614,6 @@ export const replyTimelineExtensionRequest = async (req: Request, res: Response,
                 }
             });
 
-            // ? Add newTimeline and newTimelineType for clarity
             // Create acceptance message
             const message = await FirebaseService.createMessage({
                 userId,
@@ -626,9 +629,9 @@ export const replyTimelineExtensionRequest = async (req: Request, res: Response,
             });
 
             // Return message and updated task
-            return res.status(STATUS_CODES.SUCCESS).json({ 
-                message, 
-                task: updatedTask 
+            return res.status(STATUS_CODES.SUCCESS).json({
+                message,
+                task: updatedTask
             });
         }
 
@@ -756,14 +759,14 @@ export const validateCompletion = async (req: Request, res: Response, next: Next
                 contributor: {
                     select: {
                         userId: true,
-                        walletAddress: true
+                        wallet: { select: { address: true } }
                     }
                 },
                 installation: {
                     select: {
                         id: true,
-                        walletSecret: true,
-                        escrowSecret: true
+                        wallet: true,
+                        escrow: true
                     }
                 },
                 issue: true,
@@ -790,15 +793,15 @@ export const validateCompletion = async (req: Request, res: Response, next: Next
         }
 
         // Transfer bounty from escrow to contributor
-        const decryptedWalletSecret = decrypt(task.installation.walletSecret);
-        const decryptedEscrowSecret = decrypt(task.installation.escrowSecret!);
+        const decryptedWalletSecret = await decryptWallet(task.installation.wallet);
+        const decryptedEscrowSecret = await decryptWallet(task.installation.escrow);
         const taskIssue = task.issue as TaskIssue;
         const repoName = OctokitService.getOwnerAndRepo(taskIssue.url);
 
         const transactionResponse = await stellarService.transferAssetViaSponsor(
             decryptedWalletSecret,
             decryptedEscrowSecret,
-            task.contributor!.walletAddress,
+            task.contributor!.wallet!.address,
             usdcAssetId,
             usdcAssetId,
             task.bounty.toString(),
@@ -837,6 +840,7 @@ export const validateCompletion = async (req: Request, res: Response, next: Next
             await prisma.contributionSummary.update({
                 where: { userId: task.contributor.userId },
                 data: {
+                    activeTasks: { decrement: 1 },
                     tasksCompleted: { increment: 1 },
                     totalEarnings: { increment: task.bounty }
                 }

@@ -2,7 +2,7 @@ import { NextFunction, Request, Response } from "express";
 import { prisma } from "../../config/database.config";
 import { usdcAssetId } from "../../config/stellar.config";
 import { stellarService } from "../../services/stellar.service";
-import { decrypt } from "../../utilities/helper";
+import { decryptWallet } from "../../utilities/helper";
 import { STATUS_CODES } from "../../utilities/data";
 import { CreateTask, TaskIssue, FilterTasks } from "../../models/task.model";
 import { HorizonApi } from "../../models/horizonapi.model";
@@ -28,10 +28,8 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
         const installation = await prisma.installation.findUnique({
             where: { id: payload.installationId },
             select: {
-                walletSecret: true,
-                walletAddress: true,
-                escrowSecret: true,
-                escrowAddress: true
+                wallet: true,
+                escrow: true
             }
         });
 
@@ -40,7 +38,7 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
         }
 
         // Check user balance
-        const accountInfo = await stellarService.getAccountInfo(installation.walletAddress);
+        const accountInfo = await stellarService.getAccountInfo(installation.wallet.address);
         const usdcAsset = accountInfo.balances.find(
             (asset): asset is USDCBalance => "asset_code" in asset && asset.asset_code === "USDC"
         ) as USDCBalance;
@@ -50,9 +48,9 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
         }
 
         // Confirm USDC trustline
-        const decryptedInstallationWalletSecret = decrypt(installation.walletSecret);
-        const decryptedEscrowWalletSecret = decrypt(installation.escrowSecret);
-        const installationEscrowWallet = await stellarService.getAccountInfo(installation.escrowAddress!);
+        const decryptedInstallationWalletSecret = await decryptWallet(installation.wallet);
+        const decryptedEscrowWalletSecret = await decryptWallet(installation.escrow);
+        const installationEscrowWallet = await stellarService.getAccountInfo(installation.escrow.address!);
 
         if (
             !(installationEscrowWallet.balances.find(
@@ -70,7 +68,7 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
         const repoName = OctokitService.getOwnerAndRepo(payload.issue.url);
         const { txHash } = await stellarService.transferAsset(
             decryptedInstallationWalletSecret,
-            installation.escrowAddress!,
+            installation.escrow.address!,
             usdcAssetId,
             usdcAssetId,
             payload.bounty,
@@ -191,7 +189,7 @@ export const getTasks = async (req: Request, res: Response, next: NextFunction) 
         issueTitle,
         issueLabels
     } = req.query;
-    
+
     // Extract filters
     const filters = {
         repoUrl,
@@ -352,9 +350,8 @@ export const deleteTask = async (req: Request, res: Response, next: NextFunction
                 installation: {
                     select: {
                         id: true,
-                        escrowSecret: true,
-                        walletAddress: true,
-                        walletSecret: true
+                        wallet: true,
+                        escrow: true
                     }
                 }
             }
@@ -381,14 +378,14 @@ export const deleteTask = async (req: Request, res: Response, next: NextFunction
 
         // Return bounty to installation wallet if it exists
         if (task.bounty > 0) {
-            const decryptedWalletSecret = decrypt(task.installation.walletSecret);
-            const decryptedEscrowSecret = decrypt(task.installation.escrowSecret!);
+            const decryptedWalletSecret = await decryptWallet(task.installation.wallet);
+            const decryptedEscrowSecret = await decryptWallet(task.installation.escrow);
             const repoName = OctokitService.getOwnerAndRepo(taskIssue.url);
 
             await stellarService.transferAssetViaSponsor(
                 decryptedWalletSecret,
                 decryptedEscrowSecret,
-                task.installation.walletAddress,
+                task.installation.wallet.address,
                 usdcAssetId,
                 usdcAssetId,
                 task.bounty.toString(),
