@@ -1,6 +1,6 @@
 import { NextFunction, Request, Response } from "express";
 import { prisma } from "../../config/database.config";
-import { decrypt } from "../../utilities/helper";
+import { decryptWallet } from "../../utilities/helper";
 import { STATUS_CODES } from "../../utilities/data";
 import { HorizonApi } from "../../models/horizonapi.model";
 import { TransactionCategory } from "../../../prisma_client";
@@ -43,7 +43,7 @@ export const withdrawAsset = async (req: Request, res: Response, next: NextFunct
                         }
                     }
                 },
-                select: { walletSecret: true, walletAddress: true }
+                select: { wallet: true }
             });
 
             if (!installation) {
@@ -53,13 +53,13 @@ export const withdrawAsset = async (req: Request, res: Response, next: NextFunct
             }
 
             // Set wallet details
-            walletAddress = installation.walletAddress;
-            walletSecret = decrypt(installation.walletSecret);
+            walletAddress = installation.wallet.address;
+            walletSecret = await decryptWallet(installation.wallet);
         } else {
             // Fetch user and verify user exists
             const user = await prisma.user.findUnique({
                 where: { userId },
-                select: { walletSecret: true, walletAddress: true }
+                select: { wallet: true }
             });
 
             if (!user) {
@@ -67,8 +67,9 @@ export const withdrawAsset = async (req: Request, res: Response, next: NextFunct
             }
 
             // Set wallet details
-            walletAddress = user.walletAddress;
-            walletSecret = decrypt(user.walletSecret);
+            if (!user.wallet) throw new NotFoundError("User wallet not found");
+            walletAddress = user.wallet.address;
+            walletSecret = await decryptWallet(user.wallet);
         }
 
         // Check balance before withdrawal
@@ -86,7 +87,7 @@ export const withdrawAsset = async (req: Request, res: Response, next: NextFunct
 
             if (parseFloat(usdcAsset.balance) < Number(amount)) {
                 throw new ValidationError(
-                    "Insufficient USDC balance", 
+                    "Insufficient USDC balance",
                     { available: usdcAsset.balance }
                 );
             }
@@ -175,7 +176,7 @@ export const swapAsset = async (req: Request, res: Response, next: NextFunction)
                         }
                     }
                 },
-                select: { walletSecret: true, walletAddress: true }
+                select: { wallet: true }
             });
 
             if (!installation) {
@@ -185,13 +186,13 @@ export const swapAsset = async (req: Request, res: Response, next: NextFunction)
             }
 
             // Set wallet details
-            walletAddress = installation.walletAddress;
-            walletSecret = decrypt(installation.walletSecret);
+            walletAddress = installation.wallet.address;
+            walletSecret = await decryptWallet(installation.wallet);
         } else {
             // Fetch user and verify user exists
             const user = await prisma.user.findUnique({
                 where: { userId },
-                select: { walletSecret: true, walletAddress: true }
+                select: { wallet: true }
             });
 
             if (!user) {
@@ -199,8 +200,9 @@ export const swapAsset = async (req: Request, res: Response, next: NextFunction)
             }
 
             // Set wallet details
-            walletAddress = user.walletAddress;
-            walletSecret = decrypt(user.walletSecret);
+            if (!user.wallet) throw new NotFoundError("User wallet not found");
+            walletAddress = user.wallet.address;
+            walletSecret = await decryptWallet(user.wallet);
         }
 
         // Check balance before swap
@@ -261,8 +263,8 @@ export const swapAsset = async (req: Request, res: Response, next: NextFunction)
         // Record transaction
         const transactionPayload = {
             txHash,
-            category: toAssetType === "USDC" 
-                ? TransactionCategory.SWAP_XLM 
+            category: toAssetType === "USDC"
+                ? TransactionCategory.SWAP_XLM
                 : TransactionCategory.SWAP_USDC,
             amount: parseFloat(amount.toString()),
             fromAmount: parseFloat(amount.toString()),
@@ -306,7 +308,7 @@ export const getWalletInfo = async (req: Request, res: Response, next: NextFunct
                         }
                     }
                 },
-                select: { walletAddress: true }
+                select: { wallet: { select: { address: true } } }
             });
 
             if (!installation) {
@@ -316,12 +318,12 @@ export const getWalletInfo = async (req: Request, res: Response, next: NextFunct
             }
 
             // Set wallet details
-            walletAddress = installation.walletAddress;
+            walletAddress = installation.wallet.address;
         } else {
             // Fetch user and verify user exists
             const user = await prisma.user.findUnique({
                 where: { userId },
-                select: { walletAddress: true }
+                select: { wallet: { select: { address: true } } }
             });
 
             if (!user) {
@@ -329,7 +331,8 @@ export const getWalletInfo = async (req: Request, res: Response, next: NextFunct
             }
 
             // Set wallet details
-            walletAddress = user.walletAddress;
+            if (!user.wallet) throw new NotFoundError("User wallet not found");
+            walletAddress = user.wallet.address;
         }
 
         // Get account info from Stellar
@@ -341,3 +344,4 @@ export const getWalletInfo = async (req: Request, res: Response, next: NextFunct
         next(error);
     }
 };
+
