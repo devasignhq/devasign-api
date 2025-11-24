@@ -2,7 +2,7 @@ import { NextFunction, Request, Response } from "express";
 import { prisma } from "../../config/database.config";
 import { usdcAssetId } from "../../config/stellar.config";
 import { stellarService } from "../../services/stellar.service";
-import { decrypt, encrypt } from "../../utilities/helper";
+import { decryptWallet, encryptWallet } from "../../utilities/helper";
 import { STATUS_CODES } from "../../utilities/data";
 import { OctokitService } from "../../services/octokit.service";
 import { Prisma } from "../../../prisma_client";
@@ -21,7 +21,7 @@ export const createInstallation = async (req: Request, res: Response, next: Next
     try {
         // Verify user exists
         const user = await prisma.user.findUnique({
-            where: { userId },            
+            where: { userId },
             select: { username: true }
         });
 
@@ -48,9 +48,9 @@ export const createInstallation = async (req: Request, res: Response, next: Next
         // Create Stellar wallets for installation and escrow
         const installationWallet = await stellarService.createWallet();
         const escrowWallet = await stellarService.createWallet();
-        const encryptedInstallationSecret = encrypt(installationWallet.secretKey);
-        const encryptedEscrowSecret = encrypt(escrowWallet.secretKey); 
-        
+        const encryptedInstallationSecret = await encryptWallet(installationWallet.secretKey);
+        const encryptedEscrowSecret = await encryptWallet(escrowWallet.secretKey);
+
         // Create installation
         const installation = await prisma.installation.create({
             data: {
@@ -59,17 +59,25 @@ export const createInstallation = async (req: Request, res: Response, next: Next
                 targetId: githubInstallation.target_id,
                 targetType: githubInstallation.target_type,
                 account: {
-                    login: "login" in githubInstallation.account! 
+                    login: "login" in githubInstallation.account!
                         ? githubInstallation.account!.login
                         : githubInstallation.account!.name,
                     nodeId: githubInstallation.account!.node_id,
                     avatarUrl: githubInstallation.account!.avatar_url,
                     htmlUrl: githubInstallation.account!.html_url
                 },
-                walletAddress: installationWallet.publicKey,
-                walletSecret: encryptedInstallationSecret,
-                escrowAddress: escrowWallet.publicKey,
-                escrowSecret: encryptedEscrowSecret,
+                wallet: {
+                    create: {
+                        address: installationWallet.publicKey,
+                        ...encryptedInstallationSecret
+                    }
+                },
+                escrow: {
+                    create: {
+                        address: escrowWallet.publicKey,
+                        ...encryptedEscrowSecret
+                    }
+                },
                 users: {
                     connect: { userId }
                 },
@@ -103,14 +111,14 @@ export const createInstallation = async (req: Request, res: Response, next: Next
                 masterAccountSecret,
                 escrowWallet.secretKey
             );
-            
+
             // Return created installation
             res.status(STATUS_CODES.POST).json(installation);
         } catch (error) {
             // If trustline addition fails, return installation but indicate partial success
-            res.status(STATUS_CODES.PARTIAL_SUCCESS).json({ 
-                error, 
-                installation, 
+            res.status(STATUS_CODES.PARTIAL_SUCCESS).json({
+                error,
+                installation,
                 message: "Failed to add USDC trustlines."
             });
         }
@@ -192,11 +200,11 @@ export const getInstallation = async (req: Request, res: Response, next: NextFun
     try {
         // Get installation and verify it exists
         const installation = await prisma.installation.findUnique({
-            where: { 
+            where: {
                 id: installationId,
                 users: {
                     some: { userId: userId as string }
-                } 
+                }
             },
             select: {
                 id: true,
@@ -250,7 +258,7 @@ export const getInstallation = async (req: Request, res: Response, next: NextFun
         if (!installation) {
             throw new NotFoundError("Installation not found");
         }
-        
+
         // Check if user is a member of the installation
         const userIsTeamMember = installation.users.some(user => user.userId === userId);
         if (!userIsTeamMember) {
@@ -281,22 +289,22 @@ export const getInstallation = async (req: Request, res: Response, next: NextFun
  */
 export const updateInstallation = async (req: Request, res: Response, next: NextFunction) => {
     const { installationId } = req.params;
-    const { 
+    const {
         userId,
         htmlUrl,
         targetId,
-        account 
+        account
     } = req.body;
 
     try {
         // Get installation and verify it exists
         const installation = await prisma.installation.findUnique({
             where: { id: installationId },
-            select: { 
+            select: {
                 users: { select: { userId: true } }
             }
         });
-        
+
         if (!installation) {
             throw new NotFoundError("Installation not found");
         }
@@ -310,7 +318,7 @@ export const updateInstallation = async (req: Request, res: Response, next: Next
         // Update installation details
         const updatedInstallation = await prisma.installation.update({
             where: { id: installationId },
-            data: { 
+            data: {
                 ...(htmlUrl && { htmlUrl }),
                 ...(targetId && { targetId }),
                 ...(account && { account })
@@ -340,19 +348,19 @@ export const deleteInstallation = async (req: Request, res: Response, next: Next
     try {
         // Get installation and verify it exists
         const installation = await prisma.installation.findUnique({
-            where: { 
+            where: {
                 id: installationId,
                 users: {
                     some: { userId: userId as string }
                 }
             },
-            select: { 
-                walletSecret: true,
-                escrowSecret: true,
+            select: {
+                wallet: true,
+                escrow: true,
                 tasks: { select: { status: true, bounty: true } }
             }
         });
-        
+
         if (!installation) {
             throw new NotFoundError("Installation not found");
         }
@@ -363,8 +371,8 @@ export const deleteInstallation = async (req: Request, res: Response, next: Next
         }
 
         // Refund escrow funds
-        const decryptedWalletSecret = decrypt(installation.walletSecret!);
-        const decryptedEscrowSecret = decrypt(installation.escrowSecret!);
+        const decryptedWalletSecret = await decryptWallet(installation.wallet);
+        const decryptedEscrowSecret = await decryptWallet(installation.escrow);
         let refunded = 0;
 
         installation.tasks.forEach(async (task) => {
@@ -385,9 +393,9 @@ export const deleteInstallation = async (req: Request, res: Response, next: Next
         });
 
         // Return deletion confirmation
-        res.status(STATUS_CODES.SUCCESS).json({ 
-            message: "Installation deleted successfully", 
-            refunded: `${refunded} USDC` 
+        res.status(STATUS_CODES.SUCCESS).json({
+            message: "Installation deleted successfully",
+            refunded: `${refunded} USDC`
         });
     } catch (error) {
         next(error);
