@@ -1,9 +1,6 @@
-import CryptoJS from "crypto-js";
 import { KeyManagementServiceClient } from "@google-cloud/kms";
 import crypto from "crypto";
 import { Wallet } from "../../prisma_client";
-
-const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY!;
 
 // Set Google Cloud KMS environment variables
 const PROJECT_ID = process.env.GCP_PROJECT_ID!;
@@ -89,15 +86,6 @@ export const decryptWallet = async (wallet: Wallet) => {
     plaintextDEK.fill(0);
 
     return decryptedSecret;
-};
-
-export const encrypt = (text: string): string => {
-    return CryptoJS.AES.encrypt(text, ENCRYPTION_KEY).toString();
-};
-
-export const decrypt = (ciphertext: string): string => {
-    const bytes = CryptoJS.AES.decrypt(ciphertext, ENCRYPTION_KEY);
-    return bytes.toString(CryptoJS.enc.Utf8);
 };
 
 /**
