@@ -331,9 +331,6 @@ DevAsign uses Google Cloud KMS for secure encryption of sensitive data like wall
 # Run all tests
 npm test
 
-# Run tests with coverage
-npm run test:coverage
-
 # Run specific test file
 npm test -- --testPathPatterns=task.api.test
 ```
