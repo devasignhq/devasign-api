@@ -30,6 +30,13 @@ export const handlePRWebhook = async (req: Request, res: Response, next: NextFun
         handleBountyPayout(req, res, next);
         return;
     }
+    
+    res.status(STATUS_CODES.SUCCESS).json({
+        success: true,
+        message: "PR action not processed",
+        action
+    });
+    return;
 };
 
 /**
