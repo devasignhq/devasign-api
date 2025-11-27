@@ -8,7 +8,6 @@ import { DatabaseTestHelper } from "../../../helpers/database-test-helper";
 import { ENDPOINTS, STATUS_CODES } from "../../../../api/utilities/data";
 import { mockFirebaseAuth } from "../../../mocks/firebase.service.mock";
 import { getEndpointWithPrefix } from "../../../helpers/test-utils";
-import { encrypt } from "../../../../api/utilities/helper";
 import { dataLogger } from "../../../../api/config/logger.config";
 
 // Mock Firebase admin for authentication
@@ -43,8 +42,25 @@ jest.mock("../../../../api/services/octokit.service", () => ({
     OctokitService: {
         addBountyLabelAndCreateBountyComment: jest.fn(),
         removeBountyLabelAndDeleteBountyComment: jest.fn(),
-        customBountyMessage: jest.fn()
+        customBountyMessage: jest.fn(),
+        getOwnerAndRepo: jest.fn()
     }
+}));
+
+// Mock helper utilities
+function getFieldFromUnknownObject<T>(obj: unknown, field: string) {
+    if (typeof obj !== "object" || !obj) {
+        return undefined;
+    }
+    if (field in obj) {
+        return (obj as Record<string, T>)[field];
+    }
+    return undefined;
+}
+
+jest.mock("../../../../api/utilities/helper", () => ({
+    getFieldFromUnknownObject,
+    decryptWallet: jest.fn().mockResolvedValue("STEST1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12")
 }));
 
 describe("Task API Integration Tests", () => {
@@ -133,9 +149,9 @@ describe("Task API Integration Tests", () => {
         mockOctokitService.addBountyLabelAndCreateBountyComment.mockResolvedValue({
             id: 123456789
         });
-
         mockOctokitService.customBountyMessage.mockReturnValue("Bounty message");
         mockOctokitService.removeBountyLabelAndDeleteBountyComment.mockResolvedValue(true);
+        mockOctokitService.getOwnerAndRepo.mockReturnValue(["test-owner", "test-repo"]);
 
         TestDataFactory.resetCounters();
     });
@@ -158,14 +174,16 @@ describe("Task API Integration Tests", () => {
                 }
             });
 
-            // Create test installation with encrypted secrets
+            // Create test installation
             testInstallation = TestDataFactory.installation({
-                id: "12345678",
-                walletSecret: encrypt("SINSTALLTEST000000000000000000000000000000000"),
-                escrowSecret: encrypt("SESCROWTEST0000000000000000000000000000000000")
+                id: "12345678"
             });
             await prisma.installation.create({
-                data: testInstallation
+                data: {
+                    ...testInstallation,
+                    wallet: TestDataFactory.createWalletRelation(),
+                    escrow: TestDataFactory.createWalletRelation()
+                }
             });
         });
 
@@ -311,33 +329,39 @@ describe("Task API Integration Tests", () => {
             });
 
             // Create test installation
-            let installation = TestDataFactory.installation({ id: "12345678" });
-            installation = await prisma.installation.create({ data: installation });
+            const testInstallation = TestDataFactory.installation({ id: "12345678" });
+            await prisma.installation.create({
+                data: {
+                    ...testInstallation,
+                    wallet: TestDataFactory.createWalletRelation(),
+                    escrow: TestDataFactory.createWalletRelation()
+                }
+            });
 
             // Create multiple test tasks
             const tasks = [
                 {
                     ...TestDataFactory.filterData(
-                        TestDataFactory.task({ bounty: 100, status: "OPEN" }), 
+                        TestDataFactory.task({ bounty: 100, status: "OPEN" }),
                         ["creatorId", "installationId", "contributorId", "acceptedAt", "completedAt"]
                     ),
-                    installation: { connect: { id: installation.id } },
+                    installation: { connect: { id: testInstallation.id } },
                     creator: { connect: { userId: "user-1" } }
                 },
                 {
                     ...TestDataFactory.filterData(
-                        TestDataFactory.task({ bounty: 200, status: "OPEN" }), 
+                        TestDataFactory.task({ bounty: 200, status: "OPEN" }),
                         ["creatorId", "installationId", "contributorId", "acceptedAt", "completedAt"]
                     ),
-                    installation: { connect: { id: installation.id } },
+                    installation: { connect: { id: testInstallation.id } },
                     creator: { connect: { userId: "user-1" } }
                 },
                 {
                     ...TestDataFactory.filterData(
-                        TestDataFactory.task({ bounty: 150, status: "COMPLETED" }), 
+                        TestDataFactory.task({ bounty: 150, status: "COMPLETED" }),
                         ["creatorId", "installationId", "contributorId", "acceptedAt", "completedAt"]
                     ),
-                    installation: { connect: { id: installation.id } },
+                    installation: { connect: { id: testInstallation.id } },
                     creator: { connect: { userId: "user-1" } }
                 }
             ];
@@ -416,12 +440,18 @@ describe("Task API Integration Tests", () => {
                 data: { ...user, contributionSummary: { create: {} } }
             });
 
-            const installation = TestDataFactory.installation({ id: "12345678" });
-            await prisma.installation.create({ data: installation });
+            const testInstallation = TestDataFactory.installation({ id: "12345678" });
+            await prisma.installation.create({
+                data: {
+                    ...testInstallation,
+                    wallet: TestDataFactory.createWalletRelation(),
+                    escrow: TestDataFactory.createWalletRelation()
+                }
+            });
 
             testTask = TestDataFactory.task({
                 creatorId: "user-1",
-                installationId: installation.id,
+                installationId: testInstallation.id,
                 status: "OPEN"
             });
             const task = await prisma.task.create({ data: testTask });
@@ -467,11 +497,15 @@ describe("Task API Integration Tests", () => {
             });
 
             testInstallation = TestDataFactory.installation({
-                id: "12345678",
-                walletSecret: "encrypted-wallet-secret",
-                escrowSecret: "encrypted-escrow-secret"
+                id: "12345678"
             });
-            await prisma.installation.create({ data: testInstallation });
+            await prisma.installation.create({
+                data: {
+                    ...testInstallation,
+                    wallet: TestDataFactory.createWalletRelation(),
+                    escrow: TestDataFactory.createWalletRelation()
+                }
+            });
 
             testTask = TestDataFactory.task({
                 creatorId: "task-owner",

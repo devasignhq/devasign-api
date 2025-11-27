@@ -7,8 +7,7 @@ import { errorHandler } from "../../../../api/middlewares/error.middleware";
 import { DatabaseTestHelper } from "../../../helpers/database-test-helper";
 import { ENDPOINTS, STATUS_CODES } from "../../../../api/utilities/data";
 import { mockFirebaseAuth } from "../../../mocks/firebase.service.mock";
-import { getEndpointWithPrefix } from "../../../helpers/test-utils";
-import { encrypt } from "../../../../api/utilities/helper";
+import { generateRandomString, getEndpointWithPrefix } from "../../../helpers/test-utils";
 import { TimelineType } from "../../../../prisma_client";
 
 // Mock Firebase admin for authentication
@@ -42,8 +41,52 @@ jest.mock("../../../../api/services/firebase.service", () => ({
 jest.mock("../../../../api/services/octokit.service", () => ({
     OctokitService: {
         updateIssueComment: jest.fn(),
-        customBountyMessage: jest.fn()
+        customBountyMessage: jest.fn(),
+        getOwnerAndRepo: jest.fn()
     }
+}));
+
+// Mock helper utilities
+function getFieldFromUnknownObject<T>(obj: unknown, field: string) {
+    if (typeof obj !== "object" || !obj) {
+        return undefined;
+    }
+    if (field in obj) {
+        return (obj as Record<string, T>)[field];
+    }
+    return undefined;
+}
+function moneyFormat(
+    value: number | string | bigint,
+    standard?: string | string[],
+    dec?: number,
+    noDecimals?: boolean
+) {
+    const decimal = (noDecimals || dec === 0)
+        ? 0
+        : dec || 2;
+
+    const options: Intl.NumberFormatOptions = {
+        minimumFractionDigits: decimal,
+        maximumFractionDigits: decimal
+    };
+
+    try {
+        // Use default locale if none provided or invalid
+        const locale = standard || "en-US";
+        const nf = new Intl.NumberFormat(locale, options);
+        return (value || value === 0) ? nf.format(Number(value)) : "--";
+    } catch {
+        // Fallback to basic locale if the provided one fails
+        const nf = new Intl.NumberFormat("en-US", options);
+        return (value || value === 0) ? nf.format(Number(value)) : "--";
+    }
+}
+
+jest.mock("../../../../api/utilities/helper", () => ({
+    getFieldFromUnknownObject,
+    moneyFormat,
+    decryptWallet: jest.fn().mockResolvedValue("STEST1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12")
 }));
 
 describe("Task {taskId} API Integration Tests", () => {
@@ -136,6 +179,7 @@ describe("Task {taskId} API Integration Tests", () => {
 
         mockOctokitService.updateIssueComment.mockResolvedValue(true);
         mockOctokitService.customBountyMessage.mockReturnValue("Updated bounty message");
+        mockOctokitService.getOwnerAndRepo.mockReturnValue(["test-owner", "test-repo"]);
 
         TestDataFactory.resetCounters();
     });
@@ -154,8 +198,17 @@ describe("Task {taskId} API Integration Tests", () => {
                 data: { ...testUser, contributionSummary: { create: {} } }
             });
 
-            const installation = TestDataFactory.installation({ id: "12345678" });
-            await prisma.installation.create({ data: installation });
+            const testInstallation = TestDataFactory.installation({ id: "12345678" });
+            await prisma.installation.create({
+                data: {
+                    ...testInstallation,
+                    users: {
+                        connect: { userId: "task-creator" }
+                    },
+                    wallet: TestDataFactory.createWalletRelation(),
+                    escrow: TestDataFactory.createWalletRelation()
+                }
+            });
 
             testTask = TestDataFactory.task({
                 creatorId: "task-creator",
@@ -227,20 +280,36 @@ describe("Task {taskId} API Integration Tests", () => {
                 data: { ...user, contributionSummary: { create: {} } }
             });
 
-            testInstallation = TestDataFactory.installation({
-                id: "12345678",
-                walletSecret: encrypt("SINSTALLTEST000000000000000000000000000000000"),
-                escrowSecret: encrypt("SESCROWTEST0000000000000000000000000000000000")
+            testInstallation = TestDataFactory.installation({ id: "12345678" });
+            await prisma.installation.create({
+                data: {
+                    ...testInstallation,
+                    users: {
+                        connect: { userId: "task-creator" }
+                    },
+                    wallet: TestDataFactory.createWalletRelation(),
+                    escrow: TestDataFactory.createWalletRelation()
+                }
             });
-            await prisma.installation.create({ data: testInstallation });
 
             testTask = TestDataFactory.task({
-                creatorId: "task-creator",
-                installationId: "12345678",
                 status: "OPEN",
-                bounty: 100
+                bounty: 100,
+                creatorId: undefined,
+                contributorId: undefined,
+                installationId: undefined
             });
-            testTask = await prisma.task.create({ data: testTask });
+            testTask = await prisma.task.create({
+                data: {
+                    ...testTask,
+                    installation: {
+                        connect: { id: "12345678" }
+                    },
+                    creator: {
+                        connect: { userId: "task-creator" }
+                    }
+                }
+            });
         });
 
         it("should increase task bounty successfully", async () => {
@@ -373,17 +442,37 @@ describe("Task {taskId} API Integration Tests", () => {
                 data: { ...user, contributionSummary: { create: {} } }
             });
 
-            const installation = TestDataFactory.installation({ id: "12345678" });
-            await prisma.installation.create({ data: installation });
+            const testInstallation = TestDataFactory.installation({ id: "12345678" });
+            await prisma.installation.create({
+                data: {
+                    ...testInstallation,
+                    users: {
+                        connect: { userId: "task-creator" }
+                    },
+                    wallet: TestDataFactory.createWalletRelation(),
+                    escrow: TestDataFactory.createWalletRelation()
+                }
+            });
 
             testTask = TestDataFactory.task({
-                creatorId: "task-creator",
-                installationId: "12345678",
                 status: "OPEN",
                 timeline: 1,
-                timelineType: "WEEK"
+                timelineType: "WEEK",
+                creatorId: undefined,
+                contributorId: undefined,
+                installationId: undefined
             });
-            testTask = await prisma.task.create({ data: testTask });
+            testTask = await prisma.task.create({
+                data: {
+                    ...testTask,
+                    installation: {
+                        connect: { id: "12345678" }
+                    },
+                    creator: {
+                        connect: { userId: "task-creator" }
+                    }
+                }
+            });
         });
 
         it("should update task timeline successfully", async () => {
@@ -462,15 +551,35 @@ describe("Task {taskId} API Integration Tests", () => {
                 data: { ...applicant, contributionSummary: { create: {} } }
             });
 
-            const installation = TestDataFactory.installation({ id: "12345678" });
-            await prisma.installation.create({ data: installation });
+            const testInstallation = TestDataFactory.installation({ id: "12345678" });
+            await prisma.installation.create({
+                data: {
+                    ...testInstallation,
+                    users: {
+                        connect: { userId: "task-creator" }
+                    },
+                    wallet: TestDataFactory.createWalletRelation(),
+                    escrow: TestDataFactory.createWalletRelation()
+                }
+            });
 
             testTask = TestDataFactory.task({
-                creatorId: "task-creator",
-                installationId: "12345678",
-                status: "OPEN"
+                status: "OPEN",
+                creatorId: undefined,
+                contributorId: undefined,
+                installationId: undefined
             });
-            testTask = await prisma.task.create({ data: testTask });
+            testTask = await prisma.task.create({
+                data: {
+                    ...testTask,
+                    installation: {
+                        connect: { id: "12345678" }
+                    },
+                    creator: {
+                        connect: { userId: "task-creator" }
+                    }
+                }
+            });
         });
 
         it("should submit task application successfully", async () => {
@@ -537,7 +646,7 @@ describe("Task {taskId} API Integration Tests", () => {
 
     describe(`POST ${getEndpointWithPrefix(["TASK", "{TASKID}", "ACCEPT_APPLICATION"])} - Accept Task Application`, () => {
         let testTask: any;
-        const contributorId = cuid();
+        const contributorId = generateRandomString(28);
 
         beforeEach(async () => {
             const creator = TestDataFactory.user({ userId: "task-creator" });
@@ -550,15 +659,35 @@ describe("Task {taskId} API Integration Tests", () => {
                 data: { ...contributor, contributionSummary: { create: {} } }
             });
 
-            const installation = TestDataFactory.installation({ id: "12345678" });
-            await prisma.installation.create({ data: installation });
+            const testInstallation = TestDataFactory.installation({ id: "12345678" });
+            await prisma.installation.create({
+                data: {
+                    ...testInstallation,
+                    users: {
+                        connect: { userId: "task-creator" }
+                    },
+                    wallet: TestDataFactory.createWalletRelation(),
+                    escrow: TestDataFactory.createWalletRelation()
+                }
+            });
 
             testTask = TestDataFactory.task({
-                creatorId: "task-creator",
-                installationId: "12345678",
-                status: "OPEN"
+                status: "OPEN",
+                creatorId: undefined,
+                contributorId: undefined,
+                installationId: undefined
             });
-            testTask = await prisma.task.create({ data: testTask });
+            testTask = await prisma.task.create({
+                data: {
+                    ...testTask,
+                    installation: {
+                        connect: { id: "12345678" }
+                    },
+                    creator: {
+                        connect: { userId: "task-creator" }
+                    }
+                }
+            });
 
             // Create application
             await prisma.taskActivity.create({
@@ -670,18 +799,40 @@ describe("Task {taskId} API Integration Tests", () => {
                 data: { ...contributor, contributionSummary: { create: {} } }
             });
 
-            const installation = TestDataFactory.installation({ id: "12345678" });
-            await prisma.installation.create({ data: installation });
+            const testInstallation = TestDataFactory.installation({ id: "12345678" });
+            await prisma.installation.create({
+                data: {
+                    ...testInstallation,
+                    users: {
+                        connect: { userId: "task-creator" }
+                    },
+                    wallet: TestDataFactory.createWalletRelation(),
+                    escrow: TestDataFactory.createWalletRelation()
+                }
+            });
 
             testTask = TestDataFactory.task({
-                creatorId: "task-creator",
-                installationId: "12345678",
                 status: "IN_PROGRESS",
-                contributorId: "contributor",
                 timeline: 1,
-                timelineType: "WEEK"
+                timelineType: "WEEK",
+                creatorId: undefined,
+                contributorId: undefined,
+                installationId: undefined
             });
-            testTask = await prisma.task.create({ data: testTask });
+            testTask = await prisma.task.create({
+                data: {
+                    ...testTask,
+                    installation: {
+                        connect: { id: "12345678" }
+                    },
+                    creator: {
+                        connect: { userId: "task-creator" }
+                    },
+                    contributor: {
+                        connect: { userId: "contributor" }
+                    }
+                }
+            });
         });
 
         it("should request timeline extension successfully", async () => {
@@ -750,18 +901,40 @@ describe("Task {taskId} API Integration Tests", () => {
                 data: { ...contributor, contributionSummary: { create: {} } }
             });
 
-            const installation = TestDataFactory.installation({ id: "12345678" });
-            await prisma.installation.create({ data: installation });
+            const testInstallation = TestDataFactory.installation({ id: "12345678" });
+            await prisma.installation.create({
+                data: {
+                    ...testInstallation,
+                    users: {
+                        connect: { userId: "task-creator" }
+                    },
+                    wallet: TestDataFactory.createWalletRelation(),
+                    escrow: TestDataFactory.createWalletRelation()
+                }
+            });
 
             testTask = TestDataFactory.task({
-                creatorId: "task-creator",
-                installationId: "12345678",
                 status: "IN_PROGRESS",
-                contributorId: "contributor",
                 timeline: 1,
-                timelineType: "WEEK"
+                timelineType: "WEEK",
+                creatorId: undefined,
+                contributorId: undefined,
+                installationId: undefined
             });
-            testTask = await prisma.task.create({ data: testTask });
+            testTask = await prisma.task.create({
+                data: {
+                    ...testTask,
+                    installation: {
+                        connect: { id: "12345678" }
+                    },
+                    creator: {
+                        connect: { userId: "task-creator" }
+                    },
+                    contributor: {
+                        connect: { userId: "contributor" }
+                    }
+                }
+            });
         });
 
         it("should accept timeline extension successfully", async () => {
@@ -855,16 +1028,38 @@ describe("Task {taskId} API Integration Tests", () => {
                 data: { ...contributor, contributionSummary: { create: {} } }
             });
 
-            const installation = TestDataFactory.installation({ id: "12345678" });
-            await prisma.installation.create({ data: installation });
+            const testInstallation = TestDataFactory.installation({ id: "12345678" });
+            await prisma.installation.create({
+                data: {
+                    ...testInstallation,
+                    users: {
+                        connect: { userId: "task-creator" }
+                    },
+                    wallet: TestDataFactory.createWalletRelation(),
+                    escrow: TestDataFactory.createWalletRelation()
+                }
+            });
 
             testTask = TestDataFactory.task({
-                creatorId: "task-creator",
-                installationId: "12345678",
                 status: "IN_PROGRESS",
-                contributorId: "contributor"
+                creatorId: undefined,
+                contributorId: undefined,
+                installationId: undefined
             });
-            testTask = await prisma.task.create({ data: testTask });
+            testTask = await prisma.task.create({
+                data: {
+                    ...testTask,
+                    installation: {
+                        connect: { id: "12345678" }
+                    },
+                    creator: {
+                        connect: { userId: "task-creator" }
+                    },
+                    contributor: {
+                        connect: { userId: "contributor" }
+                    }
+                }
+            });
         });
 
         it("should mark task as complete successfully", async () => {
@@ -928,37 +1123,59 @@ describe("Task {taskId} API Integration Tests", () => {
 
     describe(`POST ${getEndpointWithPrefix(["TASK", "{TASKID}", "VALIDATE_COMPLETION"])} - Validate Task Completion`, () => {
         let testTask: any;
-        let testInstallation: any;
+        let testUser: any;
 
         beforeEach(async () => {
-            const creator = TestDataFactory.user({ userId: "task-creator" });
+            testUser = TestDataFactory.user({ userId: "task-creator" });
             await prisma.user.create({
-                data: { ...creator, contributionSummary: { create: {} } }
+                data: {
+                    ...testUser,
+                    contributionSummary: { create: {} },
+                    wallet: TestDataFactory.createWalletRelation()
+                }
             });
 
-            const contributor = TestDataFactory.user({
-                userId: "contributor",
-                walletAddress: "GCONTRIBUTOR1234567890ABCDEF1234567890ABCDEF1234567890"
-            });
+            const contributor = TestDataFactory.user({ userId: "contributor" });
             await prisma.user.create({
-                data: { ...contributor, contributionSummary: { create: {} } }
+                data: {
+                    ...contributor,
+                    contributionSummary: { create: {} },
+                    wallet: TestDataFactory.createWalletRelation()
+                }
             });
 
-            testInstallation = TestDataFactory.installation({
-                id: "12345678",
-                walletSecret: encrypt("SINSTALLTEST000000000000000000000000000000000"),
-                escrowSecret: encrypt("SESCROWTEST0000000000000000000000000000000000")
+            const testInstallation = TestDataFactory.installation({ id: "12345678" });
+            await prisma.installation.create({
+                data: {
+                    ...testInstallation,
+                    users: {
+                        connect: { userId: "task-creator" }
+                    },
+                    wallet: TestDataFactory.createWalletRelation(),
+                    escrow: TestDataFactory.createWalletRelation()
+                }
             });
-            await prisma.installation.create({ data: testInstallation });
 
             testTask = TestDataFactory.task({
-                creatorId: "task-creator",
-                installationId: "12345678",
                 status: "MARKED_AS_COMPLETED",
-                contributorId: "contributor",
-                bounty: 100
+                creatorId: undefined,
+                contributorId: undefined,
+                installationId: undefined
             });
-            testTask = await prisma.task.create({ data: testTask });
+            testTask = await prisma.task.create({
+                data: {
+                    ...testTask,
+                    installation: {
+                        connect: { id: "12345678" }
+                    },
+                    creator: {
+                        connect: { userId: "task-creator" }
+                    },
+                    contributor: {
+                        connect: { userId: "contributor" }
+                    }
+                }
+            });
         });
 
         it("should validate task completion successfully", async () => {
@@ -1026,6 +1243,22 @@ describe("Task {taskId} API Integration Tests", () => {
                 error: expect.any(Object),
                 validated: true,
                 message: expect.stringContaining("Failed to update the developer contribution summary")
+            });
+        });
+
+        it("should handle partial success when firebase task status update fails", async () => {
+            mockFirebaseService.updateTaskStatus.mockRejectedValue(new Error("Failed to update task status"));
+
+            const response = await request(app)
+                .post(getEndpointWithPrefix(["TASK", "{TASKID}", "VALIDATE_COMPLETION"])
+                    .replace(":taskId", testTask.id))
+                .set("x-test-user-id", "task-creator")
+                .expect(STATUS_CODES.PARTIAL_SUCCESS);
+
+            expect(response.body).toMatchObject({
+                error: expect.any(Object),
+                validated: true,
+                message: expect.stringContaining("Failed to disable chat for the task.")
             });
         });
 

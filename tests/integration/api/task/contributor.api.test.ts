@@ -45,6 +45,22 @@ jest.mock("../../../../api/services/octokit.service", () => ({
     }
 }));
 
+// Mock helper utilities
+function getFieldFromUnknownObject<T>(obj: unknown, field: string) {
+    if (typeof obj !== "object" || !obj) {
+        return undefined;
+    }
+    if (field in obj) {
+        return (obj as Record<string, T>)[field];
+    }
+    return undefined;
+}
+
+jest.mock("../../../../api/utilities/helper", () => ({
+    getFieldFromUnknownObject,
+    decryptWallet: jest.fn().mockResolvedValue("STEST1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12")
+}));
+
 describe("Task Contributor API Integration Tests", () => {
     let app: express.Application;
     let prisma: any;
@@ -114,7 +130,13 @@ describe("Task Contributor API Integration Tests", () => {
 
             // Create test installation
             testInstallation = TestDataFactory.installation({ id: "12345678" });
-            testInstallation = await prisma.installation.create({ data: testInstallation });
+            testInstallation = await prisma.installation.create({
+                data: {
+                    ...testInstallation,
+                    wallet: TestDataFactory.createWalletRelation(),
+                    escrow: TestDataFactory.createWalletRelation()
+                }
+            });
 
             // Create multiple test tasks assigned to contributor
             const tasks = [
@@ -260,7 +282,13 @@ describe("Task Contributor API Integration Tests", () => {
 
             // Create test installation
             const installation = TestDataFactory.installation({ id: "12345678" });
-            await prisma.installation.create({ data: installation });
+            await prisma.installation.create({
+                data: {
+                    ...installation,
+                    wallet: TestDataFactory.createWalletRelation(),
+                    escrow: TestDataFactory.createWalletRelation()
+                }
+            });
 
             // Create test task assigned to contributor
             testTask = TestDataFactory.task({

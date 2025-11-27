@@ -108,7 +108,13 @@ describe("Task Installation API Integration Tests", () => {
 
             // Create test installation
             testInstallation = TestDataFactory.installation({ id: "12345678" });
-            testInstallation = await prisma.installation.create({ data: testInstallation });
+            testInstallation = await prisma.installation.create({
+                data: {
+                    ...testInstallation,
+                    wallet: TestDataFactory.createWalletRelation(),
+                    escrow: TestDataFactory.createWalletRelation()
+                }
+            });
 
             // Link user to installation
             await prisma.installation.update({
@@ -255,7 +261,13 @@ describe("Task Installation API Integration Tests", () => {
 
             // Create test installation
             testInstallation = TestDataFactory.installation({ id: "12345678" });
-            testInstallation = await prisma.installation.create({ data: testInstallation });
+            testInstallation = await prisma.installation.create({
+                data: {
+                    ...testInstallation,
+                    wallet: TestDataFactory.createWalletRelation(),
+                    escrow: TestDataFactory.createWalletRelation()
+                }
+            });
 
             // Link user to installation
             await prisma.installation.update({
@@ -320,7 +332,13 @@ describe("Task Installation API Integration Tests", () => {
 
         it("should return 404 when task belongs to different installation", async () => {
             const otherInstallation = TestDataFactory.installation({ id: "87654321" });
-            await prisma.installation.create({ data: otherInstallation });
+            await prisma.installation.create({
+                data: {
+                    ...otherInstallation,
+                    wallet: TestDataFactory.createWalletRelation(),
+                    escrow: TestDataFactory.createWalletRelation()
+                }
+            });
 
             await request(app)
                 .get(getEndpointWithPrefix(["TASK", "INSTALLATION", "GET_TASK"])
