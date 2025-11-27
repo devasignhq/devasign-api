@@ -2,6 +2,8 @@ import { Request, Response, NextFunction } from "express";
 import { DatabaseTestHelper } from "../../helpers/database-test-helper";
 import { TestDataFactory } from "../../helpers/test-data-factory";
 import { mockFirebaseAuth, FirebaseTestHelpers } from "../../mocks/firebase.service.mock";
+import { validateUser, validateUserInstallation, validateAdmin } from "../../../api/middlewares/auth.middleware";
+import { STATUS_CODES } from "../../../api/utilities/data";
 
 // Mock Firebase admin for authentication
 jest.mock("../../../api/config/firebase.config", () => {
@@ -11,9 +13,6 @@ jest.mock("../../../api/config/firebase.config", () => {
         }
     };
 });
-
-import { validateUser, validateUserInstallation } from "../../../api/middlewares/auth.middleware";
-import { STATUS_CODES } from "../../../api/utilities/data";
 
 describe("Authentication Middleware", () => {
     let mockRequest: Partial<Request>;
@@ -32,57 +31,29 @@ describe("Authentication Middleware", () => {
     });
 
     beforeEach(async () => {
-        // Clean database
-        try {
-            await prisma.userInstallationPermission.deleteMany();
-            await prisma.installation.deleteMany();
-            await prisma.user.deleteMany();
-            await prisma.subscriptionPackage.deleteMany();
-        } catch {
-            // Ignore cleanup errors
-        }
-
-        // Seed basic test data
-        await prisma.subscriptionPackage.create({
-            data: {
-                id: "test-package-id",
-                name: "Test Package",
-                description: "Test subscription package",
-                maxTasks: 10,
-                maxUsers: 5,
-                paid: false,
-                price: 0,
-                active: true
-            }
-        });
+        await DatabaseTestHelper.resetDatabase(prisma);
+        await DatabaseTestHelper.seedDatabase(prisma);
+        jest.clearAllMocks();
 
         mockRequest = {
             headers: {},
             body: {},
             params: {}
         };
-        
+
         mockResponse = {
             status: jest.fn().mockReturnThis(),
             json: jest.fn().mockReturnThis()
         };
-        
+
         mockNext = jest.fn();
-        
-        // Reset Firebase mocks
-        jest.clearAllMocks();
+
+        TestDataFactory.resetCounters();
         FirebaseTestHelpers.resetFirebaseMocks();
     });
 
     afterAll(async () => {
         await prisma.$disconnect();
-
-        // Clean up Docker container
-        try {
-            // execSync("docker stop test-postgres");
-        } catch (error) {
-            console.log("Error cleaning up test container:", error);
-        }
     });
 
     describe("validateUser", () => {
@@ -245,7 +216,7 @@ describe("Authentication Middleware", () => {
                 });
                 expect(mockNext).not.toHaveBeenCalled();
             });
-            
+
             it("should call Firebase auth with correct token", async () => {
                 const testToken = "test-firebase-token";
                 mockRequest.headers = {
@@ -271,20 +242,22 @@ describe("Authentication Middleware", () => {
             });
 
             // Create test installation
-            const installation = TestDataFactory.installation({ id: "test-installation-id" });
-            await prisma.installation.create({ 
+            const installation = TestDataFactory.installation({ id: "12345678" });
+            await prisma.installation.create({
                 data: {
                     ...installation,
                     users: {
-                        connect: { userId: user.userId  }
+                        connect: { userId: user.userId }
                     },
                     subscriptionPackage: {
                         connect: { id: "test-package-id" }
-                    }
-                } 
+                    },
+                    wallet: TestDataFactory.createWalletRelation(),
+                    escrow: TestDataFactory.createWalletRelation()
+                }
             });
 
-            mockRequest.params = { installationId: "test-installation-id" };
+            mockRequest.params = { installationId: "12345678" };
             mockRequest.body = { userId: "test-user-id" };
 
             await validateUserInstallation(mockRequest as Request, mockResponse as Response, mockNext);
@@ -295,10 +268,19 @@ describe("Authentication Middleware", () => {
 
         it("should reject access when user is not member of installation", async () => {
             // Create test installation without adding user
-            const installation = TestDataFactory.installation({ id: "test-installation-id" });
-            await prisma.installation.create({ data: installation });
+            const installation = TestDataFactory.installation({ id: "12345678" });
+            await prisma.installation.create({
+                data: {
+                    ...installation,
+                    subscriptionPackage: {
+                        connect: { id: "test-package-id" }
+                    },
+                    wallet: TestDataFactory.createWalletRelation(),
+                    escrow: TestDataFactory.createWalletRelation()
+                }
+            });
 
-            mockRequest.params = { installationId: "test-installation-id" };
+            mockRequest.params = { installationId: "12345678" };
             mockRequest.body = { userId: "unauthorized-user-id" };
 
             await validateUserInstallation(mockRequest as Request, mockResponse as Response, mockNext);
@@ -331,7 +313,7 @@ describe("Authentication Middleware", () => {
             // Create a scenario that would cause a database error
             await prisma.$disconnect();
 
-            mockRequest.params = { installationId: "test-installation-id" };
+            mockRequest.params = { installationId: "12345678" };
             mockRequest.body = { userId: "test-user-id" };
 
             await validateUserInstallation(mockRequest as Request, mockResponse as Response, mockNext);
@@ -341,6 +323,234 @@ describe("Authentication Middleware", () => {
 
             // Reconnect for other tests
             await prisma.$connect();
+        });
+    });
+
+    describe("validateAdmin", () => {
+        describe("Admin Privilege Validation", () => {
+            it("should allow access when user has admin property set to true", async () => {
+                mockRequest.body = {
+                    currentUser: {
+                        uid: "admin-user-id",
+                        email: "admin@example.com",
+                        admin: true
+                    }
+                };
+
+                await validateAdmin(mockRequest as Request, mockResponse as Response, mockNext);
+
+                expect(mockNext).toHaveBeenCalled();
+                expect(mockResponse.status).not.toHaveBeenCalled();
+            });
+
+            it("should allow access when user has admin in custom_claims", async () => {
+                mockRequest.body = {
+                    currentUser: {
+                        uid: "admin-user-id",
+                        email: "admin@example.com",
+                        custom_claims: {
+                            admin: true
+                        }
+                    }
+                };
+
+                await validateAdmin(mockRequest as Request, mockResponse as Response, mockNext);
+
+                expect(mockNext).toHaveBeenCalled();
+                expect(mockResponse.status).not.toHaveBeenCalled();
+            });
+
+            it("should allow access when user has both admin property and custom_claims", async () => {
+                mockRequest.body = {
+                    currentUser: {
+                        uid: "admin-user-id",
+                        email: "admin@example.com",
+                        admin: true,
+                        custom_claims: {
+                            admin: true,
+                            role: "super-admin"
+                        }
+                    }
+                };
+
+                await validateAdmin(mockRequest as Request, mockResponse as Response, mockNext);
+
+                expect(mockNext).toHaveBeenCalled();
+                expect(mockResponse.status).not.toHaveBeenCalled();
+            });
+        });
+
+        describe("Non-Admin Access Denial", () => {
+            it("should deny access when user has no admin privileges", async () => {
+                mockRequest.body = {
+                    currentUser: {
+                        uid: "regular-user-id",
+                        email: "user@example.com"
+                    }
+                };
+
+                await validateAdmin(mockRequest as Request, mockResponse as Response, mockNext);
+
+                expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.UNAUTHORIZED);
+                expect(mockResponse.json).toHaveBeenCalledWith({
+                    error: "Access denied. Admin privileges required."
+                });
+                expect(mockNext).not.toHaveBeenCalled();
+            });
+
+            it("should deny access when admin property is false", async () => {
+                mockRequest.body = {
+                    currentUser: {
+                        uid: "user-id",
+                        email: "user@example.com",
+                        admin: false
+                    }
+                };
+
+                await validateAdmin(mockRequest as Request, mockResponse as Response, mockNext);
+
+                expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.UNAUTHORIZED);
+                expect(mockResponse.json).toHaveBeenCalledWith({
+                    error: "Access denied. Admin privileges required."
+                });
+                expect(mockNext).not.toHaveBeenCalled();
+            });
+
+            it("should deny access when custom_claims.admin is false", async () => {
+                mockRequest.body = {
+                    currentUser: {
+                        uid: "user-id",
+                        email: "user@example.com",
+                        custom_claims: {
+                            admin: false,
+                            role: "user"
+                        }
+                    }
+                };
+
+                await validateAdmin(mockRequest as Request, mockResponse as Response, mockNext);
+
+                expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.UNAUTHORIZED);
+                expect(mockResponse.json).toHaveBeenCalledWith({
+                    error: "Access denied. Admin privileges required."
+                });
+                expect(mockNext).not.toHaveBeenCalled();
+            });
+
+            it("should deny access when currentUser is missing", async () => {
+                mockRequest.body = {};
+
+                await validateAdmin(mockRequest as Request, mockResponse as Response, mockNext);
+
+                expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.UNAUTHORIZED);
+                expect(mockResponse.json).toHaveBeenCalledWith({
+                    error: "Access denied. Admin privileges required."
+                });
+                expect(mockNext).not.toHaveBeenCalled();
+            });
+
+            it("should deny access when currentUser is null", async () => {
+                mockRequest.body = {
+                    currentUser: null
+                };
+
+                await validateAdmin(mockRequest as Request, mockResponse as Response, mockNext);
+
+                expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.UNAUTHORIZED);
+                expect(mockResponse.json).toHaveBeenCalledWith({
+                    error: "Access denied. Admin privileges required."
+                });
+                expect(mockNext).not.toHaveBeenCalled();
+            });
+
+            it("should deny access when currentUser is undefined", async () => {
+                mockRequest.body = {
+                    currentUser: undefined
+                };
+
+                await validateAdmin(mockRequest as Request, mockResponse as Response, mockNext);
+
+                expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.UNAUTHORIZED);
+                expect(mockResponse.json).toHaveBeenCalledWith({
+                    error: "Access denied. Admin privileges required."
+                });
+                expect(mockNext).not.toHaveBeenCalled();
+            });
+        });
+
+        describe("Edge Cases", () => {
+            it("should deny access when custom_claims exists but admin is missing", async () => {
+                mockRequest.body = {
+                    currentUser: {
+                        uid: "user-id",
+                        email: "user@example.com",
+                        custom_claims: {
+                            role: "moderator",
+                            permissions: ["read", "write"]
+                        }
+                    }
+                };
+
+                await validateAdmin(mockRequest as Request, mockResponse as Response, mockNext);
+
+                expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.UNAUTHORIZED);
+                expect(mockResponse.json).toHaveBeenCalledWith({
+                    error: "Access denied. Admin privileges required."
+                });
+                expect(mockNext).not.toHaveBeenCalled();
+            });
+
+            it("should allow access when admin is truthy value", async () => {
+                mockRequest.body = {
+                    currentUser: {
+                        uid: "admin-user-id",
+                        email: "admin@example.com",
+                        admin: 1 // truthy value
+                    }
+                };
+
+                await validateAdmin(mockRequest as Request, mockResponse as Response, mockNext);
+
+                expect(mockNext).toHaveBeenCalled();
+                expect(mockResponse.status).not.toHaveBeenCalled();
+            });
+
+            it("should deny access when admin is 0 (falsy)", async () => {
+                mockRequest.body = {
+                    currentUser: {
+                        uid: "user-id",
+                        email: "user@example.com",
+                        admin: 0
+                    }
+                };
+
+                await validateAdmin(mockRequest as Request, mockResponse as Response, mockNext);
+
+                expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.UNAUTHORIZED);
+                expect(mockResponse.json).toHaveBeenCalledWith({
+                    error: "Access denied. Admin privileges required."
+                });
+                expect(mockNext).not.toHaveBeenCalled();
+            });
+
+            it("should preserve other request body properties", async () => {
+                const existingBody = {
+                    userId: "test-user-id",
+                    someData: "test-data",
+                    currentUser: {
+                        uid: "admin-user-id",
+                        email: "admin@example.com",
+                        admin: true
+                    }
+                };
+
+                mockRequest.body = existingBody;
+
+                await validateAdmin(mockRequest as Request, mockResponse as Response, mockNext);
+
+                expect(mockNext).toHaveBeenCalled();
+                expect(mockRequest.body).toEqual(existingBody);
+            });
         });
     });
 });
