@@ -26,6 +26,28 @@ jest.mock("../../../../api/services/stellar.service", () => ({
     }
 }));
 
+// Mock helper utilities
+function getFieldFromUnknownObject<T>(obj: unknown, field: string) {
+    if (typeof obj !== "object" || !obj) {
+        return undefined;
+    }
+    if (field in obj) {
+        return (obj as Record<string, T>)[field];
+    }
+    return undefined;
+}
+
+jest.mock("../../../../api/utilities/helper", () => ({
+    getFieldFromUnknownObject,
+    encryptWallet: jest.fn().mockResolvedValue({
+        encryptedDEK: "mockEncryptedDEK",
+        encryptedSecret: "mockEncryptedSecret",
+        iv: "mockIV",
+        authTag: "mockAuthTag"
+    }),
+    decryptWallet: jest.fn().mockResolvedValue("STEST1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12")
+}));
+
 describe("User API Integration Tests", () => {
     let app: express.Application;
     let prisma: any;
@@ -91,13 +113,6 @@ describe("User API Integration Tests", () => {
 
     afterAll(async () => {
         await prisma.$disconnect();
-
-        // Clean up Docker container
-        try {
-            // execSync("docker stop test-postgres");
-        } catch (error) {
-            console.log("Error cleaning up test container:", error);
-        }
     });
 
     describe(`POST ${getEndpointWithPrefix(["USER", "CREATE"])} - Create User`, () => {
@@ -115,7 +130,9 @@ describe("User API Integration Tests", () => {
             expect(response.body).toMatchObject({
                 userId: "new-user-123",
                 username: "testuser123",
-                walletAddress: expect.stringMatching(/^G[A-Z0-9]{54}$/),
+                wallet: {
+                    address: expect.stringMatching(/^G[A-Z0-9]{54}$/)
+                },
                 contributionSummary: expect.objectContaining({
                     tasksCompleted: 0,
                     activeTasks: 0,
@@ -126,12 +143,16 @@ describe("User API Integration Tests", () => {
             // Verify user was created in database
             const createdUser = await prisma.user.findUnique({
                 where: { userId: "new-user-123" },
-                include: { contributionSummary: true }
+                include: {
+                    contributionSummary: true,
+                    wallet: true
+                }
             });
 
             expect(createdUser).toBeTruthy();
             expect(createdUser?.username).toBe("testuser123");
-            expect(createdUser?.walletAddress).toBeTruthy();
+            expect(createdUser?.wallet).toBeTruthy();
+            expect(createdUser?.wallet?.address).toBeTruthy();
             expect(createdUser?.contributionSummary).toBeTruthy();
 
             // Verify Stellar service was called
@@ -153,13 +174,15 @@ describe("User API Integration Tests", () => {
             expect(response.body).toMatchObject({
                 userId: "new-user-456",
                 username: "testuser456",
-                walletAddress: "",
                 contributionSummary: expect.objectContaining({
                     tasksCompleted: 0,
                     activeTasks: 0,
                     totalEarnings: 0
                 })
             });
+
+            // Should not have a wallet
+            expect(response.body.wallet).toBeNull();
 
             // Verify Stellar service was not called
             expect(mockStellarService.createWallet).not.toHaveBeenCalled();
@@ -199,7 +222,7 @@ describe("User API Integration Tests", () => {
                 .post(getEndpointWithPrefix(["USER", "CREATE"]))
                 .set("x-test-user-id", "new-user-999")
                 .send(userData)
-                .expect(500);
+                .expect(STATUS_CODES.UNKNOWN);
         });
 
         it("should handle trustline creation failure gracefully", async () => {
@@ -213,7 +236,7 @@ describe("User API Integration Tests", () => {
                 .post(getEndpointWithPrefix(["USER", "CREATE"]))
                 .set("x-test-user-id", "new-user-888")
                 .send(userData)
-                .expect(202);
+                .expect(STATUS_CODES.PARTIAL_SUCCESS);
 
             expect(response.body).toMatchObject({
                 user: expect.objectContaining({
@@ -238,7 +261,7 @@ describe("User API Integration Tests", () => {
         beforeEach(async () => {
             // Create test user with contribution summary
             testUser = TestDataFactory.user({ userId: "test-get-user" });
-            await prisma.user.create({
+            testUser = await prisma.user.create({
                 data: {
                     ...testUser,
                     contributionSummary: {
@@ -247,7 +270,14 @@ describe("User API Integration Tests", () => {
                             activeTasks: 2,
                             totalEarnings: 500.0
                         }
+                    },
+                    wallet: {
+                        create: TestDataFactory.wallet()
                     }
+                },
+                include: {
+                    contributionSummary: true,
+                    wallet: true
                 }
             });
         });
@@ -256,12 +286,14 @@ describe("User API Integration Tests", () => {
             const response = await request(app)
                 .get(getEndpointWithPrefix(["USER", "GET"]))
                 .set("x-test-user-id", "test-get-user")
-                .expect(200);
+                .expect(STATUS_CODES.SUCCESS);
 
             expect(response.body).toMatchObject({
                 userId: "test-get-user",
                 username: testUser.username,
-                walletAddress: testUser.walletAddress,
+                wallet: {
+                    address: testUser.wallet.address
+                },
                 addressBook: testUser.addressBook,
                 _count: {
                     installations: 0
@@ -276,12 +308,14 @@ describe("User API Integration Tests", () => {
             const response = await request(app)
                 .get("/users?view=full")
                 .set("x-test-user-id", "test-get-user")
-                .expect(200);
+                .expect(STATUS_CODES.SUCCESS);
 
             expect(response.body).toMatchObject({
                 userId: "test-get-user",
                 username: testUser.username,
-                walletAddress: testUser.walletAddress,
+                wallet: {
+                    address: testUser.wallet.address
+                },
                 contributionSummary: {
                     tasksCompleted: 5,
                     activeTasks: 2,
@@ -296,10 +330,9 @@ describe("User API Integration Tests", () => {
         it("should create wallet when setWallet=true and user has no wallet", async () => {
             // Create user without wallet
             const userWithoutWallet = TestDataFactory.user({
-                userId: "user-no-wallet",
-                walletAddress: "",
-                walletSecret: ""
+                userId: "user-no-wallet"
             });
+
             await prisma.user.create({
                 data: {
                     ...userWithoutWallet,
@@ -311,14 +344,15 @@ describe("User API Integration Tests", () => {
             await request(app)
                 .get("/users?setWallet=true")
                 .set("x-test-user-id", "user-no-wallet")
-                .expect(200);
+                .expect(STATUS_CODES.SUCCESS);
 
             // Verify wallet was added to database
             const updatedUser = await prisma.user.findUnique({
-                where: { userId: "user-no-wallet" }
+                where: { userId: "user-no-wallet" },
+                include: { wallet: true }
             });
-            expect(updatedUser?.walletAddress).toBeTruthy();
-            expect(updatedUser?.walletAddress).not.toBe("");
+            expect(updatedUser?.wallet).toBeTruthy();
+            expect(updatedUser?.wallet?.address).toBeTruthy();
         });
 
         it("should return 404 when user does not exist", async () => {
@@ -351,7 +385,7 @@ describe("User API Integration Tests", () => {
                 .patch(getEndpointWithPrefix(["USER", "UPDATE_USERNAME"]))
                 .set("x-test-user-id", "test-update-user")
                 .send(updateData)
-                .expect(200);
+                .expect(STATUS_CODES.SUCCESS);
 
             expect(response.body).toMatchObject({
                 userId: "test-update-user",
