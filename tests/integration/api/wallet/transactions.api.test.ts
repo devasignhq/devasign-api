@@ -171,7 +171,9 @@ describe("Wallet API Integration Tests", () => {
                     ...installation,
                     users: {
                         connect: { userId: "test-user-1" }
-                    }
+                    },
+                    wallet: TestDataFactory.createWalletRelation(),
+                    escrow: TestDataFactory.createWalletRelation()
                 }
             });
 
@@ -204,7 +206,8 @@ describe("Wallet API Integration Tests", () => {
             await prisma.user.create({
                 data: {
                     ...testUser,
-                    contributionSummary: { create: {} }
+                    contributionSummary: { create: {} },
+                    wallet: TestDataFactory.createWalletRelation()
                 }
             });
         });

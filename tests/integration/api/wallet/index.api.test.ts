@@ -4,7 +4,6 @@ import { TestDataFactory } from "../../../helpers/test-data-factory";
 import { walletRoutes } from "../../../../api/routes/wallet.route";
 import { errorHandler } from "../../../../api/middlewares/error.middleware";
 import { DatabaseTestHelper } from "../../../helpers/database-test-helper";
-import { encrypt } from "../../../../api/utilities/helper";
 import { ENDPOINTS, STATUS_CODES } from "../../../../api/utilities/data";
 import { TransactionCategory } from "../../../../prisma_client";
 import { getEndpointWithPrefix } from "../../../helpers/test-utils";
@@ -25,6 +24,28 @@ jest.mock("../../../../api/services/stellar.service", () => ({
         transferAsset: jest.fn(),
         swapAsset: jest.fn()
     }
+}));
+
+// Mock helper utilities
+function getFieldFromUnknownObject<T>(obj: unknown, field: string) {
+    if (typeof obj !== "object" || !obj) {
+        return undefined;
+    }
+    if (field in obj) {
+        return (obj as Record<string, T>)[field];
+    }
+    return undefined;
+}
+
+jest.mock("../../../../api/utilities/helper", () => ({
+    getFieldFromUnknownObject,
+    encryptWallet: jest.fn().mockResolvedValue({
+        encryptedDEK: "mockEncryptedDEK",
+        encryptedSecret: "mockEncryptedSecret",
+        iv: "mockIV",
+        authTag: "mockAuthTag"
+    }),
+    decryptWallet: jest.fn().mockResolvedValue("STEST1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12")
 }));
 
 describe("Wallet API Integration Tests", () => {
@@ -104,9 +125,11 @@ describe("Wallet API Integration Tests", () => {
 
         beforeEach(async () => {
             testUser = TestDataFactory.user({ userId: "test-user-1" });
+            // Remove wallet fields from test data factory result if they exist
             await prisma.user.create({
                 data: {
                     ...testUser,
+                    wallet: TestDataFactory.createWalletRelation("GBPOJZGQPO23FSADGDD3PQFRGLWTETJRK2IY4D5HEQXLDCDEHYFSAAII"),
                     contributionSummary: { create: {} }
                 }
             });
@@ -132,14 +155,17 @@ describe("Wallet API Integration Tests", () => {
                 ])
             });
 
-            expect(mockStellarService.getAccountInfo).toHaveBeenCalledWith(testUser.walletAddress);
+            expect(mockStellarService.getAccountInfo).toHaveBeenCalledWith("GBPOJZGQPO23FSADGDD3PQFRGLWTETJRK2IY4D5HEQXLDCDEHYFSAAII");
         });
 
         it("should get installation wallet info", async () => {
             const installation = TestDataFactory.installation({ id: "12345678" });
+            // Remove wallet fields
             await prisma.installation.create({
                 data: {
                     ...installation,
+                    wallet: TestDataFactory.createWalletRelation("GINSTALLWALLET1234567890ABCDEF1234567890ABCDEF1234567890"),
+                    escrow: TestDataFactory.createWalletRelation("GINSTALLESCROW1234567890ABCDEF1234567890ABCDEF1234567890"),
                     users: {
                         connect: { userId: "test-user-1" }
                     }
@@ -155,7 +181,7 @@ describe("Wallet API Integration Tests", () => {
                 balances: expect.any(Array)
             });
 
-            expect(mockStellarService.getAccountInfo).toHaveBeenCalledWith(installation.walletAddress);
+            expect(mockStellarService.getAccountInfo).toHaveBeenCalledWith("GINSTALLWALLET1234567890ABCDEF1234567890ABCDEF1234567890");
         });
 
         it("should return error when user not found", async () => {
@@ -167,7 +193,14 @@ describe("Wallet API Integration Tests", () => {
 
         it("should return error when user not part of installation", async () => {
             const installation = TestDataFactory.installation({ id: "12345678" });
-            await prisma.installation.create({ data: installation });
+            // Remove wallet fields
+            await prisma.installation.create({
+                data: {
+                    ...installation,
+                    wallet: TestDataFactory.createWalletRelation(),
+                    escrow: TestDataFactory.createWalletRelation()
+                }
+            });
 
             await request(app)
                 .get(`${getEndpointWithPrefix(["WALLET", "GET_ACCOUNT"])}?installationId=12345678`)
@@ -181,12 +214,13 @@ describe("Wallet API Integration Tests", () => {
 
         beforeEach(async () => {
             testUser = TestDataFactory.user({
-                userId: "test-user-1",
-                walletSecret: encrypt("STEST1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12")
+                userId: "test-user-1"
             });
+            // Remove wallet fields
             await prisma.user.create({
                 data: {
                     ...testUser,
+                    wallet: TestDataFactory.createWalletRelation(),
                     contributionSummary: { create: {} }
                 }
             });
@@ -305,12 +339,14 @@ describe("Wallet API Integration Tests", () => {
 
         it("should withdraw from installation wallet", async () => {
             const installation = TestDataFactory.installation({
-                id: "12345678",
-                walletSecret: encrypt("SINSTALL000000000000000000000000000000000000000")
+                id: "12345678"
             });
+            // Remove wallet fields
             await prisma.installation.create({
                 data: {
                     ...installation,
+                    wallet: TestDataFactory.createWalletRelation(),
+                    escrow: TestDataFactory.createWalletRelation(),
                     users: {
                         connect: { userId: "test-user-1" }
                     }
@@ -348,12 +384,13 @@ describe("Wallet API Integration Tests", () => {
 
         beforeEach(async () => {
             testUser = TestDataFactory.user({
-                userId: "test-user-1",
-                walletSecret: encrypt("STEST1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12")
+                userId: "test-user-1"
             });
+            // Remove wallet fields
             await prisma.user.create({
                 data: {
                     ...testUser,
+                    wallet: TestDataFactory.createWalletRelation(),
                     contributionSummary: { create: {} }
                 }
             });
@@ -441,9 +478,11 @@ describe("Wallet API Integration Tests", () => {
             );
 
             const testUser = TestDataFactory.user({ userId: "test-user-1" });
+            // Remove wallet fields
             await prisma.user.create({
                 data: {
                     ...testUser,
+                    wallet: TestDataFactory.createWalletRelation(),
                     contributionSummary: { create: {} }
                 }
             });
