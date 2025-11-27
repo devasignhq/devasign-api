@@ -82,7 +82,7 @@ const mockIssues: IssueDto[] = [
         labels: {
             nodes: [
                 {
-                    id: 2,
+                    id: "2",
                     name: "bug",
                     color: "d73a4a",
                     description: "Something isn't working"
@@ -106,7 +106,7 @@ const mockIssues: IssueDto[] = [
         labels: {
             nodes: [
                 {
-                    id: 3,
+                    id: "3",
                     name: "enhancement",
                     color: "a2eeef",
                     description: "New feature or request"
@@ -124,19 +124,19 @@ const mockIssues: IssueDto[] = [
  */
 const mockLabels: IssueLabel[] = [
     {
-        id: 1,
+        id: "1",
         name: "bug",
         color: "d73a4a",
         description: "Something isn't working"
     },
     {
-        id: 2,
+        id: "2",
         name: "enhancement",
         color: "a2eeef",
         description: "New feature or request"
     },
     {
-        id: 3,
+        id: "3",
         name: "💵 Bounty",
         color: "85BB65",
         description: "Issues with a monetary reward"

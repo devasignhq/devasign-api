@@ -344,7 +344,7 @@ export const GroqAITestHelpers = {
                 body: "",
                 url: "",
                 labels: [
-                    { id: 1, name: "bug", description: "Fix bug", color: "#FFFFFF" }
+                    { id: "1", name: "bug", description: "Fix bug", color: "#FFFFFF" }
                 ],
                 comments: []
             }
