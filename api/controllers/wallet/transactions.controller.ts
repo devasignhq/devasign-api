@@ -131,7 +131,7 @@ export const recordWalletTopups = async (req: Request, res: Response, next: Next
             // Fetch user and verify user exists
             const user = await prisma.user.findUnique({
                 where: { userId },
-                select: { username: true, walletAddress: true }
+                select: { username: true, wallet: true }
             });
 
             if (!user) {
@@ -139,7 +139,7 @@ export const recordWalletTopups = async (req: Request, res: Response, next: Next
             }
 
             // Set wallet details
-            walletAddress = user.walletAddress;
+            walletAddress = user.wallet!.address!;
         }
 
         // Get stellar topup transactions
