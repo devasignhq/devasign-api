@@ -80,6 +80,7 @@ Before setting up DevAsign locally, ensure you have the following installed:
 - **GitHub App** - for repository integration
 - **PostgreSQL Database** - local or cloud-hosted
 - **GroqCloud Account** - for the AI model API access
+- **Google Cloud Platform (GCP)** - for Key Management Service (KMS) encryption
 
 ## Installation & Setup
 
@@ -134,7 +135,13 @@ STELLAR_NETWORK="testnet"
 STELLAR_MASTER_PUBLIC_KEY="public-key"
 STELLAR_MASTER_SECRET_KEY="secret-key"
 
-# Encryption Key
+# GCP KMS Configuration (for encryption)
+GCP_PROJECT_ID="your-gcp-project-id"
+GCP_LOCATION_ID="us-central1"
+GCP_KEY_RING_ID="your-key-ring-id"
+GCP_KEY_ID="your-key-id"
+
+# Encryption Key (fallback if not using GCP KMS)
 ENCRYPTION_KEY="encryption-key"
 
 # Others
@@ -256,8 +263,20 @@ docker run -d --name devasign-api -p 8080:8080 --env-file .env.production devasi
 
 #### GitHub App Integration
 1. Go to developer settings on your GitHub account
-2. Create and configure a new GitHub App 
-3. Extract the required fields for your `.env`
+2. Create and configure a new GitHub App with the following settings:
+   - **Webhook URL**: `https://your-domain.com/api/webhook/github/pr-review` (for PR reviews)
+   - **Webhook URL**: `https://your-domain.com/api/webhook/github/pr-merged` (for automatic payments)
+   - **Webhook Events**: Subscribe to `pull_request` events
+   - **Permissions**: 
+     - Repository permissions: Read & Write access to pull requests, issues, and contents
+     - Organization permissions: Read access to members
+3. Generate a webhook secret and private key
+4. Extract the required fields for your `.env`:
+   - `GITHUB_APP_ID`: Your GitHub App ID
+   - `GITHUB_APP_PRIVATE_KEY`: Your GitHub App private key
+   - `GITHUB_WEBHOOK_SECRET`: Your webhook secret
+
+For detailed webhook setup and automatic payment configuration, see [WEBHOOK_SETUP.md](./WEBHOOK_SETUP.md)
 
 #### GroqCloud Setup
 1. Sign up at [GroqCloud](https://console.groq.com/)
@@ -278,6 +297,33 @@ docker run -d --name devasign-api -p 8080:8080 --env-file .env.production devasi
    - Configure your Prisma schema and run migrations
 2. Alternative: Install PostgreSQL locally or use a cloud service
 3. Update the `DATABASE_URL` in your `.env` file
+
+#### GCP KMS Setup (for Encryption)
+DevAsign uses Google Cloud KMS for secure encryption of sensitive data like wallet secrets.
+
+1. **Create a GCP Project**:
+   - Go to [Google Cloud Console](https://console.cloud.google.com/)
+   - Create a new project or select an existing one
+   - Note your project ID for the `.env` file
+
+2. **Enable Cloud KMS API**:
+   - Navigate to APIs & Services > Library
+   - Search for "Cloud Key Management Service (KMS) API"
+   - Click "Enable"
+
+3. **Create a Key Ring and Key**
+
+4. **Install Google Cloud SDK Shell and set up authentication**:
+   - Download and install [Google Cloud SDK](https://cloud.google.com/sdk/docs/install)
+   - Authenticate using `gcloud auth login`
+   - Set the project using `gcloud config set project your-project-id`
+
+5. **Update your `.env` file**:
+   ```bash
+   GCP_PROJECT_ID="your-project-id"
+   GCP_LOCATION_ID="us-central1"
+   GCP_KEY_RING_ID="devasign-keyring"
+   GCP_KEY_ID="devasign-encryption-key"
 
 ## Testing
 
