@@ -50,6 +50,28 @@ jest.mock("../../../../api/services/stellar.service", () => ({
     }
 }));
 
+// Mock helper utilities
+function getFieldFromUnknownObject<T>(obj: unknown, field: string) {
+    if (typeof obj !== "object" || !obj) {
+        return undefined;
+    }
+    if (field in obj) {
+        return (obj as Record<string, T>)[field];
+    }
+    return undefined;
+}
+
+jest.mock("../../../../api/utilities/helper", () => ({
+    getFieldFromUnknownObject,
+    encryptWallet: jest.fn().mockResolvedValue({
+        encryptedDEK: "mockEncryptedDEK",
+        encryptedSecret: "mockEncryptedSecret",
+        iv: "mockIV",
+        authTag: "mockAuthTag"
+    }),
+    decryptWallet: jest.fn().mockResolvedValue("STEST1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12")
+}));
+
 describe("Installation GitHub API Integration Tests", () => {
     let app: express.Application;
     let prisma: any;
@@ -197,7 +219,9 @@ describe("Installation GitHub API Integration Tests", () => {
                     ...testInstallation,
                     users: {
                         connect: { userId: "user-1" }
-                    }
+                    },
+                    wallet: TestDataFactory.createWalletRelation(),
+                    escrow: TestDataFactory.createWalletRelation()
                 }
             });
         });
@@ -238,7 +262,9 @@ describe("Installation GitHub API Integration Tests", () => {
                     ...testInstallation,
                     users: {
                         connect: { userId: "user-1" }
-                    }
+                    },
+                    wallet: TestDataFactory.createWalletRelation(),
+                    escrow: TestDataFactory.createWalletRelation()
                 }
             });
         });
@@ -289,7 +315,7 @@ describe("Installation GitHub API Integration Tests", () => {
                 "https://github.com/test-org/test-repo",
                 "12345678",
                 expect.objectContaining({
-                    labels: "bug,enhancement"
+                    labels: ["bug", "enhancement"]
                 }),
                 1,
                 30
@@ -312,7 +338,9 @@ describe("Installation GitHub API Integration Tests", () => {
                     ...testInstallation,
                     users: {
                         connect: { userId: "user-1" }
-                    }
+                    },
+                    wallet: TestDataFactory.createWalletRelation(),
+                    escrow: TestDataFactory.createWalletRelation()
                 }
             });
         });
@@ -360,7 +388,9 @@ describe("Installation GitHub API Integration Tests", () => {
                     ...testInstallation,
                     users: {
                         connect: { userId: "user-1" }
-                    }
+                    },
+                    wallet: TestDataFactory.createWalletRelation(),
+                    escrow: TestDataFactory.createWalletRelation()
                 }
             });
         });
@@ -425,7 +455,9 @@ describe("Installation GitHub API Integration Tests", () => {
                     ...testInstallation,
                     users: {
                         connect: { userId: "user-1" }
-                    }
+                    },
+                    wallet: TestDataFactory.createWalletRelation(),
+                    escrow: TestDataFactory.createWalletRelation()
                 }
             });
         });

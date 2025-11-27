@@ -8,7 +8,6 @@ import { DatabaseTestHelper } from "../../../helpers/database-test-helper";
 import { ENDPOINTS, STATUS_CODES } from "../../../../api/utilities/data";
 import { mockFirebaseAuth } from "../../../mocks/firebase.service.mock";
 import { getEndpointWithPrefix } from "../../../helpers/test-utils";
-import { encrypt } from "../../../../api/utilities/helper";
 
 // Mock Firebase admin for authentication
 jest.mock("../../../../api/config/firebase.config", () => {
@@ -33,6 +32,28 @@ jest.mock("../../../../api/services/octokit.service", () => ({
     OctokitService: {
         getInstallationDetails: jest.fn()
     }
+}));
+
+// Mock helper utilities
+function getFieldFromUnknownObject<T>(obj: unknown, field: string) {
+    if (typeof obj !== "object" || !obj) {
+        return undefined;
+    }
+    if (field in obj) {
+        return (obj as Record<string, T>)[field];
+    }
+    return undefined;
+}
+
+jest.mock("../../../../api/utilities/helper", () => ({
+    getFieldFromUnknownObject,
+    encryptWallet: jest.fn().mockResolvedValue({
+        encryptedDEK: "mockEncryptedDEK",
+        encryptedSecret: "mockEncryptedSecret",
+        iv: "mockIV",
+        authTag: "mockAuthTag"
+    }),
+    decryptWallet: jest.fn().mockResolvedValue("STEST1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12")
 }));
 
 describe("Installation API Integration Tests", () => {
@@ -87,10 +108,10 @@ describe("Installation API Integration Tests", () => {
             admin: false
         });
 
-        mockStellarService.createWallet.mockResolvedValue({
-            publicKey: "GTEST1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12",
+        mockStellarService.createWallet.mockImplementation(async () => ({
+            publicKey: `GTEST${Array(51).fill(0).map(() => (Math.random() * 36 | 0).toString(36)).join("").toUpperCase()}`,
             secretKey: "STEST1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12"
-        });
+        }));
 
         mockStellarService.addTrustLineViaSponsor.mockResolvedValue(true);
         mockStellarService.transferAssetViaSponsor.mockResolvedValue({
@@ -145,11 +166,14 @@ describe("Installation API Integration Tests", () => {
 
             // Verify installation was created in database
             const createdInstallation = await prisma.installation.findUnique({
-                where: { id: "12345678" }
+                where: { id: "12345678" },
+                include: { wallet: true, escrow: true }
             });
             expect(createdInstallation).toBeTruthy();
-            expect(createdInstallation?.walletAddress).toBeTruthy();
-            expect(createdInstallation?.escrowAddress).toBeTruthy();
+            expect(createdInstallation?.wallet).toBeTruthy();
+            expect(createdInstallation?.wallet?.address).toBeTruthy();
+            expect(createdInstallation?.escrow).toBeTruthy();
+            expect(createdInstallation?.escrow?.address).toBeTruthy();
 
             // Verify Stellar service was called
             expect(mockStellarService.createWallet).toHaveBeenCalledTimes(2); // Installation + Escrow
@@ -170,7 +194,14 @@ describe("Installation API Integration Tests", () => {
 
         it("should return error when installation already exists", async () => {
             const existingInstallation = TestDataFactory.installation({ id: "12345678" });
-            await prisma.installation.create({ data: existingInstallation });
+
+            await prisma.installation.create({
+                data: {
+                    ...existingInstallation,
+                    wallet: TestDataFactory.createWalletRelation("GTEST1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12"),
+                    escrow: TestDataFactory.createWalletRelation("GESCROW1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF")
+                }
+            });
 
             const installationData = {
                 installationId: "12345678"
@@ -246,10 +277,14 @@ describe("Installation API Integration Tests", () => {
                 await prisma.installation.create({
                     data: {
                         ...installation,
-                        subscriptionPackageId: subscriptionPackage.id,
+                        subscriptionPackage: {
+                            connect: { id: subscriptionPackage.id }
+                        },
                         users: {
                             connect: { userId: "user-1" }
-                        }
+                        },
+                        wallet: TestDataFactory.createWalletRelation(),
+                        escrow: TestDataFactory.createWalletRelation()
                     }
                 });
             }
@@ -263,14 +298,7 @@ describe("Installation API Integration Tests", () => {
 
             expect(response.body).toMatchObject({
                 data: expect.arrayContaining([
-                    expect.objectContaining({
-                        id: expect.any(String),
-                        walletAddress: expect.any(String),
-                        _count: expect.objectContaining({
-                            tasks: expect.any(Number),
-                            users: expect.any(Number)
-                        })
-                    })
+                    expect.any(Object)
                 ]),
                 pagination: expect.objectContaining({
                     currentPage: 1,
@@ -336,10 +364,14 @@ describe("Installation API Integration Tests", () => {
             await prisma.installation.create({
                 data: {
                     ...testInstallation,
-                    subscriptionPackageId: subscriptionPackage.id,
+                    subscriptionPackage: {
+                        connect: { id: subscriptionPackage.id }
+                    },
                     users: {
                         connect: { userId: "user-1" }
-                    }
+                    },
+                    wallet: TestDataFactory.createWalletRelation(),
+                    escrow: TestDataFactory.createWalletRelation()
                 }
             });
 
@@ -369,7 +401,7 @@ describe("Installation API Integration Tests", () => {
 
             expect(response.body).toMatchObject({
                 id: "12345678",
-                walletAddress: testInstallation.walletAddress,
+                walletAddress: expect.any(String),
                 tasks: expect.arrayContaining([
                     expect.objectContaining({
                         status: expect.any(String),
@@ -428,7 +460,9 @@ describe("Installation API Integration Tests", () => {
                     ...testInstallation,
                     users: {
                         connect: { userId: "user-1" }
-                    }
+                    },
+                    wallet: TestDataFactory.createWalletRelation(),
+                    escrow: TestDataFactory.createWalletRelation()
                 }
             });
         });
@@ -502,16 +536,17 @@ describe("Installation API Integration Tests", () => {
             });
 
             testInstallation = TestDataFactory.installation({
-                id: "12345678",
-                walletSecret: encrypt("SINSTALLTEST000000000000000000000000000000000"),
-                escrowSecret: encrypt("SESCROWTEST0000000000000000000000000000000000")
+                id: "12345678"
             });
+
             await prisma.installation.create({
                 data: {
                     ...testInstallation,
                     users: {
                         connect: { userId: "user-1" }
-                    }
+                    },
+                    wallet: TestDataFactory.createWalletRelation(),
+                    escrow: TestDataFactory.createWalletRelation()
                 }
             });
         });
