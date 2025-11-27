@@ -9,18 +9,58 @@ import { ENDPOINTS, STATUS_CODES } from "../../../../api/utilities/data";
 import { getEndpointWithPrefix } from "../../../helpers/test-utils";
 
 // Mock external services
-jest.mock("../../../../api/services/ai-review/workflow-integration.service");
-jest.mock("../../../../api/services/ai-review/pr-analysis.service");
-jest.mock("../../../../api/services/octokit.service");
+jest.mock("../../../../api/services/ai-review/workflow-integration.service", () => ({
+    WorkflowIntegrationService: {
+        getInstance: jest.fn()
+    }
+}));
+
+jest.mock("../../../../api/services/ai-review/pr-analysis.service", () => ({
+    PRAnalysisService: {
+        extractLinkedIssues: jest.fn()
+    }
+}));
+
+jest.mock("../../../../api/services/octokit.service", () => ({
+    OctokitService: {
+        getOctokit: jest.fn(),
+        getOwnerAndRepo: jest.fn(),
+        getDefaultBranch: jest.fn()
+    }
+}));
+
+jest.mock("../../../../api/services/stellar.service", () => ({
+    stellarService: {
+        transferAssetViaSponsor: jest.fn()
+    }
+}));
+
+// Mock helper utilities
+function getFieldFromUnknownObject<T>(obj: unknown, field: string) {
+    if (typeof obj !== "object" || !obj) {
+        return undefined;
+    }
+    if (field in obj) {
+        return (obj as Record<string, T>)[field];
+    }
+    return undefined;
+}
+
+jest.mock("../../../../api/utilities/helper", () => ({
+    getFieldFromUnknownObject,
+    decryptWallet: jest.fn().mockResolvedValue("STEST1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12")
+}));
 
 describe("Webhook API Integration Tests", () => {
     let app: express.Application;
     let prisma: any;
     let mockWorkflowService: any;
     let mockOctokitService: any;
+    let mockStellarService: any;
+    let mockPRAnalysisService: any;
 
     const WEBHOOK_SECRET = "test-webhook-secret";
-    const VALID_INSTALLATION_ID = "12345";
+    const VALID_INSTALLATION_ID = "12345678";
     const VALID_REPO_NAME = "test/repo";
 
     beforeAll(async () => {
@@ -35,7 +75,7 @@ describe("Webhook API Integration Tests", () => {
 
         // Use raw middleware for webhook signature validation
         app.use(
-            getEndpointWithPrefix(["WEBHOOK", "PR_EVENT"]), 
+            getEndpointWithPrefix(["WEBHOOK", "PR_EVENT"]),
             express.raw({ type: "application/json" })
         );
         app.use(ENDPOINTS.WEBHOOK.PREFIX, webhookRoutes);
@@ -57,6 +97,12 @@ describe("Webhook API Integration Tests", () => {
             getDefaultBranch: jest.fn()
         };
         Object.assign(OctokitService, mockOctokitService);
+
+        const { stellarService } = await import("../../../../api/services/stellar.service");
+        mockStellarService = stellarService;
+
+        const { PRAnalysisService } = await import("../../../../api/services/ai-review/pr-analysis.service");
+        mockPRAnalysisService = PRAnalysisService;
     });
 
     beforeEach(async () => {
@@ -83,6 +129,14 @@ describe("Webhook API Integration Tests", () => {
 
         mockOctokitService.getDefaultBranch.mockResolvedValue("main");
         mockOctokitService.getOwnerAndRepo.mockReturnValue(["test", "repo"]);
+
+        mockStellarService.transferAssetViaSponsor = jest.fn().mockResolvedValue({
+            txHash: "test-bounty-tx-hash-123"
+        });
+
+        mockPRAnalysisService.extractLinkedIssues = jest.fn().mockResolvedValue([
+            { number: 1, title: "Test Issue" }
+        ]);
     });
 
     afterAll(async () => {
@@ -139,7 +193,7 @@ describe("Webhook API Integration Tests", () => {
         };
     };
 
-    describe(`POST ${getEndpointWithPrefix(["WEBHOOK", "PR_EVENT"])} - GitHub Webhook Processing`, () => {
+    describe(`POST ${getEndpointWithPrefix(["WEBHOOK", "PR_EVENT"])} - Pull Request Review`, () => {
         it("should process valid PR webhook with realistic payload successfully", async () => {
             const payload = createWebhookPayload();
             const payloadString = JSON.stringify(payload);
@@ -196,9 +250,9 @@ describe("Webhook API Integration Tests", () => {
             });
 
             const payload = createWebhookPayload({
-                pull_request: { 
+                pull_request: {
                     ...createWebhookPayload().pull_request,
-                    body: "No issue links" 
+                    body: "No issue links"
                 }
             });
             const payloadString = JSON.stringify(payload);
@@ -325,7 +379,7 @@ describe("Webhook API Integration Tests", () => {
 
         it("should skip PRs not targeting default branch", async () => {
             const payload = createWebhookPayload({
-                pull_request: { 
+                pull_request: {
                     ...createWebhookPayload().pull_request,
                     base: { ref: "develop" }
                 }
@@ -412,6 +466,279 @@ describe("Webhook API Integration Tests", () => {
                     action: "ready_for_review"
                 })
             );
+        });
+    });
+
+    describe(`POST ${getEndpointWithPrefix(["WEBHOOK", "PR_EVENT"])} - Bounty Payout on PR Merge`, () => {
+        let testTask: any;
+
+        beforeEach(async () => {
+            const creator = TestDataFactory.user({ userId: "task-creator" });
+            await prisma.user.create({
+                data: { ...creator, contributionSummary: { create: {} } }
+            });
+
+            // Create test user with wallet
+            const contributor = TestDataFactory.user({ userId: "test-contributor", username: "test-contributor" });
+            await prisma.user.create({
+                data: {
+                    ...contributor,
+                    wallet: TestDataFactory.createWalletRelation("GCONTRIBUTOR1234567890ABCDEF1234567890ABCDEF1234567890"),
+                    contributionSummary: { create: {} }
+                }
+            });
+
+            // Create test installation with wallet and escrow
+            const installation = TestDataFactory.installation({ id: VALID_INSTALLATION_ID });
+            await prisma.installation.create({
+                data: {
+                    ...installation,
+                    wallet: TestDataFactory.createWalletRelation("GINSTALLWALLET1234567890ABCDEF1234567890ABCDEF1234567890"),
+                    escrow: TestDataFactory.createWalletRelation("GINSTALLESCROW1234567890ABCDEF1234567890ABCDEF1234567890")
+                }
+            });
+
+            // Create test task
+            testTask = TestDataFactory.task({
+                status: "MARKED_AS_COMPLETED",
+                bounty: 100,
+                issue: {
+                    number: 1,
+                    title: "Test Issue",
+                    url: "https://github.com/test/repo/issues/1"
+                },
+                contributorId: undefined,
+                creatorId: undefined,
+                installationId: undefined
+            });
+            testTask = await prisma.task.create({
+                data: {
+                    ...testTask,
+                    creator: { connect: { userId: creator.userId } },
+                    contributor: { connect: { userId: contributor.userId } },
+                    installation: { connect: { id: VALID_INSTALLATION_ID } }
+                }
+            });
+        });
+
+        it("should process bounty payout when PR is merged", async () => {
+            const payload = createWebhookPayload({
+                action: "closed",
+                pull_request: {
+                    ...createWebhookPayload().pull_request,
+                    merged: true,
+                    user: { login: "test-contributor" },
+                    body: "Closes #1"
+                }
+            });
+            const payloadString = JSON.stringify(payload);
+            const signature = createWebhookSignature(payloadString);
+
+            const response = await request(app)
+                .post(getEndpointWithPrefix(["WEBHOOK", "PR_EVENT"]))
+                .set("X-GitHub-Event", "pull_request")
+                .set("X-Hub-Signature-256", signature)
+                .set("Content-Type", "application/json")
+                .send(payloadString)
+                .expect(STATUS_CODES.SUCCESS);
+
+            expect(response.body).toMatchObject({
+                success: true,
+                message: "PR merged - Payment processed successfully",
+                data: {
+                    prNumber: 1,
+                    repositoryName: VALID_REPO_NAME,
+                    linkedIssues: [1]
+                }
+            });
+
+            // Verify stellar service was called
+            expect(mockStellarService.transferAssetViaSponsor).toHaveBeenCalledWith(
+                "STEST1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12",
+                "STEST1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12",
+                "GCONTRIBUTOR1234567890ABCDEF1234567890ABCDEF1234567890",
+                expect.any(Object),
+                expect.any(Object),
+                "100",
+                expect.stringContaining("PAID:")
+            );
+
+            // Verify task was updated
+            const updatedTask = await prisma.task.findUnique({
+                where: { id: testTask.id }
+            });
+            expect(updatedTask?.status).toBe("COMPLETED");
+            expect(updatedTask?.settled).toBe(true);
+            expect(updatedTask?.completedAt).toBeTruthy();
+
+            // Verify transaction was recorded
+            const transaction = await prisma.transaction.findFirst({
+                where: { taskId: testTask.id }
+            });
+            expect(transaction).toBeTruthy();
+            expect(transaction?.category).toBe("BOUNTY");
+            expect(transaction?.amount).toBe(100);
+        });
+
+        it("should handle PR merge with no linked issues", async () => {
+            mockPRAnalysisService.extractLinkedIssues.mockResolvedValue([]);
+
+            const payload = createWebhookPayload({
+                action: "closed",
+                pull_request: {
+                    ...createWebhookPayload().pull_request,
+                    merged: true,
+                    body: "No issue links"
+                }
+            });
+            const payloadString = JSON.stringify(payload);
+            const signature = createWebhookSignature(payloadString);
+
+            const response = await request(app)
+                .post(getEndpointWithPrefix(["WEBHOOK", "PR_EVENT"]))
+                .set("X-GitHub-Event", "pull_request")
+                .set("X-Hub-Signature-256", signature)
+                .set("Content-Type", "application/json")
+                .send(payloadString)
+                .expect(STATUS_CODES.SUCCESS);
+
+            expect(response.body).toMatchObject({
+                success: true,
+                message: "No linked issues found - no payment triggered"
+            });
+
+            expect(mockStellarService.transferAssetViaSponsor).not.toHaveBeenCalled();
+        });
+
+        it("should handle PR merge with no matching task", async () => {
+            const payload = createWebhookPayload({
+                action: "closed",
+                pull_request: {
+                    ...createWebhookPayload().pull_request,
+                    merged: true,
+                    user: { login: "different-user" },
+                    body: "Closes #999"
+                }
+            });
+            const payloadString = JSON.stringify(payload);
+            const signature = createWebhookSignature(payloadString);
+
+            mockPRAnalysisService.extractLinkedIssues.mockResolvedValue([
+                { number: 999, title: "Different Issue" }
+            ]);
+
+            const response = await request(app)
+                .post(getEndpointWithPrefix(["WEBHOOK", "PR_EVENT"]))
+                .set("X-GitHub-Event", "pull_request")
+                .set("X-Hub-Signature-256", signature)
+                .set("Content-Type", "application/json")
+                .send(payloadString)
+                .expect(STATUS_CODES.SUCCESS);
+
+            expect(response.body).toMatchObject({
+                success: true,
+                message: "No matching tasks found"
+            });
+
+            expect(mockStellarService.transferAssetViaSponsor).not.toHaveBeenCalled();
+        });
+
+        it("should handle contributor without wallet address", async () => {
+            // Create user without wallet
+            const userWithoutWallet = TestDataFactory.user({
+                userId: "no-wallet-user",
+                username: "no-wallet-user"
+            });
+            delete (userWithoutWallet as any).walletAddress;
+            delete (userWithoutWallet as any).walletSecret;
+
+            await prisma.user.create({
+                data: {
+                    ...userWithoutWallet,
+                    contributionSummary: { create: {} }
+                }
+            });
+
+            // Create task for this user
+            const taskWithoutWallet = TestDataFactory.task({
+                status: "MARKED_AS_COMPLETED",
+                bounty: 50,
+                issue: {
+                    number: 2,
+                    title: "Test Issue 2",
+                    url: "https://github.com/test/repo/issues/2"
+                },
+                contributorId: undefined,
+                creatorId: undefined,
+                installationId: undefined
+            });
+            await prisma.task.create({
+                data: {
+                    ...taskWithoutWallet,
+                    creator: { connect: { userId: "task-creator" } },
+                    contributor: { connect: { userId: "no-wallet-user" } },
+                    installation: { connect: { id: VALID_INSTALLATION_ID } }
+                }
+            });
+
+            mockPRAnalysisService.extractLinkedIssues.mockResolvedValue([
+                { number: 2, title: "Test Issue 2" }
+            ]);
+
+            const payload = createWebhookPayload({
+                action: "closed",
+                pull_request: {
+                    ...createWebhookPayload().pull_request,
+                    merged: true,
+                    user: { login: "no-wallet-user" },
+                    body: "Closes #2"
+                }
+            });
+            const payloadString = JSON.stringify(payload);
+            const signature = createWebhookSignature(payloadString);
+
+            const response = await request(app)
+                .post(getEndpointWithPrefix(["WEBHOOK", "PR_EVENT"]))
+                .set("X-GitHub-Event", "pull_request")
+                .set("X-Hub-Signature-256", signature)
+                .set("Content-Type", "application/json")
+                .send(payloadString)
+                .expect(STATUS_CODES.SUCCESS);
+
+            expect(response.body).toMatchObject({
+                success: true,
+                message: "No wallet address found for contributor"
+            });
+
+            expect(mockStellarService.transferAssetViaSponsor).not.toHaveBeenCalled();
+        });
+
+        it("should skip non-merged PR close events", async () => {
+            const payload = createWebhookPayload({
+                action: "closed",
+                pull_request: {
+                    ...createWebhookPayload().pull_request,
+                    merged: false
+                }
+            });
+            const payloadString = JSON.stringify(payload);
+            const signature = createWebhookSignature(payloadString);
+
+            const response = await request(app)
+                .post(getEndpointWithPrefix(["WEBHOOK", "PR_EVENT"]))
+                .set("X-GitHub-Event", "pull_request")
+                .set("X-Hub-Signature-256", signature)
+                .set("Content-Type", "application/json")
+                .send(payloadString)
+                .expect(STATUS_CODES.SUCCESS);
+
+            expect(response.body).toMatchObject({
+                success: true,
+                message: "PR action not processed",
+                action: "closed"
+            });
+
+            expect(mockStellarService.transferAssetViaSponsor).not.toHaveBeenCalled();
         });
     });
 
@@ -584,10 +911,10 @@ describe("Webhook API Integration Tests", () => {
             const webhookPromises = Array.from({ length: 5 }, (_, i) => {
                 const payload = createWebhookPayload({
                     number: i + 1,
-                    pull_request: { 
+                    pull_request: {
                         ...createWebhookPayload().pull_request,
-                        number: i + 1, 
-                        title: `PR ${i + 1}` 
+                        number: i + 1,
+                        title: `PR ${i + 1}`
                     }
                 });
                 const payloadString = JSON.stringify(payload);
