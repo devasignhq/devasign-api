@@ -1,84 +1,200 @@
-import { encrypt, decrypt, moneyFormat, getFieldFromUnknownObject } from "../../api/utilities/helper";
+import { encryptWallet, decryptWallet, moneyFormat, getFieldFromUnknownObject } from "../../api/utilities/helper";
+import { Wallet } from "../../prisma_client";
+
+// Mock Google Cloud KMS
+jest.mock("@google-cloud/kms", () => {
+    return {
+        KeyManagementServiceClient: jest.fn().mockImplementation(() => {
+            return {
+                cryptoKeyPath: jest.fn().mockReturnValue("projects/test/locations/test/keyRings/test/cryptoKeys/test"),
+                encrypt: jest.fn().mockImplementation(async ({ plaintext }) => {
+                    // Simulate KMS encryption by base64 encoding the plaintext
+                    return [{ ciphertext: Buffer.from(plaintext).toString("base64") }];
+                }),
+                decrypt: jest.fn().mockImplementation(async ({ ciphertext }) => {
+                    // Simulate KMS decryption by base64 decoding the ciphertext
+                    return [{ plaintext: Buffer.from(ciphertext, "base64") }];
+                })
+            };
+        })
+    };
+});
 
 describe("Helper Functions Unit Tests", () => {
-    describe("encrypt and decrypt", () => {
-        const originalEnv = process.env.ENCRYPTION_KEY;
+    describe("encryptWallet and decryptWallet", () => {
+        const originalEnv = {
+            GCP_PROJECT_ID: process.env.GCP_PROJECT_ID,
+            GCP_LOCATION_ID: process.env.GCP_LOCATION_ID,
+            GCP_KEY_RING_ID: process.env.GCP_KEY_RING_ID,
+            GCP_KEY_ID: process.env.GCP_KEY_ID
+        };
 
         beforeAll(() => {
-            // Set a test encryption key
-            process.env.ENCRYPTION_KEY = "test-encryption-key-12345";
+            // Set test GCP environment variables
+            process.env.GCP_PROJECT_ID = "test-project";
+            process.env.GCP_LOCATION_ID = "test-location";
+            process.env.GCP_KEY_RING_ID = "test-keyring";
+            process.env.GCP_KEY_ID = "test-key";
         });
 
         afterAll(() => {
-            // Restore original encryption key
-            process.env.ENCRYPTION_KEY = originalEnv;
+            // Restore original environment variables
+            process.env.GCP_PROJECT_ID = originalEnv.GCP_PROJECT_ID;
+            process.env.GCP_LOCATION_ID = originalEnv.GCP_LOCATION_ID;
+            process.env.GCP_KEY_RING_ID = originalEnv.GCP_KEY_RING_ID;
+            process.env.GCP_KEY_ID = originalEnv.GCP_KEY_ID;
         });
 
-        it("should encrypt a plain text string", () => {
-            const plainText = "my-secret-data";
-            const encrypted = encrypt(plainText);
+        it("should encrypt a Stellar wallet secret", async () => {
+            const stellarSecret = "STEST1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ123";
+            const result = await encryptWallet(stellarSecret);
 
-            expect(encrypted).toBeDefined();
-            expect(encrypted).not.toBe(plainText);
-            expect(typeof encrypted).toBe("string");
-            expect(encrypted.length).toBeGreaterThan(0);
+            expect(result).toBeDefined();
+            expect(result.encryptedDEK).toBeDefined();
+            expect(result.encryptedSecret).toBeDefined();
+            expect(result.iv).toBeDefined();
+            expect(result.authTag).toBeDefined();
+            expect(typeof result.encryptedDEK).toBe("string");
+            expect(typeof result.encryptedSecret).toBe("string");
+            expect(typeof result.iv).toBe("string");
+            expect(typeof result.authTag).toBe("string");
         });
 
-        it("should decrypt an encrypted string back to original text", () => {
-            const plainText = "my-secret-data";
-            const encrypted = encrypt(plainText);
-            const decrypted = decrypt(encrypted);
+        it("should decrypt an encrypted wallet back to original secret", async () => {
+            const stellarSecret = "STEST1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ123";
+            const encrypted = await encryptWallet(stellarSecret);
 
-            expect(decrypted).toBe(plainText);
+            // Create a wallet object with a mock address
+            const wallet: Wallet = {
+                address: "GTEST1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ123",
+                encryptedDEK: encrypted.encryptedDEK,
+                encryptedSecret: encrypted.encryptedSecret,
+                iv: encrypted.iv,
+                authTag: encrypted.authTag,
+                userId: null
+            };
+
+            const decrypted = await decryptWallet(wallet);
+            expect(decrypted).toBe(stellarSecret);
         });
 
-        it("should handle empty strings", () => {
-            const plainText = "";
-            const encrypted = encrypt(plainText);
-            const decrypted = decrypt(encrypted);
+        it("should produce different encrypted outputs for same input (due to random IV and DEK)", async () => {
+            const stellarSecret = "STEST1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ123";
+            const encrypted1 = await encryptWallet(stellarSecret);
+            const encrypted2 = await encryptWallet(stellarSecret);
 
-            expect(decrypted).toBe(plainText);
+            // The encrypted values should be different
+            expect(encrypted1.encryptedSecret).not.toBe(encrypted2.encryptedSecret);
+            expect(encrypted1.iv).not.toBe(encrypted2.iv);
+            expect(encrypted1.authTag).not.toBe(encrypted2.authTag);
+
+            // But both should decrypt to the same value
+            const wallet1: Wallet = {
+                address: "GTEST1",
+                encryptedDEK: encrypted1.encryptedDEK,
+                encryptedSecret: encrypted1.encryptedSecret,
+                iv: encrypted1.iv,
+                authTag: encrypted1.authTag,
+                userId: null
+            };
+
+            const wallet2: Wallet = {
+                address: "GTEST2",
+                encryptedDEK: encrypted2.encryptedDEK,
+                encryptedSecret: encrypted2.encryptedSecret,
+                iv: encrypted2.iv,
+                authTag: encrypted2.authTag,
+                userId: null
+            };
+
+            const decrypted1 = await decryptWallet(wallet1);
+            const decrypted2 = await decryptWallet(wallet2);
+
+            expect(decrypted1).toBe(stellarSecret);
+            expect(decrypted2).toBe(stellarSecret);
         });
 
-        it("should handle special characters", () => {
-            const plainText = "!@#$%^&*()_+-=[]{}|;:',.<>?/~`";
-            const encrypted = encrypt(plainText);
-            const decrypted = decrypt(encrypted);
+        it("should handle different Stellar secret formats", async () => {
+            const secrets = [
+                "SAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+                "SBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+                "SCZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ"
+            ];
 
-            expect(decrypted).toBe(plainText);
+            for (const secret of secrets) {
+                const encrypted = await encryptWallet(secret);
+                const wallet: Wallet = {
+                    address: `G${secret.substring(1)}`,
+                    encryptedDEK: encrypted.encryptedDEK,
+                    encryptedSecret: encrypted.encryptedSecret,
+                    iv: encrypted.iv,
+                    authTag: encrypted.authTag,
+                    userId: null
+                };
+                const decrypted = await decryptWallet(wallet);
+                expect(decrypted).toBe(secret);
+            }
         });
 
-        it("should handle unicode characters", () => {
-            const plainText = "Hello 世界 🌍";
-            const encrypted = encrypt(plainText);
-            const decrypted = decrypt(encrypted);
-
-            expect(decrypted).toBe(plainText);
+        it("should handle special characters in secrets", async () => {
+            const stellarSecret = "S!@#$%^&*()_+-=[]{}|;:',.<>?/~`ABCDEFGHIJKLMNOP";
+            const encrypted = await encryptWallet(stellarSecret);
+            const wallet: Wallet = {
+                address: "GTEST",
+                encryptedDEK: encrypted.encryptedDEK,
+                encryptedSecret: encrypted.encryptedSecret,
+                iv: encrypted.iv,
+                authTag: encrypted.authTag,
+                userId: null
+            };
+            const decrypted = await decryptWallet(wallet);
+            expect(decrypted).toBe(stellarSecret);
         });
 
-        it("should produce different ciphertext for same input (due to IV)", () => {
-            const plainText = "same-text";
-            const encrypted1 = encrypt(plainText);
-            const encrypted2 = encrypt(plainText);
+        it("should return all required encryption components", async () => {
+            const stellarSecret = "STEST1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ123";
+            const result = await encryptWallet(stellarSecret);
 
-            // Both should decrypt to same value
-            expect(decrypt(encrypted1)).toBe(plainText);
-            expect(decrypt(encrypted2)).toBe(plainText);
+            // Verify all components are present and non-empty
+            expect(result.encryptedDEK.length).toBeGreaterThan(0);
+            expect(result.encryptedSecret.length).toBeGreaterThan(0);
+            expect(result.iv.length).toBeGreaterThan(0);
+            expect(result.authTag.length).toBeGreaterThan(0);
+
+            // Verify IV is 24 characters (12 bytes in hex)
+            expect(result.iv.length).toBe(24);
+
+            // Verify authTag is 32 characters (16 bytes in hex)
+            expect(result.authTag.length).toBe(32);
         });
 
-        it("should handle long strings", () => {
-            const plainText = "a".repeat(10000);
-            const encrypted = encrypt(plainText);
-            const decrypted = decrypt(encrypted);
-
-            expect(decrypted).toBe(plainText);
+        it("should handle empty string secret", async () => {
+            const stellarSecret = "";
+            const encrypted = await encryptWallet(stellarSecret);
+            const wallet: Wallet = {
+                address: "GTEST",
+                encryptedDEK: encrypted.encryptedDEK,
+                encryptedSecret: encrypted.encryptedSecret,
+                iv: encrypted.iv,
+                authTag: encrypted.authTag,
+                userId: null
+            };
+            const decrypted = await decryptWallet(wallet);
+            expect(decrypted).toBe(stellarSecret);
         });
 
-        it("should handle Stellar secret keys", () => {
-            const stellarSecret = "SINSTALLTEST000000000000000000000000000000000";
-            const encrypted = encrypt(stellarSecret);
-            const decrypted = decrypt(encrypted);
-
+        it("should handle unicode characters in secrets", async () => {
+            const stellarSecret = "STEST世界🌍ABCDEFGHIJKLMNOPQRSTUVWXYZ123456";
+            const encrypted = await encryptWallet(stellarSecret);
+            const wallet: Wallet = {
+                address: "GTEST",
+                encryptedDEK: encrypted.encryptedDEK,
+                encryptedSecret: encrypted.encryptedSecret,
+                iv: encrypted.iv,
+                authTag: encrypted.authTag,
+                userId: null
+            };
+            const decrypted = await decryptWallet(wallet);
             expect(decrypted).toBe(stellarSecret);
         });
     });
