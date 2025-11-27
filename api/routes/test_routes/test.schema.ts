@@ -114,6 +114,9 @@ export const encryptionSchema = {
 
 export const decryptionSchema = {
     body: z.object({
-        text: z.string().min(1, "Text to decrypt is required")
+        encryptedDEK: z.string().min(1, "Encrypted DEK is required"),
+        encryptedSecret: z.string().min(1, "Encrypted secret is required"),
+        iv: z.string().min(1, "IV is required"),
+        authTag: z.string().min(1, "Auth tag is required")
     })
 };

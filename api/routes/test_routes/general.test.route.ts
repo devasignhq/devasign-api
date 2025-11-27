@@ -1,6 +1,6 @@
 import { Router, Request, Response, NextFunction, RequestHandler } from "express";
 import createError from "http-errors";
-import { encrypt, decrypt } from "../../utilities/helper";
+import { decryptWallet, encryptWallet } from "../../utilities/helper";
 import { validateRequestParameters } from "../../middlewares/request.middleware";
 import {
     createTestUserSchema,
@@ -35,10 +35,10 @@ router.post("/encryption",
             const { text } = req.body;
 
             // Encrypt the text
-            const encrypted = encrypt(text);
+            const encrypted = await encryptWallet(text);
 
             // Decrypt to verify
-            const decrypted = decrypt(encrypted);
+            const decrypted = await decryptWallet(encrypted as any);
 
             res.status(200).json({
                 message: "Encryption test successful",
@@ -61,21 +61,25 @@ router.post("/decryption",
     (async (req: Request, res: Response, next: NextFunction) => {
         try {
 
-            const { text } = req.body;
+            const { encryptedDEK, encryptedSecret, iv, authTag } = req.body;
+            const walletData = { encryptedDEK, encryptedSecret, iv, authTag };
 
             // Decrypt the text
-            const decrypted = decrypt(text);
+            const decrypted = await decryptWallet(walletData as any);
 
-            // Eecrypt to verify
-            const ecrypted = encrypt(decrypted);
+            // Encrypt to verify
+            const ecrypted = await encryptWallet(decrypted);
+
+            // Decrypt again to verify the re-encryption works and matches
+            const reDecrypted = await decryptWallet(ecrypted as any);
 
             res.status(200).json({
                 message: "Decryption test successful",
                 data: {
-                    original: text,
+                    original: walletData,
                     decrypted,
                     ecrypted,
-                    verified: text === ecrypted
+                    verified: decrypted === reDecrypted
                 }
             });
         } catch (error) {

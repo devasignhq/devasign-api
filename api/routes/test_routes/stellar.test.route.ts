@@ -1,5 +1,5 @@
 import { Router, Request, Response, NextFunction, RequestHandler } from "express";
-import { encrypt } from "../../utilities/helper";
+import { encryptWallet } from "../../utilities/helper";
 import { prisma } from "../../config/database.config";
 import { xlmAssetId, usdcAssetId } from "../../config/stellar.config";
 import { stellarService } from "../../services/stellar.service";
@@ -21,11 +21,11 @@ const router = Router();
 router.post("/wallet", async (_req: Request, res: Response, next: NextFunction) => {
     try {
         const wallet = await stellarService.createWallet();
-        const encryptedSecret = encrypt(wallet.secretKey);
+        const security = await encryptWallet(wallet.secretKey);
 
         res.status(201).json({
             message: "Wallet created successfully",
-            data: { wallet, encryptedSecret }
+            data: { wallet, security }
         });
     } catch (error) {
         next(error);
@@ -202,7 +202,11 @@ router.patch("/wallets/users/update-all",
                 select: {
                     userId: true,
                     username: true,
-                    walletAddress: true
+                    wallet: {
+                        select: {
+                            address: true
+                        }
+                    }
                 }
             });
 
@@ -219,21 +223,33 @@ router.patch("/wallets/users/update-all",
 
             // Update each user's wallet
             for (const user of allUsers) {
-                // Skip users who don't have a wallet address
-                if (!user.walletAddress) continue;
+                // Skip users who don't have a wallet
+                if (!user.wallet) continue;
 
                 try {
                     // Create new wallet
                     const newWallet = await stellarService.createWallet();
-                    const encryptedSecret = encrypt(newWallet.secretKey);
+                    const encryptedSecret = await encryptWallet(newWallet.secretKey);
 
-                    // Update user's wallet credentials
-                    await prisma.user.update({
-                        where: { userId: user.userId },
-                        data: {
-                            walletAddress: newWallet.publicKey,
-                            walletSecret: encryptedSecret
-                        }
+                    // Use transaction to delete old wallet and create new one
+                    await prisma.$transaction(async (tx) => {
+                        // Delete old wallet
+                        await tx.wallet.delete({
+                            where: { address: user.wallet!.address }
+                        });
+
+                        // Create new wallet and update user
+                        await tx.user.update({
+                            where: { userId: user.userId },
+                            data: {
+                                wallet: {
+                                    create: {
+                                        address: newWallet.publicKey,
+                                        ...encryptedSecret
+                                    }
+                                }
+                            }
+                        });
                     });
 
                     console.log("user: ", user.userId, "Success", newWallet.publicKey);
@@ -302,21 +318,40 @@ router.patch("/wallets/installations/update-all",
                 try {
                     // Create new installation wallet
                     const newInstallationWallet = await stellarService.createWallet();
-                    const encryptedInstallationSecret = encrypt(newInstallationWallet.secretKey);
+                    const encryptedInstallationSecret = await encryptWallet(newInstallationWallet.secretKey);
 
                     // Create new escrow wallet
                     const newEscrowWallet = await stellarService.createWallet();
-                    const encryptedEscrowSecret = encrypt(newEscrowWallet.secretKey);
+                    const encryptedEscrowSecret = await encryptWallet(newEscrowWallet.secretKey);
 
-                    // Update installation's wallet credentials
-                    await prisma.installation.update({
-                        where: { id: installation.id },
-                        data: {
-                            walletAddress: newInstallationWallet.publicKey,
-                            walletSecret: encryptedInstallationSecret,
-                            escrowAddress: newEscrowWallet.publicKey,
-                            escrowSecret: encryptedEscrowSecret
-                        }
+                    // Use transaction to delete old wallets and create new ones
+                    await prisma.$transaction(async (tx) => {
+                        // Delete old wallets
+                        await tx.wallet.delete({
+                            where: { address: installation.walletAddress }
+                        });
+                        await tx.wallet.delete({
+                            where: { address: installation.escrowAddress }
+                        });
+
+                        // Create new wallets and update installation
+                        await tx.installation.update({
+                            where: { id: installation.id },
+                            data: {
+                                wallet: {
+                                    create: {
+                                        address: newInstallationWallet.publicKey,
+                                        ...encryptedInstallationSecret
+                                    }
+                                },
+                                escrow: {
+                                    create: {
+                                        address: newEscrowWallet.publicKey,
+                                        ...encryptedEscrowSecret
+                                    }
+                                }
+                            }
+                        });
                     });
 
                     console.log("installation: ", installation.id, "Success", newInstallationWallet.publicKey, newEscrowWallet.publicKey);
