@@ -95,7 +95,15 @@ export const getRepositoryIssuesSchema = {
     query: z.object({
         repoUrl: z.string().regex(/^https:\/\/github\.com\/[\w\-\.]+\/[\w\-\.]+$/, "Repository URL must be a valid GitHub repository URL"),
         title: z.string().optional(),
-        labels: z.array(z.string()).optional(),
+        labels: z.union([z.string(), z.array(z.string())])
+            .optional()
+            .transform((val) => {
+                if (!val) return undefined;
+                if (typeof val === "string") {
+                    return val.split(",").map(l => l.trim()).filter(l => l.length > 0);
+                }
+                return val;
+            }),
         milestone: z.union([
             z.string(),
             z.literal("none"),
