@@ -11,6 +11,7 @@ import {
     AIReviewRule,
     AIReviewResult,
     ContributionSummary,
+    Wallet,
     TaskStatus,
     TimelineType,
     TransactionCategory,
@@ -27,6 +28,22 @@ export class TestDataFactory {
     private static userCounter = 1;
     private static taskCounter = 1;
     private static installationCounter = 1;
+    private static walletCounter = 1;
+
+    /**
+     * Create a test wallet with realistic data
+     */
+    static wallet(overrides: Partial<Wallet> = {}): Omit<Wallet, "userId"> {
+        const counter = this.walletCounter++;
+        return {
+            address: `GWALLET${counter.toString().padStart(47, "0")}`,
+            encryptedDEK: `encrypted-dek-${counter}`,
+            encryptedSecret: `encrypted-secret-${counter}`,
+            iv: `iv-${counter}`,
+            authTag: `auth-tag-${counter}`,
+            ...overrides
+        };
+    }
 
     /**
      * Create a test user with realistic data
@@ -36,8 +53,6 @@ export class TestDataFactory {
         return {
             userId: `test-user-${counter}`,
             username: `testuser${counter}`,
-            walletAddress: `GTEST${counter.toString().padStart(50, "0")}`,
-            walletSecret: `STEST${counter.toString().padStart(50, "0")}`,
             addressBook: [],
             ...overrides
         };
@@ -81,7 +96,7 @@ export class TestDataFactory {
     /**
      * Create a test installation with realistic data
      */
-    static installation(overrides: Partial<Installation> = {}): Omit<Installation, "createdAt" | "updatedAt" | "subscriptionPackageId"> {
+    static installation(overrides: Partial<Installation> = {}): Omit<Installation, "createdAt" | "updatedAt" | "subscriptionPackageId" | "walletAddress" | "escrowAddress"> {
         const counter = this.installationCounter++;
         return {
             id: `12345${Math.random().toString().slice(-3)}`,
@@ -94,18 +109,30 @@ export class TestDataFactory {
                 avatarUrl: `https://github.com/testorg${counter}.png`,
                 htmlUrl: `https://github.com/testorg${counter}`
             },
-            walletAddress: `GINSTALL${counter.toString().padStart(45, "0")}`,
-            walletSecret: `SINSTALL${counter.toString().padStart(45, "0")}`,
-            escrowAddress: `GESCROW${counter.toString().padStart(46, "0")}`,
-            escrowSecret: `SESCROW${counter.toString().padStart(46, "0")}`,
             ...overrides
+        };
+    }
+
+    /**
+     * Helper to create wallet relation object for Prisma create
+     */
+    static createWalletRelation(address?: string) {
+        const counter = this.walletCounter++;
+        return {
+            create: {
+                address: address || `GWALLET${counter.toString().padStart(47, "0")}`,
+                encryptedDEK: `encrypted-dek-${counter}`,
+                encryptedSecret: `encrypted-secret-${counter}`,
+                iv: `iv-${counter}`,
+                authTag: `auth-tag-${counter}`
+            }
         };
     }
 
     /**
      * Create multiple test installations
      */
-    static installations(count: number, overrides: Partial<Installation> = {}): Array<Omit<Installation, "createdAt" | "updatedAt" | "subscriptionPackageId">> {
+    static installations(count: number, overrides: Partial<Installation> = {}): Array<Omit<Installation, "createdAt" | "updatedAt" | "subscriptionPackageId" | "walletAddress" | "escrowAddress">> {
         return Array.from({ length: count }, () => this.installation(overrides));
     }
 
@@ -332,8 +359,8 @@ export class TestDataFactory {
                 html_url: "https://github.com/testuser"
             },
             labels: [
-                { id: 1, name: "bug", color: "ff0000" },
-                { id: 2, name: "enhancement", color: "00ff00" }
+                { id: "1", name: "bug", color: "ff0000" },
+                { id: "2", name: "enhancement", color: "00ff00" }
             ],
             locked: false,
             repository: {
@@ -396,6 +423,7 @@ export class TestDataFactory {
         this.userCounter = 1;
         this.taskCounter = 1;
         this.installationCounter = 1;
+        this.walletCounter = 1;
     }
 
     /**

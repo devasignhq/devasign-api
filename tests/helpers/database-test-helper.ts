@@ -162,6 +162,7 @@ export class DatabaseTestHelper {
             await client.contributionSummary.deleteMany();
             await client.installation.deleteMany();
             await client.user.deleteMany();
+            await client.wallet.deleteMany();
             await client.permission.deleteMany();
             await client.subscriptionPackage.deleteMany();
 

@@ -117,41 +117,63 @@ export class DatabaseTestUtilities {
      * Create test users with different roles
      */
     private async createUsers() {
-        const userData = [
-            TestDataFactory.user({
-                userId: "admin-user-1",
-                username: "admin",
-                walletAddress: "GADMIN000000000000000000000000000000000000000000000",
-                walletSecret: "SADMIN000000000000000000000000000000000000000000000"
-            }),
-            TestDataFactory.user({
-                userId: "creator-user-1",
-                username: "taskcreator",
-                walletAddress: "GCREATOR00000000000000000000000000000000000000000000",
-                walletSecret: "SCREATOR00000000000000000000000000000000000000000000"
-            }),
-            TestDataFactory.user({
-                userId: "contributor-user-1",
-                username: "contributor1",
-                walletAddress: "GCONTRIB100000000000000000000000000000000000000000000",
-                walletSecret: "SCONTRIB100000000000000000000000000000000000000000000"
-            }),
-            TestDataFactory.user({
-                userId: "contributor-user-2",
-                username: "contributor2",
-                walletAddress: "GCONTRIB200000000000000000000000000000000000000000000",
-                walletSecret: "SCONTRIB200000000000000000000000000000000000000000000"
-            })
+        const userWalletData = [
+            {
+                user: TestDataFactory.user({
+                    userId: "admin-user-1",
+                    username: "admin"
+                }),
+                wallet: TestDataFactory.wallet({
+                    address: "GADMIN000000000000000000000000000000000000000000000"
+                })
+            },
+            {
+                user: TestDataFactory.user({
+                    userId: "creator-user-1",
+                    username: "taskcreator"
+                }),
+                wallet: TestDataFactory.wallet({
+                    address: "GCREATOR00000000000000000000000000000000000000000000"
+                })
+            },
+            {
+                user: TestDataFactory.user({
+                    userId: "contributor-user-1",
+                    username: "contributor1"
+                }),
+                wallet: TestDataFactory.wallet({
+                    address: "GCONTRIB100000000000000000000000000000000000000000000"
+                })
+            },
+            {
+                user: TestDataFactory.user({
+                    userId: "contributor-user-2",
+                    username: "contributor2"
+                }),
+                wallet: TestDataFactory.wallet({
+                    address: "GCONTRIB200000000000000000000000000000000000000000000"
+                })
+            }
         ];
 
         const users = [];
-        for (const data of userData) {
+        for (const { user: userData, wallet: walletData } of userWalletData) {
+            // Create user first
             const user = await this.client.user.create({
                 data: {
-                    ...data,
-                    addressBook: data.addressBook as Prisma.InputJsonValue[]
+                    ...userData,
+                    addressBook: userData.addressBook as Prisma.InputJsonValue[]
                 }
             });
+
+            // Create wallet associated with the user
+            await this.client.wallet.create({
+                data: {
+                    ...walletData,
+                    userId: user.userId
+                }
+            });
+
             users.push(user);
         }
 
@@ -163,38 +185,71 @@ export class DatabaseTestUtilities {
      */
     private async createInstallations(subscriptionPackageId: string) {
         const installationData = [
-            TestDataFactory.installation({
-                id: "installation-1",
-                htmlUrl: "https://github.com/test/repo1",
-                targetId: 1001,
-                account: {
-                    login: "testorg1",
-                    nodeId: "MDEwOlJlcG9zaXRvcnkxMDAx",
-                    avatarUrl: "https://github.com/testorg1.png",
-                    htmlUrl: "https://github.com/testorg1"
-                },
-                subscriptionPackageId
-            }),
-            TestDataFactory.installation({
-                id: "installation-2",
-                htmlUrl: "https://github.com/test/repo2",
-                targetId: 1002,
-                account: {
-                    login: "testorg2",
-                    nodeId: "MDEwOlJlcG9zaXRvcnkxMDAy",
-                    avatarUrl: "https://github.com/testorg2.png",
-                    htmlUrl: "https://github.com/testorg2"
-                },
-                subscriptionPackageId
-            })
+            {
+                installation: TestDataFactory.installation({
+                    id: "installation-1",
+                    htmlUrl: "https://github.com/test/repo1",
+                    targetId: 1001,
+                    account: {
+                        login: "testorg1",
+                        nodeId: "MDEwOlJlcG9zaXRvcnkxMDAx",
+                        avatarUrl: "https://github.com/testorg1.png",
+                        htmlUrl: "https://github.com/testorg1"
+                    },
+                    subscriptionPackageId,
+                    walletAddress: "GINSTALL100000000000000000000000000000000000000000",
+                    escrowAddress: "GESCROW1000000000000000000000000000000000000000000"
+                }),
+                wallet: TestDataFactory.wallet({
+                    address: "GINSTALL100000000000000000000000000000000000000000"
+                }),
+                escrow: TestDataFactory.wallet({
+                    address: "GESCROW1000000000000000000000000000000000000000000"
+                })
+            },
+            {
+                installation: TestDataFactory.installation({
+                    id: "installation-2",
+                    htmlUrl: "https://github.com/test/repo2",
+                    targetId: 1002,
+                    account: {
+                        login: "testorg2",
+                        nodeId: "MDEwOlJlcG9zaXRvcnkxMDAy",
+                        avatarUrl: "https://github.com/testorg2.png",
+                        htmlUrl: "https://github.com/testorg2"
+                    },
+                    subscriptionPackageId,
+                    walletAddress: "GINSTALL200000000000000000000000000000000000000000",
+                    escrowAddress: "GESCROW2000000000000000000000000000000000000000000"
+                }),
+                wallet: TestDataFactory.wallet({
+                    address: "GINSTALL200000000000000000000000000000000000000000"
+                }),
+                escrow: TestDataFactory.wallet({
+                    address: "GESCROW2000000000000000000000000000000000000000000"
+                })
+            }
         ];
 
         const installations = [];
-        for (const data of installationData) {
+        for (const { installation: installData, wallet: walletData, escrow: escrowData } of installationData) {
+            // Create wallet for installation
+            await this.client.wallet.create({
+                data: walletData
+            });
+
+            // Create escrow wallet for installation
+            await this.client.wallet.create({
+                data: escrowData
+            });
+
+            // Create installation
             const installation = await this.client.installation.create({
                 data: {
-                    ...data,
-                    account: data.account as Prisma.InputJsonValue
+                    ...installData,
+                    account: installData.account as Prisma.InputJsonValue,
+                    wallet: TestDataFactory.createWalletRelation(),
+                    escrow: TestDataFactory.createWalletRelation()
                 }
             });
             installations.push(installation);
@@ -447,13 +502,13 @@ export class DatabaseTestUtilities {
                 TestDataFactory.aiReviewResult({
                     installationId: installation.id,
                     prNumber: 1,
-                    repositoryName: `${installation.account.login  }/repo`,
+                    repositoryName: `${installation.account.login}/repo`,
                     mergeScore: 85
                 }),
                 TestDataFactory.aiReviewResult({
                     installationId: installation.id,
                     prNumber: 2,
-                    repositoryName: `${installation.account.login  }/repo`,
+                    repositoryName: `${installation.account.login}/repo`,
                     mergeScore: 92,
                     reviewStatus: "COMPLETED"
                 })
@@ -518,6 +573,7 @@ export class DatabaseTestUtilities {
             await this.client.contributionSummary.deleteMany();
             await this.client.user.deleteMany();
             await this.client.installation.deleteMany();
+            await this.client.wallet.deleteMany();
             await this.client.subscriptionPackage.deleteMany();
             await this.client.permission.deleteMany();
 
@@ -596,15 +652,45 @@ export class DatabaseTestUtilities {
                 }
             });
 
+            // Create wallet for user
+            const userWallet = TestDataFactory.wallet({
+                address: "GMINIMAL0000000000000000000000000000000000000000000"
+            });
+            await this.client.wallet.create({
+                data: {
+                    ...userWallet,
+                    userId: user.userId
+                }
+            });
+
+            // Create installation wallets
+            const installWallet = TestDataFactory.wallet({
+                address: "GMININSTALL000000000000000000000000000000000000000"
+            });
+            await this.client.wallet.create({
+                data: installWallet
+            });
+
+            const escrowWallet = TestDataFactory.wallet({
+                address: "GMINESCROW0000000000000000000000000000000000000000"
+            });
+            await this.client.wallet.create({
+                data: escrowWallet
+            });
+
             // Create one installation
             const installationData = TestDataFactory.installation({
                 id: "minimal-installation-1",
-                subscriptionPackageId: subscriptionPackage.id
+                subscriptionPackageId: subscriptionPackage.id,
+                walletAddress: installWallet.address,
+                escrowAddress: escrowWallet.address
             });
             const installation = await this.client.installation.create({
                 data: {
                     ...installationData,
-                    account: installationData.account as Prisma.InputJsonValue
+                    account: installationData.account as Prisma.InputJsonValue,
+                    wallet: TestDataFactory.createWalletRelation(),
+                    escrow: TestDataFactory.createWalletRelation()
                 }
             });
 
