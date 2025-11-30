@@ -1,25 +1,23 @@
 # Dependencies
 node_modules
 npm-debug.log*
+yarn-error.log*
 
-# Build outputs
+# Build outputs (excluded since we build inside Docker)
 dist
-*.tsbuildinfo
 
-# Environment files
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+# Environment files (should be provided at runtime)
+.env*
+!.env.example
 
 # Git
 .git
 .gitignore
+.gitattributes
 
 # Documentation
 README.md
-*.md
+docs/
 
 # IDE files
 .vscode
@@ -35,56 +33,30 @@ Thumbs.db
 logs
 *.log
 
-# Runtime data
-pids
-*.pid
-*.seed
-*.pid.lock
+# Test files
+tests/
+*.test.ts
+*.test.js
+*.spec.ts
+*.spec.js
+coverage/
+.nyc_output/
 
-# Coverage directory used by tools like istanbul
-coverage
+# Development files
+no_git/
+.vscode/
 
-# Dependency directories
-jspm_packages/
-
-# Optional npm cache directory
-.npm
-
-# Optional REPL history
-.node_repl_history
-
-# Output of 'npm pack'
-*.tgz
-
-# Yarn Integrity file
-.yarn-integrity
-
-# dotenv environment variables file
-.env
-
-# next.js build output
-.next
-
-# Nuxt.js build output
-.nuxt
-
-# Storybook build outputs
-.out
-.storybook-out
-
-# Temporary folders
-tmp/
-temp/
-
-# Public assets (if not needed in container)
-public/
-
-# No-git folder
-no-git/
-
-# Vercel
-.vercel
-
-# Docker
+# Docker files (no need to copy these into the image)
 Dockerfile
 .dockerignore
+docker-compose*.yml
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.circleci/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
