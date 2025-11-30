@@ -168,6 +168,14 @@ export class ErrorHandlerService {
             warnings.push("GITHUB_WEBHOOK_SECRET not configured - pull request review disabled");
         }
 
+        if (!process.env.FIREBASE_PROJECT_ID || !process.env.FIREBASE_CLIENT_EMAIL || !process.env.FIREBASE_PRIVATE_KEY) {
+            warnings.push("Firebase credentials not configured - Firebase integration will fail");
+        }
+
+        if (!process.env.GCP_PROJECT_ID || !process.env.GCP_LOCATION_ID || !process.env.GCP_KEY_RING_ID || !process.env.GCP_KEY_ID) {
+            warnings.push("GCP credentials not configured - GCP integration will fail");
+        }
+
         // Log warnings
         warnings.forEach(warning => {
             messageLogger.warn(warning);
