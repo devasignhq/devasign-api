@@ -2,10 +2,17 @@ import { firestoreDB } from "../config/firebase.config";
 import { Timestamp } from "firebase-admin/firestore";
 import { Message, MessageMetadata, MessageType } from "../models/task.model";
 
+// Firestore collection references for messages and tasks
 export const messagesCollection = firestoreDB.collection("messages");
 export const tasksCollection = firestoreDB.collection("tasks");
 
+/**
+ * Service for managing Firebase Firestore operations.
+ */
 export class FirebaseService {
+    /**
+     * Create a new message in the Firestore messages collection.
+     */
     static async createMessage({
         userId,
         taskId,
@@ -14,9 +21,11 @@ export class FirebaseService {
         metadata = {} as MessageMetadata,
         attachments = []
     }: Message) {
+        // Generate a new document reference with auto-generated ID
         const messageRef = messagesCollection.doc();
         const timestamp = Timestamp.now();
 
+        // Prepare message data with all required fields
         const messageData = {
             id: messageRef.id,
             userId,
@@ -29,24 +38,32 @@ export class FirebaseService {
             updatedAt: timestamp
         };
 
+        // Save the message to Firestore
         await messageRef.set(messageData);
         return messageData;
     }
 
+    /**
+     * Update an existing message in Firestore.
+     */
     static async updateMessage(messageId: string, data: Partial<Message>) {
+        // Verify the message exists
         const message = await messagesCollection.doc(messageId).get();
 
         if (!message.exists) {
             throw new Error("Message not found");
         }
 
+        // Prepare update data with new timestamp
         const updateData = {
             ...data,
             updatedAt: Timestamp.now()
         };
 
+        // Apply the update
         await messagesCollection.doc(messageId).update(updateData);
 
+        // Fetch and return the updated message
         const updatedMessage = await messagesCollection.doc(messageId).get();
         return {
             id: updatedMessage.id,
@@ -54,14 +71,23 @@ export class FirebaseService {
         };
     }
 
+    /**
+     * Retrieve all messages for a specific task, ordered by creation time.
+     */
     static async getTaskMessages(taskId: string) {
+        // Query messages for the task, ordered by creation time
         const snapshot = await messagesCollection
             .where("taskId", "==", taskId)
             .orderBy("createdAt", "desc")
             .get();
+
+        // Transform Firestore documents into message objects
         return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     }
 
+    /**
+     * Create a task document in Firestore to enable chat functionality.
+     */
     static async createTask(
         taskId: string,
         creatorId: string,
@@ -69,12 +95,13 @@ export class FirebaseService {
     ) {
         const taskRef = tasksCollection.doc(taskId);
 
-        // Check if task already exists
+        // Check if task chat already exists to avoid duplicates
         const existingTask = await taskRef.get();
         if (existingTask.exists) return;
 
         const timestamp = Timestamp.now();
 
+        // Prepare task data with conversation participants
         const taskData = {
             id: taskId,
             creatorId,
@@ -84,24 +111,30 @@ export class FirebaseService {
             updatedAt: timestamp
         };
 
+        // Create the task document
         await taskRef.set(taskData);
         return taskData;
     }
 
+    /**
+     * Update the conversation status of a task to closed.
+     */
     static async updateTaskStatus(taskId: string) {
         const taskRef = tasksCollection.doc(taskId);
 
-        // Check if task exists
+        // Verify the task exists in Firestore
         const task = await taskRef.get();
         if (!task.exists) {
             throw new Error("Task not found in Firebase");
         }
 
+        // Prepare status update with timestamp
         const updateData = {
             conversationStatus: "CLOSED",
             updatedAt: Timestamp.now()
         };
 
+        // Apply the update
         await taskRef.update(updateData);
         return updateData;
     }
