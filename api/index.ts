@@ -18,7 +18,8 @@ import {
     webhookRoutes,
     stellarRoutes,
     testRoutes,
-    aiServicesRoutes
+    aiServicesRoutes,
+    contractRoutes
 } from "./routes";
 import { ErrorHandlerService } from "./services/error-handler.service";
 import { dataLogger, messageLogger } from "./config/logger.config";
@@ -55,7 +56,7 @@ app.use(morgan("dev"));
 
 // Raw body parser for webhook signature validation
 app.use(
-    ENDPOINTS.WEBHOOK.PREFIX + ENDPOINTS.WEBHOOK.PR_EVENT, 
+    ENDPOINTS.WEBHOOK.PREFIX + ENDPOINTS.WEBHOOK.PR_EVENT,
     express.raw({ type: "application/json" })
 );
 
@@ -114,6 +115,7 @@ app.use(ENDPOINTS.WEBHOOK.PREFIX, webhookRoutes);
 app.use("/stellar", dynamicRoute, localhostOnly, stellarRoutes);
 app.use("/test", dynamicRoute, localhostOnly, testRoutes);
 app.use("/ai-services", dynamicRoute, localhostOnly, aiServicesRoutes);
+app.use("/contract", dynamicRoute, localhostOnly, contractRoutes);
 
 app.use(errorHandler);
 

@@ -120,3 +120,90 @@ export const decryptionSchema = {
         authTag: z.string().min(1, "Auth tag is required")
     })
 };
+
+// Contract service test schemas
+export const createEscrowWithApprovalSchema = {
+    body: z.object({
+        creatorSecretKey: z.string().min(1, "Creator secret key is required"),
+        taskId: z.string().min(1, "Task ID is required"),
+        bountyAmount: z.string().min(1, "Bounty amount is required")
+    })
+};
+
+export const createEscrowSchema = {
+    body: z.object({
+        creatorSecretKey: z.string().min(1, "Creator secret key is required"),
+        taskId: z.string().min(1, "Task ID is required"),
+        bountyAmount: z.string().min(1, "Bounty amount is required")
+    })
+};
+
+export const approveUsdcSpendingSchema = {
+    body: z.object({
+        userSecretKey: z.string().min(1, "User secret key is required"),
+        amount: z.string().min(1, "Amount is required")
+    })
+};
+
+export const getEscrowSchema = {
+    params: z.object({
+        taskId: z.string().min(1, "Task ID is required")
+    })
+};
+
+export const assignContributorSchema = {
+    body: z.object({
+        creatorSecretKey: z.string().min(1, "Creator secret key is required"),
+        taskId: z.string().min(1, "Task ID is required"),
+        contributorPublicKey: z.string().min(1, "Contributor public key is required")
+    })
+};
+
+export const completeTaskSchema = {
+    body: z.object({
+        contributorSecretKey: z.string().min(1, "Contributor secret key is required"),
+        taskId: z.string().min(1, "Task ID is required")
+    })
+};
+
+export const approveCompletionSchema = {
+    body: z.object({
+        creatorSecretKey: z.string().min(1, "Creator secret key is required"),
+        taskId: z.string().min(1, "Task ID is required")
+    })
+};
+
+export const disputeTaskSchema = {
+    body: z.object({
+        disputingPartySecretKey: z.string().min(1, "Disputing party secret key is required"),
+        taskId: z.string().min(1, "Task ID is required"),
+        reason: z.string().min(1, "Dispute reason is required")
+    })
+};
+
+export const resolveDisputeSchema = {
+    body: z.object({
+        adminSecretKey: z.string().min(1, "Admin secret key is required"),
+        taskId: z.string().min(1, "Task ID is required"),
+        resolution: z.union([
+            z.literal("PayContributor"),
+            z.literal("RefundCreator"),
+            z.object({
+                PartialPayment: z.string().min(1, "Partial payment amount is required")
+            })
+        ])
+    })
+};
+
+export const refundSchema = {
+    body: z.object({
+        creatorSecretKey: z.string().min(1, "Creator secret key is required"),
+        taskId: z.string().min(1, "Task ID is required")
+    })
+};
+
+export const getUsdcBalanceSchema = {
+    params: z.object({
+        publicKey: z.string().min(1, "Public key is required")
+    })
+};
