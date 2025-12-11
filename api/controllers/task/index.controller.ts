@@ -1,8 +1,7 @@
 import { NextFunction, Request, Response } from "express";
 import { prisma } from "../../config/database.config";
-import { usdcAssetId } from "../../config/stellar.config";
 import { stellarService } from "../../services/stellar.service";
-import { decryptWallet } from "../../utilities/helper";
+import { decryptWallet, stellarTimestampToDate } from "../../utilities/helper";
 import { STATUS_CODES } from "../../utilities/data";
 import { CreateTask, TaskIssue, FilterTasks } from "../../models/task.model";
 import { HorizonApi } from "../../models/horizonapi.model";
@@ -10,9 +9,11 @@ import { $Enums, Prisma } from "../../../prisma_client";
 import { OctokitService } from "../../services/octokit.service";
 import {
     AuthorizationError,
+    EscrowContractError,
     NotFoundError,
     ValidationError
 } from "../../models/error.model";
+import { ContractService } from "../../services/contract.service";
 
 type USDCBalance = HorizonApi.BalanceLineAsset<"credit_alphanum12">;
 
@@ -27,10 +28,7 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
         // Get installation and verify it exists
         const installation = await prisma.installation.findUnique({
             where: { id: payload.installationId },
-            select: {
-                wallet: true,
-                escrow: true
-            }
+            select: { wallet: true }
         });
 
         if (!installation) {
@@ -49,31 +47,6 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
 
         // Confirm USDC trustline
         const decryptedInstallationWalletSecret = await decryptWallet(installation.wallet);
-        const decryptedEscrowWalletSecret = await decryptWallet(installation.escrow);
-        const installationEscrowWallet = await stellarService.getAccountInfo(installation.escrow.address!);
-
-        if (
-            !(installationEscrowWallet.balances.find(
-                (asset): asset is USDCBalance => "asset_code" in asset && asset.asset_code === "USDC"
-            ))
-        ) {
-            // Add USDC trustline if it does not exist
-            await stellarService.addTrustLineViaSponsor(
-                decryptedInstallationWalletSecret,
-                decryptedEscrowWalletSecret
-            );
-        }
-
-        // Transfer to escrow
-        const repoName = OctokitService.getOwnerAndRepo(payload.issue.url);
-        const { txHash } = await stellarService.transferAsset(
-            decryptedInstallationWalletSecret,
-            installation.escrow.address!,
-            usdcAssetId,
-            usdcAssetId,
-            payload.bounty,
-            `LK:${repoName[1]}#${payload.issue.number}`
-        );
 
         const { installationId, bountyLabelId, ...others } = payload;
 
@@ -99,7 +72,23 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
             }
         });
 
+        // Create escrow on smart contract
+        let escrowResult;
+        try {
+            escrowResult = await ContractService.createEscrow(
+                decryptedInstallationWalletSecret,
+                task.id,
+                payload.issue.url,
+                parseFloat(payload.bounty)
+            );
+        } catch (error) {
+            // If escrow creation fails, delete the task and rethrow
+            await prisma.task.delete({ where: { id: task.id } });
+            throw new EscrowContractError("Failed to create escrow on smart contract", error);
+        }
+
         // Record bounty transaction
+        const txHash = escrowResult.txHash;
         const bountyTransactionStatus = {
             recorded: false,
             error: undefined
@@ -112,7 +101,8 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
                     category: "BOUNTY",
                     amount: parseFloat(task.bounty.toString()),
                     task: { connect: { id: task.id } },
-                    installation: { connect: { id: installationId } }
+                    installation: { connect: { id: installationId } },
+                    doneAt: stellarTimestampToDate(escrowResult.result.createdAt)
                 }
             });
 
@@ -348,11 +338,7 @@ export const deleteTask = async (req: Request, res: Response, next: NextFunction
                 creatorId: true,
                 contributorId: true,
                 installation: {
-                    select: {
-                        id: true,
-                        wallet: true,
-                        escrow: true
-                    }
+                    select: { id: true, wallet: true }
                 }
             }
         });
@@ -379,18 +365,8 @@ export const deleteTask = async (req: Request, res: Response, next: NextFunction
         // Return bounty to installation wallet if it exists
         if (task.bounty > 0) {
             const decryptedWalletSecret = await decryptWallet(task.installation.wallet);
-            const decryptedEscrowSecret = await decryptWallet(task.installation.escrow);
-            const repoName = OctokitService.getOwnerAndRepo(taskIssue.url);
 
-            await stellarService.transferAssetViaSponsor(
-                decryptedWalletSecret,
-                decryptedEscrowSecret,
-                task.installation.wallet.address,
-                usdcAssetId,
-                usdcAssetId,
-                task.bounty.toString(),
-                `DEL:${repoName[1]}#${taskIssue.number}`
-            );
+            await ContractService.refund(decryptedWalletSecret, taskId);
         }
 
         // Delete task
