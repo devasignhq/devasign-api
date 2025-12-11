@@ -46,20 +46,6 @@ export class StellarService {
     }
 
     /**
-     * Submit a transaction to the Stellar network with automatic fee increase.
-     * Increases the base fee if the transaction fails due to insufficient fees.
-     */
-    async submitTransaction(account: AccountKeypair, buildingFunction: (tx: unknown) => unknown) {
-        await stellar.submitWithFeeIncrease({
-            sourceAddress: account,
-            timeout: 30,
-            baseFeeIncrease: 100,
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            buildingFunction: buildingFunction as any
-        });
-    }
-
-    /**
      * Helper method to check if two Stellar assets are identical.
      * Compares both native (XLM) and issued assets (like USDC).
      */
