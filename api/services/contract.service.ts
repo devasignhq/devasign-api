@@ -10,6 +10,7 @@ import {
     nativeToScVal,
     scValToNative
 } from "@stellar/stellar-sdk";
+import { EscrowContractError } from "../models/error.model";
 
 /**
  * Service for interacting with the task escrow smart contract.
@@ -34,11 +35,19 @@ export class ContractService {
     private static usdcContract = new Contract(this.CONFIG.usdcContractId);
 
     /**
+     * Helper method to convert an amount to stroops.
+     */
+    private static convertToStroops(amount: number) {
+        return BigInt(amount * 10_000_000);
+    }
+
+    /**
      * Helper method to build, simulate, sign, and submit a Soroban transaction.
      */
     private static async submitTransaction(
         operation: xdr.Operation,
-        signerKeypair: Keypair
+        signerKeypair: Keypair,
+        functionCaller: string
     ) {
         // Fetch the account information from the network
         const account = await this.server.getAccount(signerKeypair.publicKey());
@@ -57,7 +66,7 @@ export class ContractService {
 
         // Check for simulation errors
         if (SorobanRpc.Api.isSimulationError(simulated)) {
-            throw new Error(`Simulation failed: ${simulated.error}`);
+            throw new EscrowContractError(`[${functionCaller}] Submit transaction simulation failed`, simulated.error);
         }
 
         // Prepare the transaction with accurate resource estimates from simulation
@@ -74,7 +83,7 @@ export class ContractService {
 
         // Check for submission errors
         if (response.status === "ERROR") {
-            throw new Error(`Transaction failed: ${response.errorResult}`);
+            throw new EscrowContractError(`[${functionCaller}] Submit transaction failed`, response.errorResult);
         }
 
         // Poll for transaction confirmation
@@ -86,67 +95,10 @@ export class ContractService {
 
         // Verify transaction succeeded
         if (result.status === "FAILED") {
-            throw new Error(`Transaction failed: ${result.resultXdr}`);
+            throw new EscrowContractError(`[${functionCaller}] Submit transaction failed`, result.resultXdr);
         }
 
         return result;
-    }
-
-    /**
-     * Create an escrow with automatic USDC approval in a single operation.
-     */
-    public static async createEscrowWithApproval(
-        creatorSecretKey: string,
-        taskId: string,
-        bountyAmount: bigint
-    ): Promise<{ approvalTxHash: string; escrowTxHash: string }> {
-        // First, approve the contract to spend USDC on behalf of the creator
-        const approval = await this.approveUsdcSpending(
-            creatorSecretKey,
-            bountyAmount
-        );
-
-        // Then, create the escrow with the approved amount
-        const escrow = await this.createEscrow(
-            creatorSecretKey,
-            taskId,
-            bountyAmount
-        );
-
-        // Return both transaction hashes for tracking
-        return {
-            approvalTxHash: approval.txHash,
-            escrowTxHash: escrow.txHash
-        };
-    }
-
-    /**
-     * Create a new escrow for a task on the smart contract.
-     */
-    public static async createEscrow(
-        creatorSecretKey: string,
-        taskId: string,
-        bountyAmount: bigint
-    ): Promise<{ success: boolean; txHash: string }> {
-        // Create keypair and address from the creator's secret key
-        const creatorKeypair = Keypair.fromSecret(creatorSecretKey);
-        const creatorAddress = new Address(creatorKeypair.publicKey());
-
-        // Build the contract call operation
-        const operation = this.contract.call(
-            "create_escrow",
-            creatorAddress.toScVal(),
-            nativeToScVal(taskId, { type: "string" }),
-            nativeToScVal(bountyAmount, { type: "i128" })
-        );
-
-        // Submit the transaction and wait for confirmation
-        const result = await this.submitTransaction(operation, creatorKeypair);
-
-        return {
-            success: true,
-            txHash: result.txHash
-        };
     }
 
     /**
@@ -155,7 +107,7 @@ export class ContractService {
     public static async approveUsdcSpending(
         userSecretKey: string,
         amount: bigint
-    ): Promise<{ success: boolean; txHash: string }> {
+    ) {
         // Create keypair from user's secret key
         const userKeypair = Keypair.fromSecret(userSecretKey);
 
@@ -176,10 +128,57 @@ export class ContractService {
         );
 
         // Submit the approval transaction
-        const result = await this.submitTransaction(operation, userKeypair);
+        const result = await this.submitTransaction(operation, userKeypair, "approveUsdcSpending");
 
         return {
             success: true,
+            txHash: result.txHash
+        };
+    }
+
+    /**
+     * Create a new escrow for a task on the smart contract.
+     */
+    public static async createEscrow(
+        creatorSecretKey: string,
+        taskId: string,
+        issueUrl: string,
+        bountyAmount: number
+    ) {
+        // Convert bounty amount to stroops
+        const bountyAmountInStroops = this.convertToStroops(bountyAmount);
+
+        // First, approve the contract to spend USDC on behalf of the creator
+        let approval;
+        try {
+            approval = await this.approveUsdcSpending(
+                creatorSecretKey,
+                bountyAmountInStroops
+            );
+        } catch (error) {
+            throw new EscrowContractError("Failed to approve USDC spending", error);
+        }
+
+        // Create keypair and address from the creator's secret key
+        const creatorKeypair = Keypair.fromSecret(creatorSecretKey);
+        const creatorAddress = new Address(creatorKeypair.publicKey());
+
+        // Build the contract call operation
+        const operation = this.contract.call(
+            "create_escrow",
+            creatorAddress.toScVal(),
+            nativeToScVal(taskId, { type: "string" }),
+            nativeToScVal(issueUrl, { type: "string" }),
+            nativeToScVal(bountyAmountInStroops, { type: "i128" })
+        );
+
+        // Submit the transaction and wait for confirmation
+        const result = await this.submitTransaction(operation, creatorKeypair, "createEscrow");
+
+        return {
+            success: true,
+            result,
+            approvalTxHash: approval.txHash,
             txHash: result.txHash
         };
     }
@@ -213,13 +212,13 @@ export class ContractService {
 
         // Check for simulation errors
         if (SorobanRpc.Api.isSimulationError(simulated)) {
-            throw new Error(`Failed to get escrow: ${simulated.error}`);
+            throw new EscrowContractError(`Failed to get escrow: ${simulated.error}`);
         }
 
         // Extract and return the escrow data
         const returnValue = simulated.result?.retval;
         if (!returnValue) {
-            throw new Error("No return value from simulation");
+            throw new EscrowContractError("No return value from simulation");
         }
 
         return scValToNative(returnValue);
@@ -233,7 +232,7 @@ export class ContractService {
         creatorSecretKey: string,
         taskId: string,
         contributorPublicKey: string
-    ): Promise<{ success: boolean; txHash: string }> {
+    ) {
         // Create keypair from creator's secret key
         const creatorKeypair = Keypair.fromSecret(creatorSecretKey);
 
@@ -248,48 +247,92 @@ export class ContractService {
         );
 
         // Submit the transaction
-        const result = await this.submitTransaction(operation, creatorKeypair);
+        const result = await this.submitTransaction(operation, creatorKeypair, "assignContributor");
+
+        return { success: true, result, txHash: result.txHash };
+    }
+
+    /**
+     * Increase the bounty amount for a task.
+     * Called by the task creator.
+     */
+    public static async increaseBounty(
+        creatorSecretKey: string,
+        taskId: string,
+        amount: number
+    ) {
+        // Convert amount to stroops
+        const amountInStroops = this.convertToStroops(amount);
+
+        // First, approve the contract to spend USDC on behalf of the creator
+        let approval;
+        try {
+            approval = await this.approveUsdcSpending(
+                creatorSecretKey,
+                amountInStroops
+            );
+        } catch (error) {
+            throw new EscrowContractError("Failed to approve USDC spending", error);
+        }
+
+        // Create keypair from creator's secret key
+        const creatorKeypair = Keypair.fromSecret(creatorSecretKey);
+        const creatorAddress = new Address(creatorKeypair.publicKey());
+
+        // Build the contract call operation
+        const operation = this.contract.call(
+            "increase_bounty",
+            creatorAddress.toScVal(),
+            nativeToScVal(taskId, { type: "string" }),
+            nativeToScVal(amountInStroops, { type: "i128" })
+        );
+
+        // Submit the transaction
+        const result = await this.submitTransaction(operation, creatorKeypair, "increaseBounty");
 
         return {
             success: true,
+            result,
+            approvalTxHash: approval.txHash,
             txHash: result.txHash
         };
     }
 
     /**
-     * Mark a task as completed in the escrow contract.
-     * Called by the contributor when they have finished the work.
+     * Decrease the bounty amount for a task.
+     * Called by the task creator.
      */
-    public static async completeTask(
-        contributorSecretKey: string,
-        taskId: string
-    ): Promise<{ success: boolean; txHash: string }> {
-        // Create keypair from contributor's secret key
-        const contributorKeypair = Keypair.fromSecret(contributorSecretKey);
+    public static async decreaseBounty(
+        creatorSecretKey: string,
+        taskId: string,
+        amount: number
+    ) {
+        // Convert amount to stroops
+        const amountInStroops = this.convertToStroops(amount);
+
+        // Create keypair from creator's secret key
+        const creatorKeypair = Keypair.fromSecret(creatorSecretKey);
+        const creatorAddress = new Address(creatorKeypair.publicKey());
 
         // Build the contract call operation
         const operation = this.contract.call(
-            "complete_task",
-            nativeToScVal(taskId, { type: "string" })
+            "decrease_bounty",
+            creatorAddress.toScVal(),
+            nativeToScVal(taskId, { type: "string" }),
+            nativeToScVal(amountInStroops, { type: "i128" })
         );
 
         // Submit the transaction
-        const result = await this.submitTransaction(operation, contributorKeypair);
+        const result = await this.submitTransaction(operation, creatorKeypair, "decreaseBounty");
 
-        return {
-            success: true,
-            txHash: result.txHash
-        };
+        return { success: true, result, txHash: result.txHash };
     }
 
     /**
      * Approve task completion and release escrowed funds to the contributor.
      * Called by the task creator after verifying the work is satisfactory.
      */
-    public static async approveCompletion(
-        creatorSecretKey: string,
-        taskId: string
-    ): Promise<{ success: boolean; txHash: string }> {
+    public static async approveCompletion(creatorSecretKey: string, taskId: string) {
         // Create keypair from creator's secret key
         const creatorKeypair = Keypair.fromSecret(creatorSecretKey);
 
@@ -300,12 +343,9 @@ export class ContractService {
         );
 
         // Submit the transaction to release funds
-        const result = await this.submitTransaction(operation, creatorKeypair);
+        const result = await this.submitTransaction(operation, creatorKeypair, "approveCompletion");
 
-        return {
-            success: true,
-            txHash: result.txHash
-        };
+        return { success: true, result, txHash: result.txHash };
     }
 
     /**
@@ -316,7 +356,7 @@ export class ContractService {
         disputingPartySecretKey: string,
         taskId: string,
         reason: string
-    ): Promise<{ success: boolean; txHash: string }> {
+    ) {
         // Create keypair from the disputing party's secret key
         const disputingPartyKeypair = Keypair.fromSecret(disputingPartySecretKey);
         const disputingPartyAddress = new Address(disputingPartyKeypair.publicKey());
@@ -330,12 +370,9 @@ export class ContractService {
         );
 
         // Submit the dispute transaction
-        const result = await this.submitTransaction(operation, disputingPartyKeypair);
+        const result = await this.submitTransaction(operation, disputingPartyKeypair, "disputeTask");
 
-        return {
-            success: true,
-            txHash: result.txHash
-        };
+        return { success: true, result, txHash: result.txHash };
     }
 
     /**
@@ -345,8 +382,8 @@ export class ContractService {
     public static async resolveDispute(
         adminSecretKey: string,
         taskId: string,
-        resolution: "PayContributor" | "RefundCreator" | { PartialPayment: bigint }
-    ): Promise<{ success: boolean; txHash: string }> {
+        resolution: "PayContributor" | "RefundCreator" | { PartialPayment: number }
+    ) {
         // Create keypair from admin's secret key
         const adminKeypair = Keypair.fromSecret(adminSecretKey);
 
@@ -366,7 +403,7 @@ export class ContractService {
             // Partial payment split between parties
             resolutionScVal = xdr.ScVal.scvVec([
                 xdr.ScVal.scvSymbol("PartialPayment"),
-                nativeToScVal(resolution.PartialPayment, { type: "i128" })
+                nativeToScVal(this.convertToStroops(resolution.PartialPayment), { type: "i128" })
             ]);
         }
 
@@ -378,22 +415,16 @@ export class ContractService {
         );
 
         // Submit the resolution transaction
-        const result = await this.submitTransaction(operation, adminKeypair);
+        const result = await this.submitTransaction(operation, adminKeypair, "resolveDispute");
 
-        return {
-            success: true,
-            txHash: result.txHash
-        };
+        return { success: true, result, txHash: result.txHash };
     }
 
     /**
      * Request a refund from the escrow.
      * Called by the creator when no contributor has been assigned to the task.
      */
-    public static async refund(
-        creatorSecretKey: string,
-        taskId: string
-    ): Promise<{ success: boolean; txHash: string }> {
+    public static async refund(creatorSecretKey: string, taskId: string) {
         // Create keypair from creator's secret key
         const creatorKeypair = Keypair.fromSecret(creatorSecretKey);
 
@@ -404,50 +435,8 @@ export class ContractService {
         );
 
         // Submit the refund transaction
-        const result = await this.submitTransaction(operation, creatorKeypair);
+        const result = await this.submitTransaction(operation, creatorKeypair, "refund");
 
-        return {
-            success: true,
-            txHash: result.txHash
-        };
-    }
-
-    /**
-     * Get the USDC balance for a specific Stellar address.
-     */
-    public static async getUsdcBalance(publicKey: string): Promise<bigint> {
-        // Create address object from public key
-        const address = new Address(publicKey);
-
-        // Build the contract call operation
-        const operation = this.contract.call("get_usdc_balance", address.toScVal());
-
-        // Get account for simulation
-        const account = await this.server.getAccount(publicKey);
-
-        // Build transaction for simulation
-        const transaction = new TransactionBuilder(account, {
-            fee: BASE_FEE,
-            networkPassphrase: this.CONFIG.networkPassphrase
-        })
-            .addOperation(operation)
-            .setTimeout(30)
-            .build();
-
-        // Simulate the transaction to get the balance
-        const simulated = await this.server.simulateTransaction(transaction);
-
-        // Check for simulation errors
-        if (SorobanRpc.Api.isSimulationError(simulated)) {
-            throw new Error(`Failed to get balance: ${simulated.error}`);
-        }
-
-        // Extract and return the balance
-        const returnValue = simulated.result?.retval;
-        if (!returnValue) {
-            throw new Error("No return value from simulation");
-        }
-
-        return scValToNative(returnValue) as bigint;
+        return { success: true, result, txHash: result.txHash };
     }
 }

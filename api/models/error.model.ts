@@ -122,6 +122,20 @@ export class StellarServiceError extends ErrorClass {
 }
 
 /**
+ * Escrow contract related errors
+ */
+export class EscrowContractError extends ErrorClass {
+    constructor(message: string, details: unknown = null) {
+        super(
+            "ESCROW_CONTRACT_ERROR",
+            details,
+            message,
+            STATUS_CODES.SERVER_ERROR
+        );
+    }
+}
+
+/**
  * Groq AI service related errors
  */
 export class GroqServiceError extends AIReviewError {
