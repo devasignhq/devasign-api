@@ -760,7 +760,7 @@ describe("Webhook API Integration Tests", () => {
                 .set("X-GitHub-Delivery", "test-delivery-123")
                 .set("Content-Type", "application/json")
                 .send(payloadString)
-                .expect(STATUS_CODES.GITHUB_API_ERROR);
+                .expect(STATUS_CODES.SERVER_ERROR);
 
             expect(response.body.message).toBe("API rate limit exceeded");
             expect(response.body.code).toBe("GITHUB_API_ERROR");

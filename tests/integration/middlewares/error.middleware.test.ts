@@ -48,16 +48,16 @@ describe("Error Handling Middleware", () => {
         it("should handle custom errors with correct status codes", () => {
             // Regular
             let error: any = new ErrorClass(
-                "CUSTOM_ERROR", 
-                { detail: "test" }, 
-                "Custom error message", 
+                "CUSTOM_ERROR",
+                { detail: "test" },
+                "Custom error message",
                 STATUS_CODES.BAD_PAYLOAD
             );
             errorHandler(error, mockRequest as Request, mockResponse as Response, mockNext);
 
             expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.BAD_PAYLOAD);
             expect(mockResponse.json).toHaveBeenCalledWith({ ...error });
-            
+
             // Not found
             error = new NotFoundError("Access denied");
             errorHandler(error, mockRequest as Request, mockResponse as Response, mockNext);
@@ -81,18 +81,30 @@ describe("Error Handling Middleware", () => {
             errorHandler(error, mockRequest as Request, mockResponse as Response, mockNext);
 
             expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.SERVER_ERROR);
+            expect(mockResponse.json).toHaveBeenCalledWith(expect.objectContaining({
+                code: "REVIEW_ERROR",
+                message: "Review failed"
+            }));
 
             // GitHub API
             error = new GitHubAPIError("Failed to fetch pr");
             errorHandler(error, mockRequest as Request, mockResponse as Response, mockNext);
 
-            expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.GITHUB_API_ERROR);
+            expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.SERVER_ERROR);
+            expect(mockResponse.json).toHaveBeenCalledWith(expect.objectContaining({
+                code: "GITHUB_API_ERROR",
+                message: "Failed to fetch pr"
+            }));
 
             // Groq API
             error = new GroqServiceError("Completion failed");
             errorHandler(error, mockRequest as Request, mockResponse as Response, mockNext);
 
-            expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.GROQ_API_ERROR);
+            expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.SERVER_ERROR);
+            expect(mockResponse.json).toHaveBeenCalledWith(expect.objectContaining({
+                code: "GROQ_SERVICE_ERROR",
+                message: "Completion failed"
+            }));
         });
 
         it("should handle ValidationError with correct status codes", () => {

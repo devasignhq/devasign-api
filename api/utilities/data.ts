@@ -29,14 +29,7 @@ export const STATUS_CODES = {
     /**407 */
     BAD_PAYLOAD: 407,
     /**500 */
-    UNKNOWN: 500,
-
-    /**410 */
-    STELLAR_ERROR: 410,
-    /**411 */
-    GROQ_API_ERROR: 411,
-    /**412 */
-    GITHUB_API_ERROR: 412
+    UNKNOWN: 500
 };
 
 /**

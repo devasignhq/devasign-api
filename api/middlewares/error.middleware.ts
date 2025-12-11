@@ -24,7 +24,7 @@ export const errorHandler = ((error: unknown, req: Request, res: Response, _next
     if (errorName === "ErrorClass") {
         const statusCode = getFieldFromUnknownObject<number>(error, "status") || STATUS_CODES.SERVER_ERROR;
 
-        return res.status(statusCode).json({ 
+        return res.status(statusCode).json({
             ...ErrorUtils.sanitizeError(error as ErrorClass)
         });
     }

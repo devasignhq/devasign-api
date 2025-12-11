@@ -116,7 +116,7 @@ export class StellarServiceError extends ErrorClass {
             "STELLAR_SERVICE_ERROR",
             details,
             message,
-            STATUS_CODES.STELLAR_ERROR
+            STATUS_CODES.SERVER_ERROR
         );
     }
 }
@@ -131,7 +131,7 @@ export class GroqServiceError extends AIReviewError {
             details,
             message,
             retryable,
-            STATUS_CODES.GROQ_API_ERROR
+            STATUS_CODES.SERVER_ERROR
         );
     }
 }
@@ -187,7 +187,7 @@ export class GitHubAPIError extends ErrorClass {
             code || "GITHUB_API_ERROR",
             details,
             message,
-            STATUS_CODES.GITHUB_API_ERROR
+            STATUS_CODES.SERVER_ERROR
         );
         this.statusCode = statusCode;
         this.rateLimitRemaining = rateLimitRemaining;
