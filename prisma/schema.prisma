@@ -60,7 +60,6 @@ model Wallet {
     user                User?          @relation(fields: [userId], references: [userId])
     userId              String?        @unique
     installationWallets Installation[] @relation("InstallationWallet")
-    installationEscrows Installation[] @relation("InstallationEscrow")
 }
 
 model User {
@@ -113,8 +112,6 @@ model Installation {
     account                     Json // { login String nodeId String avatarUrl String htmlUrl String }
     wallet                      Wallet                       @relation("InstallationWallet", fields: [walletAddress], references: [address])
     walletAddress               String
-    escrow                      Wallet                       @relation("InstallationEscrow", fields: [escrowAddress], references: [address])
-    escrowAddress               String
     subscriptionPackage         SubscriptionPackage?         @relation(fields: [subscriptionPackageId], references: [id], onDelete: SetNull)
     subscriptionPackageId       String?
     createdAt                   DateTime                     @default(now())
