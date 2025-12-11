@@ -121,27 +121,19 @@ export const decryptionSchema = {
     })
 };
 
-// Contract service test schemas
-export const createEscrowWithApprovalSchema = {
-    body: z.object({
-        creatorSecretKey: z.string().min(1, "Creator secret key is required"),
-        taskId: z.string().min(1, "Task ID is required"),
-        bountyAmount: z.string().min(1, "Bounty amount is required")
-    })
-};
-
 export const createEscrowSchema = {
     body: z.object({
         creatorSecretKey: z.string().min(1, "Creator secret key is required"),
         taskId: z.string().min(1, "Task ID is required"),
-        bountyAmount: z.string().min(1, "Bounty amount is required")
+        issueUrl: z.string().url("Valid Issue URL is required"),
+        bountyAmount: z.number().min(1, "Bounty amount is required")
     })
 };
 
 export const approveUsdcSpendingSchema = {
     body: z.object({
         userSecretKey: z.string().min(1, "User secret key is required"),
-        amount: z.string().min(1, "Amount is required")
+        amount: z.number().min(1, "Amount is required")
     })
 };
 
@@ -159,10 +151,19 @@ export const assignContributorSchema = {
     })
 };
 
-export const completeTaskSchema = {
+export const increaseBountySchema = {
     body: z.object({
-        contributorSecretKey: z.string().min(1, "Contributor secret key is required"),
-        taskId: z.string().min(1, "Task ID is required")
+        creatorSecretKey: z.string().min(1, "Creator secret key is required"),
+        taskId: z.string().min(1, "Task ID is required"),
+        amount: z.number().min(1, "Amount is required")
+    })
+};
+
+export const decreaseBountySchema = {
+    body: z.object({
+        creatorSecretKey: z.string().min(1, "Creator secret key is required"),
+        taskId: z.string().min(1, "Task ID is required"),
+        amount: z.number().min(1, "Amount is required")
     })
 };
 
@@ -189,7 +190,7 @@ export const resolveDisputeSchema = {
             z.literal("PayContributor"),
             z.literal("RefundCreator"),
             z.object({
-                PartialPayment: z.string().min(1, "Partial payment amount is required")
+                PartialPayment: z.number().min(1, "Partial payment amount is required")
             })
         ])
     })

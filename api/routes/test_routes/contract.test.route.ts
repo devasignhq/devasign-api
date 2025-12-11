@@ -2,17 +2,16 @@ import { Router, Request, Response, NextFunction } from "express";
 import { ContractService } from "../../services/contract.service";
 import { validateRequestParameters } from "../../middlewares/request.middleware";
 import {
-    createEscrowWithApprovalSchema,
     createEscrowSchema,
     approveUsdcSpendingSchema,
     getEscrowSchema,
     assignContributorSchema,
-    completeTaskSchema,
+    increaseBountySchema,
+    decreaseBountySchema,
     approveCompletionSchema,
     disputeTaskSchema,
     resolveDisputeSchema,
-    refundSchema,
-    getUsdcBalanceSchema
+    refundSchema
 } from "./test.schema";
 
 const router = Router();
@@ -46,53 +45,20 @@ function convertBigIntToString(obj: any): any {
     return obj;
 }
 
-
-/**
- * Create an escrow with automatic USDC approval.
- * This combines USDC approval and escrow creation in one operation.
- */
-router.post("/escrow/with-approval",
-    validateRequestParameters(createEscrowWithApprovalSchema),
-    async (req: Request, res: Response, next: NextFunction) => {
-        try {
-            const { creatorSecretKey, taskId, bountyAmount } = req.body;
-
-            // Convert to stroops
-            const amount = BigInt(bountyAmount * 10000000);
-
-            const result = await ContractService.createEscrowWithApproval(
-                creatorSecretKey,
-                taskId,
-                amount
-            );
-
-            res.status(201).json({
-                message: "Escrow created with USDC approval successfully",
-                data: result
-            });
-        } catch (error) {
-            next(error);
-        }
-    }
-);
-
 /**
  * Create a new escrow for a task.
- * Note: USDC approval must be done separately before calling this.
  */
 router.post("/escrow",
     validateRequestParameters(createEscrowSchema),
     async (req: Request, res: Response, next: NextFunction) => {
         try {
-            const { creatorSecretKey, taskId, bountyAmount } = req.body;
-
-            // Convert to stroops
-            const amount = BigInt(bountyAmount * 10000000);
+            const { creatorSecretKey, taskId, issueUrl, bountyAmount } = req.body;
 
             const result = await ContractService.createEscrow(
                 creatorSecretKey,
                 taskId,
-                amount
+                issueUrl,
+                bountyAmount
             );
 
             res.status(201).json({
@@ -115,12 +81,9 @@ router.post("/usdc/approve",
         try {
             const { userSecretKey, amount } = req.body;
 
-            // Convert amount string to bigint
-            const amountBigInt = BigInt(amount);
-
             const result = await ContractService.approveUsdcSpending(
                 userSecretKey,
-                amountBigInt
+                amount
             );
 
             res.status(200).json({
@@ -184,22 +147,49 @@ router.post("/task/assign",
 );
 
 /**
- * Mark a task as completed.
- * Called by the contributor when they have finished the work.
+ * Increase the bounty amount for a task.
+ * Called by the task creator.
  */
-router.post("/task/complete",
-    validateRequestParameters(completeTaskSchema),
+router.post("/task/increase-bounty",
+    validateRequestParameters(increaseBountySchema),
     async (req: Request, res: Response, next: NextFunction) => {
         try {
-            const { contributorSecretKey, taskId } = req.body;
+            const { creatorSecretKey, taskId, amount } = req.body;
 
-            const result = await ContractService.completeTask(
-                contributorSecretKey,
-                taskId
+            const result = await ContractService.increaseBounty(
+                creatorSecretKey,
+                taskId,
+                amount
             );
 
             res.status(200).json({
-                message: "Task marked as completed successfully",
+                message: "Bounty increased successfully",
+                data: result
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+);
+
+/**
+ * Decrease the bounty amount for a task.
+ * Called by the task creator.
+ */
+router.post("/task/decrease-bounty",
+    validateRequestParameters(decreaseBountySchema),
+    async (req: Request, res: Response, next: NextFunction) => {
+        try {
+            const { creatorSecretKey, taskId, amount } = req.body;
+
+            const result = await ContractService.decreaseBounty(
+                creatorSecretKey,
+                taskId,
+                amount
+            );
+
+            res.status(200).json({
+                message: "Bounty decreased successfully",
                 data: result
             });
         } catch (error) {
@@ -270,13 +260,11 @@ router.post("/task/resolve-dispute",
             const { adminSecretKey, taskId, resolution } = req.body;
 
             // Convert resolution if it's a PartialPayment
-            let processedResolution: "PayContributor" | "RefundCreator" | { PartialPayment: bigint };
+            let processedResolution: "PayContributor" | "RefundCreator" | { PartialPayment: number };
 
             if (typeof resolution === "object" && "PartialPayment" in resolution) {
-                // Convert to stroops
-                const paymentAmount = BigInt(resolution.PartialPayment * 10000000);
                 processedResolution = {
-                    PartialPayment: paymentAmount
+                    PartialPayment: resolution.PartialPayment
                 };
             } else {
                 processedResolution = resolution as "PayContributor" | "RefundCreator";
@@ -316,30 +304,6 @@ router.post("/escrow/refund",
             res.status(200).json({
                 message: "Refund processed successfully",
                 data: result
-            });
-        } catch (error) {
-            next(error);
-        }
-    }
-);
-
-/**
- * Get USDC balance for a specific Stellar address.
- */
-router.get("/usdc/balance/:publicKey",
-    validateRequestParameters(getUsdcBalanceSchema),
-    async (req: Request, res: Response, next: NextFunction) => {
-        try {
-            const { publicKey } = req.params;
-
-            const balance = await ContractService.getUsdcBalance(publicKey);
-
-            res.status(200).json({
-                message: "USDC balance retrieved successfully",
-                data: {
-                    publicKey,
-                    balance: balance.toString() // Convert bigint to string for JSON
-                }
             });
         } catch (error) {
             next(error);
