@@ -99,7 +99,6 @@ export const recordWalletTopups = async (req: Request, res: Response, next: Next
 
     try {
         let walletAddress: string;
-        let escrowAddress = "";
 
         // Get wallet info based on installation or user
         if (installationId) {
@@ -113,11 +112,7 @@ export const recordWalletTopups = async (req: Request, res: Response, next: Next
                         }
                     }
                 },
-                select: {
-                    id: true,
-                    walletAddress: true,
-                    escrowAddress: true
-                }
+                select: { id: true, walletAddress: true }
             });
 
             if (!installation) {
@@ -126,7 +121,6 @@ export const recordWalletTopups = async (req: Request, res: Response, next: Next
 
             // Set wallet details
             walletAddress = installation.walletAddress;
-            escrowAddress = installation.escrowAddress;
         } else {
             // Fetch user and verify user exists
             const user = await prisma.user.findUnique({
@@ -188,12 +182,6 @@ export const recordWalletTopups = async (req: Request, res: Response, next: Next
             const paymentTx = stellarTx as (HorizonApi.PaymentOperationResponse | HorizonApi.PathPaymentOperationResponse);
             const amount = parseFloat(paymentTx.amount);
             const asset = paymentTx.asset_type === "native" ? "XLM" : paymentTx.asset_code!;
-            // Determine source address, label 'Escrow Refunds' if payment is from escrow walet address
-            const sourceAddress = installationId
-                ? escrowAddress === paymentTx.from
-                    ? "Escrow Refunds"
-                    : paymentTx.from
-                : paymentTx.from;
 
             // Create transaction data
             const transactionData = {
@@ -201,7 +189,7 @@ export const recordWalletTopups = async (req: Request, res: Response, next: Next
                 category: TransactionCategory.TOP_UP,
                 amount,
                 asset,
-                sourceAddress,
+                sourceAddress: paymentTx.from,
                 doneAt: new Date(stellarTx.created_at),
                 ...(installationId 
                     ? { installation: { connect: { id: installationId } } }
