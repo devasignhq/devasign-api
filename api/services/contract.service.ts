@@ -34,6 +34,63 @@ export class ContractService {
     // USDC token contract instance for approval operations
     private static usdcContract = new Contract(this.CONFIG.usdcContractId);
 
+    // Map of contract error codes to user-friendly messages
+    private static ERROR_CODES: Record<string, string> = {
+        "1": "Task not found",
+        "2": "Task already exists",
+        "3": "Invalid task status",
+        "4": "Contract not initialized",
+        "10": "Unauthorized action",
+        "11": "Caller is not the task creator",
+        "12": "Caller is not the assigned contributor",
+        "13": "Caller is not the admin",
+        "14": "Caller must be creator or contributor",
+        "20": "Contributor already assigned to this task",
+        "21": "No contributor assigned to this task",
+        "22": "Insufficient balance",
+        "23": "Task is not completed",
+        "24": "Task is not disputed",
+        "25": "Task is already resolved",
+        "26": "Cannot refund while contributor is assigned",
+        "30": "Token transfer failed",
+        "31": "Invalid token amount",
+        "32": "Token contract not set",
+        "40": "Invalid task ID format",
+        "41": "Invalid address format",
+        "42": "Invalid amount",
+        "43": "Invalid dispute reason",
+        "44": "Task ID cannot be empty",
+        "45": "Task ID is too short",
+        "46": "Task ID is too long",
+        "47": "Task ID contains invalid characters",
+        "48": "Amount is too small",
+        "49": "Dispute reason is too short",
+        "50": "Invalid issue URL"
+    };
+
+    /**
+     * Helper to parse contract errors from simulation or transaction results.
+     */
+    private static parseContractError(details: unknown, defaultMessage: string): string {
+        try {
+            const errorString = typeof details === "string" ? details : JSON.stringify(details);
+
+            // Match Error(Contract, #Code) pattern
+            const match = errorString.match(/Error\(Contract,\s*#(\d+)\)/);
+
+            if (match && match[1]) {
+                const code = match[1];
+                const cleanMessage = this.ERROR_CODES[code];
+                if (cleanMessage) {
+                    return cleanMessage;
+                }
+            }
+        } catch {
+            // If parsing fails, ignore and return default
+        }
+        return defaultMessage;
+    }
+
     /**
      * Helper method to convert an amount to stroops.
      */
@@ -66,7 +123,8 @@ export class ContractService {
 
         // Check for simulation errors
         if (SorobanRpc.Api.isSimulationError(simulated)) {
-            throw new EscrowContractError(`[${functionCaller}] Submit transaction simulation failed`, simulated.error);
+            const errorMessage = this.parseContractError(simulated.error, `[${functionCaller}] Submit transaction simulation failed`);
+            throw new EscrowContractError(errorMessage, simulated.error);
         }
 
         // Prepare the transaction with accurate resource estimates from simulation
@@ -83,7 +141,8 @@ export class ContractService {
 
         // Check for submission errors
         if (response.status === "ERROR") {
-            throw new EscrowContractError(`[${functionCaller}] Submit transaction failed`, response.errorResult);
+            const errorMessage = this.parseContractError(response.errorResult, `[${functionCaller}] Submit transaction failed`);
+            throw new EscrowContractError(errorMessage, response.errorResult);
         }
 
         // Poll for transaction confirmation
@@ -95,7 +154,8 @@ export class ContractService {
 
         // Verify transaction succeeded
         if (result.status === "FAILED") {
-            throw new EscrowContractError(`[${functionCaller}] Submit transaction failed`, result.resultXdr);
+            const errorMessage = this.parseContractError(result.resultXdr, `[${functionCaller}] Submit transaction failed`);
+            throw new EscrowContractError(errorMessage, result.resultXdr);
         }
 
         return result;
@@ -156,6 +216,9 @@ export class ContractService {
                 bountyAmountInStroops
             );
         } catch (error) {
+            if (error instanceof EscrowContractError) {
+                throw error;
+            }
             throw new EscrowContractError("Failed to approve USDC spending", error);
         }
 
@@ -212,7 +275,8 @@ export class ContractService {
 
         // Check for simulation errors
         if (SorobanRpc.Api.isSimulationError(simulated)) {
-            throw new EscrowContractError(`Failed to get escrow: ${simulated.error}`);
+            const errorMessage = this.parseContractError(simulated.error, `Failed to get escrow: ${simulated.error}`);
+            throw new EscrowContractError(errorMessage, simulated.error);
         }
 
         // Extract and return the escrow data
@@ -272,6 +336,9 @@ export class ContractService {
                 amountInStroops
             );
         } catch (error) {
+            if (error instanceof EscrowContractError) {
+                throw error;
+            }
             throw new EscrowContractError("Failed to approve USDC spending", error);
         }
 
