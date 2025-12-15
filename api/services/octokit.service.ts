@@ -17,7 +17,7 @@ const commentCTA = `${process.env.CONTRIBUTOR_APP_URL!}/application`;
 export class OctokitService {
     private static githubApp = new App({
         appId: process.env.GITHUB_APP_ID!,
-        privateKey: process.env.GITHUB_APP_PRIVATE_KEY!
+        privateKey: process.env.GITHUB_APP_PRIVATE_KEY!.toString().replace(/\\n/g, "\n")
     });
 
     public static customBountyMessage = (bounty: string, taskId: string) => {
