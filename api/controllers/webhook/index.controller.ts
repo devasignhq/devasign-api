@@ -4,13 +4,10 @@ import { WorkflowIntegrationService } from "../../services/ai-review/workflow-in
 import { STATUS_CODES } from "../../utilities/data";
 import { prisma } from "../../config/database.config";
 import { dataLogger } from "../../config/logger.config";
-import { usdcAssetId } from "../../config/stellar.config";
 import { PRAnalysisService } from "../../services/ai-review/pr-analysis.service";
-import { OctokitService } from "../../services/octokit.service";
-import { stellarService } from "../../services/stellar.service";
-import { decryptWallet } from "../../utilities/helper";
+import { decryptWallet, stellarTimestampToDate } from "../../utilities/helper";
 import { TaskStatus } from "../../../prisma_client";
-import { TaskIssue } from "../../models/task.model";
+import { ContractService } from "../../services/contract.service";
 
 /**
  * Handles GitHub PR webhook events
@@ -30,7 +27,7 @@ export const handlePRWebhook = async (req: Request, res: Response, next: NextFun
         handleBountyPayout(req, res, next);
         return;
     }
-    
+
     res.status(STATUS_CODES.SUCCESS).json({
         success: true,
         message: "PR action not processed",
@@ -155,8 +152,7 @@ export const handleBountyPayout = async (req: Request, res: Response, next: Next
                 installation: {
                     select: {
                         id: true,
-                        wallet: true,
-                        escrow: true
+                        wallet: true
                     }
                 }
             }
@@ -179,12 +175,7 @@ export const handleBountyPayout = async (req: Request, res: Response, next: Next
         }
 
         try {
-            // Transfer bounty from escrow to contributor
-            const decryptedWalletSecret = await decryptWallet(relatedTask.installation.wallet);
-            const decryptedEscrowSecret = await decryptWallet(relatedTask.installation.escrow);
-            const taskIssue = relatedTask.issue as TaskIssue;
-            const repoName = OctokitService.getOwnerAndRepo(taskIssue.url);
-
+            // Verify contributor has a wallet
             if (!relatedTask.contributor || !relatedTask.contributor.wallet || !relatedTask.contributor.wallet.address) {
                 return res.status(STATUS_CODES.SUCCESS).json({
                     success: true,
@@ -193,14 +184,13 @@ export const handleBountyPayout = async (req: Request, res: Response, next: Next
                 });
             }
 
-            const transactionResponse = await stellarService.transferAssetViaSponsor(
+            // Transfer bounty from escrow to contributor via smart contract
+            const decryptedWalletSecret = await decryptWallet(relatedTask.installation.wallet);
+
+            // Approve completion via smart contract
+            const transactionResponse = await ContractService.approveCompletion(
                 decryptedWalletSecret,
-                decryptedEscrowSecret,
-                relatedTask.contributor.wallet.address,
-                usdcAssetId,
-                usdcAssetId,
-                relatedTask.bounty.toString(),
-                `PAID:${repoName[1]}#${taskIssue.number}`
+                relatedTask.id
             );
 
             // Update task as completed and settled
@@ -220,7 +210,8 @@ export const handleBountyPayout = async (req: Request, res: Response, next: Next
                     category: "BOUNTY",
                     amount: parseFloat(relatedTask.bounty.toString()),
                     task: { connect: { id: relatedTask.id } },
-                    user: { connect: { userId: relatedTask.contributor.userId } }
+                    user: { connect: { userId: relatedTask.contributor.userId } },
+                    doneAt: stellarTimestampToDate(transactionResponse.result.createdAt)
                 }
             });
 

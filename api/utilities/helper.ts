@@ -160,3 +160,22 @@ export function getFieldFromUnknownObject<T>(obj: unknown, field: string) {
     }
     return undefined;
 }
+
+/**
+ * Converts a Stellar timestamp (seconds since epoch) to a JavaScript Date object.
+ * 
+ * Stellar timestamps are typically `number` or `bigint` representing seconds.
+ * This function converts them to milliseconds and creates a `Date` object.
+ * 
+ * @param timestamp - The Stellar timestamp in seconds (can be number or bigint).
+ * @returns A Date object representing the given Stellar timestamp.
+ */
+export function stellarTimestampToDate(timestamp: number | bigint): Date {
+    // Convert bigint to number if needed
+    const timestampSeconds = typeof timestamp === "bigint"
+        ? Number(timestamp)
+        : timestamp;
+
+    // Stellar timestamps are in seconds, JavaScript Date expects milliseconds
+    return new Date(timestampSeconds * 1000);
+}

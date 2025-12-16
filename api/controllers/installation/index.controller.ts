@@ -1,6 +1,5 @@
 import { NextFunction, Request, Response } from "express";
 import { prisma } from "../../config/database.config";
-import { usdcAssetId } from "../../config/stellar.config";
 import { stellarService } from "../../services/stellar.service";
 import { decryptWallet, encryptWallet } from "../../utilities/helper";
 import { STATUS_CODES } from "../../utilities/data";
@@ -11,6 +10,8 @@ import {
     NotFoundError,
     ValidationError
 } from "../../models/error.model";
+import { ContractService } from "../../services/contract.service";
+import { dataLogger } from "../../config/logger.config";
 
 /**
  * Create a new installation.
@@ -45,11 +46,9 @@ export const createInstallation = async (req: Request, res: Response, next: Next
             user.username
         );
 
-        // Create Stellar wallets for installation and escrow
+        // Create Stellar wallets for installation
         const installationWallet = await stellarService.createWallet();
-        const escrowWallet = await stellarService.createWallet();
         const encryptedInstallationSecret = await encryptWallet(installationWallet.secretKey);
-        const encryptedEscrowSecret = await encryptWallet(escrowWallet.secretKey);
 
         // Create installation
         const installation = await prisma.installation.create({
@@ -70,12 +69,6 @@ export const createInstallation = async (req: Request, res: Response, next: Next
                     create: {
                         address: installationWallet.publicKey,
                         ...encryptedInstallationSecret
-                    }
-                },
-                escrow: {
-                    create: {
-                        address: escrowWallet.publicKey,
-                        ...encryptedEscrowSecret
                     }
                 },
                 users: {
@@ -105,11 +98,6 @@ export const createInstallation = async (req: Request, res: Response, next: Next
             await stellarService.addTrustLineViaSponsor(
                 masterAccountSecret,
                 installationWallet.secretKey
-            );
-            // Add USDC trustline for installation escrow wallet
-            await stellarService.addTrustLineViaSponsor(
-                masterAccountSecret,
-                escrowWallet.secretKey
             );
 
             // Return created installation
@@ -341,9 +329,10 @@ export const updateInstallation = async (req: Request, res: Response, next: Next
 /**
  * Delete an installation.
  */
+// TODO: restrict when installation has active tasks
 export const deleteInstallation = async (req: Request, res: Response, next: NextFunction) => {
     const { installationId } = req.params;
-    const { userId, walletAddress } = req.body;
+    const { userId, walletAddress: _ } = req.body;
 
     try {
         // Get installation and verify it exists
@@ -356,8 +345,7 @@ export const deleteInstallation = async (req: Request, res: Response, next: Next
             },
             select: {
                 wallet: true,
-                escrow: true,
-                tasks: { select: { status: true, bounty: true } }
+                tasks: { select: { id: true, status: true, bounty: true } }
             }
         });
 
@@ -370,22 +358,20 @@ export const deleteInstallation = async (req: Request, res: Response, next: Next
             throw new ValidationError("Cannot delete installation with active or completed tasks");
         }
 
-        // Refund escrow funds
+        // Refund escrow funds from smart contract for open tasks
         const decryptedWalletSecret = await decryptWallet(installation.wallet);
-        const decryptedEscrowSecret = await decryptWallet(installation.escrow);
         let refunded = 0;
 
-        installation.tasks.forEach(async (task) => {
-            await stellarService.transferAssetViaSponsor(
-                decryptedWalletSecret,
-                decryptedEscrowSecret,
-                walletAddress,
-                usdcAssetId,
-                usdcAssetId,
-                task.bounty.toString()
-            );
-            refunded += task.bounty;
-        });
+        for (const task of installation.tasks) {
+            if (task.status === "OPEN" && task.bounty > 0) {
+                try {
+                    await ContractService.refund(decryptedWalletSecret, task.id);
+                    refunded += task.bounty;
+                } catch (error) {
+                    dataLogger.warning(`Failed to refund task ${task.id}:`, error);
+                }
+            }
+        }
 
         // Delete installation
         await prisma.installation.delete({

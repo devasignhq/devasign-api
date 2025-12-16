@@ -297,8 +297,7 @@ router.patch("/wallets/installations/update-all",
                 select: {
                     id: true,
                     account: true,
-                    walletAddress: true,
-                    escrowAddress: true
+                    walletAddress: true
                 }
             });
 
@@ -320,18 +319,11 @@ router.patch("/wallets/installations/update-all",
                     const newInstallationWallet = await stellarService.createWallet();
                     const encryptedInstallationSecret = await encryptWallet(newInstallationWallet.secretKey);
 
-                    // Create new escrow wallet
-                    const newEscrowWallet = await stellarService.createWallet();
-                    const encryptedEscrowSecret = await encryptWallet(newEscrowWallet.secretKey);
-
                     // Use transaction to delete old wallets and create new ones
                     await prisma.$transaction(async (tx) => {
                         // Delete old wallets
                         await tx.wallet.delete({
                             where: { address: installation.walletAddress }
-                        });
-                        await tx.wallet.delete({
-                            where: { address: installation.escrowAddress }
                         });
 
                         // Create new wallets and update installation
@@ -343,27 +335,19 @@ router.patch("/wallets/installations/update-all",
                                         address: newInstallationWallet.publicKey,
                                         ...encryptedInstallationSecret
                                     }
-                                },
-                                escrow: {
-                                    create: {
-                                        address: newEscrowWallet.publicKey,
-                                        ...encryptedEscrowSecret
-                                    }
                                 }
                             }
                         });
                     });
 
-                    console.log("installation: ", installation.id, "Success", newInstallationWallet.publicKey, newEscrowWallet.publicKey);
+                    console.log("installation: ", installation.id, "Success", newInstallationWallet.publicKey);
 
                     results.push({
                         installationId: installation.id,
                         account: installation.account,
                         status: "success",
                         walletAddress: newInstallationWallet.publicKey,
-                        escrowAddress: newEscrowWallet.publicKey,
-                        installationTxHash: newInstallationWallet.txHash,
-                        escrowTxHash: newEscrowWallet.txHash
+                        installationTxHash: newInstallationWallet.txHash
                     });
                     successCount++;
                 } catch (error) {

@@ -560,12 +560,15 @@ describe("Installation GitHub API Integration Tests", () => {
                 prNumber: 1
             };
 
-            await request(app)
+            const response = await request(app)
                 .post(getEndpointWithPrefix(["INSTALLATION", "GITHUB", "ANALYZE_PR"])
                     .replace(":installationId", "12345678"))
                 .set("x-test-user-id", "user-1")
                 .send(analysisData)
-                .expect(STATUS_CODES.GITHUB_API_ERROR);
+                .expect(STATUS_CODES.SERVER_ERROR);
+
+            expect(response.body.message).toBe("API rate limit exceeded");
+            expect(response.body.code).toBe("GITHUB_API_ERROR");
         });
     });
 
