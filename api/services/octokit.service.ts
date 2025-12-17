@@ -32,7 +32,9 @@ export class OctokitService {
      * Get Octokit instance for a specific installation
      */
     public static async getOctokit(installationId: string): Promise<InstallationOctokit> {
+        // Get authenticated Octokit instance for the specific installation
         const octokit = await this.githubApp.getInstallationOctokit(Number(installationId));
+        // Cast to our custom InstallationOctokit type for better type safety
         return octokit as unknown as InstallationOctokit;
     }
 
@@ -45,20 +47,23 @@ export class OctokitService {
      * - Issue URL: "https://github.com/owner/repo/issues/456"
      */
     public static getOwnerAndRepo(repoUrl: string): [string, string] {
-        // Handle both URL format (https://github.com/owner/repo) and owner/repo format
+        // Split the URL/string by forward slashes to parse the structure
         const parts = repoUrl.split("/");
 
+        // Check if it's the simple "owner/repo" format (only 2 parts)
         if (parts.length === 2) {
-            // Direct owner/repo format
+            // Direct owner/repo format - return as-is
             return [parts[0], parts[1]];
         } else {
-            // URL format - find owner and repo in the path
-            // For URLs like: https://github.com/owner/repo or https://github.com/owner/repo/pull/123
+            // Find the index where "github.com" appears in the URL
             const githubIndex = parts.findIndex(part => part === "github.com");
+
+            // If found and there are at least 2 parts after it (owner and repo)
             if (githubIndex !== -1 && githubIndex + 2 < parts.length) {
+                // Return the owner (githubIndex + 1) and repo (githubIndex + 2)
                 return [parts[githubIndex + 1], parts[githubIndex + 2]];
             } else {
-                // Fallback: take the last two non-empty parts
+                // Fallback: filter out empty parts and take the last two
                 const nonEmptyParts = parts.filter(part => part.length > 0);
                 return [nonEmptyParts[nonEmptyParts.length - 2], nonEmptyParts[nonEmptyParts.length - 1]];
             }
@@ -69,8 +74,10 @@ export class OctokitService {
      * Get repositories for an installation
      */
     static async getInstallationRepositories(installationId: string) {
+        // Get authenticated Octokit instance for this installation
         const octokit = await this.getOctokit(installationId);
 
+        // Build GraphQL query to fetch repositories the installation has access to
         const query = `
             query GetInstallationRepositories {
                 viewer {
@@ -100,10 +107,12 @@ export class OctokitService {
             }
         `;
 
+        // Execute the GraphQL query and type the response
         const response = await octokit.graphql(query) as {
-            viewer : { repositories: { nodes: RepositoryDto[] } }
+            viewer: { repositories: { nodes: RepositoryDto[] } }
         };
 
+        // Return just the repository nodes array
         return response.viewer.repositories.nodes;
     }
 
@@ -111,8 +120,10 @@ export class OctokitService {
      * Get installation details from GitHub with user verification
      */
     static async getInstallationDetails(installationId: string, githubUsername: string) {
+        // Get authenticated Octokit instance for this installation
         const octokit = await this.getOctokit(installationId);
 
+        // Fetch installation details from GitHub API
         const response = await octokit.request(
             "GET /app/installations/{installation_id}",
             { installation_id: Number(installationId) }
@@ -120,12 +131,13 @@ export class OctokitService {
 
         const installation = response.data;
 
-        // Check if user is authorized to access this installation
+        // Verify user authorization to access this installation
         if (installation.target_type === "User") {
-            // For user installations, check if the requesting user is the account owner
+            // For user installations, verify the requesting user owns the account
             if (installation.account && "login" in installation.account &&
                 installation.account.login !== githubUsername
             ) {
+                // User is trying to access someone else's installation
                 throw new GitHubAPIError(
                     "Unauthorized: You can only access installations on your own account"
                 );
@@ -133,27 +145,32 @@ export class OctokitService {
         } else if (installation.target_type === "Organization" &&
             installation.account && "name" in installation.account
         ) {
-            // For organization installations, check if user is a member
+            // For organization installations, verify user is an active member
             try {
+                // Check organization membership for the user
                 const membership = await octokit.request("GET /orgs/{org}/memberships/{username}", {
                     org: installation.account.name!,
                     username: githubUsername
                 });
 
-                // Ensure user is an active member
+                // Reject if membership is still pending (not yet accepted)
                 if (membership.data.state === "pending") {
                     throw new GitHubAPIError(
                         "Unauthorized: You must be an active member of this organization to access its installation"
                     );
                 }
             } catch (error) {
+                // Handle membership check errors
                 const errorStatus = getFieldFromUnknownObject<number>(error, "status");
+
+                // 404 = not a member, 403 = forbidden
                 if (errorStatus === 404 || errorStatus === 403) {
                     throw new GitHubAPIError(
                         "Unauthorized: You must be a member of this organization to access its installation",
                         error
                     );
                 }
+                // Re-throw other errors with context
                 throw new GitHubAPIError(
                     "An error occured while verifying the installation",
                     error
@@ -161,6 +178,7 @@ export class OctokitService {
             }
         }
 
+        // User is authorized, return installation details
         return response.data;
     }
 
@@ -168,14 +186,18 @@ export class OctokitService {
      * Check if GitHub user exists
      */
     static async checkGithubUser(username: string, installationId: string): Promise<boolean> {
+        // Get authenticated Octokit instance
         const octokit = await this.getOctokit(installationId);
 
         try {
+            // Attempt to fetch user by username from GitHub API
             const response = await octokit.rest.users.getByUsername({
                 username
             });
+            // If successful (200 status), user exists
             return response.status === 200;
         } catch {
+            // If request fails (404 or other error), user doesn't exist or is inaccessible
             return false;
         }
     }
@@ -184,9 +206,12 @@ export class OctokitService {
      * Get repository details
      */
     static async getRepoDetails(repoUrl: string, installationId: string) {
+        // Get authenticated Octokit instance
         const octokit = await this.getOctokit(installationId);
+        // Extract owner and repo name from URL
         const [owner, repo] = this.getOwnerAndRepo(repoUrl);
 
+        // Build comprehensive GraphQL query to fetch all repository details
         const query = `
             query GetRepoDetails($owner: String!, $name: String!) {
                 repository(owner: $owner, name: $name) {
@@ -234,11 +259,13 @@ export class OctokitService {
             }
         `;
 
+        // Execute GraphQL query with owner and repo variables
         const response = await octokit.graphql(query, {
             owner,
             name: repo
         }) as { repository: RepositoryDto };
 
+        // Return the repository object with all details
         return response.repository;
     }
 
@@ -252,31 +279,41 @@ export class OctokitService {
         page = 1,
         perPage = 30
     ) {
+        // Get authenticated Octokit instance
         const octokit = await this.getOctokit(installationId);
+        // Extract owner and repo name from URL
         const [owner, repo] = this.getOwnerAndRepo(repoUrl);
 
+        // Build GitHub search query string starting with repo scope and issue type
         let queryString = `repo:${owner}/${repo} is:issue is:open`;
 
+        // Add title filter if provided (search in title field)
         if (filters?.title) {
             queryString += ` "${filters.title}" in:title`;
         }
 
+        // Add label filters if provided (can filter by multiple labels)
         if (filters?.labels?.length) {
             queryString += ` ${filters.labels.map(label => `label:"${label}"`).join(" ")}`;
         }
 
+        // Add milestone filter if provided
         if (filters?.milestone) {
             queryString += ` milestone:"${filters.milestone}"`;
         }
 
+        // Add sort and direction if both are provided
         if (filters?.sort && filters?.direction) {
             queryString += ` sort:"${filters.sort}-${filters.direction}"`;
         }
 
+        // Exclude issues with the "💵 Bounty" label (already managed by our system)
         queryString += " -label:\"💵 Bounty\"";
 
+        // Calculate pagination cursor for pages beyond the first
         const after = page > 1 ? `after: "${btoa(`cursor:${(page - 1) * perPage}`)}",` : "";
 
+        // Build GraphQL query with search parameters
         const query = `
             query($queryString: String!) {
                 search(
@@ -320,6 +357,7 @@ export class OctokitService {
             }
         `;
 
+        // Execute the search query
         const response = await octokit.graphql(query, { queryString }) as {
             search: {
                 nodes: IssueDto[],
@@ -327,6 +365,7 @@ export class OctokitService {
             }
         };
 
+        // Return issues array and pagination info
         return {
             issues: response.search.nodes,
             hasMore: response.search.pageInfo.hasNextPage
@@ -341,9 +380,12 @@ export class OctokitService {
         installationId: string,
         issueNumber: number
     ) {
+        // Get authenticated Octokit instance
         const octokit = await this.getOctokit(installationId);
+        // Extract owner and repo name from URL
         const [owner, repo] = this.getOwnerAndRepo(repoUrl);
 
+        // Build GraphQL query to fetch a single issue by number
         const query = `
             query GetRepoIssue($owner: String!, $name: String!, $number: Int!) {
                 repository(owner: $owner, name: $name) {
@@ -373,12 +415,14 @@ export class OctokitService {
             }
         `;
 
+        // Execute query with variables
         const response = await octokit.graphql(query, {
             owner,
             name: repo,
             number: issueNumber
         }) as { repository: { issue: IssueDto } };
 
+        // Return the issue object
         return response.repository.issue;
     }
 
@@ -394,13 +438,16 @@ export class OctokitService {
         assignees?: string[],
         state?: "open" | "closed"
     ) {
+        // Get authenticated Octokit instance
         const octokit = await this.getOctokit(installationId);
+        // Extract owner and repo name from URL
         const [owner, repo] = this.getOwnerAndRepo(repoUrl);
 
         // Build the mutation dynamically based on what needs to be updated
         const mutations = [];
         const variables: Record<string, unknown> = { issueId };
 
+        // Add body update mutation if body is provided
         if (body !== undefined) {
             mutations.push(`
                 updateIssue(input: {id: $issueId, body: $body}) {
@@ -413,8 +460,10 @@ export class OctokitService {
             variables.body = body;
         }
 
+        // Add state change mutation if state is provided
         if (state !== undefined) {
             if (state === "closed") {
+                // Use closeIssue mutation for closing
                 mutations.push(`
                     closeIssue(input: {issueId: $issueId}) {
                         issue {
@@ -424,6 +473,7 @@ export class OctokitService {
                     }
                 `);
             } else {
+                // Use reopenIssue mutation for reopening
                 mutations.push(`
                     reopenIssue(input: {issueId: $issueId}) {
                         issue {
@@ -435,8 +485,9 @@ export class OctokitService {
             }
         }
 
+        // Add labels if provided
         if (labels !== undefined && labels.length > 0) {
-            // Get label IDs first
+            // First, fetch all repository labels to get their IDs
             const labelsQuery = `
                 query GetLabelIds($owner: String!, $name: String!) {
                     repository(owner: $owner, name: $name) {
@@ -450,17 +501,21 @@ export class OctokitService {
                 }
             `;
 
+            // Execute query to get label IDs
             const labelsResponse = await octokit.graphql(labelsQuery, {
                 owner,
                 name: repo
             }) as { repository: { labels: { nodes: IssueLabel[] } } };
 
             const allLabels = labelsResponse.repository.labels.nodes;
+
+            // Map label names to their IDs, filtering out any that don't exist
             const labelIds = labels.map(labelName => {
                 const label = allLabels.find((l) => l.name === labelName);
                 return label?.id;
             }).filter(Boolean);
 
+            // Only add the mutation if we found valid label IDs
             if (labelIds.length > 0) {
                 mutations.push(`
                     addLabelsToLabelable(input: {labelableId: $issueId, labelIds: $labelIds}) {
@@ -471,6 +526,7 @@ export class OctokitService {
             }
         }
 
+        // Add assignees if provided
         if (assignees !== undefined && assignees.length > 0) {
             mutations.push(`
                 addAssigneesToAssignable(input: {assignableId: $issueId, assigneeIds: $assigneeIds}) {
@@ -480,12 +536,14 @@ export class OctokitService {
             variables.assigneeIds = assignees;
         }
 
+        // Ensure at least one update was specified
         if (mutations.length === 0) {
             throw new GitHubAPIError("No updates specified");
         }
 
+        // Build the final mutation with dynamic variable types based on what's included
         const mutation = `
-            mutation UpdateIssue(${Object.keys(variables).map(key => {
+        mutation UpdateIssue(${Object.keys(variables).map(key => {
         if (key === "issueId") return "$issueId: ID!";
         if (key === "body") return "$body: String!";
         if (key === "labelIds") return "$labelIds: [ID!]!";
@@ -496,6 +554,7 @@ export class OctokitService {
             }
         `;
 
+        // Execute the mutation with all variables
         const response = await octokit.graphql(mutation, variables);
 
         return response;
@@ -505,9 +564,12 @@ export class OctokitService {
      * Get repository labels and milestones
      */
     static async getRepoLabelsAndMilestones(repoUrl: string, installationId: string) {
+        // Get authenticated Octokit instance
         const octokit = await this.getOctokit(installationId);
+        // Extract owner and repo name from URL
         const [owner, repo] = this.getOwnerAndRepo(repoUrl);
 
+        // Build GraphQL query to fetch both labels and milestones in one request
         const query = `
             query GetRepoLabelsAndMilestones($owner: String!, $name: String!) {
                 repository(owner: $owner, name: $name) {
@@ -537,6 +599,7 @@ export class OctokitService {
             }
         `;
 
+        // Execute the query
         const response = await octokit.graphql(query, {
             owner,
             name: repo
@@ -547,9 +610,12 @@ export class OctokitService {
             }
         };
 
+        // Get all labels from response
         const allLabels = response.repository.labels.nodes;
+        // Filter out the "💵 Bounty" label
         const filteredLabels = allLabels.filter(label => label.name !== "💵 Bounty");
 
+        // Return filtered labels and all milestones
         return {
             labels: filteredLabels,
             milestones: response.repository.milestones.nodes
@@ -560,8 +626,10 @@ export class OctokitService {
      * Create bounty label
      */
     static async createBountyLabel(repositoryId: string, installationId: string) {
+        // Get authenticated Octokit instance
         const octokit = await this.getOctokit(installationId);
 
+        // Build GraphQL mutation to create the bounty label
         const mutation = `
             mutation CreateLabel($repositoryId: ID!, $name: String!, $color: String!, $description: String!) {
                 createLabel(input: {repositoryId: $repositoryId, name: $name, color: $color, description: $description}) {
@@ -575,6 +643,7 @@ export class OctokitService {
             }
         `;
 
+        // Execute mutation with bounty label details
         const response = await octokit.graphql(mutation, {
             repositoryId,
             name: "💵 Bounty",
@@ -582,6 +651,7 @@ export class OctokitService {
             description: "Issues with a monetary reward"
         }) as { createLabel: { label: IssueLabel } };
 
+        // Return the created label object
         return response.createLabel.label;
     }
 
@@ -589,8 +659,10 @@ export class OctokitService {
      * Get bounty label
      */
     static async getBountyLabel(repositoryId: string, installationId: string) {
+        // Get authenticated Octokit instance
         const octokit = await this.getOctokit(installationId);
 
+        // Build GraphQL query to search for the bounty label in the repository
         const query = `
             query GetBountyLabel($repositoryId: ID!) {
                 node(id: $repositoryId) {
@@ -608,18 +680,22 @@ export class OctokitService {
             }
         `;
 
+        // Execute the query
         const response = await octokit.graphql(query, {
             repositoryId
         }) as { node: { labels: { nodes: IssueLabel[] } } };
 
+        // Find the bounty label in the results
         const bountyLabel = response.node.labels.nodes.find(
             (label) => label.name === "💵 Bounty"
         );
 
+        // Throw error if bounty label doesn't exist
         if (!bountyLabel) {
             throw new GitHubAPIError("Bounty label not found");
         }
 
+        // Return the bounty label
         return bountyLabel;
     }
 
@@ -632,8 +708,10 @@ export class OctokitService {
         bountyLabelId: string,
         body: string
     ) {
+        // Get authenticated Octokit instance
         const octokit = await this.getOctokit(installationId);
 
+        // Build GraphQL mutation to add label and create comment in a single request
         const mutation = `
             mutation AddLabelAndCreateComment($issueId: ID!, $labelIds: [ID!]!, $body: String!) {
                 addLabelsToLabelable(input: {labelableId: $issueId, labelIds: $labelIds}) {
@@ -654,12 +732,14 @@ export class OctokitService {
             }
         `;
 
+        // Execute mutation with issue ID, bounty label ID, and comment body
         const response = await octokit.graphql(mutation, {
             issueId,
             labelIds: [bountyLabelId],
             body
         }) as { addComment: { commentEdge: { node: GitHubComment } } };
 
+        // Return the created comment object
         return response.addComment.commentEdge.node;
     }
 
@@ -671,8 +751,10 @@ export class OctokitService {
         commentId: string,
         body: string
     ) {
+        // Get authenticated Octokit instance
         const octokit = await this.getOctokit(installationId);
 
+        // Build GraphQL mutation to update the comment body
         const mutation = `
             mutation UpdateIssueComment($commentId: ID!, $body: String!) {
                 updateIssueComment(input: {id: $commentId, body: $body}) {
@@ -688,11 +770,14 @@ export class OctokitService {
                 }
             }
         `;
+
+        // Execute mutation with comment ID and new body
         const response = await octokit.graphql(mutation, {
             commentId,
             body
         }) as { updateIssueComment: { issueComment: GitHubComment } };
 
+        // Return the updated comment object
         return response.updateIssueComment.issueComment;
     }
 
@@ -704,9 +789,10 @@ export class OctokitService {
         issueId: string,
         commentId: string
     ) {
+        // Get authenticated Octokit instance
         const octokit = await this.getOctokit(installationId);
 
-        // First, get the issue and find the bounty label ID
+        // First, query the issue to find the bounty label ID
         const issueQuery = `
             query GetIssueLabels($issueId: ID!) {
                 node(id: $issueId) {
@@ -722,14 +808,19 @@ export class OctokitService {
             }
         `;
 
+        // Execute query to get issue labels
         const issueResponse = await octokit.graphql(
             issueQuery, { issueId }
         ) as { node: { labels: { nodes: IssueLabel[] } } };
+
         const labels = issueResponse.node.labels.nodes;
+        // Find the bounty label among all labels
         const bountyLabel = labels.find((label) => label.name === "💵 Bounty");
 
+        // If bounty label not found, just delete the comment
         if (!bountyLabel) {
             if (commentId && issueId) {
+                // Build mutation to only delete the comment
                 const mutation = `
                     mutation RemoveLabelAndDeleteComment($issueId: ID!, $commentId: ID!) {
                         deleteIssueComment(input: {id: $commentId}) {
@@ -738,6 +829,7 @@ export class OctokitService {
                     }
                 `;
 
+                // Execute comment deletion
                 await octokit.graphql(mutation, {
                     issueId,
                     commentId
@@ -748,7 +840,7 @@ export class OctokitService {
             throw new GitHubAPIError("Bounty label not found on this issue");
         }
 
-        // Then remove the label and delete the comment
+        // Build mutation to remove label and delete comment in one request
         const mutation = `
             mutation RemoveLabelAndDeleteComment($issueId: ID!, $labelIds: [ID!]!, $commentId: ID!) {
                 removeLabelsFromLabelable(input: {labelableId: $issueId, labelIds: $labelIds}) {
@@ -760,6 +852,7 @@ export class OctokitService {
             }
         `;
 
+        // Execute mutation to remove label and delete comment
         await octokit.graphql(mutation, {
             issueId,
             labelIds: [bountyLabel.id],
@@ -777,9 +870,12 @@ export class OctokitService {
         repoUrl: string,
         prNumber: number
     ) {
+        // Get authenticated Octokit instance
         const octokit = await this.getOctokit(installationId);
+        // Extract owner and repo name from URL
         const [owner, repo] = this.getOwnerAndRepo(repoUrl);
 
+        // Fetch all files changed in the pull request (up to 100 files)
         const { data: files } = await octokit.rest.pulls.listFiles({
             owner,
             repo,
@@ -787,6 +883,7 @@ export class OctokitService {
             per_page: 100 // GitHub's max per page
         });
 
+        // Return the array of file objects with changes
         return files;
     }
 
@@ -798,21 +895,27 @@ export class OctokitService {
         repoUrl: string,
         prNumber: number
     ) {
+        // Get authenticated Octokit instance
         const octokit = await this.getOctokit(installationId);
+        // Extract owner and repo name from URL
         const [owner, repo] = this.getOwnerAndRepo(repoUrl);
 
         try {
+            // Fetch pull request details from GitHub API
             const { data: pr } = await octokit.rest.pulls.get({
                 owner,
                 repo,
                 pull_number: prNumber
             });
 
+            // Return the PR object
             return pr;
         } catch (error) {
+            // Check if PR was not found (404 error)
             if (getFieldFromUnknownObject<number>(error, "status") === 404) {
-                return null; // PR not found
+                return null;
             }
+            // Re-throw other errors with context
             throw new GitHubAPIError(
                 "Failed to fetch pull request details",
                 error
@@ -829,10 +932,13 @@ export class OctokitService {
         filePath: string,
         ref?: string
     ): Promise<string> {
+        // Get authenticated Octokit instance
         const octokit = await this.getOctokit(installationId);
+        // Extract owner and repo name from URL
         const [owner, repo] = this.getOwnerAndRepo(repoUrl);
 
         try {
+            // Fetch file content from repository (defaults to HEAD if no ref specified)
             const { data } = await octokit.rest.repos.getContent({
                 owner,
                 repo,
@@ -840,16 +946,19 @@ export class OctokitService {
                 ref: ref || "HEAD"
             });
 
-            // Handle file content (not directory)
+            // Ensure we got file content (not a directory)
             if ("content" in data && typeof data.content === "string") {
-                // Decode base64 content
+                // Decode base64 content to UTF-8 string
                 return Buffer.from(data.content, "base64").toString("utf-8");
             } else {
+                // Path points to a directory or content is unavailable
                 throw new Error(`Path ${filePath} is not a file or content not available`);
             }
         } catch (error) {
+            // Extract error status code
             const errorStatus = getFieldFromUnknownObject<number>(error, "status");
 
+            // Handle file not found error
             if (errorStatus === 404) {
                 throw new GitHubAPIError(
                     `File ${filePath} not found in repository`,
@@ -857,7 +966,8 @@ export class OctokitService {
                     errorStatus
                 );
             }
-                
+
+            // Re-throw other errors with context
             throw new GitHubAPIError(
                 `Failed to fetch file content: ${getFieldFromUnknownObject<number>(error, "message")}`,
                 error
@@ -896,7 +1006,7 @@ export class OctokitService {
                 owner,
                 repo,
                 tree_sha: commitSha,
-                recursive: "true" // This is key - gets the entire tree structure
+                recursive: "true" // This gets the entire tree structure
             });
 
             // Filter to only get file paths (not directories)
@@ -922,9 +1032,12 @@ export class OctokitService {
      * Get the default branch of a repository
      */
     static async getDefaultBranch(installationId: string, repoUrl: string): Promise<string> {
+        // Get authenticated Octokit instance
         const octokit = await this.getOctokit(installationId);
+        // Extract owner and repo name from URL
         const [owner, repo] = this.getOwnerAndRepo(repoUrl);
 
+        // Build GraphQL query to fetch the default branch name
         const query = `query($owner: String!, $repo: String!) {
             repository(owner: $owner, name: $repo) {
                 defaultBranchRef {
@@ -934,12 +1047,15 @@ export class OctokitService {
         }`;
 
         try {
+            // Execute query to get default branch
             const response = await octokit.graphql(
                 query, { owner, repo }
             ) as { repository: { defaultBranchRef: { name: string } } };
 
+            // Return the default branch name, fallback to "main" if not found
             return response.repository.defaultBranchRef?.name || "main";
         } catch {
+            // If query fails, log warning and default to "main"
             messageLogger.warn(`Could not get default branch for ${owner}/${repo}, using 'main'`);
             return "main";
         }
@@ -953,11 +1069,15 @@ export class OctokitService {
         repoUrl: string,
         branchCandidates: string[] = ["main", "master"]
     ): Promise<string> {
+        // Get authenticated Octokit instance
         const octokit = await this.getOctokit(installationId);
+        // Extract owner and repo name from URL
         const [owner, repo] = this.getOwnerAndRepo(repoUrl);
 
+        // Try each branch candidate in order until we find one that exists
         for (const branch of branchCandidates) {
             try {
+                // Build GraphQL query to check if branch exists
                 const query = `query($owner: String!, $repo: String!, $expression: String!) {
                     repository(owner: $owner, name: $repo) {
                         object(expression: $expression) {
@@ -966,12 +1086,14 @@ export class OctokitService {
                     }
                 }`;
 
+                // Execute query with current branch candidate
                 const response = await octokit.graphql(query, {
                     owner,
                     repo,
                     expression: branch
                 }) as { repository: { object: { oid: string } } };
 
+                // If object exists, this branch is valid - return it
                 if (response.repository.object) {
                     return branch;
                 }
@@ -980,6 +1102,7 @@ export class OctokitService {
             }
         }
 
+        // None of the branch candidates were found - throw error
         throw new GitHubAPIError(
             `No valid branch found among: ${branchCandidates.join(", ")}`
         );
@@ -995,14 +1118,18 @@ export class OctokitService {
         filePaths: string[],
         branch?: string
     ): Promise<Record<string, { text: string; byteSize: number; isBinary: boolean; oid: string } | null>> {
+        // Get authenticated Octokit instance
         const octokit = await this.getOctokit(installationId);
+        // Extract owner and repo name from URL
         const [owner, repo] = this.getOwnerAndRepo(repoUrl);
 
         // Auto-detect branch if not provided
         if (!branch) {
             try {
+                // Try to get the default branch first
                 branch = await this.getDefaultBranch(installationId, repoUrl);
             } catch {
+                // If that fails, find a valid branch from common candidates
                 branch = await this.findValidBranch(installationId, repoUrl);
             }
         }
@@ -1011,13 +1138,17 @@ export class OctokitService {
         const maxFilesPerRequest = 50;
         const results: Record<string, { text: string; byteSize: number; isBinary: boolean; oid: string } | null> = {};
 
+        // Process files in batches to stay within API limits
         for (let i = 0; i < filePaths.length; i += maxFilesPerRequest) {
+            // Get the current batch of file paths
             const batchPaths = filePaths.slice(i, i + maxFilesPerRequest);
-            
+
+            // Build individual file queries for this batch using GraphQL fragments
             const fileQueries = batchPaths.map((path, index) => {
                 return `file${index}: object(expression: "${branch}:${path}") { ...FileContent }`;
             }).join("\n");
 
+            // Build complete GraphQL query with fragment for file content
             const query = `
                 fragment FileContent on Blob {
                     text
@@ -1033,22 +1164,26 @@ export class OctokitService {
             `;
 
             try {
+                // Execute query to fetch all files in this batch
                 const response = await octokit.graphql(query, { owner, repo }) as {
                     repository: Record<string, { text: string; byteSize: number; isBinary: boolean; oid: string }>
                 };
-                
+
+                // Map the results back to the original file paths
                 batchPaths.forEach((path, index) => {
                     results[path] = response.repository[`file${index}`];
                 });
             } catch (error) {
+                // Log error for this batch
                 dataLogger.error(`Error fetching file batch starting at index ${i}`, { error });
-                // Mark failed files as null
+                // Mark failed files as null so caller knows they failed
                 batchPaths.forEach(path => {
                     results[path] = null;
                 });
             }
         }
 
+        // Return the complete results object with all file contents or nulls
         return results;
     }
 }
