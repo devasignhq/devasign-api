@@ -23,7 +23,6 @@ jest.mock("../../../../api/services/stellar.service", () => ({
     stellarService: {
         getAccountInfo: jest.fn(),
         transferAsset: jest.fn(),
-        transferAssetViaSponsor: jest.fn(),
         addTrustLineViaSponsor: jest.fn()
     }
 }));
@@ -45,20 +44,10 @@ jest.mock("../../../../api/services/octokit.service", () => ({
     }
 }));
 
-// Mock helper utilities
-function getFieldFromUnknownObject<T>(obj: unknown, field: string) {
-    if (typeof obj !== "object" || !obj) {
-        return undefined;
+jest.mock("../../../../api/services/kms.service", () => ({
+    KMSService: {
+        decryptWallet: jest.fn().mockResolvedValue("STEST1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12")
     }
-    if (field in obj) {
-        return (obj as Record<string, T>)[field];
-    }
-    return undefined;
-}
-
-jest.mock("../../../../api/utilities/helper", () => ({
-    getFieldFromUnknownObject,
-    decryptWallet: jest.fn().mockResolvedValue("STEST1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12")
 }));
 
 describe("Task Contributor API Integration Tests", () => {
@@ -133,8 +122,7 @@ describe("Task Contributor API Integration Tests", () => {
             testInstallation = await prisma.installation.create({
                 data: {
                     ...testInstallation,
-                    wallet: TestDataFactory.createWalletRelation(),
-                    escrow: TestDataFactory.createWalletRelation()
+                    wallet: TestDataFactory.createWalletRelation()
                 }
             });
 
@@ -285,8 +273,7 @@ describe("Task Contributor API Integration Tests", () => {
             await prisma.installation.create({
                 data: {
                     ...installation,
-                    wallet: TestDataFactory.createWalletRelation(),
-                    escrow: TestDataFactory.createWalletRelation()
+                    wallet: TestDataFactory.createWalletRelation()
                 }
             });
 

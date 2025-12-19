@@ -24,8 +24,15 @@ jest.mock("../../../../api/services/stellar.service", () => ({
     stellarService: {
         getAccountInfo: jest.fn(),
         transferAsset: jest.fn(),
-        transferAssetViaSponsor: jest.fn(),
         addTrustLineViaSponsor: jest.fn()
+    }
+}));
+
+// Mock Contract service for smart contract operations
+jest.mock("../../../../api/services/contract.service", () => ({
+    ContractService: {
+        createEscrow: jest.fn(),
+        refund: jest.fn()
     }
 }));
 
@@ -47,20 +54,10 @@ jest.mock("../../../../api/services/octokit.service", () => ({
     }
 }));
 
-// Mock helper utilities
-function getFieldFromUnknownObject<T>(obj: unknown, field: string) {
-    if (typeof obj !== "object" || !obj) {
-        return undefined;
+jest.mock("../../../../api/services/kms.service", () => ({
+    KMSService: {
+        decryptWallet: jest.fn().mockResolvedValue("STEST1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12")
     }
-    if (field in obj) {
-        return (obj as Record<string, T>)[field];
-    }
-    return undefined;
-}
-
-jest.mock("../../../../api/utilities/helper", () => ({
-    getFieldFromUnknownObject,
-    decryptWallet: jest.fn().mockResolvedValue("STEST1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12")
 }));
 
 describe("Task API Integration Tests", () => {
@@ -70,6 +67,7 @@ describe("Task API Integration Tests", () => {
     let mockStellarService: any;
     let mockFirebaseService: any;
     let mockOctokitService: any;
+    let mockContractService: any;
 
     beforeAll(async () => {
         prisma = await DatabaseTestHelper.setupTestDatabase();
@@ -106,6 +104,9 @@ describe("Task API Integration Tests", () => {
 
         const { OctokitService } = await import("../../../../api/services/octokit.service");
         mockOctokitService = OctokitService;
+
+        const { ContractService } = await import("../../../../api/services/contract.service");
+        mockContractService = ContractService;
     });
 
     beforeEach(async () => {
@@ -132,10 +133,6 @@ describe("Task API Integration Tests", () => {
             txHash: "test-tx-hash-123"
         });
 
-        mockStellarService.transferAssetViaSponsor.mockResolvedValue({
-            txHash: "test-refund-tx-hash"
-        });
-
         mockStellarService.addTrustLineViaSponsor.mockResolvedValue(true);
 
         mockFirebaseService.createTask.mockResolvedValue({
@@ -152,6 +149,19 @@ describe("Task API Integration Tests", () => {
         mockOctokitService.customBountyMessage.mockReturnValue("Bounty message");
         mockOctokitService.removeBountyLabelAndDeleteBountyComment.mockResolvedValue(true);
         mockOctokitService.getOwnerAndRepo.mockReturnValue(["test-owner", "test-repo"]);
+
+        mockContractService.createEscrow.mockResolvedValue({
+            success: true,
+            txHash: "test-contract-tx-hash",
+            approvalTxHash: "test-approval-tx-hash",
+            result: { createdAt: 1234567890 }
+        });
+
+        mockContractService.refund.mockResolvedValue({
+            success: true,
+            txHash: "test-refund-tx-hash",
+            result: { createdAt: 1234567890 }
+        });
 
         TestDataFactory.resetCounters();
     });
@@ -181,8 +191,7 @@ describe("Task API Integration Tests", () => {
             await prisma.installation.create({
                 data: {
                     ...testInstallation,
-                    wallet: TestDataFactory.createWalletRelation(),
-                    escrow: TestDataFactory.createWalletRelation()
+                    wallet: TestDataFactory.createWalletRelation()
                 }
             });
         });
@@ -214,8 +223,8 @@ describe("Task API Integration Tests", () => {
             });
             expect(createdTask).toBeTruthy();
 
-            // Verify Stellar service was called for transfer
-            expect(mockStellarService.transferAsset).toHaveBeenCalledTimes(1);
+            // Verify Contract service was called for escrow creation
+            expect(mockContractService.createEscrow).toHaveBeenCalledTimes(1);
             expect(mockOctokitService.addBountyLabelAndCreateBountyComment).toHaveBeenCalledTimes(1);
         });
 
@@ -333,8 +342,7 @@ describe("Task API Integration Tests", () => {
             await prisma.installation.create({
                 data: {
                     ...testInstallation,
-                    wallet: TestDataFactory.createWalletRelation(),
-                    escrow: TestDataFactory.createWalletRelation()
+                    wallet: TestDataFactory.createWalletRelation()
                 }
             });
 
@@ -444,8 +452,7 @@ describe("Task API Integration Tests", () => {
             await prisma.installation.create({
                 data: {
                     ...testInstallation,
-                    wallet: TestDataFactory.createWalletRelation(),
-                    escrow: TestDataFactory.createWalletRelation()
+                    wallet: TestDataFactory.createWalletRelation()
                 }
             });
 
@@ -502,8 +509,7 @@ describe("Task API Integration Tests", () => {
             await prisma.installation.create({
                 data: {
                     ...testInstallation,
-                    wallet: TestDataFactory.createWalletRelation(),
-                    escrow: TestDataFactory.createWalletRelation()
+                    wallet: TestDataFactory.createWalletRelation()
                 }
             });
 
@@ -533,8 +539,8 @@ describe("Task API Integration Tests", () => {
             });
             expect(deletedTask).toBeNull();
 
-            // Verify bounty was refunded
-            expect(mockStellarService.transferAssetViaSponsor).toHaveBeenCalledTimes(1);
+            // Verify bounty was refunded via contract
+            expect(mockContractService.refund).toHaveBeenCalledTimes(1);
         });
 
         it("should return error when user is not the creator", async () => {

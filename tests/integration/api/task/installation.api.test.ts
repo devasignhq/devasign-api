@@ -23,7 +23,6 @@ jest.mock("../../../../api/services/stellar.service", () => ({
     stellarService: {
         getAccountInfo: jest.fn(),
         transferAsset: jest.fn(),
-        transferAssetViaSponsor: jest.fn(),
         addTrustLineViaSponsor: jest.fn()
     }
 }));
@@ -111,8 +110,7 @@ describe("Task Installation API Integration Tests", () => {
             testInstallation = await prisma.installation.create({
                 data: {
                     ...testInstallation,
-                    wallet: TestDataFactory.createWalletRelation(),
-                    escrow: TestDataFactory.createWalletRelation()
+                    wallet: TestDataFactory.createWalletRelation()
                 }
             });
 
@@ -264,8 +262,7 @@ describe("Task Installation API Integration Tests", () => {
             testInstallation = await prisma.installation.create({
                 data: {
                     ...testInstallation,
-                    wallet: TestDataFactory.createWalletRelation(),
-                    escrow: TestDataFactory.createWalletRelation()
+                    wallet: TestDataFactory.createWalletRelation()
                 }
             });
 
@@ -335,8 +332,7 @@ describe("Task Installation API Integration Tests", () => {
             await prisma.installation.create({
                 data: {
                     ...otherInstallation,
-                    wallet: TestDataFactory.createWalletRelation(),
-                    escrow: TestDataFactory.createWalletRelation()
+                    wallet: TestDataFactory.createWalletRelation()
                 }
             });
 

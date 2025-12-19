@@ -23,8 +23,17 @@ jest.mock("../../../../api/config/firebase.config", () => {
 jest.mock("../../../../api/services/stellar.service", () => ({
     stellarService: {
         getAccountInfo: jest.fn(),
-        transferAsset: jest.fn(),
-        transferAssetViaSponsor: jest.fn()
+        transferAsset: jest.fn()
+    }
+}));
+
+// Mock Contract service
+jest.mock("../../../../api/services/contract.service", () => ({
+    ContractService: {
+        increaseBounty: jest.fn(),
+        decreaseBounty: jest.fn(),
+        assignContributor: jest.fn(),
+        approveCompletion: jest.fn()
     }
 }));
 
@@ -46,47 +55,16 @@ jest.mock("../../../../api/services/octokit.service", () => ({
     }
 }));
 
-// Mock helper utilities
-function getFieldFromUnknownObject<T>(obj: unknown, field: string) {
-    if (typeof obj !== "object" || !obj) {
-        return undefined;
+jest.mock("../../../../api/services/kms.service", () => ({
+    KMSService: {
+        encryptWallet: jest.fn().mockResolvedValue({
+            encryptedDEK: "mockEncryptedDEK",
+            encryptedSecret: "mockEncryptedSecret",
+            iv: "mockIV",
+            authTag: "mockAuthTag"
+        }),
+        decryptWallet: jest.fn().mockResolvedValue("STEST1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12")
     }
-    if (field in obj) {
-        return (obj as Record<string, T>)[field];
-    }
-    return undefined;
-}
-function moneyFormat(
-    value: number | string | bigint,
-    standard?: string | string[],
-    dec?: number,
-    noDecimals?: boolean
-) {
-    const decimal = (noDecimals || dec === 0)
-        ? 0
-        : dec || 2;
-
-    const options: Intl.NumberFormatOptions = {
-        minimumFractionDigits: decimal,
-        maximumFractionDigits: decimal
-    };
-
-    try {
-        // Use default locale if none provided or invalid
-        const locale = standard || "en-US";
-        const nf = new Intl.NumberFormat(locale, options);
-        return (value || value === 0) ? nf.format(Number(value)) : "--";
-    } catch {
-        // Fallback to basic locale if the provided one fails
-        const nf = new Intl.NumberFormat("en-US", options);
-        return (value || value === 0) ? nf.format(Number(value)) : "--";
-    }
-}
-
-jest.mock("../../../../api/utilities/helper", () => ({
-    getFieldFromUnknownObject,
-    moneyFormat,
-    decryptWallet: jest.fn().mockResolvedValue("STEST1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12")
 }));
 
 describe("Task {taskId} API Integration Tests", () => {
@@ -96,6 +74,7 @@ describe("Task {taskId} API Integration Tests", () => {
     let mockStellarService: any;
     let mockFirebaseService: any;
     let mockOctokitService: any;
+    let mockContractService: any;
 
     beforeAll(async () => {
         prisma = await DatabaseTestHelper.setupTestDatabase();
@@ -132,6 +111,9 @@ describe("Task {taskId} API Integration Tests", () => {
 
         const { OctokitService } = await import("../../../../api/services/octokit.service");
         mockOctokitService = OctokitService;
+
+        const { ContractService } = await import("../../../../api/services/contract.service");
+        mockContractService = ContractService;
     });
 
     beforeEach(async () => {
@@ -158,10 +140,6 @@ describe("Task {taskId} API Integration Tests", () => {
             txHash: "test-tx-hash-123"
         });
 
-        mockStellarService.transferAssetViaSponsor.mockResolvedValue({
-            txHash: "test-refund-tx-hash"
-        });
-
         mockFirebaseService.createMessage.mockResolvedValue({
             id: "firebase_message_123",
             userId: "test-user-1",
@@ -180,6 +158,32 @@ describe("Task {taskId} API Integration Tests", () => {
         mockOctokitService.updateIssueComment.mockResolvedValue(true);
         mockOctokitService.customBountyMessage.mockReturnValue("Updated bounty message");
         mockOctokitService.getOwnerAndRepo.mockReturnValue(["test-owner", "test-repo"]);
+
+        mockContractService.increaseBounty.mockResolvedValue({
+            success: true,
+            txHash: "test-increase-bounty-tx-hash",
+            approvalTxHash: "test-approval-tx-hash",
+            result: { createdAt: 1234567890 }
+        });
+
+        mockContractService.decreaseBounty.mockResolvedValue({
+            success: true,
+            txHash: "test-decrease-bounty-tx-hash",
+            approvalTxHash: "test-approval-tx-hash",
+            result: { createdAt: 1234567890 }
+        });
+
+        mockContractService.assignContributor.mockResolvedValue({
+            success: true,
+            txHash: "test-assign-contributor-tx-hash",
+            result: { createdAt: 1234567890 }
+        });
+
+        mockContractService.approveCompletion.mockResolvedValue({
+            success: true,
+            txHash: "test-approve-completion-tx-hash",
+            result: { createdAt: 1234567890 }
+        });
 
         TestDataFactory.resetCounters();
     });
@@ -205,8 +209,7 @@ describe("Task {taskId} API Integration Tests", () => {
                     users: {
                         connect: { userId: "task-creator" }
                     },
-                    wallet: TestDataFactory.createWalletRelation(),
-                    escrow: TestDataFactory.createWalletRelation()
+                    wallet: TestDataFactory.createWalletRelation()
                 }
             });
 
@@ -287,8 +290,7 @@ describe("Task {taskId} API Integration Tests", () => {
                     users: {
                         connect: { userId: "task-creator" }
                     },
-                    wallet: TestDataFactory.createWalletRelation(),
-                    escrow: TestDataFactory.createWalletRelation()
+                    wallet: TestDataFactory.createWalletRelation()
                 }
             });
 
@@ -325,8 +327,8 @@ describe("Task {taskId} API Integration Tests", () => {
                 updatedAt: expect.any(String)
             });
 
-            // Verify Stellar service was called for additional funds
-            expect(mockStellarService.transferAsset).toHaveBeenCalledTimes(1);
+            // Verify Contract service was called for additional funds
+            expect(mockContractService.increaseBounty).toHaveBeenCalledTimes(1);
         });
 
         it("should decrease task bounty successfully", async () => {
@@ -342,8 +344,8 @@ describe("Task {taskId} API Integration Tests", () => {
                 updatedAt: expect.any(String)
             });
 
-            // Verify Stellar service was called for refund
-            expect(mockStellarService.transferAssetViaSponsor).toHaveBeenCalledTimes(1);
+            // Verify Contract service was called for refund
+            expect(mockContractService.decreaseBounty).toHaveBeenCalledTimes(1);
         });
 
         it("should return error when user is not the creator", async () => {
@@ -423,7 +425,6 @@ describe("Task {taskId} API Integration Tests", () => {
 
             expect(response.body).toMatchObject({
                 error: expect.any(Object),
-                transactionRecord: true,
                 task: expect.objectContaining({
                     bounty: 150,
                     updatedAt: expect.any(String)
@@ -449,8 +450,7 @@ describe("Task {taskId} API Integration Tests", () => {
                     users: {
                         connect: { userId: "task-creator" }
                     },
-                    wallet: TestDataFactory.createWalletRelation(),
-                    escrow: TestDataFactory.createWalletRelation()
+                    wallet: TestDataFactory.createWalletRelation()
                 }
             });
 
@@ -558,8 +558,7 @@ describe("Task {taskId} API Integration Tests", () => {
                     users: {
                         connect: { userId: "task-creator" }
                     },
-                    wallet: TestDataFactory.createWalletRelation(),
-                    escrow: TestDataFactory.createWalletRelation()
+                    wallet: TestDataFactory.createWalletRelation()
                 }
             });
 
@@ -656,7 +655,11 @@ describe("Task {taskId} API Integration Tests", () => {
 
             const contributor = TestDataFactory.user({ userId: contributorId });
             await prisma.user.create({
-                data: { ...contributor, contributionSummary: { create: {} } }
+                data: { 
+                    ...contributor, 
+                    contributionSummary: { create: {} },
+                    wallet: TestDataFactory.createWalletRelation()
+                }
             });
 
             const testInstallation = TestDataFactory.installation({ id: "12345678" });
@@ -666,8 +669,7 @@ describe("Task {taskId} API Integration Tests", () => {
                     users: {
                         connect: { userId: "task-creator" }
                     },
-                    wallet: TestDataFactory.createWalletRelation(),
-                    escrow: TestDataFactory.createWalletRelation()
+                    wallet: TestDataFactory.createWalletRelation()
                 }
             });
 
@@ -806,8 +808,7 @@ describe("Task {taskId} API Integration Tests", () => {
                     users: {
                         connect: { userId: "task-creator" }
                     },
-                    wallet: TestDataFactory.createWalletRelation(),
-                    escrow: TestDataFactory.createWalletRelation()
+                    wallet: TestDataFactory.createWalletRelation()
                 }
             });
 
@@ -908,8 +909,7 @@ describe("Task {taskId} API Integration Tests", () => {
                     users: {
                         connect: { userId: "task-creator" }
                     },
-                    wallet: TestDataFactory.createWalletRelation(),
-                    escrow: TestDataFactory.createWalletRelation()
+                    wallet: TestDataFactory.createWalletRelation()
                 }
             });
 
@@ -1035,8 +1035,7 @@ describe("Task {taskId} API Integration Tests", () => {
                     users: {
                         connect: { userId: "task-creator" }
                     },
-                    wallet: TestDataFactory.createWalletRelation(),
-                    escrow: TestDataFactory.createWalletRelation()
+                    wallet: TestDataFactory.createWalletRelation()
                 }
             });
 
@@ -1151,8 +1150,7 @@ describe("Task {taskId} API Integration Tests", () => {
                     users: {
                         connect: { userId: "task-creator" }
                     },
-                    wallet: TestDataFactory.createWalletRelation(),
-                    escrow: TestDataFactory.createWalletRelation()
+                    wallet: TestDataFactory.createWalletRelation()
                 }
             });
 
@@ -1193,7 +1191,7 @@ describe("Task {taskId} API Integration Tests", () => {
             });
 
             // Verify bounty was transferred
-            expect(mockStellarService.transferAssetViaSponsor).toHaveBeenCalledTimes(1);
+            expect(mockContractService.approveCompletion).toHaveBeenCalledTimes(1);
 
             // Verify transaction was recorded
             const transaction = await prisma.transaction.findFirst({
