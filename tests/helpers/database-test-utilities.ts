@@ -196,15 +196,10 @@ export class DatabaseTestUtilities {
                         avatarUrl: "https://github.com/testorg1.png",
                         htmlUrl: "https://github.com/testorg1"
                     },
-                    subscriptionPackageId,
-                    walletAddress: "GINSTALL100000000000000000000000000000000000000000",
-                    escrowAddress: "GESCROW1000000000000000000000000000000000000000000"
+                    subscriptionPackageId
                 }),
                 wallet: TestDataFactory.wallet({
                     address: "GINSTALL100000000000000000000000000000000000000000"
-                }),
-                escrow: TestDataFactory.wallet({
-                    address: "GESCROW1000000000000000000000000000000000000000000"
                 })
             },
             {
@@ -218,38 +213,22 @@ export class DatabaseTestUtilities {
                         avatarUrl: "https://github.com/testorg2.png",
                         htmlUrl: "https://github.com/testorg2"
                     },
-                    subscriptionPackageId,
-                    walletAddress: "GINSTALL200000000000000000000000000000000000000000",
-                    escrowAddress: "GESCROW2000000000000000000000000000000000000000000"
+                    subscriptionPackageId
                 }),
                 wallet: TestDataFactory.wallet({
                     address: "GINSTALL200000000000000000000000000000000000000000"
-                }),
-                escrow: TestDataFactory.wallet({
-                    address: "GESCROW2000000000000000000000000000000000000000000"
                 })
             }
         ];
 
         const installations = [];
-        for (const { installation: installData, wallet: walletData, escrow: escrowData } of installationData) {
-            // Create wallet for installation
-            await this.client.wallet.create({
-                data: walletData
-            });
-
-            // Create escrow wallet for installation
-            await this.client.wallet.create({
-                data: escrowData
-            });
-
+        for (const { installation: installData, wallet: walletData } of installationData) {
             // Create installation
             const installation = await this.client.installation.create({
                 data: {
                     ...installData,
                     account: installData.account as Prisma.InputJsonValue,
-                    wallet: TestDataFactory.createWalletRelation(),
-                    escrow: TestDataFactory.createWalletRelation()
+                    wallet: TestDataFactory.createWalletRelation(walletData.address)
                 }
             });
             installations.push(installation);
@@ -663,34 +642,16 @@ export class DatabaseTestUtilities {
                 }
             });
 
-            // Create installation wallets
-            const installWallet = TestDataFactory.wallet({
-                address: "GMININSTALL000000000000000000000000000000000000000"
-            });
-            await this.client.wallet.create({
-                data: installWallet
-            });
-
-            const escrowWallet = TestDataFactory.wallet({
-                address: "GMINESCROW0000000000000000000000000000000000000000"
-            });
-            await this.client.wallet.create({
-                data: escrowWallet
-            });
-
             // Create one installation
             const installationData = TestDataFactory.installation({
                 id: "minimal-installation-1",
-                subscriptionPackageId: subscriptionPackage.id,
-                walletAddress: installWallet.address,
-                escrowAddress: escrowWallet.address
+                subscriptionPackageId: subscriptionPackage.id
             });
             const installation = await this.client.installation.create({
                 data: {
                     ...installationData,
                     account: installationData.account as Prisma.InputJsonValue,
-                    wallet: TestDataFactory.createWalletRelation(),
-                    escrow: TestDataFactory.createWalletRelation()
+                    wallet: TestDataFactory.createWalletRelation("GMININSTALL000000000000000000000000000000000000000")
                 }
             });
 
@@ -744,6 +705,7 @@ export class DatabaseTestUtilities {
         try {
             const stats = {
                 users: await this.client.user.count(),
+                wallets: await this.client.wallet.count(),
                 tasks: await this.client.task.count(),
                 installations: await this.client.installation.count(),
                 subscriptionPackages: await this.client.subscriptionPackage.count(),
@@ -788,6 +750,7 @@ export interface MinimalSeedData {
 
 export interface DatabaseStats {
     users: number;
+    wallets: number;
     tasks: number;
     installations: number;
     subscriptionPackages: number;

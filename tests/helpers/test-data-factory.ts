@@ -33,7 +33,7 @@ export class TestDataFactory {
     /**
      * Create a test wallet with realistic data
      */
-    static wallet(overrides: Partial<Wallet> = {}): Omit<Wallet, "userId"> {
+    static wallet(overrides: Partial<Wallet> = {}): Omit<Wallet, "userId" | "installationId"> {
         const counter = this.walletCounter++;
         return {
             address: `GWALLET${counter.toString().padStart(47, "0")}`,
@@ -96,7 +96,7 @@ export class TestDataFactory {
     /**
      * Create a test installation with realistic data
      */
-    static installation(overrides: Partial<Installation> = {}): Omit<Installation, "createdAt" | "updatedAt" | "subscriptionPackageId" | "walletAddress" | "escrowAddress"> {
+    static installation(overrides: Partial<Installation> = {}): Omit<Installation, "createdAt" | "updatedAt" | "subscriptionPackageId"> {
         const counter = this.installationCounter++;
         return {
             id: `12345${Math.random().toString().slice(-3)}`,
