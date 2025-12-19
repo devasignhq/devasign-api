@@ -52,14 +52,18 @@ enum ReviewStatus {
 }
 
 model Wallet {
-    address             String         @id @unique
-    encryptedDEK        String
-    encryptedSecret     String
-    iv                  String
-    authTag             String
-    user                User?          @relation(fields: [userId], references: [userId])
-    userId              String?        @unique
-    installationWallets Installation[] @relation("InstallationWallet")
+    address         String        @id @unique
+    encryptedDEK    String
+    encryptedSecret String
+    iv              String
+    authTag         String
+    user            User?         @relation(fields: [userId], references: [userId])
+    userId          String?       @unique
+    installation    Installation? @relation(fields: [installationId], references: [id])
+    installationId  String?       @unique
+
+    @@index([installationId])
+    @@index([userId])
 }
 
 model User {
@@ -110,8 +114,7 @@ model Installation {
     targetId                    Int
     targetType                  String
     account                     Json // { login String nodeId String avatarUrl String htmlUrl String }
-    wallet                      Wallet                       @relation("InstallationWallet", fields: [walletAddress], references: [address])
-    walletAddress               String
+    wallet                      Wallet?
     subscriptionPackage         SubscriptionPackage?         @relation(fields: [subscriptionPackageId], references: [id], onDelete: SetNull)
     subscriptionPackageId       String?
     createdAt                   DateTime                     @default(now())
