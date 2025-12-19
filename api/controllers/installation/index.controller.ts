@@ -1,7 +1,6 @@
 import { NextFunction, Request, Response } from "express";
 import { prisma } from "../../config/database.config";
 import { stellarService } from "../../services/stellar.service";
-import { decryptWallet, encryptWallet } from "../../utilities/helper";
 import { STATUS_CODES } from "../../utilities/data";
 import { OctokitService } from "../../services/octokit.service";
 import { Prisma } from "../../../prisma_client";
@@ -12,6 +11,7 @@ import {
 } from "../../models/error.model";
 import { ContractService } from "../../services/contract.service";
 import { dataLogger } from "../../config/logger.config";
+import { KMSService } from "../../services/kms.service";
 
 /**
  * Create a new installation.
@@ -48,7 +48,7 @@ export const createInstallation = async (req: Request, res: Response, next: Next
 
         // Create Stellar wallets for installation
         const installationWallet = await stellarService.createWallet();
-        const encryptedInstallationSecret = await encryptWallet(installationWallet.secretKey);
+        const encryptedInstallationSecret = await KMSService.encryptWallet(installationWallet.secretKey);
 
         // Create installation
         const installation = await prisma.installation.create({
@@ -84,7 +84,7 @@ export const createInstallation = async (req: Request, res: Response, next: Next
                 targetId: true,
                 targetType: true,
                 account: true,
-                walletAddress: true,
+                wallet: { select: { address: true } },
                 subscriptionPackage: true,
                 createdAt: true,
                 updatedAt: true
@@ -144,7 +144,7 @@ export const getInstallations = async (req: Request, res: Response, next: NextFu
                 targetId: true,
                 targetType: true,
                 account: true,
-                walletAddress: true,
+                wallet: { select: { address: true } },
                 subscriptionPackage: true,
                 createdAt: true,
                 updatedAt: true,
@@ -200,7 +200,7 @@ export const getInstallation = async (req: Request, res: Response, next: NextFun
                 targetId: true,
                 targetType: true,
                 account: true,
-                walletAddress: true,
+                wallet: { select: { address: true } },
                 tasks: {
                     select: {
                         id: true,
@@ -228,13 +228,7 @@ export const getInstallation = async (req: Request, res: Response, next: NextFun
                 users: {
                     select: {
                         userId: true,
-                        username: true,
-                        contributionSummary: {
-                            select: {
-                                tasksCompleted: true,
-                                totalEarnings: true
-                            }
-                        }
+                        username: true
                     }
                 },
                 subscriptionPackage: true,
@@ -359,7 +353,11 @@ export const deleteInstallation = async (req: Request, res: Response, next: Next
         }
 
         // Refund escrow funds from smart contract for open tasks
-        const decryptedWalletSecret = await decryptWallet(installation.wallet);
+        if (!installation.wallet) {
+            throw new NotFoundError("Installation wallet not found");
+        }
+
+        const decryptedWalletSecret = await KMSService.decryptWallet(installation.wallet);
         let refunded = 0;
 
         for (const task of installation.tasks) {

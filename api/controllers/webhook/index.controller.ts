@@ -5,9 +5,10 @@ import { STATUS_CODES } from "../../utilities/data";
 import { prisma } from "../../config/database.config";
 import { dataLogger } from "../../config/logger.config";
 import { PRAnalysisService } from "../../services/ai-review/pr-analysis.service";
-import { decryptWallet, stellarTimestampToDate } from "../../utilities/helper";
+import { stellarTimestampToDate } from "../../utilities/helper";
 import { TaskStatus } from "../../../prisma_client";
 import { ContractService } from "../../services/contract.service";
+import { KMSService } from "../../services/kms.service";
 
 /**
  * Handles GitHub PR webhook events
@@ -185,7 +186,10 @@ export const handleBountyPayout = async (req: Request, res: Response, next: Next
             }
 
             // Transfer bounty from escrow to contributor via smart contract
-            const decryptedWalletSecret = await decryptWallet(relatedTask.installation.wallet);
+            if (!relatedTask.installation.wallet) {
+                throw new Error("Installation wallet not found");
+            }
+            const decryptedWalletSecret = await KMSService.decryptWallet(relatedTask.installation.wallet);
 
             // Approve completion via smart contract
             const transactionResponse = await ContractService.approveCompletion(

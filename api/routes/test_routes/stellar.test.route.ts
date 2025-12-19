@@ -1,5 +1,4 @@
 import { Router, Request, Response, NextFunction, RequestHandler } from "express";
-import { encryptWallet } from "../../utilities/helper";
 import { prisma } from "../../config/database.config";
 import { xlmAssetId, usdcAssetId } from "../../config/stellar.config";
 import { stellarService } from "../../services/stellar.service";
@@ -14,6 +13,7 @@ import {
     swapAssetSchema,
     getAccountInfoSchema
 } from "./test.schema";
+import { KMSService } from "../../services/kms.service";
 
 const router = Router();
 
@@ -21,7 +21,7 @@ const router = Router();
 router.post("/wallet", async (_req: Request, res: Response, next: NextFunction) => {
     try {
         const wallet = await stellarService.createWallet();
-        const security = await encryptWallet(wallet.secretKey);
+        const security = await KMSService.encryptWallet(wallet.secretKey);
 
         res.status(201).json({
             message: "Wallet created successfully",
@@ -229,7 +229,7 @@ router.patch("/wallets/users/update-all",
                 try {
                     // Create new wallet
                     const newWallet = await stellarService.createWallet();
-                    const encryptedSecret = await encryptWallet(newWallet.secretKey);
+                    const encryptedSecret = await KMSService.encryptWallet(newWallet.secretKey);
 
                     // Use transaction to delete old wallet and create new one
                     await prisma.$transaction(async (tx) => {
@@ -263,6 +263,7 @@ router.patch("/wallets/users/update-all",
                     });
                     successCount++;
                 } catch (error) {
+                    console.log("user: ", user.userId, "Failed", error);
                     results.push({
                         userId: user.userId,
                         username: user.username,
@@ -297,7 +298,7 @@ router.patch("/wallets/installations/update-all",
                 select: {
                     id: true,
                     account: true,
-                    walletAddress: true
+                    wallet: { select: { address: true } }
                 }
             });
 
@@ -317,14 +318,14 @@ router.patch("/wallets/installations/update-all",
                 try {
                     // Create new installation wallet
                     const newInstallationWallet = await stellarService.createWallet();
-                    const encryptedInstallationSecret = await encryptWallet(newInstallationWallet.secretKey);
+                    const encryptedInstallationSecret = await KMSService.encryptWallet(newInstallationWallet.secretKey);
 
                     // Use transaction to delete old wallets and create new ones
                     await prisma.$transaction(async (tx) => {
                         // Delete old wallets
-                        await tx.wallet.delete({
-                            where: { address: installation.walletAddress }
-                        });
+                        // await tx.wallet.delete({
+                        //     where: { address: installation.wallet!.address }
+                        // });
 
                         // Create new wallets and update installation
                         await tx.installation.update({
@@ -351,6 +352,7 @@ router.patch("/wallets/installations/update-all",
                     });
                     successCount++;
                 } catch (error) {
+                    console.log("installation: ", installation.id, "Failed", error);
                     results.push({
                         installationId: installation.id,
                         account: installation.account,

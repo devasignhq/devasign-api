@@ -1,7 +1,7 @@
 import { NextFunction, Request, Response } from "express";
 import { prisma } from "../../config/database.config";
 import { stellarService } from "../../services/stellar.service";
-import { decryptWallet, stellarTimestampToDate } from "../../utilities/helper";
+import { stellarTimestampToDate } from "../../utilities/helper";
 import { STATUS_CODES } from "../../utilities/data";
 import { CreateTask, TaskIssue, FilterTasks } from "../../models/task.model";
 import { HorizonApi } from "../../models/horizonapi.model";
@@ -14,6 +14,7 @@ import {
     ValidationError
 } from "../../models/error.model";
 import { ContractService } from "../../services/contract.service";
+import { KMSService } from "../../services/kms.service";
 
 type USDCBalance = HorizonApi.BalanceLineAsset<"credit_alphanum12">;
 
@@ -36,6 +37,9 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
         }
 
         // Check user balance
+        if (!installation.wallet) {
+            throw new ValidationError("Installation wallet not found");
+        }
         const accountInfo = await stellarService.getAccountInfo(installation.wallet.address);
         const usdcAsset = accountInfo.balances.find(
             (asset): asset is USDCBalance => "asset_code" in asset && asset.asset_code === "USDC"
@@ -46,7 +50,7 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
         }
 
         // Confirm USDC trustline
-        const decryptedInstallationWalletSecret = await decryptWallet(installation.wallet);
+        const decryptedInstallationWalletSecret = await KMSService.decryptWallet(installation.wallet);
 
         const { installationId, bountyLabelId, ...others } = payload;
 
@@ -364,7 +368,10 @@ export const deleteTask = async (req: Request, res: Response, next: NextFunction
 
         // Return bounty to installation wallet if it exists
         if (task.bounty > 0) {
-            const decryptedWalletSecret = await decryptWallet(task.installation.wallet);
+            if (!task.installation.wallet) {
+                throw new NotFoundError("Installation wallet not found");
+            }
+            const decryptedWalletSecret = await KMSService.decryptWallet(task.installation.wallet);
 
             await ContractService.refund(decryptedWalletSecret, taskId);
         }

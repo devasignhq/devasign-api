@@ -2,11 +2,11 @@ import { NextFunction, Request, Response } from "express";
 import { prisma } from "../../config/database.config";
 import { InputJsonValue } from "@prisma/client/runtime/library";
 import { stellarService } from "../../services/stellar.service";
-import { encryptWallet } from "../../utilities/helper";
 import { STATUS_CODES } from "../../utilities/data";
 import { NotFoundError, ValidationError } from "../../models/error.model";
 import { dataLogger } from "../../config/logger.config";
 import { Prisma } from "../../../prisma_client";
+import { KMSService } from "../../services/kms.service";
 
 // User's address book
 export type AddressBook = {
@@ -60,7 +60,7 @@ export const createUser = async (req: Request, res: Response, next: NextFunction
 
         // Create user wallet (for the contributor app)
         const userWallet = await stellarService.createWallet();
-        const encryptedUserSecret = await encryptWallet(userWallet.secretKey);
+        const encryptedUserSecret = await KMSService.encryptWallet(userWallet.secretKey);
 
         // Create user with wallet
         const user = await prisma.user.create({
@@ -156,7 +156,7 @@ export const getUser = async (req: Request, res: Response, next: NextFunction) =
             try {
                 // Create wallet
                 const userWallet = await stellarService.createWallet();
-                const encryptedUserSecret = await encryptWallet(userWallet.secretKey);
+                const encryptedUserSecret = await KMSService.encryptWallet(userWallet.secretKey);
 
                 // Update user with wallet information
                 const updatedUser = await prisma.user.update({

@@ -3,7 +3,7 @@ import { prisma } from "../../config/database.config";
 import { FirebaseService } from "../../services/firebase.service";
 import { stellarService } from "../../services/stellar.service";
 
-import { decryptWallet, stellarTimestampToDate } from "../../utilities/helper";
+import { stellarTimestampToDate } from "../../utilities/helper";
 import { STATUS_CODES } from "../../utilities/data";
 import { MessageType, TaskIssue } from "../../models/task.model";
 import { HorizonApi } from "../../models/horizonapi.model";
@@ -15,6 +15,7 @@ import {
     ValidationError
 } from "../../models/error.model";
 import { ContractService } from "../../services/contract.service";
+import { KMSService } from "../../services/kms.service";
 
 type USDCBalance = HorizonApi.BalanceLineAsset<"credit_alphanum12">;
 
@@ -100,6 +101,10 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
         if (!task) {
             throw new NotFoundError("Task not found");
         }
+        // Verify installation wallet exists
+        if (!task.installation.wallet) {
+            throw new NotFoundError("Installation wallet not found");
+        }
         // Verify user is the creator
         if (task.creatorId !== userId) {
             throw new AuthorizationError("Only task creator can perform this action");
@@ -119,7 +124,7 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
 
         // Handle fund transfers
         const bountyDifference = Number(newBounty) - task.bounty;
-        const decryptedWalletSecret = await decryptWallet(task.installation.wallet);
+        const decryptedWalletSecret = await KMSService.decryptWallet(task.installation.wallet);
 
         if (bountyDifference > 0) {
             // Additional funds needed
@@ -391,9 +396,14 @@ export const acceptTaskApplication = async (req: Request, res: Response, next: N
             select: { wallet: true }
         });
 
-        if (!installation) throw new NotFoundError("Installation not found");
+        if (!installation) {
+            throw new NotFoundError("Installation not found");
+        }
+        if (!installation.wallet) {
+            throw new NotFoundError("Installation wallet not found");
+        }
 
-        const decryptedWalletSecret = await decryptWallet(installation.wallet);
+        const decryptedWalletSecret = await KMSService.decryptWallet(installation.wallet);
 
         // Assign contributor on contract
         await ContractService.assignContributor(
@@ -779,9 +789,13 @@ export const validateCompletion = async (req: Request, res: Response, next: Next
         if (!task.contributor) {
             throw new ValidationError("Contributor not found");
         }
+        // Verify installation wallet exists
+        if (!task.installation.wallet) {
+            throw new NotFoundError("Installation wallet not found");
+        }
 
         // Transfer bounty from escrow to contributor via smart contract
-        const decryptedWalletSecret = await decryptWallet(task.installation.wallet);
+        const decryptedWalletSecret = await KMSService.decryptWallet(task.installation.wallet);
 
         // Approve completion via smart contract
         const transactionResponse = await ContractService.approveCompletion(

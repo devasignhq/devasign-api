@@ -1,12 +1,12 @@
 import { NextFunction, Request, Response } from "express";
 import { prisma } from "../../config/database.config";
-import { decryptWallet } from "../../utilities/helper";
 import { STATUS_CODES } from "../../utilities/data";
 import { HorizonApi } from "../../models/horizonapi.model";
 import { TransactionCategory } from "../../../prisma_client";
 import { usdcAssetId, xlmAssetId } from "../../config/stellar.config";
 import { stellarService } from "../../services/stellar.service";
 import { NotFoundError, ValidationError } from "../../models/error.model";
+import { KMSService } from "../../services/kms.service";
 
 type USDCBalance = HorizonApi.BalanceLineAsset<"credit_alphanum12">;
 
@@ -53,8 +53,9 @@ export const withdrawAsset = async (req: Request, res: Response, next: NextFunct
             }
 
             // Set wallet details
+            if (!installation.wallet) throw new NotFoundError("Installation wallet not found");
             walletAddress = installation.wallet.address;
-            walletSecret = await decryptWallet(installation.wallet);
+            walletSecret = await KMSService.decryptWallet(installation.wallet);
         } else {
             // Fetch user and verify user exists
             const user = await prisma.user.findUnique({
@@ -69,7 +70,7 @@ export const withdrawAsset = async (req: Request, res: Response, next: NextFunct
             // Set wallet details
             if (!user.wallet) throw new NotFoundError("User wallet not found");
             walletAddress = user.wallet.address;
-            walletSecret = await decryptWallet(user.wallet);
+            walletSecret = await KMSService.decryptWallet(user.wallet);
         }
 
         // Check balance before withdrawal
@@ -186,8 +187,9 @@ export const swapAsset = async (req: Request, res: Response, next: NextFunction)
             }
 
             // Set wallet details
+            if (!installation.wallet) throw new NotFoundError("Installation wallet not found");
             walletAddress = installation.wallet.address;
-            walletSecret = await decryptWallet(installation.wallet);
+            walletSecret = await KMSService.decryptWallet(installation.wallet);
         } else {
             // Fetch user and verify user exists
             const user = await prisma.user.findUnique({
@@ -202,7 +204,7 @@ export const swapAsset = async (req: Request, res: Response, next: NextFunction)
             // Set wallet details
             if (!user.wallet) throw new NotFoundError("User wallet not found");
             walletAddress = user.wallet.address;
-            walletSecret = await decryptWallet(user.wallet);
+            walletSecret = await KMSService.decryptWallet(user.wallet);
         }
 
         // Check balance before swap
@@ -318,6 +320,7 @@ export const getWalletInfo = async (req: Request, res: Response, next: NextFunct
             }
 
             // Set wallet details
+            if (!installation.wallet) throw new NotFoundError("Installation wallet not found");
             walletAddress = installation.wallet.address;
         } else {
             // Fetch user and verify user exists

@@ -1,12 +1,12 @@
 import { Router, Request, Response, NextFunction, RequestHandler } from "express";
 import createError from "http-errors";
-import { decryptWallet, encryptWallet } from "../../utilities/helper";
 import { validateRequestParameters } from "../../middlewares/request.middleware";
 import {
     createTestUserSchema,
     encryptionSchema,
     decryptionSchema
 } from "./test.schema";
+import { KMSService } from "../../services/kms.service";
 
 const router = Router();
 
@@ -35,10 +35,10 @@ router.post("/encryption",
             const { text } = req.body;
 
             // Encrypt the text
-            const encrypted = await encryptWallet(text);
+            const encrypted = await KMSService.encryptWallet(text);
 
             // Decrypt to verify
-            const decrypted = await decryptWallet(encrypted as any);
+            const decrypted = await KMSService.decryptWallet(encrypted as any);
 
             res.status(200).json({
                 message: "Encryption test successful",
@@ -65,13 +65,13 @@ router.post("/decryption",
             const walletData = { encryptedDEK, encryptedSecret, iv, authTag };
 
             // Decrypt the text
-            const decrypted = await decryptWallet(walletData as any);
+            const decrypted = await KMSService.decryptWallet(walletData as any);
 
             // Encrypt to verify
-            const ecrypted = await encryptWallet(decrypted);
+            const ecrypted = await KMSService.encryptWallet(decrypted);
 
             // Decrypt again to verify the re-encryption works and matches
-            const reDecrypted = await decryptWallet(ecrypted as any);
+            const reDecrypted = await KMSService.decryptWallet(ecrypted as any);
 
             res.status(200).json({
                 message: "Decryption test successful",

@@ -112,7 +112,7 @@ export const recordWalletTopups = async (req: Request, res: Response, next: Next
                         }
                     }
                 },
-                select: { id: true, walletAddress: true }
+                select: { id: true, wallet: { select: { address: true } } }
             });
 
             if (!installation) {
@@ -120,7 +120,8 @@ export const recordWalletTopups = async (req: Request, res: Response, next: Next
             }
 
             // Set wallet details
-            walletAddress = installation.walletAddress;
+            if (!installation.wallet) throw new NotFoundError("Installation wallet not found");
+            walletAddress = installation.wallet.address;
         } else {
             // Fetch user and verify user exists
             const user = await prisma.user.findUnique({
@@ -133,7 +134,8 @@ export const recordWalletTopups = async (req: Request, res: Response, next: Next
             }
 
             // Set wallet details
-            walletAddress = user.wallet!.address!;
+            if (!user.wallet) throw new NotFoundError("User wallet not found");
+            walletAddress = user.wallet.address;
         }
 
         // Get stellar topup transactions
@@ -191,7 +193,7 @@ export const recordWalletTopups = async (req: Request, res: Response, next: Next
                 asset,
                 sourceAddress: paymentTx.from,
                 doneAt: new Date(stellarTx.created_at),
-                ...(installationId 
+                ...(installationId
                     ? { installation: { connect: { id: installationId } } }
                     : { user: { connect: { userId } } }
                 )
