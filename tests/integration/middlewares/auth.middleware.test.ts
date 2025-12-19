@@ -252,8 +252,7 @@ describe("Authentication Middleware", () => {
                     subscriptionPackage: {
                         connect: { id: "test-package-id" }
                     },
-                    wallet: TestDataFactory.createWalletRelation(),
-                    escrow: TestDataFactory.createWalletRelation()
+                    wallet: TestDataFactory.createWalletRelation()
                 }
             });
 
@@ -275,8 +274,7 @@ describe("Authentication Middleware", () => {
                     subscriptionPackage: {
                         connect: { id: "test-package-id" }
                     },
-                    wallet: TestDataFactory.createWalletRelation(),
-                    escrow: TestDataFactory.createWalletRelation()
+                    wallet: TestDataFactory.createWalletRelation()
                 }
             });
 
