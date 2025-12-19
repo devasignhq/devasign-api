@@ -3,6 +3,7 @@ import express from "express";
 import { adminRoutes } from "../../../../api/routes/admin.route";
 import { errorHandler } from "../../../../api/middlewares/error.middleware";
 import { DatabaseTestHelper } from "../../../helpers/database-test-helper";
+import { TestDataFactory } from "../../../helpers/test-data-factory";
 import { ENDPOINTS, STATUS_CODES } from "../../../../api/utilities/data";
 import { getEndpointWithPrefix } from "../../../helpers/test-utils";
 
@@ -148,8 +149,7 @@ describe("Admin API Integration Tests", () => {
                 data: {
                     userId: "test-user-reset",
                     username: "testuser",
-                    walletAddress: "GTEST123",
-                    walletSecret: "STEST123",
+                    wallet: TestDataFactory.createWalletRelation(),
                     contributionSummary: { create: {} }
                 }
             });
@@ -161,10 +161,7 @@ describe("Admin API Integration Tests", () => {
                     targetId: 123,
                     targetType: "Organization",
                     account: { login: "test" },
-                    walletAddress: "GINSTALL123",
-                    walletSecret: "SINSTALL123",
-                    escrowAddress: "GESCROW123",
-                    escrowSecret: "SESCROW123"
+                    wallet: TestDataFactory.createWalletRelation()
                 }
             });
 
@@ -199,8 +196,7 @@ describe("Admin API Integration Tests", () => {
                 data: {
                     userId: "test-user-order",
                     username: "ordertest",
-                    walletAddress: "GORDER123",
-                    walletSecret: "SORDER123",
+                    wallet: TestDataFactory.createWalletRelation(),
                     contributionSummary: { create: {} }
                 }
             });
@@ -212,10 +208,7 @@ describe("Admin API Integration Tests", () => {
                     targetId: 456,
                     targetType: "Organization",
                     account: { login: "test" },
-                    walletAddress: "GINSTALL456",
-                    walletSecret: "SINSTALL456",
-                    escrowAddress: "GESCROW456",
-                    escrowSecret: "SESCROW456",
+                    wallet: TestDataFactory.createWalletRelation(),
                     users: {
                         connect: { userId: user.userId }
                     }
