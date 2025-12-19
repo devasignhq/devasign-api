@@ -26,26 +26,16 @@ jest.mock("../../../../api/services/stellar.service", () => ({
     }
 }));
 
-// Mock helper utilities
-function getFieldFromUnknownObject<T>(obj: unknown, field: string) {
-    if (typeof obj !== "object" || !obj) {
-        return undefined;
+jest.mock("../../../../api/services/kms.service", () => ({
+    KMSService: {
+        encryptWallet: jest.fn().mockResolvedValue({
+            encryptedDEK: "mockEncryptedDEK",
+            encryptedSecret: "mockEncryptedSecret",
+            iv: "mockIV",
+            authTag: "mockAuthTag"
+        }),
+        decryptWallet: jest.fn().mockResolvedValue("STEST1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12")
     }
-    if (field in obj) {
-        return (obj as Record<string, T>)[field];
-    }
-    return undefined;
-}
-
-jest.mock("../../../../api/utilities/helper", () => ({
-    getFieldFromUnknownObject,
-    encryptWallet: jest.fn().mockResolvedValue({
-        encryptedDEK: "mockEncryptedDEK",
-        encryptedSecret: "mockEncryptedSecret",
-        iv: "mockIV",
-        authTag: "mockAuthTag"
-    }),
-    decryptWallet: jest.fn().mockResolvedValue("STEST1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12")
 }));
 
 describe("Wallet API Integration Tests", () => {
@@ -165,7 +155,6 @@ describe("Wallet API Integration Tests", () => {
                 data: {
                     ...installation,
                     wallet: TestDataFactory.createWalletRelation("GINSTALLWALLET1234567890ABCDEF1234567890ABCDEF1234567890"),
-                    escrow: TestDataFactory.createWalletRelation("GINSTALLESCROW1234567890ABCDEF1234567890ABCDEF1234567890"),
                     users: {
                         connect: { userId: "test-user-1" }
                     }
@@ -197,8 +186,7 @@ describe("Wallet API Integration Tests", () => {
             await prisma.installation.create({
                 data: {
                     ...installation,
-                    wallet: TestDataFactory.createWalletRelation(),
-                    escrow: TestDataFactory.createWalletRelation()
+                    wallet: TestDataFactory.createWalletRelation()
                 }
             });
 
@@ -346,7 +334,6 @@ describe("Wallet API Integration Tests", () => {
                 data: {
                     ...installation,
                     wallet: TestDataFactory.createWalletRelation(),
-                    escrow: TestDataFactory.createWalletRelation(),
                     users: {
                         connect: { userId: "test-user-1" }
                     }
