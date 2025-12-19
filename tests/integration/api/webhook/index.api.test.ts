@@ -29,26 +29,17 @@ jest.mock("../../../../api/services/octokit.service", () => ({
     }
 }));
 
-jest.mock("../../../../api/services/stellar.service", () => ({
-    stellarService: {
-        transferAssetViaSponsor: jest.fn()
+// Mock Contract service
+jest.mock("../../../../api/services/contract.service", () => ({
+    ContractService: {
+        approveCompletion: jest.fn()
     }
 }));
 
-// Mock helper utilities
-function getFieldFromUnknownObject<T>(obj: unknown, field: string) {
-    if (typeof obj !== "object" || !obj) {
-        return undefined;
+jest.mock("../../../../api/services/kms.service", () => ({
+    KMSService: {
+        decryptWallet: jest.fn().mockResolvedValue("STEST1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12")
     }
-    if (field in obj) {
-        return (obj as Record<string, T>)[field];
-    }
-    return undefined;
-}
-
-jest.mock("../../../../api/utilities/helper", () => ({
-    getFieldFromUnknownObject,
-    decryptWallet: jest.fn().mockResolvedValue("STEST1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12")
 }));
 
 describe("Webhook API Integration Tests", () => {
@@ -56,8 +47,9 @@ describe("Webhook API Integration Tests", () => {
     let prisma: any;
     let mockWorkflowService: any;
     let mockOctokitService: any;
-    let mockStellarService: any;
+
     let mockPRAnalysisService: any;
+    let mockContractService: any;
 
     const WEBHOOK_SECRET = "test-webhook-secret";
     const VALID_INSTALLATION_ID = "12345678";
@@ -98,8 +90,8 @@ describe("Webhook API Integration Tests", () => {
         };
         Object.assign(OctokitService, mockOctokitService);
 
-        const { stellarService } = await import("../../../../api/services/stellar.service");
-        mockStellarService = stellarService;
+        const { ContractService } = await import("../../../../api/services/contract.service");
+        mockContractService = ContractService;
 
         const { PRAnalysisService } = await import("../../../../api/services/ai-review/pr-analysis.service");
         mockPRAnalysisService = PRAnalysisService;
@@ -130,8 +122,10 @@ describe("Webhook API Integration Tests", () => {
         mockOctokitService.getDefaultBranch.mockResolvedValue("main");
         mockOctokitService.getOwnerAndRepo.mockReturnValue(["test", "repo"]);
 
-        mockStellarService.transferAssetViaSponsor = jest.fn().mockResolvedValue({
-            txHash: "test-bounty-tx-hash-123"
+        mockContractService.approveCompletion.mockResolvedValue({
+            success: true,
+            txHash: "test-approve-completion-tx-hash",
+            result: { createdAt: 1234567890 }
         });
 
         mockPRAnalysisService.extractLinkedIssues = jest.fn().mockResolvedValue([
@@ -483,7 +477,7 @@ describe("Webhook API Integration Tests", () => {
             await prisma.user.create({
                 data: {
                     ...contributor,
-                    wallet: TestDataFactory.createWalletRelation("GCONTRIBUTOR1234567890ABCDEF1234567890ABCDEF1234567890"),
+                    wallet: TestDataFactory.createWalletRelation(),
                     contributionSummary: { create: {} }
                 }
             });
@@ -493,8 +487,7 @@ describe("Webhook API Integration Tests", () => {
             await prisma.installation.create({
                 data: {
                     ...installation,
-                    wallet: TestDataFactory.createWalletRelation("GINSTALLWALLET1234567890ABCDEF1234567890ABCDEF1234567890"),
-                    escrow: TestDataFactory.createWalletRelation("GINSTALLESCROW1234567890ABCDEF1234567890ABCDEF1234567890")
+                    wallet: TestDataFactory.createWalletRelation()
                 }
             });
 
@@ -552,16 +545,8 @@ describe("Webhook API Integration Tests", () => {
                 }
             });
 
-            // Verify stellar service was called
-            expect(mockStellarService.transferAssetViaSponsor).toHaveBeenCalledWith(
-                "STEST1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12",
-                "STEST1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12",
-                "GCONTRIBUTOR1234567890ABCDEF1234567890ABCDEF1234567890",
-                expect.any(Object),
-                expect.any(Object),
-                "100",
-                expect.stringContaining("PAID:")
-            );
+            // Verify Contract service was called
+            expect(mockContractService.approveCompletion).toHaveBeenCalledTimes(1);
 
             // Verify task was updated
             const updatedTask = await prisma.task.findUnique({
@@ -607,7 +592,7 @@ describe("Webhook API Integration Tests", () => {
                 message: "No linked issues found - no payment triggered"
             });
 
-            expect(mockStellarService.transferAssetViaSponsor).not.toHaveBeenCalled();
+            expect(mockContractService.approveCompletion).not.toHaveBeenCalled();
         });
 
         it("should handle PR merge with no matching task", async () => {
@@ -640,7 +625,7 @@ describe("Webhook API Integration Tests", () => {
                 message: "No matching tasks found"
             });
 
-            expect(mockStellarService.transferAssetViaSponsor).not.toHaveBeenCalled();
+            expect(mockContractService.approveCompletion).not.toHaveBeenCalled();
         });
 
         it("should handle contributor without wallet address", async () => {
@@ -649,8 +634,7 @@ describe("Webhook API Integration Tests", () => {
                 userId: "no-wallet-user",
                 username: "no-wallet-user"
             });
-            delete (userWithoutWallet as any).walletAddress;
-            delete (userWithoutWallet as any).walletSecret;
+            // Don't create wallet relation for this user
 
             await prisma.user.create({
                 data: {
@@ -710,7 +694,7 @@ describe("Webhook API Integration Tests", () => {
                 message: "No wallet address found for contributor"
             });
 
-            expect(mockStellarService.transferAssetViaSponsor).not.toHaveBeenCalled();
+            expect(mockContractService.approveCompletion).not.toHaveBeenCalled();
         });
 
         it("should skip non-merged PR close events", async () => {
@@ -738,7 +722,7 @@ describe("Webhook API Integration Tests", () => {
                 action: "closed"
             });
 
-            expect(mockStellarService.transferAssetViaSponsor).not.toHaveBeenCalled();
+            expect(mockContractService.approveCompletion).not.toHaveBeenCalled();
         });
     });
 
