@@ -22,8 +22,7 @@ jest.mock("../../../../api/config/firebase.config", () => {
 jest.mock("../../../../api/services/stellar.service", () => ({
     stellarService: {
         createWallet: jest.fn(),
-        addTrustLineViaSponsor: jest.fn(),
-        transferAssetViaSponsor: jest.fn()
+        addTrustLineViaSponsor: jest.fn()
     }
 }));
 
@@ -34,26 +33,16 @@ jest.mock("../../../../api/services/octokit.service", () => ({
     }
 }));
 
-// Mock helper utilities
-function getFieldFromUnknownObject<T>(obj: unknown, field: string) {
-    if (typeof obj !== "object" || !obj) {
-        return undefined;
+jest.mock("../../../../api/services/kms.service", () => ({
+    KMSService: {
+        encryptWallet: jest.fn().mockResolvedValue({
+            encryptedDEK: "mockEncryptedDEK",
+            encryptedSecret: "mockEncryptedSecret",
+            iv: "mockIV",
+            authTag: "mockAuthTag"
+        }),
+        decryptWallet: jest.fn().mockResolvedValue("STEST1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12")
     }
-    if (field in obj) {
-        return (obj as Record<string, T>)[field];
-    }
-    return undefined;
-}
-
-jest.mock("../../../../api/utilities/helper", () => ({
-    getFieldFromUnknownObject,
-    encryptWallet: jest.fn().mockResolvedValue({
-        encryptedDEK: "mockEncryptedDEK",
-        encryptedSecret: "mockEncryptedSecret",
-        iv: "mockIV",
-        authTag: "mockAuthTag"
-    }),
-    decryptWallet: jest.fn().mockResolvedValue("STEST1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12")
 }));
 
 describe("Installation API Integration Tests", () => {
@@ -114,9 +103,6 @@ describe("Installation API Integration Tests", () => {
         }));
 
         mockStellarService.addTrustLineViaSponsor.mockResolvedValue(true);
-        mockStellarService.transferAssetViaSponsor.mockResolvedValue({
-            txHash: "test-refund-tx-hash"
-        });
 
         mockOctokitService.getInstallationDetails.mockResolvedValue({
             id: "12345678",
@@ -167,17 +153,15 @@ describe("Installation API Integration Tests", () => {
             // Verify installation was created in database
             const createdInstallation = await prisma.installation.findUnique({
                 where: { id: "12345678" },
-                include: { wallet: true, escrow: true }
+                include: { wallet: true }
             });
             expect(createdInstallation).toBeTruthy();
             expect(createdInstallation?.wallet).toBeTruthy();
             expect(createdInstallation?.wallet?.address).toBeTruthy();
-            expect(createdInstallation?.escrow).toBeTruthy();
-            expect(createdInstallation?.escrow?.address).toBeTruthy();
 
             // Verify Stellar service was called
-            expect(mockStellarService.createWallet).toHaveBeenCalledTimes(2); // Installation + Escrow
-            expect(mockStellarService.addTrustLineViaSponsor).toHaveBeenCalledTimes(2);
+            expect(mockStellarService.createWallet).toHaveBeenCalledTimes(1);
+            expect(mockStellarService.addTrustLineViaSponsor).toHaveBeenCalledTimes(1);
         });
 
         it("should return error when user not found", async () => {
@@ -198,8 +182,7 @@ describe("Installation API Integration Tests", () => {
             await prisma.installation.create({
                 data: {
                     ...existingInstallation,
-                    wallet: TestDataFactory.createWalletRelation("GTEST1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12"),
-                    escrow: TestDataFactory.createWalletRelation("GESCROW1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF")
+                    wallet: TestDataFactory.createWalletRelation("GTEST1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12")
                 }
             });
 
@@ -283,8 +266,7 @@ describe("Installation API Integration Tests", () => {
                         users: {
                             connect: { userId: "user-1" }
                         },
-                        wallet: TestDataFactory.createWalletRelation(),
-                        escrow: TestDataFactory.createWalletRelation()
+                        wallet: TestDataFactory.createWalletRelation()
                     }
                 });
             }
@@ -370,8 +352,7 @@ describe("Installation API Integration Tests", () => {
                     users: {
                         connect: { userId: "user-1" }
                     },
-                    wallet: TestDataFactory.createWalletRelation(),
-                    escrow: TestDataFactory.createWalletRelation()
+                    wallet: TestDataFactory.createWalletRelation()
                 }
             });
 
@@ -401,7 +382,9 @@ describe("Installation API Integration Tests", () => {
 
             expect(response.body).toMatchObject({
                 id: "12345678",
-                walletAddress: expect.any(String),
+                wallet: expect.objectContaining({
+                    address: expect.any(String)
+                }),
                 tasks: expect.arrayContaining([
                     expect.objectContaining({
                         status: expect.any(String),
@@ -461,8 +444,7 @@ describe("Installation API Integration Tests", () => {
                     users: {
                         connect: { userId: "user-1" }
                     },
-                    wallet: TestDataFactory.createWalletRelation(),
-                    escrow: TestDataFactory.createWalletRelation()
+                    wallet: TestDataFactory.createWalletRelation()
                 }
             });
         });
@@ -545,8 +527,7 @@ describe("Installation API Integration Tests", () => {
                     users: {
                         connect: { userId: "user-1" }
                     },
-                    wallet: TestDataFactory.createWalletRelation(),
-                    escrow: TestDataFactory.createWalletRelation()
+                    wallet: TestDataFactory.createWalletRelation()
                 }
             });
         });

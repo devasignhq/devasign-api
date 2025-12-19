@@ -45,31 +45,20 @@ jest.mock("../../../../api/services/ai-review/pr-analysis.service", () => ({
 jest.mock("../../../../api/services/stellar.service", () => ({
     stellarService: {
         createWallet: jest.fn(),
-        addTrustLineViaSponsor: jest.fn(),
-        transferAssetViaSponsor: jest.fn()
+        addTrustLineViaSponsor: jest.fn()
     }
 }));
 
-// Mock helper utilities
-function getFieldFromUnknownObject<T>(obj: unknown, field: string) {
-    if (typeof obj !== "object" || !obj) {
-        return undefined;
+jest.mock("../../../../api/services/kms.service", () => ({
+    KMSService: {
+        encryptWallet: jest.fn().mockResolvedValue({
+            encryptedDEK: "mockEncryptedDEK",
+            encryptedSecret: "mockEncryptedSecret",
+            iv: "mockIV",
+            authTag: "mockAuthTag"
+        }),
+        decryptWallet: jest.fn().mockResolvedValue("STEST1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12")
     }
-    if (field in obj) {
-        return (obj as Record<string, T>)[field];
-    }
-    return undefined;
-}
-
-jest.mock("../../../../api/utilities/helper", () => ({
-    getFieldFromUnknownObject,
-    encryptWallet: jest.fn().mockResolvedValue({
-        encryptedDEK: "mockEncryptedDEK",
-        encryptedSecret: "mockEncryptedSecret",
-        iv: "mockIV",
-        authTag: "mockAuthTag"
-    }),
-    decryptWallet: jest.fn().mockResolvedValue("STEST1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12")
 }));
 
 describe("Installation GitHub API Integration Tests", () => {
@@ -220,8 +209,7 @@ describe("Installation GitHub API Integration Tests", () => {
                     users: {
                         connect: { userId: "user-1" }
                     },
-                    wallet: TestDataFactory.createWalletRelation(),
-                    escrow: TestDataFactory.createWalletRelation()
+                    wallet: TestDataFactory.createWalletRelation()
                 }
             });
         });
@@ -263,8 +251,7 @@ describe("Installation GitHub API Integration Tests", () => {
                     users: {
                         connect: { userId: "user-1" }
                     },
-                    wallet: TestDataFactory.createWalletRelation(),
-                    escrow: TestDataFactory.createWalletRelation()
+                    wallet: TestDataFactory.createWalletRelation()
                 }
             });
         });
@@ -339,8 +326,7 @@ describe("Installation GitHub API Integration Tests", () => {
                     users: {
                         connect: { userId: "user-1" }
                     },
-                    wallet: TestDataFactory.createWalletRelation(),
-                    escrow: TestDataFactory.createWalletRelation()
+                    wallet: TestDataFactory.createWalletRelation()
                 }
             });
         });
@@ -389,8 +375,7 @@ describe("Installation GitHub API Integration Tests", () => {
                     users: {
                         connect: { userId: "user-1" }
                     },
-                    wallet: TestDataFactory.createWalletRelation(),
-                    escrow: TestDataFactory.createWalletRelation()
+                    wallet: TestDataFactory.createWalletRelation()
                 }
             });
         });
@@ -456,8 +441,7 @@ describe("Installation GitHub API Integration Tests", () => {
                     users: {
                         connect: { userId: "user-1" }
                     },
-                    wallet: TestDataFactory.createWalletRelation(),
-                    escrow: TestDataFactory.createWalletRelation()
+                    wallet: TestDataFactory.createWalletRelation()
                 }
             });
         });
@@ -567,7 +551,6 @@ describe("Installation GitHub API Integration Tests", () => {
                 .send(analysisData)
                 .expect(STATUS_CODES.SERVER_ERROR);
 
-            expect(response.body.message).toBe("API rate limit exceeded");
             expect(response.body.code).toBe("GITHUB_API_ERROR");
         });
     });

@@ -23,31 +23,20 @@ jest.mock("../../../../api/config/firebase.config", () => {
 jest.mock("../../../../api/services/stellar.service", () => ({
     stellarService: {
         createWallet: jest.fn(),
-        addTrustLineViaSponsor: jest.fn(),
-        transferAssetViaSponsor: jest.fn()
+        addTrustLineViaSponsor: jest.fn()
     }
 }));
 
-// Mock helper utilities
-function getFieldFromUnknownObject<T>(obj: unknown, field: string) {
-    if (typeof obj !== "object" || !obj) {
-        return undefined;
+jest.mock("../../../../api/services/kms.service", () => ({
+    KMSService: {
+        encryptWallet: jest.fn().mockResolvedValue({
+            encryptedDEK: "mockEncryptedDEK",
+            encryptedSecret: "mockEncryptedSecret",
+            iv: "mockIV",
+            authTag: "mockAuthTag"
+        }),
+        decryptWallet: jest.fn().mockResolvedValue("STEST1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12")
     }
-    if (field in obj) {
-        return (obj as Record<string, T>)[field];
-    }
-    return undefined;
-}
-
-jest.mock("../../../../api/utilities/helper", () => ({
-    getFieldFromUnknownObject,
-    encryptWallet: jest.fn().mockResolvedValue({
-        encryptedDEK: "mockEncryptedDEK",
-        encryptedSecret: "mockEncryptedSecret",
-        iv: "mockIV",
-        authTag: "mockAuthTag"
-    }),
-    decryptWallet: jest.fn().mockResolvedValue("STEST1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12")
 }));
 
 describe("Installation Team API Integration Tests", () => {
@@ -121,8 +110,7 @@ describe("Installation Team API Integration Tests", () => {
                     users: {
                         connect: { userId: "team-owner" }
                     },
-                    wallet: TestDataFactory.createWalletRelation(),
-                    escrow: TestDataFactory.createWalletRelation()
+                    wallet: TestDataFactory.createWalletRelation()
                 }
             });
 
@@ -271,8 +259,7 @@ describe("Installation Team API Integration Tests", () => {
                     users: {
                         connect: [{ userId: "team-owner" }, { userId: teamMemberId }]
                     },
-                    wallet: TestDataFactory.createWalletRelation(),
-                    escrow: TestDataFactory.createWalletRelation()
+                    wallet: TestDataFactory.createWalletRelation()
                 }
             });
 
@@ -385,8 +372,7 @@ describe("Installation Team API Integration Tests", () => {
                     users: {
                         connect: [{ userId: "team-owner" }, { userId: teamMemberId }]
                     },
-                    wallet: TestDataFactory.createWalletRelation(),
-                    escrow: TestDataFactory.createWalletRelation()
+                    wallet: TestDataFactory.createWalletRelation()
                 }
             });
 
