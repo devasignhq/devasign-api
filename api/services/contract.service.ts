@@ -22,7 +22,8 @@ export class ContractService {
         rpcUrl: process.env.STELLAR_RPC_URL!,
         networkPassphrase: Networks.TESTNET,
         contractId: process.env.TASK_ESCROW_CONTRACT_ID!,
-        usdcContractId: process.env.USDC_CONTRACT_ID!
+        usdcContractId: process.env.USDC_CONTRACT_ID!,
+        masterPublicKey: process.env.STELLAR_MASTER_PUBLIC_KEY!
     };
 
     // Soroban RPC server instance for network communication
@@ -65,7 +66,8 @@ export class ContractService {
         "47": "Task ID contains invalid characters",
         "48": "Amount is too small",
         "49": "Dispute reason is too short",
-        "50": "Invalid issue URL"
+        "50": "Invalid issue URL",
+        "51": "Contract operations paused"
     };
 
     /**
@@ -258,7 +260,7 @@ export class ContractService {
 
         // For read-only calls, use a dummy account for simulation
         const account = await this.server.getAccount(
-            "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF" // Any valid address works for simulation
+            this.CONFIG.masterPublicKey
         );
 
         // Build a transaction for simulation purposes only
