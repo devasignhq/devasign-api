@@ -294,7 +294,7 @@ export const submitTaskApplication = async (req: Request, res: Response, next: N
         // Fetch the task and check if it exists and is open
         const task = await prisma.task.findUnique({
             where: { id: taskId },
-            select: { status: true }
+            select: { status: true, creatorId: true }
         });
 
         if (!task) {
@@ -329,6 +329,9 @@ export const submitTaskApplication = async (req: Request, res: Response, next: N
                 }
             }
         });
+
+        // Update task activity for live updates
+        await FirebaseService.updateActivity(task.creatorId, "task", taskId);
 
         // Return success response
         res.status(STATUS_CODES.SUCCESS).json({ message: "Task application submitted" });
@@ -432,6 +435,9 @@ export const acceptTaskApplication = async (req: Request, res: Response, next: N
             where: { userId: contributorId },
             data: { activeTasks: { increment: 1 } }
         });
+
+        // Update contributor activity for live updates
+        await FirebaseService.updateActivity(contributorId, "contributor");
 
         try {
             // Enable chat for the task
@@ -668,7 +674,8 @@ export const markAsComplete = async (req: Request, res: Response, next: NextFunc
             select: {
                 status: true,
                 contributorId: true,
-                installationId: true
+                installationId: true,
+                creatorId: true
             }
         });
 
@@ -731,6 +738,9 @@ export const markAsComplete = async (req: Request, res: Response, next: NextFunc
                 }
             }
         });
+
+        // Update task activity for live updates
+        await FirebaseService.updateActivity(task.creatorId, "task", taskId);
 
         // Return updated task
         res.status(STATUS_CODES.SUCCESS).json(updatedTask);

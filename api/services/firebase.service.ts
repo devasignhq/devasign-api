@@ -5,6 +5,7 @@ import { Message, MessageMetadata, MessageType } from "../models/task.model";
 // Firestore collection references for messages and tasks
 export const messagesCollection = firestoreDB.collection("messages");
 export const tasksCollection = firestoreDB.collection("tasks");
+export const activityCollection = firestoreDB.collection("activity");
 
 /**
  * Service for managing Firebase Firestore operations.
@@ -94,11 +95,6 @@ export class FirebaseService {
         contributorId: string
     ) {
         const taskRef = tasksCollection.doc(taskId);
-
-        // Check if task chat already exists to avoid duplicates
-        const existingTask = await taskRef.get();
-        if (existingTask.exists) return;
-
         const timestamp = Timestamp.now();
 
         // Prepare task data with conversation participants
@@ -111,8 +107,8 @@ export class FirebaseService {
             updatedAt: timestamp
         };
 
-        // Create the task document
-        await taskRef.set(taskData);
+        // Create or update the task document
+        await taskRef.set(taskData, { merge: true });
         return taskData;
     }
 
@@ -137,5 +133,24 @@ export class FirebaseService {
         // Apply the update
         await taskRef.update(updateData);
         return updateData;
+    }
+
+    /**
+     * Update the last activity timestamp for a task to trigger live updates.
+     */
+    static async updateActivity(
+        userId: string,
+        type: "task" | "contributor",
+        taskId?: string
+    ) {
+        const taskRef = activityCollection.doc();
+        const lastActivityAt = Timestamp.now();
+
+        await taskRef.set({
+            userId,
+            type,
+            lastActivityAt,
+            ...(type === "task" && { taskId })
+        }, { merge: true });
     }
 }
