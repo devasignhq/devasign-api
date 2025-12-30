@@ -37,7 +37,7 @@ export class ErrorHandlerService {
             this.initialized = true;
 
             dataLogger.info(
-                "Error handling initialization completed successfully", 
+                "Error handling initialization completed successfully",
                 {
                     circuitBreakers: Object.keys(CircuitBreakerService.getCircuitStatus()),
                     monitoringActive: true,
@@ -151,29 +151,76 @@ export class ErrorHandlerService {
         const warnings: string[] = [];
         const errors: string[] = [];
 
-        // Check for required service configurations
-        if (!process.env.GROQ_API_KEY) {
-            warnings.push("GROQ_API_KEY not configured - Groq service will be unavailable");
-        }
-
-        if (!process.env.GITHUB_APP_ID || !process.env.GITHUB_APP_PRIVATE_KEY) {
-            errors.push("GitHub app credentials not configured - GitHub integration will fail");
-        }
-
+        // Database Configuration (Critical)
         if (!process.env.DATABASE_URL) {
             errors.push("DATABASE_URL not configured - database operations will fail");
+        }
+
+        // GitHub Configuration (Critical)
+        if (!process.env.GITHUB_APP_ID || !process.env.GITHUB_APP_PRIVATE_KEY) {
+            errors.push("GitHub app credentials not configured - GitHub integration will fail");
         }
 
         if (!process.env.GITHUB_WEBHOOK_SECRET) {
             warnings.push("GITHUB_WEBHOOK_SECRET not configured - pull request review disabled");
         }
 
+        // Stellar Configuration (Critical for blockchain operations)
+        if (!process.env.STELLAR_NETWORK) {
+            errors.push("STELLAR_NETWORK not configured - Stellar operations will fail");
+        }
+
+        if (!process.env.STELLAR_HORIZON_URL) {
+            errors.push("STELLAR_HORIZON_URL not configured - Stellar Horizon API unavailable");
+        }
+
+        if (!process.env.STELLAR_RPC_URL) {
+            errors.push("STELLAR_RPC_URL not configured - Soroban RPC unavailable");
+        }
+
+        if (!process.env.STELLAR_MASTER_PUBLIC_KEY || !process.env.STELLAR_MASTER_SECRET_KEY) {
+            errors.push("Stellar master keypair not configured - Stellar transactions will fail");
+        }
+
+        // Smart Contract Configuration (Critical)
+        if (!process.env.TASK_ESCROW_CONTRACT_ID) {
+            errors.push("TASK_ESCROW_CONTRACT_ID not configured - escrow operations will fail");
+        }
+
+        if (!process.env.USDC_CONTRACT_ID) {
+            errors.push("USDC_CONTRACT_ID not configured - USDC token operations will fail");
+        }
+
+        // Firebase Configuration (Warning - may be optional)
         if (!process.env.FIREBASE_PROJECT_ID || !process.env.FIREBASE_CLIENT_EMAIL || !process.env.FIREBASE_PRIVATE_KEY) {
             warnings.push("Firebase credentials not configured - Firebase integration will fail");
         }
 
+        // GCP Configuration (Warning - for KMS encryption)
         if (!process.env.GCP_PROJECT_ID || !process.env.GCP_LOCATION_ID || !process.env.GCP_KEY_RING_ID || !process.env.GCP_KEY_ID) {
-            warnings.push("GCP credentials not configured - GCP integration will fail");
+            warnings.push("GCP credentials not configured - wallet encryption will fail");
+        }
+
+        // AI Service Configuration (Warning - optional feature)
+        if (!process.env.GROQ_API_KEY) {
+            warnings.push("GROQ_API_KEY not configured - AI review service will be unavailable");
+        }
+
+        // Application Configuration
+        if (!process.env.NODE_ENV) {
+            warnings.push("NODE_ENV not configured - defaulting to development mode");
+        }
+
+        if (!process.env.PORT) {
+            warnings.push("PORT not configured - defaulting to 8080");
+        }
+
+        if (!process.env.CONTRIBUTOR_APP_URL) {
+            warnings.push("CONTRIBUTOR_APP_URL not configured - contributor redirects may fail");
+        }
+
+        if (!process.env.DEFAULT_SUBSCRIPTION_PACKAGE_ID) {
+            warnings.push("DEFAULT_SUBSCRIPTION_PACKAGE_ID not configured - subscription defaults unavailable");
         }
 
         // Log warnings
@@ -192,7 +239,11 @@ export class ErrorHandlerService {
                 warnings: warnings.length,
                 errors: errors.length,
                 hasMonitoring: !!process.env.MONITORING_WEBHOOK_URL,
-                hasAlerting: !!process.env.ALERT_WEBHOOK_URL
+                hasAlerting: !!process.env.ALERT_WEBHOOK_URL,
+                hasStellarConfig: !!(process.env.STELLAR_NETWORK && process.env.STELLAR_HORIZON_URL),
+                hasContractConfig: !!(process.env.TASK_ESCROW_CONTRACT_ID && process.env.USDC_CONTRACT_ID),
+                hasFirebase: !!(process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_CLIENT_EMAIL),
+                hasGCP: !!(process.env.GCP_PROJECT_ID && process.env.GCP_KEY_RING_ID)
             }
         );
     }
