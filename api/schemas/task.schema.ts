@@ -110,7 +110,9 @@ export const createTaskSchema = {
 export const addBountyCommentIdSchema = {
     params: taskIdSchema,
     body: z.object({
-        bountyCommentId: z.string()
+        installationId: installationIdSchema,
+        issueId: z.string(),
+        bountyLabelId: z.string()
     })
 };
 

@@ -23,7 +23,7 @@ type USDCBalance = HorizonApi.BalanceLineAsset<"credit_alphanum12">;
  */
 export const addBountyCommentId = async (req: Request, res: Response, next: NextFunction) => {
     const { taskId } = req.params;
-    const { userId, bountyCommentId } = req.body;
+    const { userId, installationId, bountyLabelId, issueId } = req.body;
 
     try {
         // Fetch the task
@@ -32,6 +32,7 @@ export const addBountyCommentId = async (req: Request, res: Response, next: Next
             select: {
                 id: true,
                 status: true,
+                bounty: true,
                 creatorId: true,
                 issue: true
             }
@@ -50,11 +51,22 @@ export const addBountyCommentId = async (req: Request, res: Response, next: Next
             throw new ValidationError("Only open tasks can be updated");
         }
 
+        // Add bounty label to issue and post bounty comment on issue
+        const bountyComment = await OctokitService.addBountyLabelAndCreateBountyComment(
+            installationId,
+            issueId,
+            bountyLabelId,
+            OctokitService.customBountyMessage(task.bounty.toString(), task.id)
+        );
+
         // Update task with bounty comment id
         const updatedTask = await prisma.task.update({
             where: { id: taskId },
             data: {
-                issue: { ...(typeof task.issue === "object" && task.issue !== null ? task.issue : {}), bountyCommentId }
+                issue: {
+                    ...(typeof task.issue === "object" && task.issue !== null ? task.issue : {}),
+                    bountyCommentId: bountyComment.id
+                }
             },
             select: { id: true }
         });
