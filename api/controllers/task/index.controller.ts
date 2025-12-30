@@ -15,6 +15,7 @@ import {
 } from "../../models/error.model";
 import { ContractService } from "../../services/contract.service";
 import { KMSService } from "../../services/kms.service";
+import { dataLogger } from "../../config/logger.config";
 
 type USDCBalance = HorizonApi.BalanceLineAsset<"credit_alphanum12">;
 
@@ -45,16 +46,20 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
             (asset): asset is USDCBalance => "asset_code" in asset && asset.asset_code === "USDC"
         ) as USDCBalance;
 
+        // Confirm USDC trustline
+        if (!usdcAsset) {
+            throw new ValidationError("USDC trustline not found");
+        }
+        // Confirm USDC balance
         if (parseFloat(usdcAsset.balance) < parseFloat(payload.bounty)) {
             throw new ValidationError("Insufficient balance");
         }
 
-        // Confirm USDC trustline
         const decryptedInstallationWalletSecret = await KMSService.decryptWallet(installation.wallet);
 
         const { installationId, bountyLabelId, ...others } = payload;
 
-        // Format timeline if needed (ie 10 days -> 1.4 weeks)
+        // Format timeline if needed (ie 10 days -> 1.3 weeks)
         if (others.timeline && others.timelineType && others.timelineType === "DAY" && others.timeline > 6) {
             const weeks = Math.floor(others.timeline / 7);
             const days = others.timeline % 7;
@@ -91,79 +96,57 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
             throw new EscrowContractError("Failed to create escrow on smart contract", error);
         }
 
-        // Record bounty transaction
-        const txHash = escrowResult.txHash;
-        const bountyTransactionStatus = {
-            recorded: false,
-            error: undefined
-        } as { recorded: boolean; error?: unknown };
-
+        let bountyComment, postedComment = false;
         try {
-            await prisma.transaction.create({
+            // Add bounty label to issue and post bounty comment on issue
+            bountyComment = await OctokitService.addBountyLabelAndCreateBountyComment(
+                installationId,
+                others.issue.id,
+                bountyLabelId,
+                OctokitService.customBountyMessage(others.bounty, task.id)
+            );
+            postedComment = true;
+        } catch (error) {
+            // Log error and continue
+            dataLogger.error({ taskId: task.id, error });
+        }
+
+        const [updatedTask] = await prisma.$transaction([
+            // Update task with bounty comment id
+            prisma.task.update({
+                where: { id: task.id },
                 data: {
-                    txHash,
+                    issue: {
+                        ...(typeof task.issue === "object" && task.issue !== null ? task.issue : {}),
+                        ...(bountyComment && { bountyCommentId: bountyComment.id })
+                    }
+                },
+                select: { issue: true }
+            }),
+            // Record bounty transaction
+            prisma.transaction.create({
+                data: {
+                    txHash: escrowResult.txHash,
                     category: "BOUNTY",
                     amount: parseFloat(task.bounty.toString()),
                     task: { connect: { id: task.id } },
                     installation: { connect: { id: installationId } },
                     doneAt: stellarTimestampToDate(escrowResult.result.createdAt)
                 }
-            });
+            })
+        ]);
 
-            bountyTransactionStatus.recorded = true;
-        } catch (error) {
-            bountyTransactionStatus.error = error;
-        }
-
-        try {
-            // Add bounty label to issue and post bounty comment on issue
-            const bountyComment = await OctokitService.addBountyLabelAndCreateBountyComment(
-                installationId,
-                others.issue.id,
-                bountyLabelId,
-                OctokitService.customBountyMessage(others.bounty, task.id)
-            );
-
-            // Update task with bounty comment id
-            const updatedTask = await prisma.task.update({
-                where: { id: task.id },
-                data: {
-                    issue: {
-                        ...(typeof task.issue === "object" && task.issue !== null ? task.issue : {}),
-                        bountyCommentId: bountyComment.id
-                    }
-                },
-                select: { issue: true }
-            });
-
-            // Return task and notify user if bounty was not recorded 
-            if (!bountyTransactionStatus.recorded) {
-                return res.status(STATUS_CODES.PARTIAL_SUCCESS).json({
-                    error: bountyTransactionStatus.error,
-                    transactionRecord: false,
-                    task: { ...task, ...updatedTask },
-                    message: "Failed to record bounty transaction."
-                });
-            }
-
-            // All operations successful
-            res.status(STATUS_CODES.POST).json({ ...task, ...updatedTask });
-        } catch (error) {
-            let message = "Failed to either create bounty comment or add bounty label.";
-
-            // Update message if bounty transaction was not recorded
-            if (!bountyTransactionStatus.recorded) {
-                message = "Failed to record bounty transaction and to either create bounty comment or add bounty label.";
-            }
-
-            // Return task and notify user
-            res.status(STATUS_CODES.PARTIAL_SUCCESS).json({
-                error,
-                transactionRecord: bountyTransactionStatus.recorded,
+        // Return task and notify user if bounty comment was not posted
+        if (!postedComment) {
+            return res.status(STATUS_CODES.PARTIAL_SUCCESS).json({
+                bountyCommentPosted: false,
                 task,
-                message
+                message: "Failed to either post bounty comment or add bounty label."
             });
         }
+
+        // All operations successful
+        res.status(STATUS_CODES.POST).json({ ...task, ...updatedTask });
     } catch (error) {
         next(error);
     }
@@ -366,14 +349,17 @@ export const deleteTask = async (req: Request, res: Response, next: NextFunction
 
         const taskIssue = task.issue as TaskIssue;
 
-        // Return bounty to installation wallet if it exists
-        if (task.bounty > 0) {
-            if (!task.installation.wallet) {
-                throw new NotFoundError("Installation wallet not found");
-            }
-            const decryptedWalletSecret = await KMSService.decryptWallet(task.installation.wallet);
+        // Return bounty to installation wallet
+        if (!task.installation.wallet) {
+            throw new NotFoundError("Installation wallet not found");
+        }
+        const decryptedWalletSecret = await KMSService.decryptWallet(task.installation.wallet);
 
+        try {
             await ContractService.refund(decryptedWalletSecret, taskId);
+        } catch (error) {
+            // Throw error if refund fails
+            throw new EscrowContractError("Failed to refund bounty to installation wallet", error);
         }
 
         // Delete task
