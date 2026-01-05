@@ -108,6 +108,20 @@ export class AIReviewError extends ErrorClass {
 // ============================================================================
 
 /**
+ * Google KMS related errors
+ */
+export class KmsServiceError extends ErrorClass {
+    constructor(message: string, details: unknown = null) {
+        super(
+            "KMS_SERVICE_ERROR",
+            details,
+            message,
+            STATUS_CODES.SERVER_ERROR
+        );
+    }
+}
+
+/**
  * Stellar service related errors
  */
 export class StellarServiceError extends ErrorClass {

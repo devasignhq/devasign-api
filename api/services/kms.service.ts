@@ -1,6 +1,7 @@
 import { KeyManagementServiceClient } from "@google-cloud/kms";
 import crypto from "crypto";
 import { Wallet } from "../../prisma_client";
+import { KmsServiceError } from "../models/error.model";
 
 // Set Google Cloud KMS environment variables
 const PROJECT_ID = process.env.GCP_PROJECT_ID!;
@@ -25,15 +26,19 @@ export class KMSService {
         // Generate a random 32-byte Data Encryption Key (DEK)
         const plaintextDEK = crypto.randomBytes(32);
 
-        // Encrypt the DEK using Google Cloud KMS
-        const [encryptResponse] = await client.encrypt({
-            name: keyName,
-            plaintext: plaintextDEK
-        });
-        const encryptedDEK = encryptResponse.ciphertext;
+        let encryptedDEK;
+        try {
+            const [encryptResponse] = await client.encrypt({
+                name: keyName,
+                plaintext: plaintextDEK
+            });
+            encryptedDEK = encryptResponse.ciphertext;
 
-        if (!encryptedDEK) {
-            throw new Error("Failed to encrypt DEK");
+            if (!encryptedDEK) {
+                throw new KmsServiceError("Failed to encrypt DEK");
+            }
+        } catch (error) {
+            throw new KmsServiceError("Failed to encrypt DEK", error);
         }
 
         // Encrypt the wallet secret using the plaintext DEK (AES-256-GCM)
@@ -64,14 +69,20 @@ export class KMSService {
     static async decryptWallet(wallet: Wallet) {
         const { encryptedDEK, encryptedSecret, iv, authTag } = wallet;
 
-        // Decrypt the DEK using Google Cloud KMS
-        const [decryptResponse] = await client.decrypt({
-            name: keyName,
-            ciphertext: Buffer.from(encryptedDEK, "base64")
-        });
+        let decryptResponse;
+        try {
+            // Decrypt the DEK using Google Cloud KMS
+            const [decryptRes] = await client.decrypt({
+                name: keyName,
+                ciphertext: Buffer.from(encryptedDEK, "base64")
+            });
+            decryptResponse = decryptRes;
+        } catch (error) {
+            throw new KmsServiceError("Failed to decrypt DEK", error);
+        }
 
         if (!decryptResponse.plaintext) {
-            throw new Error("Failed to decrypt DEK");
+            throw new KmsServiceError("Failed to decrypt DEK");
         }
 
         // Ensure plaintextDEK is a Buffer
