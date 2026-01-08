@@ -10,6 +10,48 @@ import { KMSService } from "../../services/kms.service";
 
 type USDCBalance = HorizonApi.BalanceLineAsset<"credit_alphanum12">;
 
+// Get wallet info based on installation or user
+const getContextWallet = async (userId: string, installationId?: string) => {
+    let wallet;
+
+    if (installationId) {
+        // Check if user is part of the installation
+        const installation = await prisma.installation.findFirst({
+            where: {
+                id: installationId,
+                users: { some: { userId } }
+            },
+            select: { wallet: true }
+        });
+
+        if (!installation) {
+            throw new NotFoundError(
+                "Installation does not exist or user is not part of this installation."
+            );
+        }
+
+        // Set wallet details
+        if (!installation.wallet) throw new NotFoundError("Installation wallet not found");
+        wallet = installation.wallet;
+    } else {
+        // Fetch user and verify user exists
+        const user = await prisma.user.findUnique({
+            where: { userId },
+            select: { wallet: true }
+        });
+
+        if (!user) {
+            throw new NotFoundError("User not found");
+        }
+
+        // Set wallet details
+        if (!user.wallet) throw new NotFoundError("User wallet not found");
+        wallet = user.wallet;
+    }
+
+    return wallet;
+};
+
 /**
  * Withdraw assets from wallet.
  */
@@ -28,50 +70,10 @@ export const withdrawAsset = async (req: Request, res: Response, next: NextFunct
             throw new ValidationError("Invalid amount specified");
         }
 
-        let walletAddress = "";
-        let walletSecret = "";
-
         // Get wallet info based on installation or user
-        if (installationId) {
-            // Check if user is part of the installation
-            const installation = await prisma.installation.findFirst({
-                where: {
-                    id: installationId,
-                    users: {
-                        some: {
-                            userId
-                        }
-                    }
-                },
-                select: { wallet: true }
-            });
-
-            if (!installation) {
-                throw new NotFoundError(
-                    "Installation does not exist or user is not part of this installation."
-                );
-            }
-
-            // Set wallet details
-            if (!installation.wallet) throw new NotFoundError("Installation wallet not found");
-            walletAddress = installation.wallet.address;
-            walletSecret = await KMSService.decryptWallet(installation.wallet);
-        } else {
-            // Fetch user and verify user exists
-            const user = await prisma.user.findUnique({
-                where: { userId },
-                select: { wallet: true }
-            });
-
-            if (!user) {
-                throw new NotFoundError("User not found");
-            }
-
-            // Set wallet details
-            if (!user.wallet) throw new NotFoundError("User wallet not found");
-            walletAddress = user.wallet.address;
-            walletSecret = await KMSService.decryptWallet(user.wallet);
-        }
+        const wallet = await getContextWallet(userId, installationId);
+        const walletAddress = wallet.address;
+        const walletSecret = await KMSService.decryptWallet(wallet);
 
         // Check balance before withdrawal
         const accountInfo = await stellarService.getAccountInfo(walletAddress);
@@ -102,13 +104,14 @@ export const withdrawAsset = async (req: Request, res: Response, next: NextFunct
                 throw new ValidationError("No XLM balance found");
             }
 
-            // Keep 1 XLM as minimum reserve
-            const availableXLM = parseFloat(xlmBalance.balance) - 1;
+            // Keep minimum XLM reserve
+            const minimumReserve = (2 + accountInfo.subentry_count) * 0.5;
+            const availableXLMForTransfer = parseFloat(xlmBalance.balance) - minimumReserve;
 
-            if (availableXLM < Number(amount)) {
+            if (availableXLMForTransfer < Number(amount)) {
                 throw new ValidationError(
-                    "Insufficient XLM balance (1 XLM reserve required)",
-                    { available: availableXLM.toString() }
+                    `Insufficient XLM balance (${minimumReserve} XLM reserve required)`,
+                    { available: availableXLMForTransfer.toString() }
                 );
             }
         }
@@ -162,50 +165,10 @@ export const swapAsset = async (req: Request, res: Response, next: NextFunction)
             throw new ValidationError("Invalid amount specified");
         }
 
-        let walletAddress = "";
-        let walletSecret = "";
-
         // Get wallet info based on installation or user
-        if (installationId) {
-            // Check if user is part of the installation
-            const installation = await prisma.installation.findFirst({
-                where: {
-                    id: installationId,
-                    users: {
-                        some: {
-                            userId
-                        }
-                    }
-                },
-                select: { wallet: true }
-            });
-
-            if (!installation) {
-                throw new NotFoundError(
-                    "Installation does not exist or user is not part of this installation."
-                );
-            }
-
-            // Set wallet details
-            if (!installation.wallet) throw new NotFoundError("Installation wallet not found");
-            walletAddress = installation.wallet.address;
-            walletSecret = await KMSService.decryptWallet(installation.wallet);
-        } else {
-            // Fetch user and verify user exists
-            const user = await prisma.user.findUnique({
-                where: { userId },
-                select: { wallet: true }
-            });
-
-            if (!user) {
-                throw new NotFoundError("User not found");
-            }
-
-            // Set wallet details
-            if (!user.wallet) throw new NotFoundError("User wallet not found");
-            walletAddress = user.wallet.address;
-            walletSecret = await KMSService.decryptWallet(user.wallet);
-        }
+        const wallet = await getContextWallet(userId, installationId);
+        const walletAddress = wallet.address;
+        const walletSecret = await KMSService.decryptWallet(wallet);
 
         // Check balance before swap
         const accountInfo = await stellarService.getAccountInfo(walletAddress);
@@ -220,13 +183,14 @@ export const swapAsset = async (req: Request, res: Response, next: NextFunction)
                 throw new ValidationError("No XLM balance found");
             }
 
-            // Keep 1 XLM as minimum reserve
-            const availableXLM = parseFloat(xlmBalance.balance) - 1;
+            // Keep minimum XLM reserve
+            const minimumReserve = (2 + accountInfo.subentry_count) * 0.5;
+            const availableXLMForTransfer = parseFloat(xlmBalance.balance) - minimumReserve;
 
-            if (availableXLM < Number(amount)) {
+            if (availableXLMForTransfer < Number(amount)) {
                 throw new ValidationError(
-                    "Insufficient XLM balance for swap (1 XLM reserve required)",
-                    { available: availableXLM.toString() }
+                    `Insufficient XLM balance (${minimumReserve} XLM reserve required)`,
+                    { available: availableXLMForTransfer.toString() }
                 );
             }
         } else {
@@ -296,50 +260,11 @@ export const getWalletInfo = async (req: Request, res: Response, next: NextFunct
     const { userId } = req.body;
 
     try {
-        let walletAddress = "";
-
         // Get wallet info based on installation or user
-        if (installationId) {
-            // Check if user is part of the installation
-            const installation = await prisma.installation.findFirst({
-                where: {
-                    id: installationId,
-                    users: {
-                        some: {
-                            userId
-                        }
-                    }
-                },
-                select: { wallet: { select: { address: true } } }
-            });
-
-            if (!installation) {
-                throw new NotFoundError(
-                    "Installation does not exist or user is not part of this installation."
-                );
-            }
-
-            // Set wallet details
-            if (!installation.wallet) throw new NotFoundError("Installation wallet not found");
-            walletAddress = installation.wallet.address;
-        } else {
-            // Fetch user and verify user exists
-            const user = await prisma.user.findUnique({
-                where: { userId },
-                select: { wallet: { select: { address: true } } }
-            });
-
-            if (!user) {
-                throw new NotFoundError("User not found");
-            }
-
-            // Set wallet details
-            if (!user.wallet) throw new NotFoundError("User wallet not found");
-            walletAddress = user.wallet.address;
-        }
+        const wallet = await getContextWallet(userId, installationId);
 
         // Get account info from Stellar
-        const accountInfo = await stellarService.getAccountInfo(walletAddress);
+        const accountInfo = await stellarService.getAccountInfo(wallet.address);
 
         // Return account info
         res.status(STATUS_CODES.SUCCESS).json(accountInfo);

@@ -29,11 +29,7 @@ export const getTransactions = async (req: Request, res: Response, next: NextFun
             const userInstallation = await prisma.installation.findFirst({
                 where: {
                     id: installationId,
-                    users: {
-                        some: {
-                            userId
-                        }
-                    }
+                    users: { some: { userId } }
                 },
                 select: { id: true }
             });
@@ -53,10 +49,10 @@ export const getTransactions = async (req: Request, res: Response, next: NextFun
             }
         }
 
-        // Pagination defaults
-        const take = Math.min(Number(limit) || 20, 50); // max 50 per page
+        // Parse limit
+        const take = Math.min(Number(limit) || 20, 50);
 
-        // Build filter for categories if provided
+        // Build filter for categories
         const whereClause: Prisma.TransactionWhereInput = installationId ? { installationId } : { userId };
         if (categoryList && categoryList.length > 0) {
             whereClause.category = { in: categoryList };
@@ -67,7 +63,7 @@ export const getTransactions = async (req: Request, res: Response, next: NextFun
             where: whereClause,
             orderBy: { doneAt: (sort as "asc" | "desc") || "desc" },
             skip: ((Number(page) - 1) * take) || 0,
-            take,
+            take: take + 1, // Request one extra record beyond the limit
             include: {
                 task: {
                     select: {
@@ -80,10 +76,13 @@ export const getTransactions = async (req: Request, res: Response, next: NextFun
             }
         });
 
-        // Return transactions with pagination info
+        // Determine if more results exist and trim the array
+        const hasMore = transactions.length > take;
+        const results = hasMore ? transactions.slice(0, take) : transactions;
+
         res.status(STATUS_CODES.SUCCESS).json({
-            transactions,
-            hasMore: transactions.length === take
+            transactions: results,
+            hasMore
         });
     } catch (error) {
         next(error);
@@ -106,13 +105,12 @@ export const recordWalletTopups = async (req: Request, res: Response, next: Next
             const installation = await prisma.installation.findFirst({
                 where: {
                     id: installationId,
-                    users: {
-                        some: {
-                            userId
-                        }
-                    }
+                    users: { some: { userId } }
                 },
-                select: { id: true, wallet: { select: { address: true } } }
+                select: {
+                    id: true,
+                    wallet: { select: { address: true } }
+                }
             });
 
             if (!installation) {
