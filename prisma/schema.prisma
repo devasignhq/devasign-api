@@ -15,6 +15,7 @@ enum TaskStatus {
     COMPLETED
 }
 
+// TODO: To remove
 enum TimelineType {
     WEEK
     DAY
@@ -84,7 +85,6 @@ model User {
     taskActivities              TaskActivity[]
 }
 
-// TODO: Update contribution summary upon task completion/acceptance
 model ContributionSummary {
     id             String @id @default(cuid())
     tasksCompleted Int    @default(0)
@@ -130,28 +130,42 @@ model Installation {
     @@index([createdAt])
 }
 
+// TODO: Explicit Join Table
+// model UserInstallation {
+//     userId         String
+//     installationId String
+//     user           User         @relation(fields: [userId], references: [userId])
+//     installation   Installation @relation(fields: [installationId], references: [id])
+//     assignedAt     DateTime     @default(now())
+
+//     @@id([userId, installationId])
+//     @@index([installationId])
+//     @@index([userId])
+// }
+
 model Task {
-    id              String           @id @default(cuid())
-    issue           Json
-    timeline        Float?           @default(0)
-    timelineType    TimelineType?    @default(WEEK)
-    bounty          Float            @default(0.0)
-    status          TaskStatus       @default(OPEN)
-    settled         Boolean          @default(false)
-    applications    User[]           @relation("UserApplications")
-    acceptedAt      DateTime?
-    completedAt     DateTime?
-    creator         User             @relation("TaskCreator", fields: [creatorId], references: [userId], onDelete: Restrict)
-    creatorId       String
-    contributor     User?            @relation("TaskContributor", fields: [contributorId], references: [userId], onDelete: SetNull)
-    contributorId   String?
-    installation    Installation     @relation("InstallationTasks", fields: [installationId], references: [id], onDelete: Cascade)
-    installationId  String
-    createdAt       DateTime         @default(now())
-    updatedAt       DateTime         @updatedAt
-    transactions    Transaction[]
-    taskSubmissions TaskSubmission[]
-    taskActivities  TaskActivity[]
+    id                 String           @id @default(cuid())
+    issue              Json
+    timeline           Float?           @default(0)
+    timelineType       TimelineType?    @default(WEEK)
+    bounty             Float            @default(0.0)
+    status             TaskStatus       @default(OPEN)
+    escrowTransactions Json[]           @default([]) // [{txHash: string, method: string}]
+    settled            Boolean          @default(false)
+    applications       User[]           @relation("UserApplications")
+    acceptedAt         DateTime?
+    completedAt        DateTime?
+    creator            User             @relation("TaskCreator", fields: [creatorId], references: [userId], onDelete: Restrict)
+    creatorId          String
+    contributor        User?            @relation("TaskContributor", fields: [contributorId], references: [userId], onDelete: SetNull)
+    contributorId      String?
+    installation       Installation     @relation("InstallationTasks", fields: [installationId], references: [id], onDelete: Cascade)
+    installationId     String
+    createdAt          DateTime         @default(now())
+    updatedAt          DateTime         @updatedAt
+    transactions       Transaction[]
+    taskSubmissions    TaskSubmission[]
+    taskActivities     TaskActivity[]
 
     @@index([installationId])
     @@index([installationId, status])
@@ -217,7 +231,7 @@ model UserInstallationPermission {
 
 model Transaction {
     id       String              @id @default(cuid())
-    txHash   String
+    txHash   String              @unique
     category TransactionCategory
     amount   Float
     doneAt   DateTime            @default(now())

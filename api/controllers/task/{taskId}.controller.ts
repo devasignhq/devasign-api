@@ -212,7 +212,15 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
             // Update task bounty
             prisma.task.update({
                 where: { id: taskId },
-                data: { bounty: parseFloat(newBounty) },
+                data: {
+                    bounty: parseFloat(newBounty),
+                    escrowTransactions: {
+                        push: {
+                            txHash: contractTxHash,
+                            method: bountyDifference > 0 ? "increase_bounty" : "decrease_bounty"
+                        }
+                    }
+                },
                 select: {
                     bounty: true,
                     updatedAt: true
@@ -453,7 +461,7 @@ export const acceptTaskApplication = async (req: Request, res: Response, next: N
         const decryptedWalletSecret = await KMSService.decryptWallet(task.installation.wallet);
 
         // Assign contributor on contract
-        await ContractService.assignContributor(
+        const { txHash: assignmentTxHash } = await ContractService.assignContributor(
             decryptedWalletSecret,
             taskId,
             task.contributor.wallet.address
@@ -467,7 +475,10 @@ export const acceptTaskApplication = async (req: Request, res: Response, next: N
                 data: {
                     contributor: { connect: { userId: contributorId } },
                     status: "IN_PROGRESS",
-                    acceptedAt: new Date()
+                    acceptedAt: new Date(),
+                    escrowTransactions: {
+                        push: { txHash: assignmentTxHash, method: "assign_contributor" }
+                    }
                 },
                 select: {
                     id: true,
@@ -489,14 +500,6 @@ export const acceptTaskApplication = async (req: Request, res: Response, next: N
 
             // Return success response
             res.status(STATUS_CODES.SUCCESS).json(updatedTask);
-
-            // Update task activity for live updates
-            FirebaseService.updateActivity(contributorId, "contributor").catch(
-                error => dataLogger.warn(
-                    "Failed to update contributor activity for live updates",
-                    { contributorId, error }
-                )
-            );
         } catch (error) {
             dataLogger.info("Failed to enable chat functionality for this task", error);
             // Return updated task but notify user of partial failure
@@ -504,15 +507,15 @@ export const acceptTaskApplication = async (req: Request, res: Response, next: N
                 task: updatedTask,
                 message: "Failed to enable chat functionality for this task."
             });
-
-            // Update task activity for live updates
-            FirebaseService.updateActivity(contributorId, "contributor").catch(
-                error => dataLogger.warn(
-                    "Failed to update contributor activity for live updates",
-                    { contributorId, error }
-                )
-            );
         }
+
+        // Update task activity for live updates
+        FirebaseService.updateActivity(contributorId, "contributor").catch(
+            error => dataLogger.warn(
+                "Failed to update contributor activity for live updates",
+                { contributorId, error }
+            )
+        );
     } catch (error) {
         next(error);
     }
@@ -892,7 +895,13 @@ export const validateCompletion = async (req: Request, res: Response, next: Next
                 data: {
                     status: "COMPLETED",
                     completedAt: new Date(),
-                    settled: true
+                    settled: true,
+                    escrowTransactions: {
+                        push: { 
+                            txHash: transactionResponse.txHash, 
+                            method: "bounty_payout" 
+                        }
+                    }
                 },
                 select: {
                     status: true,

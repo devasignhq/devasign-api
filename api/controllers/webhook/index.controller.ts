@@ -207,7 +207,10 @@ export const handleBountyPayout = async (req: Request, res: Response, next: Next
                     data: {
                         status: "COMPLETED",
                         completedAt: new Date(),
-                        settled: true
+                        settled: true,
+                        escrowTransactions: {
+                            push: { txHash: transactionResponse.txHash, method: "bounty_payout" }
+                        }
                     }
                 }),
                 // Record transaction for contributor

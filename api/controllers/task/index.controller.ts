@@ -123,6 +123,9 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
                     issue: {
                         ...(typeof task.issue === "object" && task.issue !== null ? task.issue : {}),
                         ...(bountyComment && { bountyCommentId: bountyComment.id })
+                    },
+                    escrowTransactions: {
+                        push: { txHash: escrowResult.txHash, method: "creation" }
                     }
                 },
                 select: { issue: true }
