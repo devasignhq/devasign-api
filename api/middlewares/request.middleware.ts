@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import { STATUS_CODES } from "../utilities/data";
 import * as z from "zod";
 import { ValidationError } from "../models/error.model";
+import { dataLogger } from "../config/logger.config";
 
 /**
  * Middleware to prevent caching on dynamic routes
@@ -19,29 +20,30 @@ export const dynamicRoute = (req: Request, res: Response, next: NextFunction) =>
  * Middleware to restrict access to localhost only
  */
 export const localhostOnly = (req: Request, res: Response, next: NextFunction) => {
-    // Get origin and referer headers
-    const origin = req.get("origin") || req.get("host");
-    const referer = req.get("referer");
+    // req.ip is populated by the 'X-Forwarded-For' header when 'trust proxy' is true
+    const clientIp = req.ip;
 
-    // Allow requests with no origin (direct API calls, curl, etc.)
-    if (!origin && !referer) {
+    const isLocal = 
+        clientIp === "127.0.0.1" || 
+        clientIp === "::1" || 
+        clientIp === "::ffff:127.0.0.1";
+
+    // Allow local access
+    if (isLocal) {
         return next();
     }
 
-    // Check if origin or referer contains localhost
-    const isLocalhost = (url: string) => {
-        return url.includes("localhost") || url.includes("127.0.0.1") || url.includes("::1");
-    };
-
-    if ((origin && isLocalhost(origin)) || (referer && isLocalhost(referer))) {
-        return next();
-    }
-
-    // Deny access if not from localhost
-    res.status(STATUS_CODES.UNAUTHORIZED).json({
-        error: "Access denied. This endpoint is only available from localhost."
+    dataLogger.warn("Unauthorized local-only access attempt", {
+        attemptedIp: clientIp,
+        path: req.path,
+        // Cloudflare sends the real visitor IP in this header
+        cfVisitorIp: req.get("cf-connecting-ip") 
     });
-    return;
+
+    // Deny access
+    res.status(STATUS_CODES.UNAUTHORIZED).json({
+        error: "Access denied. Local interface only."
+    });
 };
 
 /**
@@ -74,11 +76,11 @@ export const localhostOnly = (req: Request, res: Response, next: NextFunction) =
  * );
  * ```
  */
-export const validateRequestParameters = ({ 
-    params, 
-    query, 
-    body 
-}:{
+export const validateRequestParameters = ({
+    params,
+    query,
+    body
+}: {
     params?: z.ZodObject,
     query?: z.ZodObject,
     body?: z.ZodObject

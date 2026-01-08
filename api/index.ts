@@ -53,6 +53,7 @@ app.use(
     })
 );
 app.use(morgan("dev"));
+app.set("trust proxy", true);
 
 // Raw body parser for webhook signature validation
 app.use(
