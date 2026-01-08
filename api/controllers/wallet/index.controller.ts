@@ -56,8 +56,8 @@ const getContextWallet = async (userId: string, installationId?: string) => {
  * Withdraw assets from wallet.
  */
 export const withdrawAsset = async (req: Request, res: Response, next: NextFunction) => {
+    const { userId } = res.locals;
     const {
-        userId,
         installationId,
         walletAddress: destinationAddress,
         assetType = "XLM",
@@ -151,8 +151,8 @@ export const withdrawAsset = async (req: Request, res: Response, next: NextFunct
  * Swap assets in wallet.
  */
 export const swapAsset = async (req: Request, res: Response, next: NextFunction) => {
+    const { userId } = res.locals;
     const {
-        userId,
         installationId,
         toAssetType = "USDC",
         amount,
@@ -257,7 +257,7 @@ export const swapAsset = async (req: Request, res: Response, next: NextFunction)
  */
 export const getWalletInfo = async (req: Request, res: Response, next: NextFunction) => {
     const installationId = req.query.installationId as string;
-    const { userId } = req.body;
+    const { userId } = res.locals;
 
     try {
         // Get wallet info based on installation or user

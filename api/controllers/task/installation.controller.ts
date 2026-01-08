@@ -20,7 +20,7 @@ export const getInstallationTasks = async (req: Request, res: Response, next: Ne
         issueLabels
     } = req.query;
     const { installationId } = req.params;
-    const { userId } = req.body;
+    const { userId } = res.locals;
 
     // Extract filters
     const filters = {
@@ -157,7 +157,7 @@ export const getInstallationTasks = async (req: Request, res: Response, next: Ne
  */
 export const getInstallationTask = async (req: Request, res: Response, next: NextFunction) => {
     const { taskId, installationId } = req.params;
-    const { userId } = req.body;
+    const { userId } = res.locals;
 
     try {
         // Fetch task and ensure it belongs to the installation and user has access

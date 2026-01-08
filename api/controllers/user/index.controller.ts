@@ -18,7 +18,8 @@ export type AddressBook = {
  * Create a new user.
  */
 export const createUser = async (req: Request, res: Response, next: NextFunction) => {
-    const { userId, githubUsername } = req.body;
+    const { userId } = res.locals;
+    const { githubUsername } = req.body;
     const { skipWallet } = req.query;
 
     try {
@@ -106,7 +107,7 @@ export const createUser = async (req: Request, res: Response, next: NextFunction
  * Get user details.
  */
 export const getUser = async (req: Request, res: Response, next: NextFunction) => {
-    const { userId } = req.body;
+    const { userId } = res.locals;
     const { view = "basic", setWallet } = req.query; // view: "basic" | "full"
 
     try {
@@ -220,7 +221,8 @@ export const getUser = async (req: Request, res: Response, next: NextFunction) =
  * Update user's GitHub username.
  */
 export const updateUsername = async (req: Request, res: Response, next: NextFunction) => {
-    const { userId, newUsername } = req.body;
+    const { userId } = res.locals;
+    const { newUsername } = req.body;
 
     try {
         // Check if user exists
@@ -255,7 +257,8 @@ export const updateUsername = async (req: Request, res: Response, next: NextFunc
  * Add a new entry in the user's address book.
  */
 export const updateAddressBook = async (req: Request, res: Response, next: NextFunction) => {
-    const { userId, address, name } = req.body;
+    const { userId } = res.locals;
+    const { address, name } = req.body;
 
     try {
         // Fetch user and verify user exists

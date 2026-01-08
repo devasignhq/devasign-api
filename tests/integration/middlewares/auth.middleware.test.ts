@@ -43,7 +43,8 @@ describe("Authentication Middleware", () => {
 
         mockResponse = {
             status: jest.fn().mockReturnThis(),
-            json: jest.fn().mockReturnThis()
+            json: jest.fn().mockReturnThis(),
+            locals: {}
         };
 
         mockNext = jest.fn();
@@ -74,8 +75,8 @@ describe("Authentication Middleware", () => {
                 await validateUser(mockRequest as Request, mockResponse as Response, mockNext);
 
                 expect(mockFirebaseAuth).toHaveBeenCalledWith("valid-jwt-token");
-                expect(mockRequest.body).toEqual({
-                    currentUser: mockDecodedToken,
+                expect(mockResponse.locals).toEqual({
+                    user: mockDecodedToken,
                     userId: "test-user-id"
                 });
                 expect(mockNext).toHaveBeenCalled();
@@ -99,29 +100,7 @@ describe("Authentication Middleware", () => {
                 expect(mockNext).not.toHaveBeenCalled();
             });
 
-            it("should preserve existing request body when adding user info", async () => {
-                const existingBody = { someData: "test-data" };
-                const mockDecodedToken = {
-                    uid: "test-user-id",
-                    email: "test@example.com"
-                };
 
-                mockRequest.headers = {
-                    authorization: "Bearer valid-jwt-token"
-                };
-                mockRequest.body = existingBody;
-
-                mockFirebaseAuth.mockResolvedValueOnce(mockDecodedToken);
-
-                await validateUser(mockRequest as Request, mockResponse as Response, mockNext);
-
-                expect(mockNext).toHaveBeenCalled();
-                expect(mockRequest.body).toEqual({
-                    ...existingBody,
-                    currentUser: mockDecodedToken,
-                    userId: "test-user-id"
-                });
-            });
         });
 
         describe("Unauthorized Access Handling", () => {
@@ -279,7 +258,7 @@ describe("Authentication Middleware", () => {
             });
 
             mockRequest.params = { installationId: "12345678" };
-            mockRequest.body = { userId: "unauthorized-user-id" };
+            mockResponse.locals = { userId: "unauthorized-user-id" };
 
             await validateUserInstallation(mockRequest as Request, mockResponse as Response, mockNext);
 
@@ -294,7 +273,7 @@ describe("Authentication Middleware", () => {
 
         it("should throw error when installation does not exist", async () => {
             mockRequest.params = { installationId: "non-existent-installation" };
-            mockRequest.body = { userId: "test-user-id" };
+            mockResponse.locals = { userId: "test-user-id" };
 
             await validateUserInstallation(mockRequest as Request, mockResponse as Response, mockNext);
 
@@ -327,8 +306,8 @@ describe("Authentication Middleware", () => {
     describe("validateAdmin", () => {
         describe("Admin Privilege Validation", () => {
             it("should allow access when user has admin property set to true", async () => {
-                mockRequest.body = {
-                    currentUser: {
+                mockResponse.locals = {
+                    user: {
                         uid: "admin-user-id",
                         email: "admin@example.com",
                         admin: true
@@ -342,8 +321,8 @@ describe("Authentication Middleware", () => {
             });
 
             it("should allow access when user has admin in custom_claims", async () => {
-                mockRequest.body = {
-                    currentUser: {
+                mockResponse.locals = {
+                    user: {
                         uid: "admin-user-id",
                         email: "admin@example.com",
                         custom_claims: {
@@ -359,8 +338,8 @@ describe("Authentication Middleware", () => {
             });
 
             it("should allow access when user has both admin property and custom_claims", async () => {
-                mockRequest.body = {
-                    currentUser: {
+                mockResponse.locals = {
+                    user: {
                         uid: "admin-user-id",
                         email: "admin@example.com",
                         admin: true,
@@ -380,8 +359,8 @@ describe("Authentication Middleware", () => {
 
         describe("Non-Admin Access Denial", () => {
             it("should deny access when user has no admin privileges", async () => {
-                mockRequest.body = {
-                    currentUser: {
+                mockResponse.locals = {
+                    user: {
                         uid: "regular-user-id",
                         email: "user@example.com"
                     }
@@ -397,8 +376,8 @@ describe("Authentication Middleware", () => {
             });
 
             it("should deny access when admin property is false", async () => {
-                mockRequest.body = {
-                    currentUser: {
+                mockResponse.locals = {
+                    user: {
                         uid: "user-id",
                         email: "user@example.com",
                         admin: false
@@ -415,8 +394,8 @@ describe("Authentication Middleware", () => {
             });
 
             it("should deny access when custom_claims.admin is false", async () => {
-                mockRequest.body = {
-                    currentUser: {
+                mockResponse.locals = {
+                    user: {
                         uid: "user-id",
                         email: "user@example.com",
                         custom_claims: {
@@ -436,7 +415,7 @@ describe("Authentication Middleware", () => {
             });
 
             it("should deny access when currentUser is missing", async () => {
-                mockRequest.body = {};
+                mockResponse.locals = {};
 
                 await validateAdmin(mockRequest as Request, mockResponse as Response, mockNext);
 
@@ -448,8 +427,8 @@ describe("Authentication Middleware", () => {
             });
 
             it("should deny access when currentUser is null", async () => {
-                mockRequest.body = {
-                    currentUser: null
+                mockResponse.locals = {
+                    user: null
                 };
 
                 await validateAdmin(mockRequest as Request, mockResponse as Response, mockNext);
@@ -462,8 +441,8 @@ describe("Authentication Middleware", () => {
             });
 
             it("should deny access when currentUser is undefined", async () => {
-                mockRequest.body = {
-                    currentUser: undefined
+                mockResponse.locals = {
+                    user: undefined
                 };
 
                 await validateAdmin(mockRequest as Request, mockResponse as Response, mockNext);
@@ -478,8 +457,8 @@ describe("Authentication Middleware", () => {
 
         describe("Edge Cases", () => {
             it("should deny access when custom_claims exists but admin is missing", async () => {
-                mockRequest.body = {
-                    currentUser: {
+                mockResponse.locals = {
+                    user: {
                         uid: "user-id",
                         email: "user@example.com",
                         custom_claims: {
@@ -499,8 +478,8 @@ describe("Authentication Middleware", () => {
             });
 
             it("should allow access when admin is truthy value", async () => {
-                mockRequest.body = {
-                    currentUser: {
+                mockResponse.locals = {
+                    user: {
                         uid: "admin-user-id",
                         email: "admin@example.com",
                         admin: 1 // truthy value
@@ -514,8 +493,8 @@ describe("Authentication Middleware", () => {
             });
 
             it("should deny access when admin is 0 (falsy)", async () => {
-                mockRequest.body = {
-                    currentUser: {
+                mockResponse.locals = {
+                    user: {
                         uid: "user-id",
                         email: "user@example.com",
                         admin: 0
@@ -534,8 +513,10 @@ describe("Authentication Middleware", () => {
             it("should preserve other request body properties", async () => {
                 const existingBody = {
                     userId: "test-user-id",
-                    someData: "test-data",
-                    currentUser: {
+                    someData: "test-data"
+                };
+                mockResponse.locals = {
+                    user: {
                         uid: "admin-user-id",
                         email: "admin@example.com",
                         admin: true

@@ -23,9 +23,9 @@ export const localhostOnly = (req: Request, res: Response, next: NextFunction) =
     // req.ip is populated by the 'X-Forwarded-For' header when 'trust proxy' is true
     const clientIp = req.ip;
 
-    const isLocal = 
-        clientIp === "127.0.0.1" || 
-        clientIp === "::1" || 
+    const isLocal =
+        clientIp === "127.0.0.1" ||
+        clientIp === "::1" ||
         clientIp === "::ffff:127.0.0.1";
 
     // Allow local access
@@ -33,11 +33,12 @@ export const localhostOnly = (req: Request, res: Response, next: NextFunction) =
         return next();
     }
 
+    // Log local-only access attempt
     dataLogger.warn("Unauthorized local-only access attempt", {
         attemptedIp: clientIp,
         path: req.path,
         // Cloudflare sends the real visitor IP in this header
-        cfVisitorIp: req.get("cf-connecting-ip") 
+        cfVisitorIp: req.get("cf-connecting-ip")
     });
 
     // Deny access
@@ -123,11 +124,7 @@ export const validateRequestParameters = ({
                         bodyResult.error.issues
                     );
                 }
-                req.body = {
-                    currentUser: req.body.currentUser,
-                    userId: req.body.userId,
-                    ...bodyResult.data
-                };
+                req.body = bodyResult.data;
             }
 
             next();

@@ -318,26 +318,6 @@ describe("Request Middleware", () => {
                 expect(mockNext).toHaveBeenCalledWith(expect.any(ValidationError));
             });
 
-            it("should preserve currentUser and userId in body", () => {
-                const bodySchema = z.object({
-                    name: z.string()
-                });
-
-                mockRequest.body = {
-                    currentUser: { uid: "test-uid" },
-                    userId: "test-user-id",
-                    name: "Test"
-                };
-
-                const middleware = validateRequestParameters({ body: bodySchema });
-                middleware(mockRequest as Request, mockResponse as Response, mockNext);
-
-                expect(mockNext).toHaveBeenCalledWith();
-                expect(mockRequest.body).toHaveProperty("currentUser");
-                expect(mockRequest.body).toHaveProperty("userId");
-                expect(mockRequest.body).toHaveProperty("name", "Test");
-            });
-
             it("should handle complex nested body validation", () => {
                 const bodySchema = z.object({
                     user: z.object({

@@ -13,7 +13,7 @@ export const getTaskActivities = async (req: Request, res: Response, next: NextF
         sort
     } = req.query;
     const { taskId } = req.params;
-    const { userId } = req.body;
+    const { userId } = res.locals;
 
     try {
         // Parse limit
@@ -78,7 +78,7 @@ export const getTaskActivities = async (req: Request, res: Response, next: NextF
  */
 export const markActivityAsViewed = async (req: Request, res: Response, next: NextFunction) => {
     const { taskActivityId } = req.params;
-    const { userId } = req.body;
+    const { userId } = res.locals;
 
     try {
         // Check if the activity exists and user has access to it

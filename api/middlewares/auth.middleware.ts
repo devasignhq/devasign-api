@@ -12,30 +12,27 @@ export const validateUser = async (req: Request, res: Response, next: NextFuncti
     if (req.headers.authorization && req.headers.authorization.startsWith("Bearer ")) {
         // Get ID token from Authorization header
         const idToken = req.headers.authorization.split("Bearer ")[1];
-    
+
         try {
             // Verify token with Firebase Admin SDK
             const decodedToken = await firebaseAdmin.auth().verifyIdToken(idToken);
-            
-            // Add user info to request
-            req.body = { 
-                ...req.body, 
-                currentUser: decodedToken,
-                userId: decodedToken.uid
-            };
-            
+
+            // Add user data to response locals
+            res.locals.user = decodedToken;
+            res.locals.userId = decodedToken.uid;
+
             next();
         } catch (error) {
             // Token verification failed 
-            return res.status(STATUS_CODES.UNAUTHENTICATED).json({ 
+            return res.status(STATUS_CODES.UNAUTHENTICATED).json({
                 error: "Authentication failed",
-                details: getFieldFromUnknownObject<string>(error, "message") 
+                details: getFieldFromUnknownObject<string>(error, "message")
             });
         }
     } else {
         // No token provided
-        return res.status(STATUS_CODES.UNAUTHENTICATED).json({ 
-            error: "No authorization token sent" 
+        return res.status(STATUS_CODES.UNAUTHENTICATED).json({
+            error: "No authorization token sent"
         });
     }
 };
@@ -45,8 +42,8 @@ export const validateUser = async (req: Request, res: Response, next: NextFuncti
  */
 export const validateUserInstallation = async (req: Request, res: Response, next: NextFunction) => {
     const { installationId } = req.params;
-    const { userId } = req.body;
-    
+    const { userId } = res.locals;
+
 
     try {
         // Check if user is part of the installation
@@ -69,12 +66,12 @@ export const validateUserInstallation = async (req: Request, res: Response, next
         if (error instanceof AuthorizationError) {
             return res.status(error.status).json({ ...ErrorUtils.sanitizeError(error) });
         }
-        
+
         // Handle unknown errors
         return res.status(STATUS_CODES.UNKNOWN).json({
             message: "Failed to fetch installation details",
-            details: process.env.NODE_ENV === "development" 
-                ? { ...(typeof error === "object" ? error : { error }) } 
+            details: process.env.NODE_ENV === "development"
+                ? { ...(typeof error === "object" ? error : { error }) }
                 : null
         });
     }
@@ -84,7 +81,7 @@ export const validateUserInstallation = async (req: Request, res: Response, next
  * Middleware to validate if the current user is a Firebase admin
  */
 export const validateAdmin = async (req: Request, res: Response, next: NextFunction) => {
-    const { currentUser } = req.body;
+    const currentUser = res.locals.user;
 
     // Check if user has admin privileges
     if (!currentUser?.admin && !currentUser?.custom_claims?.admin) {

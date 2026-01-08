@@ -23,7 +23,8 @@ type USDCBalance = HorizonApi.BalanceLineAsset<"credit_alphanum12">;
  * Create a new task
  */
 export const createTask = async (req: Request, res: Response, next: NextFunction) => {
-    const { userId, payload: data } = req.body;
+    const { userId } = res.locals;
+    const { payload: data } = req.body;
     const payload = data as CreateTask;
 
     try {
@@ -313,7 +314,7 @@ export const getTask = async (req: Request, res: Response, next: NextFunction) =
  */
 export const deleteTask = async (req: Request, res: Response, next: NextFunction) => {
     const { taskId } = req.params;
-    const { userId } = req.body;
+    const { userId } = res.locals;
 
     try {
         // Fetch the task

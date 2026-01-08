@@ -9,7 +9,7 @@ import { NotFoundError } from "../../models/error.model";
  * Get tasks assigned to a contributor. Used in the tasks page of the contributor app.
  */
 export const getContributorTasks = async (req: Request, res: Response, next: NextFunction) => {
-    const { userId } = req.body;
+    const { userId } = res.locals;
     const {
         installationId,
         status,
@@ -130,7 +130,7 @@ export const getContributorTasks = async (req: Request, res: Response, next: Nex
  */
 export const getContributorTask = async (req: Request, res: Response, next: NextFunction) => {
     const { taskId } = req.params;
-    const { userId } = req.body;
+    const { userId } = res.locals;
 
     try {
         // Fetch task and ensure it is assigned to the contributor

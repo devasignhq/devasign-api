@@ -54,14 +54,11 @@ describe("User API Integration Tests", () => {
         // Mock authentication middleware for testing
         app.use(ENDPOINTS.USER.PREFIX, (req, res, next) => {
             // Add mock user data to request for authenticated endpoints
-            req.body = {
-                ...req.body,
-                currentUser: {
-                    uid: req.headers["x-test-user-id"] || "test-user-1",
-                    admin: req.headers["x-test-admin"] === "true"
-                },
-                userId: req.headers["x-test-user-id"] || "test-user-1"
+            res.locals.user = {
+                uid: req.headers["x-test-user-id"] || "test-user-1",
+                admin: req.headers["x-test-admin"] === "true"
             };
+            res.locals.userId = req.headers["x-test-user-id"] || "test-user-1";
             next();
         });
 

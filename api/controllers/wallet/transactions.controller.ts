@@ -10,7 +10,7 @@ import { AuthorizationError, NotFoundError } from "../../models/error.model";
  * Get wallet transactions.
  */
 export const getTransactions = async (req: Request, res: Response, next: NextFunction) => {
-    const { userId } = req.body;
+    const { userId } = res.locals;
     const {
         categories,
         page = 1,
@@ -93,7 +93,7 @@ export const getTransactions = async (req: Request, res: Response, next: NextFun
  * Record wallet top-up transactions.
  */
 export const recordWalletTopups = async (req: Request, res: Response, next: NextFunction) => {
-    const { userId } = req.body;
+    const { userId } = res.locals;
     const installationId = req.query.installationId as string;
 
     try {

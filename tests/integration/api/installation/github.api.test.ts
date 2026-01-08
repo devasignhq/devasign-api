@@ -77,14 +77,11 @@ describe("Installation GitHub API Integration Tests", () => {
 
         // Mock authentication middleware for testing
         app.use(ENDPOINTS.INSTALLATION.PREFIX, (req, res, next) => {
-            req.body = {
-                ...req.body,
-                currentUser: {
-                    uid: req.headers["x-test-user-id"] || "test-user-1",
-                    admin: req.headers["x-test-admin"] === "true"
-                },
-                userId: req.headers["x-test-user-id"] || "test-user-1"
+            res.locals.user = {
+                uid: req.headers["x-test-user-id"] || "test-user-1",
+                admin: req.headers["x-test-admin"] === "true"
             };
+            res.locals.userId = req.headers["x-test-user-id"] || "test-user-1";
             next();
         });
 
@@ -183,8 +180,8 @@ describe("Installation GitHub API Integration Tests", () => {
         ]);
 
         mockPRAnalysisService.shouldAnalyzePR.mockReturnValue(true);
-        mockPRAnalysisService.logExtractionResult.mockImplementation(() => {});
-        mockPRAnalysisService.logAnalysisDecision.mockImplementation(() => {});
+        mockPRAnalysisService.logExtractionResult.mockImplementation(() => { });
+        mockPRAnalysisService.logAnalysisDecision.mockImplementation(() => { });
 
         TestDataFactory.resetCounters();
     });
@@ -560,12 +557,12 @@ describe("Installation GitHub API Integration Tests", () => {
             const appWithoutAuth = express();
             appWithoutAuth.use(express.json());
             appWithoutAuth.use(
-                ENDPOINTS.INSTALLATION.PREFIX, 
-                validateUser as RequestHandler, 
+                ENDPOINTS.INSTALLATION.PREFIX,
+                validateUser as RequestHandler,
                 installationRoutes
             );
             appWithoutAuth.use(errorHandler);
-            
+
             await request(appWithoutAuth)
                 .get(getEndpointWithPrefix(["INSTALLATION", "GITHUB", "GET_REPOSITORIES"])
                     .replace(":installationId", "12345678"))

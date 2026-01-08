@@ -16,7 +16,8 @@ import { KMSService } from "../../services/kms.service";
  * Create a new installation.
  */
 export const createInstallation = async (req: Request, res: Response, next: NextFunction) => {
-    const { userId, installationId } = req.body;
+    const { installationId } = req.body;
+    const userId = res.locals.userId;
 
     try {
         // Verify user exists
@@ -119,7 +120,7 @@ export const createInstallation = async (req: Request, res: Response, next: Next
  */
 export const getInstallations = async (req: Request, res: Response, next: NextFunction) => {
     const { page = 1, limit = 10, sort } = req.query;
-    const { userId } = req.body;
+    const userId = res.locals.userId;
 
     try {
         // Parse limit
@@ -176,7 +177,7 @@ export const getInstallations = async (req: Request, res: Response, next: NextFu
  */
 export const getInstallation = async (req: Request, res: Response, next: NextFunction) => {
     const { installationId } = req.params;
-    const { userId } = req.body;
+    const userId = res.locals.userId;
 
     try {
         // Get installation and verify it exists
@@ -278,8 +279,8 @@ export const getInstallation = async (req: Request, res: Response, next: NextFun
 // TODO: Delete this controller and route (use github webhook instead)
 export const updateInstallation = async (req: Request, res: Response, next: NextFunction) => {
     const { installationId } = req.params;
+    const userId = res.locals.userId;
     const {
-        userId,
         htmlUrl,
         targetId,
         account
@@ -333,7 +334,8 @@ export const updateInstallation = async (req: Request, res: Response, next: Next
 // TODO: restrict when installation has active tasks
 export const deleteInstallation = async (req: Request, res: Response, next: NextFunction) => {
     const { installationId } = req.params;
-    const { userId, walletAddress: _ } = req.body;
+    const userId = res.locals.userId;
+    const { walletAddress: _ } = req.body;
 
     try {
         // Get installation and verify it exists

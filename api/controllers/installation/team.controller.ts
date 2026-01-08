@@ -8,13 +8,14 @@ import { AuthorizationError, NotFoundError } from "../../models/error.model";
  */
 export const addTeamMember = async (req: Request, res: Response, next: NextFunction) => {
     const { installationId } = req.params;
-    const { userId, username, permissionCodes } = req.body;
+    const userId = res.locals.userId;
+    const { username, permissionCodes } = req.body;
 
     try {
         // Get installation and verify it exists
         const installation = await prisma.installation.findUnique({
             where: { id: installationId },
-            select: { 
+            select: {
                 id: true,
                 users: {
                     select: {
@@ -40,7 +41,7 @@ export const addTeamMember = async (req: Request, res: Response, next: NextFunct
             // Check if user is already a member of the installation
             const isAlreadyMember = installation.users.some(user => user.userId === existingUser.userId);
             if (isAlreadyMember) {
-                return res.status(400).json({ 
+                return res.status(400).json({
                     message: "User is already a member of this installation",
                     username,
                     status: "already_member"
@@ -98,7 +99,8 @@ export const addTeamMember = async (req: Request, res: Response, next: NextFunct
  */
 export const updateTeamMember = async (req: Request, res: Response, next: NextFunction) => {
     const { installationId, userId: memberId } = req.params;
-    const { userId, permissionCodes } = req.body;
+    const userId = res.locals.userId;
+    const { permissionCodes } = req.body;
 
     try {
         // Get installation and verify it exists
@@ -110,7 +112,7 @@ export const updateTeamMember = async (req: Request, res: Response, next: NextFu
         if (!installation) {
             throw new NotFoundError("Installation not found");
         }
-        
+
         // Only allow if the acting user is a team member
         const userIsTeamMember = installation.users.some(user => user.userId === userId);
         if (!userIsTeamMember) {
@@ -119,7 +121,7 @@ export const updateTeamMember = async (req: Request, res: Response, next: NextFu
 
         // Update team member permissions
         await prisma.userInstallationPermission.update({
-            where: { 
+            where: {
                 userId_installationId: {
                     userId: memberId,
                     installationId
@@ -135,8 +137,8 @@ export const updateTeamMember = async (req: Request, res: Response, next: NextFu
         });
 
         // Return success message
-        res.status(STATUS_CODES.SUCCESS).json({ 
-            message: "Permissions updated successfully" 
+        res.status(STATUS_CODES.SUCCESS).json({
+            message: "Permissions updated successfully"
         });
     } catch (error) {
         next(error);
@@ -148,7 +150,7 @@ export const updateTeamMember = async (req: Request, res: Response, next: NextFu
  */
 export const removeTeamMember = async (req: Request, res: Response, next: NextFunction) => {
     const { installationId, userId: memberId } = req.params;
-    const { userId } = req.body;
+    const userId = res.locals.userId;
 
     try {
         // Get installation and verify it exists
@@ -179,7 +181,7 @@ export const removeTeamMember = async (req: Request, res: Response, next: NextFu
 
         // Delete user installation permissions
         await prisma.userInstallationPermission.delete({
-            where: { 
+            where: {
                 userId_installationId: {
                     userId: memberId,
                     installationId
@@ -188,8 +190,8 @@ export const removeTeamMember = async (req: Request, res: Response, next: NextFu
         });
 
         // Return success message
-        res.status(STATUS_CODES.SUCCESS).json({ 
-            message: "Team member removed successfully" 
+        res.status(STATUS_CODES.SUCCESS).json({
+            message: "Team member removed successfully"
         });
     } catch (error) {
         next(error);

@@ -137,7 +137,7 @@ export const getOrCreateBountyLabel = async (req: Request, res: Response, next: 
 export const triggerManualPRAnalysis = async (req: Request, res: Response, next: NextFunction) => {
     const { installationId } = req.params;
     const { repositoryName, prNumber } = req.body;
-    const { userId } = req.body;
+    const userId = res.locals.userId;
 
     try {
         messageLogger.info(`Manual PR analysis triggered by user ${userId} for PR #${prNumber} in ${repositoryName}`);
@@ -198,7 +198,7 @@ export const triggerManualPRAnalysis = async (req: Request, res: Response, next:
                 repositoryName,
                 prNumber
             );
-            
+
             // Create a formatted summary of the PR
             const changedFilesInfo = prData.changedFiles.map(file =>
                 `${file.filename} (${file.status}, +${file.additions}/-${file.deletions})${file.previousFilename ? ` (renamed from ${file.previousFilename})` : ""}`

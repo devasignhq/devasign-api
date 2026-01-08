@@ -25,7 +25,8 @@ type USDCBalance = HorizonApi.BalanceLineAsset<"credit_alphanum12">;
  */
 export const addBountyCommentId = async (req: Request, res: Response, next: NextFunction) => {
     const { taskId } = req.params;
-    const { userId, installationId, bountyLabelId, issueId } = req.body;
+    const { userId } = res.locals;
+    const { installationId, bountyLabelId, issueId } = req.body;
 
     try {
         // Fetch the task
@@ -85,7 +86,8 @@ export const addBountyCommentId = async (req: Request, res: Response, next: Next
  */
 export const updateTaskBounty = async (req: Request, res: Response, next: NextFunction) => {
     const { taskId } = req.params;
-    const { userId, newBounty } = req.body;
+    const { userId } = res.locals;
+    const { newBounty } = req.body;
 
     try {
         // Fetch the task
@@ -257,7 +259,8 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
  */
 export const updateTaskTimeline = async (req: Request, res: Response, next: NextFunction) => {
     const { taskId } = req.params;
-    const { userId, newTimeline, newTimelineType } = req.body;
+    const { userId } = res.locals;
+    const { newTimeline, newTimelineType } = req.body;
 
     try {
         // Fetch the task
@@ -329,7 +332,7 @@ export const updateTaskTimeline = async (req: Request, res: Response, next: Next
  */
 export const submitTaskApplication = async (req: Request, res: Response, next: NextFunction) => {
     const { taskId } = req.params;
-    const { userId } = req.body;
+    const { userId } = res.locals;
 
     try {
         // Fetch the task and check if it exists and is open
@@ -394,7 +397,7 @@ export const submitTaskApplication = async (req: Request, res: Response, next: N
  */
 export const acceptTaskApplication = async (req: Request, res: Response, next: NextFunction) => {
     const { taskId, contributorId } = req.params;
-    const { userId } = req.body;
+    const { userId } = res.locals;
 
     try {
         // Fetch the task
@@ -520,8 +523,8 @@ export const acceptTaskApplication = async (req: Request, res: Response, next: N
  */
 export const requestTimelineExtension = async (req: Request, res: Response, next: NextFunction) => {
     const { taskId } = req.params;
+    const { userId } = res.locals;
     const {
-        userId,
         githubUsername,
         requestedTimeline,
         timelineType,
@@ -581,8 +584,8 @@ export const requestTimelineExtension = async (req: Request, res: Response, next
  */
 export const replyTimelineExtensionRequest = async (req: Request, res: Response, next: NextFunction) => {
     const { taskId } = req.params;
+    const { userId } = res.locals;
     const {
-        userId,
         accept,
         requestedTimeline,
         timelineType
@@ -725,7 +728,8 @@ export const replyTimelineExtensionRequest = async (req: Request, res: Response,
  */
 export const markAsComplete = async (req: Request, res: Response, next: NextFunction) => {
     const { taskId } = req.params;
-    const { userId, pullRequest, attachmentUrl } = req.body;
+    const { userId } = res.locals;
+    const { pullRequest, attachmentUrl } = req.body;
 
     try {
         // Fetch the task
