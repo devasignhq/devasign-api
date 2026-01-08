@@ -338,7 +338,6 @@ describe("Task Contributor API Integration Tests", () => {
                 issue: expect.any(Object),
                 bounty: expect.any(Number),
                 timeline: expect.any(Number),
-                timelineType: expect.any(String),
                 status: expect.any(String),
                 settled: expect.any(Boolean),
                 createdAt: expect.any(String),

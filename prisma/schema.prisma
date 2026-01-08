@@ -15,12 +15,6 @@ enum TaskStatus {
     COMPLETED
 }
 
-// TODO: To remove
-enum TimelineType {
-    WEEK
-    DAY
-}
-
 enum TransactionCategory {
     BOUNTY
     SWAP_USDC
@@ -147,7 +141,6 @@ model Task {
     id                 String           @id @default(cuid())
     issue              Json
     timeline           Float?           @default(0)
-    timelineType       TimelineType?    @default(WEEK)
     bounty             Float            @default(0.0)
     status             TaskStatus       @default(OPEN)
     escrowTransactions Json[]           @default([]) // [{txHash: string, method: string}]

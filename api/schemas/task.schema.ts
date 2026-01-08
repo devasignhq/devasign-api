@@ -1,5 +1,5 @@
 import * as z from "zod";
-import { TaskStatus, TimelineType } from "../../prisma_client";
+import { TaskStatus } from "../../prisma_client";
 import {
     cuidSchema,
     installationIdSchema,
@@ -101,7 +101,6 @@ export const createTaskSchema = {
                 message: "Bounty must be a positive number"
             }),
             timeline: z.coerce.number().int().min(1, "Timeline must be a positive integer").optional(),
-            timelineType: z.enum(TimelineType).optional(),
             bountyLabelId: z.string()
         })
     })
@@ -128,8 +127,7 @@ export const updateTaskBountySchema = {
 export const updateTaskTimelineSchema = {
     params: taskIdSchema,
     body: z.object({
-        newTimeline: z.coerce.number().int().min(1, "Timeline must be a positive integer"),
-        newTimelineType: z.enum(["DAY", "WEEK"])
+        newTimeline: z.coerce.number().int().min(1, "Timeline must be a positive integer")
     })
 };
 
@@ -168,7 +166,6 @@ export const requestTimelineExtensionSchema = {
     body: z.object({
         githubUsername: z.string().trim().min(1, "Username must be greater than 1 character"),
         requestedTimeline: z.coerce.number().int().min(1, "Timeline must be a positive integer"),
-        timelineType: z.enum(TimelineType),
         reason: z.string(),
         attachments: z.array(z.string()).optional()
     })
@@ -178,8 +175,7 @@ export const replyTimelineModificationSchema = {
     params: taskIdSchema,
     body: z.object({
         accept: z.boolean(),
-        requestedTimeline: z.coerce.number().int().min(1, "Timeline must be a positive integer").optional(),
-        timelineType: z.enum(TimelineType)
+        requestedTimeline: z.coerce.number().int().min(1, "Timeline must be a positive integer").optional()
     })
 };
 

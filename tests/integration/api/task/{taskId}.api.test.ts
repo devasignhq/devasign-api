@@ -8,7 +8,7 @@ import { DatabaseTestHelper } from "../../../helpers/database-test-helper";
 import { ENDPOINTS, STATUS_CODES } from "../../../../api/utilities/data";
 import { mockFirebaseAuth } from "../../../mocks/firebase.service.mock";
 import { generateRandomString, getEndpointWithPrefix } from "../../../helpers/test-utils";
-import { TimelineType } from "../../../../prisma_client";
+
 
 // Mock Firebase admin for authentication
 jest.mock("../../../../api/config/firebase.config", () => {
@@ -454,7 +454,6 @@ describe("Task {taskId} API Integration Tests", () => {
             testTask = TestDataFactory.task({
                 status: "OPEN",
                 timeline: 1,
-                timelineType: "WEEK",
                 creatorId: undefined,
                 contributorId: undefined,
                 installationId: undefined
@@ -477,27 +476,12 @@ describe("Task {taskId} API Integration Tests", () => {
                 .patch(getEndpointWithPrefix(["TASK", "{TASKID}", "UPDATE_TIMELINE"])
                     .replace(":taskId", testTask.id))
                 .set("x-test-user-id", "task-creator")
-                .send({ newTimeline: 2, newTimelineType: "WEEK" })
+                .send({ newTimeline: 2 })
                 .expect(STATUS_CODES.SUCCESS);
 
             expect(response.body).toMatchObject({
                 timeline: 2,
-                timelineType: "WEEK",
                 updatedAt: expect.any(String)
-            });
-        });
-
-        it("should convert days > 6 to weeks", async () => {
-            const response = await request(app)
-                .patch(getEndpointWithPrefix(["TASK", "{TASKID}", "UPDATE_TIMELINE"])
-                    .replace(":taskId", testTask.id))
-                .set("x-test-user-id", "task-creator")
-                .send({ newTimeline: 14, newTimelineType: "DAY" })
-                .expect(STATUS_CODES.SUCCESS);
-
-            expect(response.body).toMatchObject({
-                timeline: 2,
-                timelineType: "WEEK"
             });
         });
 
@@ -506,7 +490,7 @@ describe("Task {taskId} API Integration Tests", () => {
                 .patch(getEndpointWithPrefix(["TASK", "{TASKID}", "UPDATE_TIMELINE"])
                     .replace(":taskId", testTask.id))
                 .set("x-test-user-id", "different-user")
-                .send({ newTimeline: 2, newTimelineType: "WEEK" })
+                .send({ newTimeline: 2 })
                 .expect(STATUS_CODES.UNAUTHORIZED);
         });
 
@@ -527,7 +511,7 @@ describe("Task {taskId} API Integration Tests", () => {
                 .patch(getEndpointWithPrefix(["TASK", "{TASKID}", "UPDATE_TIMELINE"])
                     .replace(":taskId", testTask.id))
                 .set("x-test-user-id", "task-creator")
-                .send({ newTimeline: 2, newTimelineType: "WEEK" })
+                .send({ newTimeline: 2 })
                 .expect(STATUS_CODES.SERVER_ERROR);
 
             expect(response.body.message).toContain("Cannot update the timeline");
@@ -812,7 +796,6 @@ describe("Task {taskId} API Integration Tests", () => {
             testTask = TestDataFactory.task({
                 status: "IN_PROGRESS",
                 timeline: 1,
-                timelineType: "WEEK",
                 creatorId: undefined,
                 contributorId: undefined,
                 installationId: undefined
@@ -841,7 +824,6 @@ describe("Task {taskId} API Integration Tests", () => {
                 .send({
                     githubUsername: "contributor",
                     requestedTimeline: 1,
-                    timelineType: "WEEK",
                     reason: "Need more time to complete",
                     attachments: []
                 })
@@ -859,7 +841,6 @@ describe("Task {taskId} API Integration Tests", () => {
                 .send({
                     githubUsername: "different-user",
                     requestedTimeline: 1,
-                    timelineType: "WEEK",
                     reason: "Need more time"
                 })
                 .expect(STATUS_CODES.SERVER_ERROR);
@@ -878,7 +859,6 @@ describe("Task {taskId} API Integration Tests", () => {
                 .send({
                     githubUsername: "contributor",
                     requestedTimeline: 1,
-                    timelineType: "WEEK",
                     reason: "Need more time"
                 })
                 .expect(STATUS_CODES.SERVER_ERROR);
@@ -913,7 +893,6 @@ describe("Task {taskId} API Integration Tests", () => {
             testTask = TestDataFactory.task({
                 status: "IN_PROGRESS",
                 timeline: 1,
-                timelineType: "WEEK",
                 creatorId: undefined,
                 contributorId: undefined,
                 installationId: undefined
@@ -941,8 +920,7 @@ describe("Task {taskId} API Integration Tests", () => {
                 .set("x-test-user-id", "task-creator")
                 .send({
                     accept: true,
-                    requestedTimeline: 1,
-                    timelineType: "WEEK" as TimelineType
+                    requestedTimeline: 1
                 })
                 .expect(STATUS_CODES.SUCCESS);
 
@@ -950,7 +928,6 @@ describe("Task {taskId} API Integration Tests", () => {
                 message: expect.any(Object),
                 task: expect.objectContaining({
                     timeline: 2,
-                    timelineType: "WEEK",
                     status: "IN_PROGRESS"
                 })
             });
@@ -963,8 +940,7 @@ describe("Task {taskId} API Integration Tests", () => {
                 .set("x-test-user-id", "task-creator")
                 .send({
                     accept: false,
-                    requestedTimeline: 1,
-                    timelineType: "WEEK" as TimelineType
+                    requestedTimeline: 1
                 })
                 .expect(STATUS_CODES.SUCCESS);
 
@@ -986,29 +962,12 @@ describe("Task {taskId} API Integration Tests", () => {
                 .set("x-test-user-id", "different-user")
                 .send({
                     accept: true,
-                    requestedTimeline: 1,
-                    timelineType: "WEEK" as TimelineType
+                    requestedTimeline: 1
                 })
                 .expect(STATUS_CODES.UNAUTHORIZED);
         });
 
-        it("should handle day to week conversion when accepting", async () => {
-            const response = await request(app)
-                .post(getEndpointWithPrefix(["TASK", "{TASKID}", "REPLY_TIMELINE_EXTENSION"])
-                    .replace(":taskId", testTask.id))
-                .set("x-test-user-id", "task-creator")
-                .send({
-                    accept: true,
-                    requestedTimeline: 7,
-                    timelineType: "DAY" as TimelineType
-                })
-                .expect(STATUS_CODES.SUCCESS);
 
-            expect(response.body.task).toMatchObject({
-                timeline: 2,
-                timelineType: "WEEK"
-            });
-        });
     });
 
     describe(`POST ${getEndpointWithPrefix(["TASK", "{TASKID}", "MARK_COMPLETE"])} - Mark Task as Complete`, () => {

@@ -13,7 +13,6 @@ import {
     ContributionSummary,
     Wallet,
     TaskStatus,
-    TimelineType,
     TransactionCategory,
     RuleType,
     RuleSeverity,
@@ -72,8 +71,8 @@ export class TestDataFactory {
         const counter = this.taskCounter++;
         return {
             issue: this.githubIssue(),
+            escrowTransactions: [],
             timeline: 1,
-            timelineType: TimelineType.WEEK,
             bounty: 100.0,
             status: TaskStatus.OPEN,
             settled: false,

@@ -1,4 +1,3 @@
-import { TimelineType } from "../../prisma_client";
 import { IssueDto, IssueLabel } from "./github.model";
 
 /**
@@ -24,7 +23,6 @@ export type CreateTask = {
     installationId: string;
     issue: TaskIssue;
     timeline?: number;
-    timelineType?: TimelineType;
     bounty: string;
     bountyLabelId: string;
 }
@@ -43,7 +41,6 @@ export type FilterTasks = {
  */
 export type MessageMetadata = {
     requestedTimeline: number;
-    timelineType: TimelineType;
     reason?: string
 }
 

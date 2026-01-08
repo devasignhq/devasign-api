@@ -200,7 +200,6 @@ describe("Task API Integration Tests", () => {
                     bountyLabelId: "label-123",
                     bounty: "100",
                     timeline: 6,
-                    timelineType: "DAY",
                     issue: TestDataFactory.githubIssue({
                         id: "12345",
                         bountyCommentId: "123456789"
@@ -225,29 +224,7 @@ describe("Task API Integration Tests", () => {
             expect(mockOctokitService.addBountyLabelAndCreateBountyComment).toHaveBeenCalledTimes(1);
         });
 
-        it("should convert timeline from days to weeks when > 6 days", async () => {
-            const taskData = {
-                payload: {
-                    installationId: testInstallation.id,
-                    bountyLabelId: "label-123",
-                    bounty: "50",
-                    timeline: 14,
-                    timelineType: "DAY",
-                    issue: TestDataFactory.githubIssue()
-                }
-            };
 
-            const response = await request(app)
-                .post(getEndpointWithPrefix(["TASK", "CREATE"]))
-                .set("x-test-user-id", "task-creator-user")
-                .send(taskData)
-                .expect(STATUS_CODES.POST);
-
-            expect(response.body).toMatchObject({
-                timeline: 2,
-                timelineType: "WEEK"
-            });
-        });
 
         it("should return error when installation not found", async () => {
             const taskData = {
@@ -256,7 +233,6 @@ describe("Task API Integration Tests", () => {
                     bountyLabelId: "label-123",
                     bounty: "100",
                     timeline: 7,
-                    timelineType: "DAY",
                     issue: TestDataFactory.githubIssue()
                 }
             };
@@ -284,7 +260,6 @@ describe("Task API Integration Tests", () => {
                     bountyLabelId: "label-123",
                     bounty: "100",
                     timeline: 7,
-                    timelineType: "DAY",
                     issue: TestDataFactory.githubIssue()
                 }
             };
@@ -307,7 +282,6 @@ describe("Task API Integration Tests", () => {
                     bountyLabelId: "label-123",
                     bounty: "100",
                     timeline: 7,
-                    timelineType: "DAY",
                     issue: TestDataFactory.githubIssue()
                 }
             };

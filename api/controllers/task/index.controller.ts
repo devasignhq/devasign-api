@@ -5,7 +5,7 @@ import { stellarTimestampToDate } from "../../utilities/helper";
 import { STATUS_CODES } from "../../utilities/data";
 import { CreateTask, TaskIssue, FilterTasks } from "../../models/task.model";
 import { HorizonApi } from "../../models/horizonapi.model";
-import { $Enums, Prisma } from "../../../prisma_client";
+import { Prisma } from "../../../prisma_client";
 import { OctokitService } from "../../services/octokit.service";
 import {
     AuthorizationError,
@@ -59,14 +59,6 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
         const decryptedInstallationWalletSecret = await KMSService.decryptWallet(installation.wallet);
 
         const { installationId, bountyLabelId, ...others } = payload;
-
-        // Format timeline if needed (ie 10 days -> 1.3 weeks)
-        if (others.timeline && others.timelineType && others.timelineType === "DAY" && others.timeline > 6) {
-            const weeks = Math.floor(others.timeline / 7);
-            const days = others.timeline % 7;
-            others.timeline = weeks + (days / 10);
-            others.timelineType = "WEEK" as $Enums.TimelineType;
-        }
 
         // Create task
         const task = await prisma.task.create({
@@ -227,7 +219,6 @@ export const getTasks = async (req: Request, res: Response, next: NextFunction) 
                 issue: true,
                 bounty: true,
                 timeline: true,
-                timelineType: true,
                 status: true,
                 contributorId: true,
                 creatorId: true,
@@ -282,7 +273,6 @@ export const getTask = async (req: Request, res: Response, next: NextFunction) =
                 issue: true,
                 bounty: true,
                 timeline: true,
-                timelineType: true,
                 status: true,
                 installation: {
                     select: {

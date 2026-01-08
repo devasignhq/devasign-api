@@ -6,7 +6,7 @@ import { stellarTimestampToDate } from "../../utilities/helper";
 import { STATUS_CODES } from "../../utilities/data";
 import { MessageType, TaskIssue } from "../../models/task.model";
 import { HorizonApi } from "../../models/horizonapi.model";
-import { TaskStatus, TimelineType, TransactionCategory } from "../../../prisma_client";
+import { TaskStatus, TransactionCategory } from "../../../prisma_client";
 import { OctokitService } from "../../services/octokit.service";
 import {
     AuthorizationError,
@@ -268,7 +268,7 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
 export const updateTaskTimeline = async (req: Request, res: Response, next: NextFunction) => {
     const { taskId } = req.params;
     const { userId } = res.locals;
-    const { newTimeline, newTimelineType } = req.body;
+    const { newTimeline } = req.body;
 
     try {
         // Fetch the task
@@ -278,7 +278,6 @@ export const updateTaskTimeline = async (req: Request, res: Response, next: Next
                 status: true,
                 creatorId: true,
                 timeline: true,
-                timelineType: true,
                 _count: {
                     select: {
                         taskActivities: true
@@ -304,28 +303,11 @@ export const updateTaskTimeline = async (req: Request, res: Response, next: Next
             throw new ValidationError("Cannot update the timeline for tasks with existing applications");
         }
 
-        // Optionally, convert days > 6 to weeks+days as in createTask
-        let timeline = newTimeline;
-        let timelineType = newTimelineType as TimelineType;
-        if (timelineType === "DAY" && timeline > 6) {
-            const weeks = Math.floor(timeline / 7);
-            const days = timeline % 7;
-            timeline = weeks + (days / 10);
-            timelineType = "WEEK";
-        }
-
         // Update task timeline
         const updatedTask = await prisma.task.update({
             where: { id: taskId },
-            data: {
-                timeline,
-                timelineType
-            },
-            select: {
-                timeline: true,
-                timelineType: true,
-                updatedAt: true
-            }
+            data: { timeline: newTimeline },
+            select: { timeline: true, updatedAt: true }
         });
 
         // Return updated task
@@ -530,7 +512,6 @@ export const requestTimelineExtension = async (req: Request, res: Response, next
     const {
         githubUsername,
         requestedTimeline,
-        timelineType,
         reason,
         attachments
     } = req.body;
@@ -542,8 +523,7 @@ export const requestTimelineExtension = async (req: Request, res: Response, next
             select: {
                 status: true,
                 contributorId: true,
-                timeline: true,
-                timelineType: true
+                timeline: true
             }
         });
 
@@ -559,8 +539,23 @@ export const requestTimelineExtension = async (req: Request, res: Response, next
         }
 
         // Create request message in Firebase
-        const body = `${githubUsername} is requesting for a ${requestedTimeline} ${(timelineType as string).toLowerCase()}(s) 
-            time extension for this task. Kindly approve or reject it below.`;
+        const timelineText = requestedTimeline < 7
+            ? "day(s)"
+            : requestedTimeline % 7 === 0
+                ? ["week(s)", "day(s)"]
+                : "week(s)";
+        const timelineTextValue = requestedTimeline < 7
+            ? requestedTimeline
+            : requestedTimeline % 7 === 0
+                ? requestedTimeline / 7
+                : [Math.floor(requestedTimeline / 7), requestedTimeline % 7];
+
+        // Format the message body
+        const displayValue = Array.isArray(timelineTextValue)
+            ? `${timelineTextValue[0]} ${timelineText[0]} and ${timelineTextValue[1]} ${timelineText[1]}`
+            : `${timelineTextValue} ${timelineText}`;
+
+        const body = `${githubUsername} is requesting for a ${displayValue} time extension for this task. Kindly approve or reject it below.`;
 
         const message = await FirebaseService.createMessage({
             userId,
@@ -568,11 +563,7 @@ export const requestTimelineExtension = async (req: Request, res: Response, next
             type: MessageType.TIMELINE_MODIFICATION,
             body,
             attachments: attachments || [],
-            metadata: {
-                requestedTimeline,
-                timelineType,
-                reason
-            }
+            metadata: { requestedTimeline, reason }
         });
 
         // Return message
@@ -588,11 +579,7 @@ export const requestTimelineExtension = async (req: Request, res: Response, next
 export const replyTimelineExtensionRequest = async (req: Request, res: Response, next: NextFunction) => {
     const { taskId } = req.params;
     const { userId } = res.locals;
-    const {
-        accept,
-        requestedTimeline,
-        timelineType
-    } = req.body;
+    const { accept, requestedTimeline } = req.body;
 
     try {
         // Fetch the task
@@ -601,8 +588,7 @@ export const replyTimelineExtensionRequest = async (req: Request, res: Response,
             select: {
                 creatorId: true,
                 status: true,
-                timeline: true,
-                timelineType: true
+                timeline: true
             }
         });
 
@@ -620,80 +606,47 @@ export const replyTimelineExtensionRequest = async (req: Request, res: Response,
         // Update timeline if extension is accepted
         if (accept) {
             // Calculate new timeline
-            let newTimeline: number = task.timeline! + requestedTimeline,
-                newTimelineType: TimelineType = timelineType;
-
-            if (timelineType === "WEEK" && task.timelineType! == "WEEK") {
-                newTimeline = task.timeline! + requestedTimeline;
-                newTimelineType = "WEEK";
-            }
-            if (timelineType === "DAY" && task.timelineType! == "DAY") {
-                newTimeline = task.timeline! + requestedTimeline;
-                newTimelineType = "DAY";
-
-                if (newTimeline > 6) {
-                    const weeks = Math.floor(newTimeline / 7);
-                    const days = newTimeline % 7;
-                    newTimeline = weeks + (days / 10);
-                    newTimelineType = "WEEK";
-                }
-            }
-
-            if (timelineType === "DAY" && task.timelineType! == "WEEK") {
-                if (requestedTimeline === 7) {
-                    newTimeline = task.timeline! + 1;
-                }
-                if (requestedTimeline > 7) {
-                    const weeks = Math.floor(requestedTimeline / 7);
-                    const days = requestedTimeline % 7;
-                    newTimeline = task.timeline! + weeks + (days / 10);
-                } else {
-                    const weekDayPair = task.timeline!.toString().split(".");
-                    const totalDays = (Number(weekDayPair[1]) || 0) + requestedTimeline;
-
-                    if (totalDays > 6) {
-                        const weeks = Math.floor(totalDays / 7);
-                        const days = totalDays % 7;
-                        newTimeline = Number(weekDayPair[0]) + weeks + (days / 10);
-                    } else {
-                        newTimeline = Number(weekDayPair[0]) + (totalDays / 10);
-                    }
-                }
-
-                newTimelineType = "WEEK";
-            }
-
-            if (timelineType === "WEEK" && task.timelineType! == "DAY") {
-                newTimeline = requestedTimeline + (task.timeline! / 10);
-                newTimelineType = "WEEK";
-            }
+            const newTimeline = task.timeline! + requestedTimeline;
 
             // Update task timeline and status
             const updatedTask = await prisma.task.update({
                 where: { id: taskId },
                 data: {
-                    timeline: newTimeline!,
-                    timelineType: newTimelineType!,
+                    timeline: newTimeline,
                     status: "IN_PROGRESS"
                 },
                 select: {
                     timeline: true,
-                    timelineType: true,
                     status: true,
                     updatedAt: true
                 }
             });
+
+            // Format the timeline text display
+            const timelineText = requestedTimeline < 7
+                ? "day(s)"
+                : requestedTimeline % 7 === 0
+                    ? ["week(s)", "day(s)"]
+                    : "week(s)";
+            const timelineTextValue = requestedTimeline < 7
+                ? requestedTimeline
+                : requestedTimeline % 7 === 0
+                    ? requestedTimeline / 7
+                    : [Math.floor(requestedTimeline / 7), requestedTimeline % 7];
+
+            const displayValue = Array.isArray(timelineTextValue)
+                ? `${timelineTextValue[0]} ${timelineText[0]} and ${timelineTextValue[1]} ${timelineText[1]}`
+                : `${timelineTextValue} ${timelineText}`;
 
             // Create acceptance message
             const message = await FirebaseService.createMessage({
                 userId,
                 taskId,
                 type: MessageType.TIMELINE_MODIFICATION,
-                body: `You’ve extended the timeline of this task by ${requestedTimeline} ${(timelineType as string).toLowerCase()}(s).`,
+                body: `You’ve extended the timeline of this task by ${displayValue}.`,
                 attachments: [],
                 metadata: {
                     requestedTimeline: newTimeline,
-                    timelineType: newTimelineType,
                     reason: "ACCEPTED"
                 }
             });
@@ -714,7 +667,6 @@ export const replyTimelineExtensionRequest = async (req: Request, res: Response,
             attachments: [],
             metadata: {
                 requestedTimeline,
-                timelineType,
                 reason: "REJECTED"
             }
         });
@@ -897,9 +849,9 @@ export const validateCompletion = async (req: Request, res: Response, next: Next
                     completedAt: new Date(),
                     settled: true,
                     escrowTransactions: {
-                        push: { 
-                            txHash: transactionResponse.txHash, 
-                            method: "bounty_payout" 
+                        push: {
+                            txHash: transactionResponse.txHash,
+                            method: "bounty_payout"
                         }
                     }
                 },
