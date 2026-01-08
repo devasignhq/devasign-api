@@ -152,6 +152,7 @@ export const getUser = async (req: Request, res: Response, next: NextFunction) =
         // If setWallet is true and user has no wallet, create one
         const walletStatus = { wallet: false, usdcTrustline: false };
 
+        // TODO: Idempotency check
         if ((!user.wallet || !user.wallet.address) && setWallet === "true") {
             try {
                 // Create wallet
@@ -230,16 +231,6 @@ export const updateUsername = async (req: Request, res: Response, next: NextFunc
 
         if (!existingUser) {
             throw new NotFoundError("User not found");
-        }
-
-        // Check if username exists
-        const existingUsername = await prisma.user.findUnique({
-            where: { username: newUsername },
-            select: { userId: true }
-        });
-
-        if (existingUsername) {
-            throw new ValidationError("Username in use");
         }
 
         // Update username
