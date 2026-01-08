@@ -25,9 +25,6 @@ export const swapAssetSchema = {
         amount: z.string().refine((val) => !isNaN(parseFloat(val)) && parseFloat(val) > 0, {
             message: "Amount must be a positive number"
         }),
-        equivalentAmount: z.string().refine((val) => !isNaN(parseFloat(val)) && parseFloat(val) > 0, {
-            message: "Equivalent amount must be a positive number"
-        }),
         installationId: installationIdSchema.optional()
     })
 };

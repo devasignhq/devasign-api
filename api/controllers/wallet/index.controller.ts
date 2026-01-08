@@ -155,8 +155,7 @@ export const swapAsset = async (req: Request, res: Response, next: NextFunction)
     const {
         installationId,
         toAssetType = "USDC",
-        amount,
-        equivalentAmount // TODO: Remove. Calculate balance before and after swap
+        amount
     } = req.body;
 
     try {
@@ -212,29 +211,27 @@ export const swapAsset = async (req: Request, res: Response, next: NextFunction)
         }
 
         // Perform swap
-        let txHash = "";
+        let result;
         if (toAssetType === "USDC") {
-            const result = await stellarService.swapAsset(walletSecret, amount);
-            txHash = result.txHash;
+            result = await stellarService.swapAsset(walletSecret, amount);
         } else {
-            const result = await stellarService.swapAsset(
+            result = await stellarService.swapAsset(
                 walletSecret,
                 amount,
                 usdcAssetId,
                 xlmAssetId
             );
-            txHash = result.txHash;
         }
 
         // Record transaction
         const transactionPayload = {
-            txHash,
+            txHash: result.txHash,
             category: toAssetType === "USDC"
                 ? TransactionCategory.SWAP_XLM
                 : TransactionCategory.SWAP_USDC,
             amount: parseFloat(amount.toString()),
             fromAmount: parseFloat(amount.toString()),
-            toAmount: parseFloat(equivalentAmount.toString()),
+            toAmount: parseFloat(result.receivedAmount),
             assetFrom: toAssetType === "USDC" ? "XLM" : "USDC",
             assetTo: toAssetType,
             ...(installationId

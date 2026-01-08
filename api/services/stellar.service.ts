@@ -495,8 +495,36 @@ export class StellarService {
             // Submit the swap transaction to the network.
             await stellar.submitTransaction(txSwap);
 
-            // Return the hash of the swap transaction.
-            return { txHash: txSwap.hash().toString("hex") };
+            const txHash = txSwap.hash().toString("hex");
+
+            // Fetch effects to get the actual amount received
+            const effects = await stellar.server.effects()
+                .forTransaction(txHash)
+                .call();
+
+            // Find the account_credited effect for the destination asset
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const creditEffect = effects.records.find((effect: any) => {
+                if (effect.type !== "account_credited") return false;
+
+                if (toAssetId instanceof NativeAssetId) {
+                    return effect.asset_type === "native";
+                } else if (toAssetId instanceof IssuedAssetId) {
+                    return effect.asset_code === toAssetId.code && effect.asset_issuer === toAssetId.issuer;
+                }
+                return false;
+            });
+
+            if (!creditEffect) {
+                throw new Error("Swap successful but could not verify received amount");
+            }
+
+            // Return the hash of the swap transaction and the received amount
+            return {
+                txHash,
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                receivedAmount: (creditEffect as any).amount
+            };
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } catch (error: any) {
             if (error.response?.status === 400) {
