@@ -3,7 +3,6 @@ import { prisma } from "../../config/database.config";
 import { stellarService } from "../../services/stellar.service";
 import { STATUS_CODES } from "../../utilities/data";
 import { OctokitService } from "../../services/octokit.service";
-import { Prisma } from "../../../prisma_client";
 import {
     AuthorizationError,
     NotFoundError,
@@ -123,21 +122,17 @@ export const getInstallations = async (req: Request, res: Response, next: NextFu
     const { userId } = req.body;
 
     try {
-        // Build where clause to filter for user installations
-        const where: Prisma.InstallationWhereInput = {
-            users: {
-                some: { userId: userId as string }
-            }
-        };
-
-        // Get total count for pagination        
-        const totalInstallations = await prisma.installation.count({ where });
-        const totalPages = Math.ceil(totalInstallations / Number(limit));
+        // Parse limit
+        const take = Math.min(Number(limit) || 20, 50);
         const skip = (Number(page) - 1) * Number(limit);
 
         // Get installations with pagination
         const installations = await prisma.installation.findMany({
-            where,
+            where: {
+                users: {
+                    some: { userId: userId as string }
+                }
+            },
             select: {
                 id: true,
                 htmlUrl: true,
@@ -159,19 +154,17 @@ export const getInstallations = async (req: Request, res: Response, next: NextFu
                 createdAt: (sort as "asc" | "desc") || "desc"
             },
             skip,
-            take: Number(limit)
+            take: take + 1 // Request one extra record beyond the limit
         });
+
+        // Determine if more results exist and trim the array
+        const hasMore = installations.length > take;
+        const results = hasMore ? installations.slice(0, take) : installations;
 
         // Return paginated response
         res.status(STATUS_CODES.SUCCESS).json({
-            data: installations,
-            pagination: {
-                currentPage: Number(page),
-                totalPages,
-                totalItems: totalInstallations,
-                itemsPerPage: Number(limit),
-                hasMore: Number(page) < totalPages
-            }
+            data: results,
+            hasMore
         });
     } catch (error) {
         next(error);
@@ -232,6 +225,12 @@ export const getInstallation = async (req: Request, res: Response, next: NextFun
                     }
                 },
                 subscriptionPackage: true,
+                _count: {
+                    select: {
+                        tasks: true,
+                        users: true
+                    }
+                },
                 createdAt: true,
                 updatedAt: true
             }
@@ -241,19 +240,26 @@ export const getInstallation = async (req: Request, res: Response, next: NextFun
             throw new NotFoundError("Installation not found");
         }
 
-        // Check if user is a member of the installation
-        const userIsTeamMember = installation.users.some(user => user.userId === userId);
-        if (!userIsTeamMember) {
-            throw new AuthorizationError("Not authorized to view this installation");
-        }
+        // Fetch bounty aggregate
+        const totalBounty = await prisma.task.aggregate({
+            where: { installationId },
+            _sum: { bounty: true }
+        });
 
-        // Calculate installation stats
+        // Fetch status counts
+        const statusCounts = await prisma.task.groupBy({
+            by: ["status"],
+            where: { installationId },
+            _count: true
+        });
+
         const stats = {
-            totalBounty: installation.tasks.reduce((sum, task) => sum + task.bounty, 0),
-            openTasks: installation.tasks.filter(task => task.status === "OPEN").length,
-            completedTasks: installation.tasks.filter(task => task.status === "COMPLETED").length,
-            totalTasks: installation.tasks.length,
-            totalMembers: installation.users.length
+            totalBounty: totalBounty._sum.bounty || 0,
+            totalTasks: installation._count.tasks,
+            totalMembers: installation._count.users,
+            openTasks: statusCounts.find(c => c.status === "OPEN")?._count || 0,
+            inProgressTasks: statusCounts.find(c => c.status === "IN_PROGRESS")?._count || 0,
+            completedTasks: statusCounts.find(c => c.status === "COMPLETED")?._count || 0
         };
 
         // Return installation details with stats
@@ -269,6 +275,7 @@ export const getInstallation = async (req: Request, res: Response, next: NextFun
 /**
  * Update an existing installation.
  */
+// TODO: Delete this controller and route (use github webhook instead)
 export const updateInstallation = async (req: Request, res: Response, next: NextFunction) => {
     const { installationId } = req.params;
     const {
@@ -348,8 +355,15 @@ export const deleteInstallation = async (req: Request, res: Response, next: Next
         }
 
         // Check if there are active tasks
-        if (!installation.tasks.every(task => task.status !== "OPEN")) {
-            throw new ValidationError("Cannot delete installation with active or completed tasks");
+        const activeStatuses = ["IN_PROGRESS", "MARKED_AS_COMPLETED"];
+        const hasActiveWork = installation.tasks.some(task =>
+            activeStatuses.includes(task.status)
+        );
+
+        if (hasActiveWork) {
+            throw new ValidationError(
+                "Cannot delete installation: there are tasks currently being worked on or awaiting payment."
+            );
         }
 
         // Refund escrow funds from smart contract for open tasks
@@ -371,6 +385,30 @@ export const deleteInstallation = async (req: Request, res: Response, next: Next
             }
         }
 
+        // // 1. Mark as Deleting to prevent new tasks from being created
+        // await prisma.installation.update({
+        //     where: { id: installationId },
+        //     data: { status: "DELETING" }
+        // });
+
+        // // 2. Perform refunds
+        // const refundResults = await Promise.allSettled(
+        //     installation.tasks
+        //         .filter(t => t.status === "OPEN" && t.bounty > 0)
+        //         .map(t => ContractService.refund(decryptedWalletSecret, t.id))
+        // );
+
+        // const failedRefunds = refundResults.filter(r => r.status === 'rejected');
+
+        // if (failedRefunds.length > 0) {
+        //     // 3. If any fail, do NOT delete. Keep status as DELETING for manual retry.
+        //     throw new Error(`Failed to refund ${failedRefunds.length} tasks. Cleanup required.`);
+        // }
+
+        // // 4. Only hard delete if everything is clear
+        // await prisma.installation.delete({ where: { id: installationId } });
+
+        // TODO: Update installation status to ARCHIVED instead of deleting
         // Delete installation
         await prisma.installation.delete({
             where: { id: installationId }
