@@ -101,13 +101,22 @@ export const validatePRWebhookEvent = async (req: Request, res: Response, next: 
             return;
         }
 
+        // Check for draft PRs
+        if (pull_request?.draft) {
+            res.status(STATUS_CODES.SUCCESS).json({
+                success: true,
+                message: "Skipping draft PR"
+            });
+            return;
+        }
+
         if (!pull_request || !repository || !installation) {
             res.status(STATUS_CODES.BAD_PAYLOAD).json({
                 success: false,
                 error: "Missing required webhook data",
                 validation: {
-                    pull_request: Boolean(pull_request), 
-                    repository: Boolean(repository), 
+                    pull_request: Boolean(pull_request),
+                    repository: Boolean(repository),
                     installation: Boolean(installation)
                 }
             });
@@ -115,53 +124,53 @@ export const validatePRWebhookEvent = async (req: Request, res: Response, next: 
         }
 
         // Validate that PR is targeting the default branch
-        try {
-            const installationId = installation.id.toString();
-            const repositoryName = repository.full_name;
-            const targetBranch = pull_request.base.ref;
+        const targetBranch = pull_request.base.ref;
+        let defaultBranch = repository.default_branch;
 
-            // Get the repository's default branch
-            const defaultBranch = await OctokitService.getDefaultBranch(installationId, repositoryName);
-
-            // If the PR is not targeting the default branch, skip processing
-            if (targetBranch !== defaultBranch) {
-                dataLogger.info(
-                    "PR skipped - not targeting default branch",
+        if (!defaultBranch) {
+            try {
+                const installationId = installation.id.toString();
+                const repositoryName = repository.full_name;
+                defaultBranch = await OctokitService.getDefaultBranch(installationId, repositoryName);
+            } catch (error) {
+                // Log the error but don't fail the webhook - continue processing
+                dataLogger.warn(
+                    "Failed to validate default branch, continuing with processing",
                     {
-                        prNumber: pull_request.number,
-                        repositoryName,
+                        repositoryName: repository.full_name,
                         targetBranch,
-                        defaultBranch,
-                        reason: "not_default_branch"
+                        error: error instanceof Error ? error.message : String(error)
                     }
                 );
-
-                // Respond with success but skip further processing
-                res.status(STATUS_CODES.SUCCESS).json({
-                    success: true,
-                    message: "PR not targeting default branch - skipping review",
-                    data: {
-                        prNumber: pull_request.number,
-                        repositoryName,
-                        targetBranch,
-                        defaultBranch,
-                        reason: "not_default_branch"
-                    }
-                });
-                return;
             }
-        } catch (error) {
-            // Log the error but don't fail the webhook - continue processing
-            dataLogger.warn(
-                "Failed to validate default branch, continuing with processing",
+        }
+
+        if (defaultBranch && targetBranch !== defaultBranch) {
+            dataLogger.info(
+                "PR skipped - not targeting default branch",
                 {
+                    prNumber: pull_request.number,
                     repositoryName: repository.full_name,
-                    targetBranch: pull_request.base.ref,
-                    error: error instanceof Error ? error.message : String(error)
+                    targetBranch,
+                    defaultBranch,
+                    reason: "not_default_branch"
                 }
             );
+
+            res.status(STATUS_CODES.SUCCESS).json({
+                success: true,
+                message: "PR not targeting default branch - skipping review",
+                data: {
+                    prNumber: pull_request.number,
+                    repositoryName: repository.full_name,
+                    targetBranch,
+                    defaultBranch,
+                    reason: "not_default_branch"
+                }
+            });
+            return;
         }
-            
+
         // Add event metadata to request for use in controller
         req.body.webhookMeta = {
             eventType,
