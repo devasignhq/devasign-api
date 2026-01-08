@@ -69,9 +69,8 @@ export const getInstallationTasks = async (req: Request, res: Response, next: Ne
             where.AND = issueFilters.map(filter => ({ issue: filter }));
         }
 
-        // Get total count for pagination
-        const totalTasks = await prisma.task.count({ where });
-        const totalPages = Math.ceil(totalTasks / Number(limit));
+        // Parse limit
+        const take = Math.min(Number(limit) || 20, 50);
         const skip = (Number(page) - 1) * Number(limit);
 
         // Get tasks with pagination
@@ -136,19 +135,17 @@ export const getInstallationTasks = async (req: Request, res: Response, next: Ne
                 createdAt: (sort as "asc" | "desc") || "desc"
             },
             skip,
-            take: Number(limit)
+            take: take + 1 // Request one extra record beyond the limit
         });
+
+        // Determine if more results exist and trim the array
+        const hasMore = tasks.length > take;
+        const results = hasMore ? tasks.slice(0, take) : tasks;
 
         // Return paginated tasks
         res.status(STATUS_CODES.SUCCESS).json({
-            data: tasks,
-            pagination: {
-                currentPage: Number(page),
-                totalPages,
-                totalItems: totalTasks,
-                itemsPerPage: Number(limit),
-                hasMore: Number(page) < totalPages
-            }
+            data: results,
+            hasMore
         });
     } catch (error) {
         next(error);

@@ -16,9 +16,8 @@ export const getTaskActivities = async (req: Request, res: Response, next: NextF
     const { userId } = req.body;
 
     try {
-        // Get total count for pagination
-        const totalActivities = await prisma.taskActivity.count({ where: { taskId } });
-        const totalPages = Math.ceil(totalActivities / Number(limit));
+        // Parse limit
+        const take = Math.min(Number(limit) || 20, 50);
         const skip = (Number(page) - 1) * Number(limit);
 
         // Get task activities with pagination
@@ -46,13 +45,6 @@ export const getTaskActivities = async (req: Request, res: Response, next: NextF
                 },
                 taskSubmission: {
                     select: {
-                        user: {
-                            select: {
-                                userId: true,
-                                username: true,
-                                contributionSummary: true
-                            }
-                        },
                         pullRequest: true,
                         attachmentUrl: true
                     }
@@ -64,19 +56,17 @@ export const getTaskActivities = async (req: Request, res: Response, next: NextF
                 createdAt: (sort as "asc" | "desc") || "desc"
             },
             skip,
-            take: Number(limit)
+            take: take + 1 // Request one extra record beyond the limit
         });
+
+        // Determine if more results exist and trim the array
+        const hasMore = activities.length > take;
+        const results = hasMore ? activities.slice(0, take) : activities;
 
         // Return paginated activities
         res.status(STATUS_CODES.SUCCESS).json({
-            data: activities,
-            pagination: {
-                currentPage: Number(page),
-                totalPages,
-                totalItems: totalActivities,
-                itemsPerPage: Number(limit),
-                hasMore: Number(page) < totalPages
-            }
+            data: results,
+            hasMore
         });
     } catch (error) {
         next(error);
