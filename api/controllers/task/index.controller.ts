@@ -93,6 +93,9 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
         } catch (error) {
             // If escrow creation fails, delete the task and rethrow
             await prisma.task.delete({ where: { id: task.id } });
+            if (error instanceof EscrowContractError) {
+                throw error;
+            }
             throw new EscrowContractError("Failed to create escrow on smart contract", error);
         }
 
@@ -108,7 +111,7 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
             postedComment = true;
         } catch (error) {
             // Log error and continue
-            dataLogger.error({ taskId: task.id, error });
+            dataLogger.info("Failed to post bounty comment", { taskId: task.id, error });
         }
 
         const [updatedTask] = await prisma.$transaction([
@@ -184,6 +187,7 @@ export const getTasks = async (req: Request, res: Response, next: NextFunction) 
 
         const issueFilters: Prisma.JsonFilter<"Task">[] = [];
 
+        // TODO: extract to top level (issueLabels, issueTitle, repoUrl)
         if (filters.repoUrl) {
             issueFilters.push({
                 path: ["repository", "url"],
@@ -207,9 +211,8 @@ export const getTasks = async (req: Request, res: Response, next: NextFunction) 
             where.AND = issueFilters.map(filter => ({ issue: filter }));
         }
 
-        // Get total count for pagination
-        const totalTasks = await prisma.task.count({ where });
-        const totalPages = Math.ceil(totalTasks / Number(limit));
+        // Parse limit
+        const take = Math.min(Number(limit) || 20, 50);
         const skip = (Number(page) - 1) * Number(limit);
 
         // Get tasks with pagination
@@ -243,19 +246,17 @@ export const getTasks = async (req: Request, res: Response, next: NextFunction) 
                 createdAt: (sort as "asc" | "desc") || "desc"
             },
             skip,
-            take: Number(limit)
+            take: take + 1 // Request one extra record beyond the limit
         });
+
+        // Determine if more results exist and trim the array
+        const hasMore = tasks.length > take;
+        const results = hasMore ? tasks.slice(0, take) : tasks;
 
         // Return paginated tasks
         res.status(STATUS_CODES.SUCCESS).json({
-            data: tasks,
-            pagination: {
-                currentPage: Number(page),
-                totalPages,
-                totalItems: totalTasks,
-                itemsPerPage: Number(limit),
-                hasMore: Number(page) < totalPages
-            }
+            data: results,
+            hasMore
         });
     } catch (error) {
         next(error);
@@ -355,12 +356,8 @@ export const deleteTask = async (req: Request, res: Response, next: NextFunction
         }
         const decryptedWalletSecret = await KMSService.decryptWallet(task.installation.wallet);
 
-        try {
-            await ContractService.refund(decryptedWalletSecret, taskId);
-        } catch (error) {
-            // Throw error if refund fails
-            throw new EscrowContractError("Failed to refund bounty to installation wallet", error);
-        }
+        // Refund bounty to installation wallet
+        await ContractService.refund(decryptedWalletSecret, taskId);
 
         // Delete task
         await prisma.task.delete({
@@ -381,9 +378,11 @@ export const deleteTask = async (req: Request, res: Response, next: NextFunction
                 refunded: `${task.bounty} USDC`
             });
         } catch (error) {
+            // Log error
+            dataLogger.info("Failed to remove bounty label from issue or delete bounty comment", error);
+
             // Return success response but notify user of partial failure
             res.status(STATUS_CODES.PARTIAL_SUCCESS).json({
-                error,
                 data: {
                     message: "Task deleted successfully",
                     refunded: `${task.bounty} USDC`
