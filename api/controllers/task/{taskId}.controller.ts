@@ -10,11 +10,13 @@ import { TaskStatus, TimelineType, TransactionCategory } from "../../../prisma_c
 import { OctokitService } from "../../services/octokit.service";
 import {
     AuthorizationError,
+    EscrowContractError,
     NotFoundError,
     ValidationError
 } from "../../models/error.model";
 import { ContractService } from "../../services/contract.service";
 import { KMSService } from "../../services/kms.service";
+import { dataLogger } from "../../config/logger.config";
 
 type USDCBalance = HorizonApi.BalanceLineAsset<"credit_alphanum12">;
 
@@ -136,6 +138,7 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
         // Handle fund transfers
         const bountyDifference = Number(newBounty) - task.bounty;
         const decryptedWalletSecret = await KMSService.decryptWallet(task.installation.wallet);
+        let contractResult, contractTxHash;
 
         if (bountyDifference > 0) {
             // Additional funds needed
@@ -150,56 +153,76 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
             }
 
             // Increase bounty on contract
-            const { result, txHash } = await ContractService.increaseBounty(
-                decryptedWalletSecret,
-                taskId,
-                bountyDifference
-            );
-
-            // Record transaction
-            await prisma.transaction.create({
-                data: {
-                    txHash,
-                    category: TransactionCategory.BOUNTY,
-                    amount: bountyDifference,
-                    task: { connect: { id: taskId } },
-                    installation: { connect: { id: task.installationId } },
-                    doneAt: stellarTimestampToDate(result.createdAt)
+            try {
+                const { result, txHash } = await ContractService.increaseBounty(
+                    decryptedWalletSecret,
+                    taskId,
+                    bountyDifference
+                );
+                contractResult = result;
+                contractTxHash = txHash;
+            } catch (error) {
+                if (error instanceof EscrowContractError) {
+                    throw error;
                 }
-            });
+                throw new EscrowContractError("Failed to increase bounty on smart contract", error);
+            }
         } else {
-            // Excess funds - decrease bounty on contract
-            const { result, txHash } = await ContractService.decreaseBounty(
-                decryptedWalletSecret,
-                taskId,
-                Math.abs(bountyDifference)
-            );
-
-            // Record transaction
-            await prisma.transaction.create({
-                data: {
-                    txHash,
-                    category: TransactionCategory.TOP_UP,
-                    amount: Math.abs(bountyDifference),
-                    asset: "USDC",
-                    sourceAddress: "Escrow Funds",
-                    task: { connect: { id: taskId } },
-                    installation: { connect: { id: task.installationId } },
-                    doneAt: stellarTimestampToDate(result.createdAt)
+            try {
+                // Excess funds - decrease bounty on contract
+                const { result, txHash } = await ContractService.decreaseBounty(
+                    decryptedWalletSecret,
+                    taskId,
+                    Math.abs(bountyDifference)
+                );
+                contractResult = result;
+                contractTxHash = txHash;
+            } catch (error) {
+                if (error instanceof EscrowContractError) {
+                    throw error;
                 }
-            });
+                throw new EscrowContractError("Failed to decrease bounty on smart contract", error);
+            }
         }
 
-        // Update task bounty
-        const updatedTask = await prisma.task.update({
-            where: { id: taskId },
-            data: { bounty: parseFloat(newBounty) },
-            select: {
-                bounty: true,
-                updatedAt: true
-            }
-        });
+        // Create increase transaction data
+        const increaseTransactionData = {
+            txHash: contractTxHash,
+            category: TransactionCategory.BOUNTY,
+            amount: bountyDifference,
+            task: { connect: { id: taskId } },
+            installation: { connect: { id: task.installationId } },
+            doneAt: stellarTimestampToDate(contractResult.createdAt)
+        };
+        // Create decrease transaction data
+        const decreaseTransactionData = {
+            txHash: contractTxHash,
+            category: TransactionCategory.TOP_UP,
+            amount: Math.abs(bountyDifference),
+            asset: "USDC",
+            sourceAddress: "Escrow Funds",
+            task: { connect: { id: taskId } },
+            installation: { connect: { id: task.installationId } },
+            doneAt: stellarTimestampToDate(contractResult.createdAt)
+        };
 
+        const [updatedTask] = await prisma.$transaction([
+            // Update task bounty
+            prisma.task.update({
+                where: { id: taskId },
+                data: { bounty: parseFloat(newBounty) },
+                select: {
+                    bounty: true,
+                    updatedAt: true
+                }
+            }),
+            // Record transaction bounty increase or decrease
+            prisma.transaction.create({
+                data: bountyDifference > 0 ? increaseTransactionData : decreaseTransactionData
+            })
+        ]);
+
+        let updatedComment = false;
         try {
             // Update bounty comment on GitHub to reflect new bounty amount
             await OctokitService.updateIssueComment(
@@ -207,17 +230,23 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
                 (task.issue as TaskIssue).bountyCommentId!,
                 OctokitService.customBountyMessage(newBounty as string, taskId)
             );
-
-            // Return updated task
-            res.status(STATUS_CODES.SUCCESS).json(updatedTask);
+            updatedComment = true;
         } catch (error) {
-            // Return updated task and notify user of partial failures
-            res.status(STATUS_CODES.PARTIAL_SUCCESS).json({
-                message: "Failed to update bounty amount on GitHub.",
-                task: updatedTask,
-                error
+            // Log error and continue
+            dataLogger.info("Failed to update bounty comment", { taskId, error });
+        }
+
+        // Return updated task and notify user bounty comment failed to update
+        if (!updatedComment) {
+            return res.status(STATUS_CODES.PARTIAL_SUCCESS).json({
+                bountyCommentPosted: false,
+                task,
+                message: "Failed to update bounty amount on GitHub."
             });
         }
+
+        // Return updated task
+        res.status(STATUS_CODES.SUCCESS).json(updatedTask);
     } catch (error) {
         next(error);
     }
@@ -327,7 +356,10 @@ export const submitTaskApplication = async (req: Request, res: Response, next: N
         });
 
         if (existingApplication) {
-            throw new ValidationError("You have already applied for this task!");
+            throw new ValidationError(
+                "You have already applied for this task!",
+                { applied: true }
+            );
         }
 
         // Create task application activity
@@ -342,11 +374,16 @@ export const submitTaskApplication = async (req: Request, res: Response, next: N
             }
         });
 
-        // Update task activity for live updates
-        await FirebaseService.updateActivity(task.creatorId, "task", taskId);
-
         // Return success response
         res.status(STATUS_CODES.SUCCESS).json({ message: "Task application submitted" });
+
+        // Update task activity for live updates
+        FirebaseService.updateActivity(task.creatorId, "task", taskId).catch(
+            error => dataLogger.warn(
+                "Failed to update task activity for live updates",
+                { taskId, error }
+            )
+        );
     } catch (error) {
         next(error);
     }
@@ -366,8 +403,11 @@ export const acceptTaskApplication = async (req: Request, res: Response, next: N
             select: {
                 status: true,
                 creatorId: true,
+                taskActivities: { select: { userId: true } },
                 contributorId: true,
-                taskActivities: { select: { userId: true } }
+                contributor: { select: { wallet: true } },
+                installationId: true,
+                installation: { select: { wallet: true } }
             }
         });
 
@@ -387,69 +427,58 @@ export const acceptTaskApplication = async (req: Request, res: Response, next: N
         if (task.contributorId) {
             throw new ValidationError("Task has already has already been delegated to a contributor");
         }
-
-        // Check if the contributor actually applied
+        // Verify contributor actually applied
         const hasApplied = task.taskActivities.find(activity => activity.userId === contributorId);
         if (!hasApplied) {
             throw new ValidationError("User did not apply for this task");
         }
-
-        // Fetch contributor's wallet
-        const contributor = await prisma.user.findUnique({
-            where: { userId: contributorId },
-            select: { wallet: { select: { address: true } } }
-        });
-
-        if (!contributor || !contributor.wallet) {
+        // Verify contributor exists
+        if (!task.contributor) {
+            throw new NotFoundError("Contributor not found");
+        }
+        if (!task.contributor.wallet) {
             throw new ValidationError("Contributor does not have a wallet");
         }
-
-        // Get Installation Wallet Secret
-        const installation = await prisma.installation.findFirst({
-            where: { tasks: { some: { id: taskId } } },
-            select: { wallet: true }
-        });
-
-        if (!installation) {
+        // Verify installation exists
+        if (!task.installation) {
             throw new NotFoundError("Installation not found");
         }
-        if (!installation.wallet) {
+        if (!task.installation.wallet) {
             throw new NotFoundError("Installation wallet not found");
         }
 
-        const decryptedWalletSecret = await KMSService.decryptWallet(installation.wallet);
+        const decryptedWalletSecret = await KMSService.decryptWallet(task.installation.wallet);
 
         // Assign contributor on contract
         await ContractService.assignContributor(
             decryptedWalletSecret,
             taskId,
-            contributor.wallet.address
+            task.contributor.wallet.address
         );
 
         // Assign the contributor and update task status
-        const updatedTask = await prisma.task.update({
-            where: { id: taskId },
-            data: {
-                contributor: { connect: { userId: contributorId } },
-                status: "IN_PROGRESS",
-                acceptedAt: new Date()
-            },
-            select: {
-                id: true,
-                status: true,
-                contributor: { select: { userId: true, username: true } },
-                acceptedAt: true
-            }
-        });
-
-        // Update contribution summary
-        await prisma.contributionSummary.update({
-            where: { userId: contributorId },
-            data: { activeTasks: { increment: 1 } }
-        });
-
-        // Update contributor activity for live updates
-        await FirebaseService.updateActivity(contributorId, "contributor");
+        const [updatedTask] = await prisma.$transaction([
+            // Update task
+            prisma.task.update({
+                where: { id: taskId },
+                data: {
+                    contributor: { connect: { userId: contributorId } },
+                    status: "IN_PROGRESS",
+                    acceptedAt: new Date()
+                },
+                select: {
+                    id: true,
+                    status: true,
+                    contributor: { select: { userId: true, username: true } },
+                    acceptedAt: true
+                }
+            }),
+            // Update contribution summary
+            prisma.contributionSummary.update({
+                where: { userId: contributorId },
+                data: { activeTasks: { increment: 1 } }
+            })
+        ]);
 
         try {
             // Enable chat for the task
@@ -457,13 +486,29 @@ export const acceptTaskApplication = async (req: Request, res: Response, next: N
 
             // Return success response
             res.status(STATUS_CODES.SUCCESS).json(updatedTask);
+
+            // Update task activity for live updates
+            FirebaseService.updateActivity(contributorId, "contributor").catch(
+                error => dataLogger.warn(
+                    "Failed to update contributor activity for live updates",
+                    { contributorId, error }
+                )
+            );
         } catch (error) {
+            dataLogger.info("Failed to enable chat functionality for this task", error);
             // Return updated task but notify user of partial failure
-            return res.status(STATUS_CODES.PARTIAL_SUCCESS).json({
-                error,
+            res.status(STATUS_CODES.PARTIAL_SUCCESS).json({
                 task: updatedTask,
                 message: "Failed to enable chat functionality for this task."
             });
+
+            // Update task activity for live updates
+            FirebaseService.updateActivity(contributorId, "contributor").catch(
+                error => dataLogger.warn(
+                    "Failed to update contributor activity for live updates",
+                    { contributorId, error }
+                )
+            );
         }
     } catch (error) {
         next(error);
@@ -549,6 +594,7 @@ export const replyTimelineExtensionRequest = async (req: Request, res: Response,
             where: { id: taskId },
             select: {
                 creatorId: true,
+                status: true,
                 timeline: true,
                 timelineType: true
             }
@@ -558,9 +604,11 @@ export const replyTimelineExtensionRequest = async (req: Request, res: Response,
         if (!task) {
             throw new NotFoundError("Task not found");
         }
-        // Verify user is the creator
-        if (task.creatorId !== userId) {
-            throw new AuthorizationError("Only task creator can perform this action");
+        // Verify task is in progress and user is the creator
+        if (task.status !== "IN_PROGRESS" || task.creatorId !== userId) {
+            throw new ValidationError(
+                "Replying to timeline extensions can only be done by the task creator while the task is in progress"
+            );
         }
 
         // Update timeline if extension is accepted
@@ -704,58 +752,67 @@ export const markAsComplete = async (req: Request, res: Response, next: NextFunc
             throw new ValidationError("Task is not active");
         }
 
-        // Create task submission
-        const submission = await prisma.taskSubmission.create({
-            data: {
-                user: { connect: { userId } },
-                task: { connect: { id: taskId } },
-                installation: { connect: { id: task.installationId } },
-                pullRequest,
-                attachmentUrl
-            },
-            select: { id: true }
-        });
+        const updatedTask = await prisma.$transaction(async (tx) => {
+            // Create task submission
+            const submission = await tx.taskSubmission.create({
+                data: {
+                    user: { connect: { userId } },
+                    task: { connect: { id: taskId } },
+                    installation: { connect: { id: task.installationId } },
+                    pullRequest,
+                    attachmentUrl
+                },
+                select: { id: true }
+            });
 
-        // Update task status
-        const updatedTask = await prisma.task.update({
-            where: { id: taskId },
-            data: {
-                status: "MARKED_AS_COMPLETED"
-            },
-            select: {
-                status: true,
-                updatedAt: true,
-                taskSubmissions: {
-                    where: { userId },
-                    select: {
-                        id: true,
-                        pullRequest: true,
-                        attachmentUrl: true
+            // Update task status
+            const updatedTask = await tx.task.update({
+                where: { id: taskId },
+                data: {
+                    status: "MARKED_AS_COMPLETED"
+                },
+                select: {
+                    status: true,
+                    updatedAt: true,
+                    taskSubmissions: {
+                        where: { userId },
+                        select: {
+                            id: true,
+                            pullRequest: true,
+                            attachmentUrl: true
+                        }
                     }
                 }
-            }
-        });
+            });
 
-        // Create submision activity
-        await prisma.taskActivity.create({
-            data: {
-                task: {
-                    connect: { id: taskId }
-                },
-                taskSubmission: {
-                    connect: { id: submission.id }
-                },
-                user: {
-                    connect: { userId }
+            // Create submision activity
+            await tx.taskActivity.create({
+                data: {
+                    task: {
+                        connect: { id: taskId }
+                    },
+                    taskSubmission: {
+                        connect: { id: submission.id }
+                    },
+                    user: {
+                        connect: { userId }
+                    }
                 }
-            }
-        });
+            });
 
-        // Update task activity for live updates
-        await FirebaseService.updateActivity(task.creatorId, "task", taskId);
+            return updatedTask;
+        });
 
         // Return updated task
         res.status(STATUS_CODES.SUCCESS).json(updatedTask);
+
+        // Update task activity for live updates
+        FirebaseService.updateActivity(task.creatorId, "task", taskId).catch(
+            error => dataLogger.warn(
+                "Failed to update task activity for live updates",
+                { taskId, error }
+            )
+        );
     } catch (error) {
         next(error);
     }
@@ -824,69 +881,51 @@ export const validateCompletion = async (req: Request, res: Response, next: Next
             taskId
         );
 
-        // Update task as completed and settled
-        const updatedTask = await prisma.task.update({
-            where: { id: taskId },
-            data: {
-                status: "COMPLETED",
-                completedAt: new Date(),
-                settled: true
-            },
-            select: {
-                status: true,
-                completedAt: true,
-                settled: true,
-                updatedAt: true
-            }
-        });
-
-        // Record transaction for contributor
-        await prisma.transaction.create({
-            data: {
-                txHash: transactionResponse.txHash,
-                category: "BOUNTY",
-                amount: parseFloat(task.bounty.toString()),
-                task: { connect: { id: taskId } },
-                user: { connect: { userId: task.contributor.userId } },
-                doneAt: stellarTimestampToDate(transactionResponse.result.createdAt)
-            }
-        });
-
-        try {
+        const [updatedTask] = await prisma.$transaction([
+            // Update task as completed and settled
+            prisma.task.update({
+                where: { id: taskId },
+                data: {
+                    status: "COMPLETED",
+                    completedAt: new Date(),
+                    settled: true
+                },
+                select: {
+                    status: true,
+                    completedAt: true,
+                    settled: true,
+                    updatedAt: true
+                }
+            }),
+            // Record transaction for contributor
+            prisma.transaction.create({
+                data: {
+                    txHash: transactionResponse.txHash,
+                    category: "BOUNTY",
+                    amount: parseFloat(task.bounty.toString()),
+                    task: { connect: { id: taskId } },
+                    user: { connect: { userId: task.contributor.userId } },
+                    doneAt: stellarTimestampToDate(transactionResponse.result.createdAt)
+                }
+            }),
             // Update contribution summary
-            await prisma.contributionSummary.update({
+            prisma.contributionSummary.update({
                 where: { userId: task.contributor.userId },
                 data: {
                     activeTasks: { decrement: 1 },
                     tasksCompleted: { increment: 1 },
                     totalEarnings: { increment: task.bounty }
                 }
-            });
+            })
+        ]);
 
-            try {
-                // Disable chat for the task
-                await FirebaseService.updateTaskStatus(taskId);
+        // Return success response
+        res.status(STATUS_CODES.SUCCESS).json(updatedTask);
 
-                // Return success response
-                res.status(STATUS_CODES.SUCCESS).json(updatedTask);
-            } catch (error) {
-                // Return updated task but notify user of partial failure
-                res.status(STATUS_CODES.PARTIAL_SUCCESS).json({
-                    error,
-                    validated: true,
-                    task,
-                    message: "Failed to disable chat for the task."
-                });
-            }
-        } catch (error) {
-            // Return updated task but notify user of partial failure
-            res.status(STATUS_CODES.PARTIAL_SUCCESS).json({
-                error,
-                validated: true,
-                task,
-                message: "Failed to update the developer contribution summary."
-            });
-        }
+        // Disable chat for the task
+        FirebaseService.updateTaskStatus(taskId).catch(
+            error => dataLogger.warn("Failed to disable chat", { taskId, error })
+        );
     } catch (error) {
         next(error);
     }
