@@ -9,6 +9,7 @@ import { stellarTimestampToDate } from "../../utilities/helper";
 import { TaskStatus } from "../../../prisma_client";
 import { ContractService } from "../../services/contract.service";
 import { KMSService } from "../../services/kms.service";
+import { FirebaseService } from "../../services/firebase.service";
 
 /**
  * Handles GitHub PR webhook events
@@ -130,7 +131,9 @@ export const handleBountyPayout = async (req: Request, res: Response, next: Next
         const relatedTask = await prisma.task.findFirst({
             where: {
                 installationId,
-                status: TaskStatus.MARKED_AS_COMPLETED,
+                status: {
+                    in: [TaskStatus.MARKED_AS_COMPLETED, TaskStatus.IN_PROGRESS]
+                },
                 contributor: {
                     username: pull_request.user.login
                 },
@@ -142,6 +145,7 @@ export const handleBountyPayout = async (req: Request, res: Response, next: Next
             select: {
                 id: true,
                 bounty: true,
+                status: true,
                 issue: true,
                 contributor: {
                     select: {
@@ -161,7 +165,7 @@ export const handleBountyPayout = async (req: Request, res: Response, next: Next
 
         // No matching task found
         if (!relatedTask) {
-            dataLogger.info("No matching tasks found", {
+            dataLogger.info("No matching active or submitted task found", {
                 prNumber,
                 repositoryName,
                 prUrl,
@@ -170,106 +174,86 @@ export const handleBountyPayout = async (req: Request, res: Response, next: Next
 
             return res.status(STATUS_CODES.SUCCESS).json({
                 success: true,
-                message: "No matching tasks found",
+                message: "No matching active or submitted task found",
                 data: { prNumber, repositoryName, prUrl, linkedIssues: linkedIssues.map(i => i.number) }
             });
         }
 
+        // Verify contributor has a wallet
+        if (!relatedTask.contributor || !relatedTask.contributor.wallet || !relatedTask.contributor.wallet.address) {
+            return res.status(STATUS_CODES.SUCCESS).json({
+                success: true,
+                message: "No wallet address found for contributor",
+                data: { prNumber, repositoryName, prUrl, linkedIssues: linkedIssues.map(i => i.number) }
+            });
+        }
+
+        // Transfer bounty from escrow to contributor via smart contract
+        if (!relatedTask.installation.wallet) {
+            throw new Error("Installation wallet not found");
+        }
+
+        const decryptedWalletSecret = await KMSService.decryptWallet(relatedTask.installation.wallet);
+        const transactionResponse = await ContractService.approveCompletion(
+            decryptedWalletSecret,
+            relatedTask.id
+        );
+
         try {
-            // Verify contributor has a wallet
-            if (!relatedTask.contributor || !relatedTask.contributor.wallet || !relatedTask.contributor.wallet.address) {
-                return res.status(STATUS_CODES.SUCCESS).json({
-                    success: true,
-                    message: "No wallet address found for contributor",
-                    data: { prNumber, repositoryName, prUrl, linkedIssues: linkedIssues.map(i => i.number) }
-                });
-            }
-
-            // Transfer bounty from escrow to contributor via smart contract
-            if (!relatedTask.installation.wallet) {
-                throw new Error("Installation wallet not found");
-            }
-            const decryptedWalletSecret = await KMSService.decryptWallet(relatedTask.installation.wallet);
-
-            // Approve completion via smart contract
-            const transactionResponse = await ContractService.approveCompletion(
-                decryptedWalletSecret,
-                relatedTask.id
-            );
-
-            // Update task as completed and settled
-            await prisma.task.update({
-                where: { id: relatedTask.id },
-                data: {
-                    status: "COMPLETED",
-                    completedAt: new Date(),
-                    settled: true
-                }
-            });
-
-            // Record transaction for contributor
-            await prisma.transaction.create({
-                data: {
-                    txHash: transactionResponse.txHash,
-                    category: "BOUNTY",
-                    amount: parseFloat(relatedTask.bounty.toString()),
-                    task: { connect: { id: relatedTask.id } },
-                    user: { connect: { userId: relatedTask.contributor.userId } },
-                    doneAt: stellarTimestampToDate(transactionResponse.result.createdAt)
-                }
-            });
-
-            // Update contribution summary
-            try {
-                await prisma.contributionSummary.update({
+            await prisma.$transaction([
+                // Update task as completed and settled
+                prisma.task.update({
+                    where: { id: relatedTask.id },
+                    data: {
+                        status: "COMPLETED",
+                        completedAt: new Date(),
+                        settled: true
+                    }
+                }),
+                // Record transaction for contributor
+                prisma.transaction.create({
+                    data: {
+                        txHash: transactionResponse.txHash,
+                        category: "BOUNTY",
+                        amount: parseFloat(relatedTask.bounty.toString()),
+                        task: { connect: { id: relatedTask.id } },
+                        user: { connect: { userId: relatedTask.contributor.userId } },
+                        doneAt: stellarTimestampToDate(transactionResponse.result.createdAt)
+                    }
+                }),
+                // Update contribution summary
+                prisma.contributionSummary.update({
                     where: { userId: relatedTask.contributor.userId },
                     data: {
                         tasksCompleted: { increment: 1 },
                         totalEarnings: { increment: relatedTask.bounty }
                     }
-                });
-            } catch (error) {
-                dataLogger.warn("Failed to update contribution summary", {
-                    taskId: relatedTask.id,
-                    userId: relatedTask.contributor.userId,
-                    error: error instanceof Error ? error.message : String(error)
-                });
-            }
+                })
+            ]);
+
+            // Send success response
+            res.status(STATUS_CODES.SUCCESS).json({
+                success: true,
+                message: "PR merged - Payment processed successfully",
+                data: {
+                    prNumber,
+                    repositoryName,
+                    prUrl,
+                    linkedIssues: linkedIssues.map(i => i.number)
+                }
+            });
 
             // Disable chat for the task
-            try {
-                const { FirebaseService } = await import("../../services/firebase.service");
-                await FirebaseService.updateTaskStatus(relatedTask.id);
-            } catch (error) {
-                dataLogger.warn("Failed to disable chat", {
-                    taskId: relatedTask.id,
-                    error: error instanceof Error ? error.message : String(error)
-                });
-            }
-
-            dataLogger.info("Payment processed successfully", {
-                taskId: relatedTask.id,
-                contributorId: relatedTask.contributor.userId,
-                amount: relatedTask.bounty,
-                txHash: transactionResponse.txHash
-            });
+            FirebaseService.updateTaskStatus(relatedTask.id).catch(
+                error => dataLogger.warn("Failed to disable chat", { taskId: relatedTask.id, error })
+            );
         } catch (error) {
-            dataLogger.error("Failed to process payment for task", {
+            dataLogger.error("Contribution approved on smart contract but DB failed to update", {
                 taskId: relatedTask.id,
-                error: error instanceof Error ? error.message : String(error)
+                error
             });
+            throw error;
         }
-
-        res.status(STATUS_CODES.SUCCESS).json({
-            success: true,
-            message: "PR merged - Payment processed successfully",
-            data: {
-                prNumber,
-                repositoryName,
-                prUrl,
-                linkedIssues: linkedIssues.map(i => i.number)
-            }
-        });
 
     } catch (error) {
         next(error);
