@@ -289,7 +289,9 @@ export class OctokitService {
 
         // Add title filter if provided (search in title field)
         if (filters?.title) {
-            queryString += ` "${filters.title}" in:title`;
+            // strip quotes
+            const sanitizedTitle = filters.title.replace(/"/g, "");
+            queryString += ` "${sanitizedTitle}" in:title`;
         }
 
         // Add label filters if provided (can filter by multiple labels)

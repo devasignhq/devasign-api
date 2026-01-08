@@ -8,6 +8,7 @@ import {
     resetDatabase
 } from "../controllers/admin";
 import { ENDPOINTS } from "../utilities/data";
+import { localhostOnly } from "../middlewares/request.middleware";
 
 export const adminRoutes = Router();
 
@@ -44,5 +45,6 @@ adminRoutes.get(
 // To be removed. Used from development only.
 adminRoutes.post(
     ENDPOINTS.ADMIN.RESET_DATABASE, 
+    localhostOnly,
     resetDatabase as RequestHandler
 );
