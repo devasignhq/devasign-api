@@ -143,7 +143,7 @@ describe("Installation API Integration Tests", () => {
                 .post(getEndpointWithPrefix(["INSTALLATION", "CREATE"]))
                 .set("x-test-user-id", "installation-creator")
                 .send(installationData)
-                .expect(STATUS_CODES.POST);
+                .expect(STATUS_CODES.CREATED);
 
             expect(response.body.id).toBe("12345678");
 

@@ -301,7 +301,7 @@ describe("Installation PR Review Rules API Integration Tests", () => {
                     .replace(":installationId", "12345678"))
                 .set("x-test-user-id", "user-1")
                 .send(ruleData)
-                .expect(STATUS_CODES.POST);
+                .expect(STATUS_CODES.CREATED);
 
             expect(response.body).toMatchObject({
                 success: true,

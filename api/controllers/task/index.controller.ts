@@ -145,7 +145,7 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
         }
 
         // All operations successful
-        res.status(STATUS_CODES.POST).json({ ...task, ...updatedTask });
+        res.status(STATUS_CODES.CREATED).json({ ...task, ...updatedTask });
     } catch (error) {
         next(error);
     }

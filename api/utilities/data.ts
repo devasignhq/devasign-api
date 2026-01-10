@@ -7,7 +7,7 @@ export const STATUS_CODES = {
     /**202 */
     PARTIAL_SUCCESS: 202,
     /**201 */
-    POST: 201,
+    CREATED: 201,
     /**203 */
     BACKGROUND_JOB: 203,
     /**204 */

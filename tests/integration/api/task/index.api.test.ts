@@ -211,7 +211,7 @@ describe("Task API Integration Tests", () => {
                 .post(getEndpointWithPrefix(["TASK", "CREATE"]))
                 .set("x-test-user-id", "task-creator-user")
                 .send(taskData)
-                .expect(STATUS_CODES.POST);
+                .expect(STATUS_CODES.CREATED);
 
             // Verify task was created in database
             const createdTask = await prisma.task.findUnique({

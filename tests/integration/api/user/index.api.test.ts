@@ -112,7 +112,7 @@ describe("User API Integration Tests", () => {
                 .post(getEndpointWithPrefix(["USER", "CREATE"]))
                 .set("x-test-user-id", "new-user-123")
                 .send(userData)
-                .expect(STATUS_CODES.POST);
+                .expect(STATUS_CODES.CREATED);
 
             expect(response.body).toMatchObject({
                 userId: "new-user-123",
@@ -156,7 +156,7 @@ describe("User API Integration Tests", () => {
                 .post("/users?skipWallet=true")
                 .set("x-test-user-id", "new-user-456")
                 .send(userData)
-                .expect(STATUS_CODES.POST);
+                .expect(STATUS_CODES.CREATED);
 
             expect(response.body).toMatchObject({
                 userId: "new-user-456",
@@ -510,7 +510,7 @@ describe("User API Integration Tests", () => {
                 .post(getEndpointWithPrefix(["USER", "CREATE"]))
                 .set("x-test-user-id", "consistency-user")
                 .send(userData)
-                .expect(STATUS_CODES.POST);
+                .expect(STATUS_CODES.CREATED);
 
             const userId = createResponse.body.userId;
 
@@ -567,7 +567,7 @@ describe("User API Integration Tests", () => {
                 .post(getEndpointWithPrefix(["USER", "CREATE"]))
                 .set("x-test-user-id", "concurrent-user")
                 .send(userData)
-                .expect(STATUS_CODES.POST);
+                .expect(STATUS_CODES.CREATED);
 
             // Perform multiple concurrent address book updates
             const addresses = [

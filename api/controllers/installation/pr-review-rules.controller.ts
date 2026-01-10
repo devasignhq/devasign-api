@@ -7,7 +7,7 @@ import { STATUS_CODES } from "../../utilities/data";
 
 /** 
  * Get all pr review rules for an installation 
- */ 
+ */
 export const getPRReviewRules = async (req: Request, res: Response, next: NextFunction) => {
     const { installationId } = req.params;
     const { active, ruleType, severity } = req.query;
@@ -51,7 +51,7 @@ export const getPRReviewRules = async (req: Request, res: Response, next: NextFu
 
 /** 
  * Get a specific pr review rule
- */ 
+ */
 export const getPRReviewRule = async (req: Request, res: Response, next: NextFunction) => {
     const { installationId, ruleId } = req.params;
 
@@ -80,7 +80,7 @@ export const getPRReviewRule = async (req: Request, res: Response, next: NextFun
 
 /** 
  * Create a new pr review rule
- */ 
+ */
 export const createPRReviewRule = async (req: Request, res: Response, next: NextFunction) => {
     const { installationId } = req.params;
     const { name, description, ruleType, severity, pattern, config, active = true } = req.body;
@@ -121,7 +121,7 @@ export const createPRReviewRule = async (req: Request, res: Response, next: Next
         });
 
         // Return success response
-        res.status(STATUS_CODES.POST).json({
+        res.status(STATUS_CODES.CREATED).json({
             success: true,
             data: rule,
             message: "Custom rule created successfully"

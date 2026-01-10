@@ -101,7 +101,7 @@ export const createInstallation = async (req: Request, res: Response, next: Next
             );
 
             // Return created installation
-            res.status(STATUS_CODES.POST).json(installation);
+            res.status(STATUS_CODES.CREATED).json(installation);
         } catch (error) {
             // If trustline addition fails, return installation but indicate partial success
             res.status(STATUS_CODES.PARTIAL_SUCCESS).json({

@@ -56,7 +56,7 @@ export const createUser = async (req: Request, res: Response, next: NextFunction
             });
 
             // Return user
-            return res.status(STATUS_CODES.POST).json(user);
+            return res.status(STATUS_CODES.CREATED).json(user);
         }
 
         // Create user wallet (for the contributor app)
@@ -89,7 +89,7 @@ export const createUser = async (req: Request, res: Response, next: NextFunction
             );
 
             // Return user
-            res.status(STATUS_CODES.POST).json(user);
+            res.status(STATUS_CODES.CREATED).json(user);
         } catch (error) {
             // Return user info and notify user USDC trustline addition failed
             res.status(STATUS_CODES.PARTIAL_SUCCESS).json({
