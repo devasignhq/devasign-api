@@ -3,6 +3,7 @@ import { prisma } from "../../config/database.config";
 import { RuleType, RuleSeverity, Prisma } from "../../../prisma_client";
 import { RuleEngineService } from "../../services/ai-review/rule-engine.service";
 import { NotFoundError, ValidationError } from "../../models/error.model";
+import { responseWrapper } from "../../utilities/helper";
 import { STATUS_CODES } from "../../utilities/data";
 
 /** 
@@ -39,10 +40,12 @@ export const getPRReviewRules = async (req: Request, res: Response, next: NextFu
         });
 
         // Return success response
-        res.status(STATUS_CODES.SUCCESS).json({
-            success: true,
+        responseWrapper({
+            res,
+            status: STATUS_CODES.SUCCESS,
             data: rules,
-            count: rules.length
+            message: "PR review rules retrieved successfully",
+            meta: { count: rules.length }
         });
     } catch (error) {
         next(error);
@@ -69,9 +72,11 @@ export const getPRReviewRule = async (req: Request, res: Response, next: NextFun
         }
 
         // Return success response
-        res.status(STATUS_CODES.SUCCESS).json({
-            success: true,
-            data: rule
+        responseWrapper({
+            res,
+            status: STATUS_CODES.SUCCESS,
+            data: rule,
+            message: "PR review rule retrieved successfully"
         });
     } catch (error) {
         next(error);
@@ -121,8 +126,9 @@ export const createPRReviewRule = async (req: Request, res: Response, next: Next
         });
 
         // Return success response
-        res.status(STATUS_CODES.CREATED).json({
-            success: true,
+        responseWrapper({
+            res,
+            status: STATUS_CODES.CREATED,
             data: rule,
             message: "Custom rule created successfully"
         });
@@ -201,8 +207,9 @@ export const updatePRReviewRule = async (req: Request, res: Response, next: Next
         });
 
         // Return success response
-        res.status(STATUS_CODES.SUCCESS).json({
-            success: true,
+        responseWrapper({
+            res,
+            status: STATUS_CODES.SUCCESS,
             data: updatedRule,
             message: "Custom rule updated successfully"
         });
@@ -236,8 +243,10 @@ export const deletePRReviewRule = async (req: Request, res: Response, next: Next
         });
 
         // Return success response
-        res.status(STATUS_CODES.SUCCESS).json({
-            success: true,
+        responseWrapper({
+            res,
+            status: STATUS_CODES.SUCCESS,
+            data: {},
             message: "Custom rule deleted successfully"
         });
     } catch (error) {
@@ -252,10 +261,12 @@ export const getDefaultRules = async (req: Request, res: Response, next: NextFun
     try {
         const defaultRules = RuleEngineService.getDefaultRules();
 
-        res.status(STATUS_CODES.SUCCESS).json({
-            success: true,
+        responseWrapper({
+            res,
+            status: STATUS_CODES.SUCCESS,
             data: defaultRules,
-            count: defaultRules.length
+            message: "Default rules retrieved successfully",
+            meta: { count: defaultRules.length }
         });
     } catch (error) {
         next(error);

@@ -1,5 +1,6 @@
 import { NextFunction, Request, Response } from "express";
 import { prisma } from "../../config/database.config";
+import { responseWrapper } from "../../utilities/helper";
 import { STATUS_CODES } from "../../utilities/data";
 import { AuthorizationError, NotFoundError } from "../../models/error.model";
 
@@ -41,10 +42,11 @@ export const addTeamMember = async (req: Request, res: Response, next: NextFunct
             // Check if user is already a member of the installation
             const isAlreadyMember = installation.users.some(user => user.userId === existingUser.userId);
             if (isAlreadyMember) {
-                return res.status(400).json({
-                    message: "User is already a member of this installation",
-                    username,
-                    status: "already_member"
+                return responseWrapper({
+                    res,
+                    status: STATUS_CODES.SERVER_ERROR,
+                    data: { username, status: "already_member" },
+                    message: "User is already a member of this installation"
                 });
             }
 
@@ -88,7 +90,12 @@ export const addTeamMember = async (req: Request, res: Response, next: NextFunct
         }
 
         // Return result
-        res.status(STATUS_CODES.SUCCESS).json(result);
+        responseWrapper({
+            res,
+            status: STATUS_CODES.SUCCESS,
+            data: result,
+            message: "Team member added successfully"
+        });
     } catch (error) {
         next(error);
     }
@@ -137,7 +144,10 @@ export const updateTeamMember = async (req: Request, res: Response, next: NextFu
         });
 
         // Return success message
-        res.status(STATUS_CODES.SUCCESS).json({
+        responseWrapper({
+            res,
+            status: STATUS_CODES.SUCCESS,
+            data: {},
             message: "Permissions updated successfully"
         });
     } catch (error) {
@@ -190,7 +200,10 @@ export const removeTeamMember = async (req: Request, res: Response, next: NextFu
         });
 
         // Return success message
-        res.status(STATUS_CODES.SUCCESS).json({
+        responseWrapper({
+            res,
+            status: STATUS_CODES.SUCCESS,
+            data: {},
             message: "Team member removed successfully"
         });
     } catch (error) {

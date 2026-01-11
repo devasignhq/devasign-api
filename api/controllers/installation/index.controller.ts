@@ -1,6 +1,7 @@
 import { NextFunction, Request, Response } from "express";
 import { prisma } from "../../config/database.config";
 import { stellarService } from "../../services/stellar.service";
+import { responseWrapper } from "../../utilities/helper";
 import { STATUS_CODES } from "../../utilities/data";
 import { OctokitService } from "../../services/octokit.service";
 import {
@@ -101,13 +102,21 @@ export const createInstallation = async (req: Request, res: Response, next: Next
             );
 
             // Return created installation
-            res.status(STATUS_CODES.CREATED).json(installation);
+            responseWrapper({
+                res,
+                status: STATUS_CODES.CREATED,
+                data: installation,
+                message: "Installation created successfully"
+            });
         } catch (error) {
             // If trustline addition fails, return installation but indicate partial success
-            res.status(STATUS_CODES.PARTIAL_SUCCESS).json({
-                error,
-                installation,
-                message: "Failed to add USDC trustlines."
+            responseWrapper({
+                res,
+                status: STATUS_CODES.PARTIAL_SUCCESS,
+                data: installation,
+                message: "Installation created successfully",
+                warning: "Failed to add USDC trustline to wallet",
+                meta: { error }
             });
         }
     } catch (error) {
@@ -163,9 +172,12 @@ export const getInstallations = async (req: Request, res: Response, next: NextFu
         const results = hasMore ? installations.slice(0, take) : installations;
 
         // Return paginated response
-        res.status(STATUS_CODES.SUCCESS).json({
+        responseWrapper({
+            res,
+            status: STATUS_CODES.SUCCESS,
             data: results,
-            hasMore
+            pagination: { hasMore },
+            message: "Installations retrieved successfully"
         });
     } catch (error) {
         next(error);
@@ -264,9 +276,11 @@ export const getInstallation = async (req: Request, res: Response, next: NextFun
         };
 
         // Return installation details with stats
-        res.status(STATUS_CODES.SUCCESS).json({
-            ...installation,
-            stats
+        responseWrapper({
+            res,
+            status: STATUS_CODES.SUCCESS,
+            data: { ...installation, stats },
+            message: "Installation details retrieved successfully"
         });
     } catch (error) {
         next(error);
@@ -322,7 +336,12 @@ export const updateInstallation = async (req: Request, res: Response, next: Next
         });
 
         // Return updated installation
-        res.status(STATUS_CODES.SUCCESS).json(updatedInstallation);
+        responseWrapper({
+            res,
+            status: STATUS_CODES.SUCCESS,
+            data: updatedInstallation,
+            message: "Installation updated successfully"
+        });
     } catch (error) {
         next(error);
     }
@@ -382,7 +401,7 @@ export const deleteInstallation = async (req: Request, res: Response, next: Next
                     await ContractService.refund(decryptedWalletSecret, task.id);
                     refunded += task.bounty;
                 } catch (error) {
-                    dataLogger.warning(`Failed to refund task ${task.id}:`, error);
+                    dataLogger.warning(`Failed to refund task ${task.id}:`, { error });
                 }
             }
         }
@@ -417,9 +436,11 @@ export const deleteInstallation = async (req: Request, res: Response, next: Next
         });
 
         // Return deletion confirmation
-        res.status(STATUS_CODES.SUCCESS).json({
-            message: "Installation deleted successfully",
-            refunded: `${refunded} USDC`
+        responseWrapper({
+            res,
+            status: STATUS_CODES.SUCCESS,
+            data: { refunded: `${refunded} USDC` },
+            message: "Installation deleted successfully"
         });
     } catch (error) {
         next(error);

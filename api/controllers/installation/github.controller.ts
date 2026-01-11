@@ -2,10 +2,10 @@ import { Request, Response, NextFunction } from "express";
 import { OctokitService } from "../../services/octokit.service";
 import { IssueFilters } from "../../models/github.model";
 import { PRAnalysisService } from "../../services/ai-review/pr-analysis.service";
-import { PullRequestData, APIResponse } from "../../models/ai-review.model";
+import { PullRequestData } from "../../models/ai-review.model";
 import { PRAnalysisError, GitHubAPIError, ErrorClass } from "../../models/error.model";
+import { responseWrapper, getFieldFromUnknownObject } from "../../utilities/helper";
 import { STATUS_CODES } from "../../utilities/data";
-import { getFieldFromUnknownObject } from "../../utilities/helper";
 import { dataLogger, messageLogger } from "../../config/logger.config";
 
 /**
@@ -19,7 +19,12 @@ export const getInstallationRepositories = async (req: Request, res: Response, n
         const repositories = await OctokitService.getInstallationRepositories(installationId);
 
         // Return repositories in response
-        res.status(STATUS_CODES.SUCCESS).json(repositories);
+        responseWrapper({
+            res,
+            status: STATUS_CODES.SUCCESS,
+            data: repositories,
+            message: "Repositories retrieved successfully"
+        });
     } catch (error) {
         next(error);
     }
@@ -61,13 +66,12 @@ export const getRepositoryIssues = async (req: Request, res: Response, next: Nex
         );
 
         // Return issues with pagination in response
-        res.status(STATUS_CODES.SUCCESS).json({
-            issues: result.issues,
-            hasMore: result.hasMore,
-            pagination: {
-                page: parseInt(page as string),
-                perPage: parseInt(perPage as string)
-            }
+        responseWrapper({
+            res,
+            status: STATUS_CODES.SUCCESS,
+            data: result.issues,
+            pagination: { hasMore: result.hasMore },
+            message: "Issues retrieved successfully"
         });
     } catch (error) {
         next(error);
@@ -89,7 +93,12 @@ export const getRepositoryResources = async (req: Request, res: Response, next: 
         );
 
         // Return labels and milestones
-        res.status(STATUS_CODES.SUCCESS).json(resources);
+        responseWrapper({
+            res,
+            status: STATUS_CODES.SUCCESS,
+            data: resources,
+            message: "Repository resources retrieved successfully"
+        });
     } catch (error) {
         next(error);
     }
@@ -115,7 +124,12 @@ export const getOrCreateBountyLabel = async (req: Request, res: Response, next: 
 
         // If bounty label already exists, return it
         if (bountyLabel) {
-            return res.status(200).json({ valid: true, bountyLabel });
+            return responseWrapper({
+                res,
+                status: 200,
+                data: { bountyLabel },
+                message: "Bounty label already exists"
+            });
         }
 
         // If bounty label doesn't exist, create it
@@ -125,7 +139,12 @@ export const getOrCreateBountyLabel = async (req: Request, res: Response, next: 
         );
 
         // Return bounty label
-        res.status(STATUS_CODES.SUCCESS).json({ valid: true, bountyLabel });
+        responseWrapper({
+            res,
+            status: STATUS_CODES.SUCCESS,
+            data: bountyLabel,
+            message: "Bounty label created successfully"
+        });
     } catch (error) {
         next(error);
     }
@@ -150,16 +169,17 @@ export const triggerManualPRAnalysis = async (req: Request, res: Response, next:
             const prDetails = await OctokitService.getPRDetails(installationId, repositoryName, prNumber);
 
             if (!prDetails) {
-                return res.status(STATUS_CODES.NOT_FOUND).json({
-                    success: false,
-                    error: `PR #${prNumber} not found in repository ${repositoryName}`,
+                return responseWrapper({
+                    res,
+                    status: STATUS_CODES.NOT_FOUND,
                     data: {
                         installationId,
                         repositoryName,
-                        prNumber
+                        prNumber,
+                        timestamp: new Date().toISOString()
                     },
-                    timestamp: new Date().toISOString()
-                } as APIResponse);
+                    message: `PR #${prNumber} not found in repository ${repositoryName}`
+                });
             }
 
             // Extract linked issues from PR body
@@ -242,16 +262,17 @@ ${codeChangesPreview}`;
 
             // Handle 404 Not Found specifically
             if (errorStatus === 404) {
-                return res.status(STATUS_CODES.NOT_FOUND).json({
-                    success: false,
-                    error: `PR #${prNumber} not found in repository ${repositoryName}`,
+                return responseWrapper({
+                    res,
+                    status: STATUS_CODES.NOT_FOUND,
                     data: {
                         installationId,
                         repositoryName,
-                        prNumber
+                        prNumber,
+                        timestamp: new Date().toISOString()
                     },
-                    timestamp: new Date().toISOString()
-                } as APIResponse);
+                    message: `PR #${prNumber} not found in repository ${repositoryName}`
+                });
             }
 
             PRAnalysisService.logExtractionResult(
@@ -276,9 +297,9 @@ ${codeChangesPreview}`;
                 PRAnalysisService.logAnalysisDecision(prData, false, reason);
 
                 // Return PR not eligible for analysis
-                return res.status(STATUS_CODES.SERVER_ERROR).json({
-                    success: false,
-                    error: `PR not eligible for analysis: ${reason}`,
+                return responseWrapper({
+                    res,
+                    status: STATUS_CODES.SERVER_ERROR,
                     data: {
                         installationId: prData.installationId,
                         repositoryName: prData.repositoryName,
@@ -286,10 +307,11 @@ ${codeChangesPreview}`;
                         prUrl: prData.prUrl,
                         isDraft: prData.isDraft,
                         linkedIssuesCount: prData.linkedIssues.length,
-                        reason
+                        reason,
+                        timestamp: new Date().toISOString()
                     },
-                    timestamp: new Date().toISOString()
-                } as APIResponse);
+                    message: `PR not eligible for analysis: ${reason}`
+                });
             }
 
         } catch (error) {
@@ -297,17 +319,18 @@ ${codeChangesPreview}`;
             if (error instanceof PRAnalysisError) {
                 PRAnalysisService.logAnalysisDecision(prData, false, error.message);
 
-                return res.status(error.status).json({
-                    success: false,
-                    error: error.message,
+                return responseWrapper({
+                    res,
+                    status: error.status,
                     data: {
                         installationId: prData.installationId,
                         repositoryName: prData.repositoryName,
                         prNumber: prData.prNumber,
-                        prUrl: prData.prUrl
+                        prUrl: prData.prUrl,
+                        timestamp: new Date().toISOString()
                     },
-                    timestamp: new Date().toISOString()
-                } as APIResponse);
+                    message: error.message
+                });
             }
             throw error;
         }
@@ -327,9 +350,9 @@ ${codeChangesPreview}`;
         });
 
         // Return success response with PR analysis data
-        res.status(STATUS_CODES.BACKGROUND_JOB).json({
-            success: true,
-            message: "PR analysis triggered successfully",
+        responseWrapper({
+            res,
+            status: STATUS_CODES.BACKGROUND_JOB,
             data: {
                 installationId: prData.installationId,
                 repositoryName: prData.repositoryName,
@@ -347,42 +370,45 @@ ${codeChangesPreview}`;
                 })),
                 eligibleForAnalysis: true,
                 triggerType: "manual",
-                triggeredBy: userId
+                triggeredBy: userId,
+                timestamp: new Date().toISOString()
             },
-            timestamp: new Date().toISOString()
-        } as APIResponse);
+            message: "PR analysis triggered successfully"
+        });
 
     } catch (error) {
         dataLogger.error("Manual PR analysis trigger failed", { error });
 
         // Handle known error types with specific responses
         if (error instanceof PRAnalysisError) {
-            return res.status(error.status).json({
-                success: false,
-                error: error.message,
-                code: error.code,
+            return responseWrapper({
+                res,
+                status: error.status,
                 data: {
                     installationId,
                     repositoryName,
                     prNumber,
-                    details: error.details
+                    details: error.details,
+                    timestamp: new Date().toISOString()
                 },
-                timestamp: new Date().toISOString()
-            } as APIResponse);
+                message: error.message,
+                meta: { code: error.code }
+            });
         }
 
         if (error instanceof GitHubAPIError) {
-            return res.status(error.status).json({
-                success: false,
-                error: error.message,
-                code: error.code,
+            return responseWrapper({
+                res,
+                status: error.status,
                 data: {
                     installationId,
                     repositoryName,
-                    prNumber
+                    prNumber,
+                    timestamp: new Date().toISOString()
                 },
-                timestamp: new Date().toISOString()
-            } as APIResponse);
+                message: error.message,
+                meta: { code: error.code }
+            });
         }
 
         // Pass unexpected errors to error middleware
