@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { responseWrapper } from "../../utilities/helper";
 import { STATUS_CODES } from "../../utilities/data";
 import { ErrorRecoveryService } from "../../services/error-recovery.service";
 import { prisma } from "../../config/database.config";
@@ -16,16 +17,24 @@ export const systemRecovery = async (req: Request, res: Response) => {
 
         // Return recovery result
         const statusCode = recoveryResult.success ? STATUS_CODES.SUCCESS : STATUS_CODES.UNKNOWN;
-        res.status(statusCode).json({
-            recovery: recoveryResult,
-            timestamp: new Date().toISOString()
+        responseWrapper({
+            res,
+            status: statusCode,
+            data: { 
+                recovery: recoveryResult,
+                timestamp: new Date().toISOString() 
+            },
+            message: recoveryResult.success ? "System recovery completed" : "System recovery failed"
         });
     } catch (error) {
+        dataLogger.error("System recovery failed", { error });
         // Handle unexpected errors during recovery
-        res.status(STATUS_CODES.UNKNOWN).json({
-            error: "Recovery attempt failed",
-            details: String(error),
-            timestamp: new Date().toISOString()
+        responseWrapper({
+            res,
+            status: STATUS_CODES.UNKNOWN,
+            data: { timestamp: new Date().toISOString() },
+            message: "Recovery attempt failed",
+            warning: String(error)
         });
     }
 };
@@ -49,10 +58,18 @@ export const resetDatabase = async (req: Request, res: Response) => {
 
         // await prisma.subscriptionPackage.deleteMany();
 
-        res.status(STATUS_CODES.SUCCESS).json({ message: "Database cleared" });
+        responseWrapper({
+            res,
+            status: STATUS_CODES.SUCCESS,
+            data: {},
+            message: "Database cleared"
+        });
     } catch (error) {
         dataLogger.error("Database clear operation failed", { error });
-        res.status(STATUS_CODES.SERVER_ERROR).json({
+        responseWrapper({
+            res,
+            status: STATUS_CODES.SERVER_ERROR,
+            data: {},
             message: "Database clear operation failed"
         });
     }

@@ -1,8 +1,7 @@
 import { Request, Response } from "express";
 import { dataLogger } from "../../config/logger.config";
+import { responseWrapper, getFieldFromUnknownObject } from "../../utilities/helper";
 import { STATUS_CODES } from "../../utilities/data";
-import { getFieldFromUnknownObject } from "../../utilities/helper";
-import { APIResponse } from "../../models/ai-review.model";
 import { JobQueueService } from "../../services/ai-review/job-queue.service";
 import { WorkflowIntegrationService } from "../../services/ai-review/workflow-integration.service";
 
@@ -19,27 +18,31 @@ export const webhookHealthCheck = async (req: Request, res: Response) => {
         // Return health check response
         const statusCode = healthCheck.healthy ? STATUS_CODES.SUCCESS : STATUS_CODES.SERVER_ERROR;
 
-        res.status(statusCode).json({
-            success: healthCheck.healthy,
-            message: healthCheck.healthy ? "Webhook service is healthy" : "Webhook service has issues",
+        responseWrapper({
+            res,
+            status: statusCode,
             data: {
                 health: healthCheck,
-                workflow: workflowStatus
+                workflow: workflowStatus,
+                timestamp: new Date().toISOString(),
+                service: "ai-pr-review-webhook"
             },
-            timestamp: new Date().toISOString(),
-            service: "ai-pr-review-webhook"
-        } as APIResponse);
+            message: healthCheck.healthy ? "Webhook service is healthy" : "Webhook service has issues"
+        });
 
     } catch (error) {
         // Log and return error response
         dataLogger.error("Webhook health check failed", { error });
-        res.status(STATUS_CODES.UNKNOWN).json({
-            success: false,
+        responseWrapper({
+            res,
+            status: STATUS_CODES.UNKNOWN,
+            data: {
+                timestamp: new Date().toISOString(),
+                service: "ai-pr-review-webhook"
+            },
             message: "Health check failed",
-            error: error instanceof Error ? error.message : String(error),
-            timestamp: new Date().toISOString(),
-            service: "ai-pr-review-webhook"
-        } as APIResponse);
+            warning: error instanceof Error ? error.message : String(error)
+        });
     }
 };
 
@@ -52,9 +55,11 @@ export const getJobData = (req: Request, res: Response) => {
     try {
         // Validate job ID is provided
         if (!jobId) {
-            return res.status(STATUS_CODES.SERVER_ERROR).json({
-                success: false,
-                error: "Job ID is required"
+            return responseWrapper({
+                res,
+                status: STATUS_CODES.SERVER_ERROR,
+                data: {},
+                message: "Job ID is required"
             });
         }
 
@@ -64,15 +69,18 @@ export const getJobData = (req: Request, res: Response) => {
 
         if (!job) {
             // Job not found
-            return res.status(STATUS_CODES.NOT_FOUND).json({
-                success: false,
-                error: "Job not found"
+            return responseWrapper({
+                res,
+                status: STATUS_CODES.NOT_FOUND,
+                data: {},
+                message: "Job not found"
             });
         }
 
         // Return job data
-        res.status(STATUS_CODES.SUCCESS).json({
-            success: true,
+        responseWrapper({
+            res,
+            status: STATUS_CODES.SUCCESS,
             data: {
                 jobId: job.id,
                 status: job.status,
@@ -90,19 +98,23 @@ export const getJobData = (req: Request, res: Response) => {
                     suggestionsCount: job.result.suggestions.length,
                     rulesViolatedCount: job.result.rulesViolated.length,
                     summary: job.result.summary
-                } : null
+                } : null,
+                timestamp: new Date().toISOString()
             },
-            timestamp: new Date().toISOString()
-        } as APIResponse);
+            message: "Job data retrieved successfully"
+        });
 
     } catch (error) {
         // Log and return error response
         dataLogger.error("Error getting job data", { error });
 
         const errorMessage = getFieldFromUnknownObject<string>(error, "message");
-        res.status(STATUS_CODES.UNKNOWN).json({
-            success: false,
-            error: errorMessage || "Failed to get job data"
+        responseWrapper({
+            res,
+            status: STATUS_CODES.UNKNOWN,
+            data: {},
+            message: "Failed to get job data",
+            warning: errorMessage
         });
     }
 };
@@ -117,23 +129,28 @@ export const getQueueStats = (req: Request, res: Response) => {
         const stats = jobQueue.getQueueStats();
 
         // Return queue statistics
-        res.status(STATUS_CODES.SUCCESS).json({
-            success: true,
+        responseWrapper({
+            res,
+            status: STATUS_CODES.SUCCESS,
             data: {
                 queue: stats,
                 activeJobs: jobQueue.getActiveJobsCount(),
                 timestamp: new Date().toISOString()
-            }
-        } as APIResponse);
+            },
+            message: "Queue statistics retrieved successfully"
+        });
 
     } catch (error) {
         // Log and return error response
         dataLogger.error("Error getting queue stats", { error });
 
         const errorMessage = getFieldFromUnknownObject<string>(error, "message");
-        res.status(STATUS_CODES.UNKNOWN).json({
-            success: false,
-            error: errorMessage || "Failed to fetch queue stats"
+        responseWrapper({
+            res,
+            status: STATUS_CODES.UNKNOWN,
+            data: {},
+            message: "Failed to fetch queue stats",
+            warning: errorMessage
         });
     }
 };
@@ -148,21 +165,27 @@ export const getWorkflowStatus = (req: Request, res: Response) => {
         const status = workflowService.getWorkflowStatus();
 
         // Return workflow status
-        res.status(STATUS_CODES.SUCCESS).json({
-            success: true,
-            data: status,
-            timestamp: new Date().toISOString()
-        } as APIResponse);
+        responseWrapper({
+            res,
+            status: STATUS_CODES.SUCCESS,
+            data: {
+                ...status,
+                timestamp: new Date().toISOString()
+            },
+            message: "Workflow status retrieved successfully"
+        });
 
     } catch (error) {
         // Log and return error response
         dataLogger.error("Error getting workflow status", { error });
 
         const errorMessage = getFieldFromUnknownObject<string>(error, "message");
-        res.status(STATUS_CODES.UNKNOWN).json({
-            success: false,
-            error: errorMessage || "Failed to get workflow status",
-            timestamp: new Date().toISOString()
+        responseWrapper({
+            res,
+            status: STATUS_CODES.UNKNOWN,
+            data: { timestamp: new Date().toISOString() },
+            message: "Failed to get workflow status",
+            warning: errorMessage
         });
     }
 };

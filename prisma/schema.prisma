@@ -124,7 +124,7 @@ model Installation {
     @@index([createdAt])
 }
 
-// TODO: Explicit Join Table
+// TODO Later: Explicit Join Table
 // model UserInstallation {
 //     userId         String
 //     installationId String
