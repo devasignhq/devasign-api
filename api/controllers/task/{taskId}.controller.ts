@@ -418,6 +418,8 @@ export const acceptTaskApplication = async (req: Request, res: Response, next: N
             select: {
                 status: true,
                 creatorId: true,
+                issue: true,
+                bounty: true,
                 taskActivities: { select: { userId: true } },
                 contributorId: true,
                 contributor: { select: { wallet: true } },
@@ -526,6 +528,18 @@ export const acceptTaskApplication = async (req: Request, res: Response, next: N
             error => dataLogger.warn(
                 "Failed to update contributor activity for live updates",
                 { contributorId, error }
+            )
+        );
+
+        // Update bounty comment on GitHub to state task has been assigned
+        await OctokitService.updateIssueComment(
+            task.installationId,
+            (task.issue as TaskIssue).bountyCommentId!,
+            OctokitService.customBountyMessage(task.bounty.toString(), taskId, true)
+        ).catch(
+            error => dataLogger.warn(
+                "Failed to update bounty comment",
+                { taskId, error }
             )
         );
     } catch (error) {

@@ -20,12 +20,20 @@ export class OctokitService {
         privateKey: process.env.GITHUB_APP_PRIVATE_KEY!.toString().replace(/\\n/g, "\n")
     });
 
-    public static customBountyMessage = (bounty: string, taskId: string) => {
+    /**
+     * Generates a custom bounty message for GitHub issues.
+     * 
+     * @param bounty - The bounty amount as a string.
+     * @param taskId - The ID of the task associated with the bounty.
+     * @param accepted - Whether the task has already been accepted/assigned. Defaults to false.
+     * @returns The formatted bounty message string.
+     */
+    public static customBountyMessage = (bounty: string, taskId: string, accepted = false) => {
         return `\n\n\n## 💵 ${moneyFormat(bounty)} USDC Bounty\n\n### Steps to solve:\n
 1. **Accept task**: Follow the CTA and apply to solve this issue.\n
 2. **Submit work**: If your application was accepted, you'll be required to submit the link to your pull request and an optional link to a reference that will give more credibility to the work done.\n
 3. **Receive payment**: When your pull request is approved, 100% of the bounty is instantly transferred to your wallet.\n\n
-**To work on this task, [Apply here](${commentCTA}?taskId=${taskId})**`;
+${accepted ? "**This bounty has already been assigned.**" : `**To work on this task, [Apply here](${commentCTA}?taskId=${taskId})**`}`;
     };
 
     /**
