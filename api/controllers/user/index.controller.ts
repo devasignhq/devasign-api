@@ -2,6 +2,7 @@ import { NextFunction, Request, Response } from "express";
 import { prisma } from "../../config/database.config";
 import { InputJsonValue } from "@prisma/client/runtime/library";
 import { stellarService } from "../../services/stellar.service";
+import { responseWrapper } from "../../utilities/helper";
 import { STATUS_CODES } from "../../utilities/data";
 import { NotFoundError, ValidationError } from "../../models/error.model";
 import { dataLogger } from "../../config/logger.config";
@@ -56,7 +57,12 @@ export const createUser = async (req: Request, res: Response, next: NextFunction
             });
 
             // Return user
-            return res.status(STATUS_CODES.CREATED).json(user);
+            return responseWrapper({
+                res,
+                status: STATUS_CODES.CREATED,
+                data: user,
+                message: "User created successfully"
+            });
         }
 
         // Create user wallet (for the contributor app)
@@ -89,13 +95,21 @@ export const createUser = async (req: Request, res: Response, next: NextFunction
             );
 
             // Return user
-            res.status(STATUS_CODES.CREATED).json(user);
+            responseWrapper({
+                res,
+                status: STATUS_CODES.CREATED,
+                data: user,
+                message: "User created successfully"
+            });
         } catch (error) {
             // Return user info and notify user USDC trustline addition failed
-            res.status(STATUS_CODES.PARTIAL_SUCCESS).json({
-                error,
-                user,
-                message: "Failed to add USDC trustline for wallet."
+            responseWrapper({
+                res,
+                status: STATUS_CODES.PARTIAL_SUCCESS,
+                data: user,
+                message: "User created successfully",
+                warning: "Failed to add USDC trustline to wallet",
+                meta: { error }
             });
         }
     } catch (error) {
@@ -153,11 +167,12 @@ export const getUser = async (req: Request, res: Response, next: NextFunction) =
         // If setWallet is true and user has no wallet, create one
         const walletStatus = { wallet: false, usdcTrustline: false };
 
-        // TODO: Idempotency check
+        // TODO: Idempotency protection
         if ((!user.wallet || !user.wallet.address) && setWallet === "true") {
+            let userWallet;
             try {
                 // Create wallet
-                const userWallet = await stellarService.createWallet();
+                userWallet = await stellarService.createWallet();
                 const encryptedUserSecret = await KMSService.encryptWallet(userWallet.secretKey);
 
                 // Update user with wallet information
@@ -176,42 +191,53 @@ export const getUser = async (req: Request, res: Response, next: NextFunction) =
 
                 user = updatedUser;
                 walletStatus.wallet = true;
-
-                try {
-                    // Add USDC trustline to wallet
-                    await stellarService.addTrustLineViaSponsor(
-                        process.env.STELLAR_MASTER_SECRET_KEY!,
-                        userWallet.secretKey
-                    );
-                    walletStatus.usdcTrustline = true;
-                } catch (walletError) {
-                    dataLogger.warn("Failed to add USDC trustline", { walletError });
-
-                    // Return user info and notify user USDC trustline addition failed 
-                    return res.status(STATUS_CODES.PARTIAL_SUCCESS).json({
-                        user,
-                        error: walletError,
-                        walletStatus,
-                        message: "Created wallet but failed to add USDC trustline for wallet"
-                    });
-                }
-
-                // Return user with new wallet
-                return res.status(STATUS_CODES.SUCCESS).json({ user, walletStatus });
-            } catch (walletCreationError) {
-                dataLogger.warn("Failed to create wallet for existing user", { walletCreationError });
+            } catch (error) {
+                dataLogger.warn("Failed to create wallet for existing user", { error });
                 // Return user info and notify user wallet creation failed
-                return res.status(STATUS_CODES.PARTIAL_SUCCESS).json({
-                    user,
-                    error: walletCreationError,
-                    walletStatus,
-                    message: "Failed to create wallet"
+                return responseWrapper({
+                    res,
+                    status: STATUS_CODES.PARTIAL_SUCCESS,
+                    data: user,
+                    message: "Failed to create wallet",
+                    meta: { walletStatus }
                 });
             }
+
+            try {
+                // Add USDC trustline to wallet
+                await stellarService.addTrustLineViaSponsor(
+                    process.env.STELLAR_MASTER_SECRET_KEY!,
+                    userWallet.secretKey
+                );
+                walletStatus.usdcTrustline = true;
+            } catch (error) {
+                dataLogger.warn("Failed to add USDC trustline", { error });
+
+                // Return user info and notify user USDC trustline addition failed 
+                return responseWrapper({
+                    res,
+                    status: STATUS_CODES.PARTIAL_SUCCESS,
+                    data: user,
+                    message: "Created wallet",
+                    warning: "Failed to add USDC trustline to wallet",
+                    meta: { walletStatus }
+                });
+            }
+
+            // Return user with new wallet
+            return responseWrapper({
+                res,
+                status: STATUS_CODES.SUCCESS,
+                data: { user, walletStatus }
+            });
         }
 
         // Return user data
-        res.status(STATUS_CODES.SUCCESS).json(user);
+        responseWrapper({
+            res,
+            status: STATUS_CODES.SUCCESS,
+            data: user
+        });
     } catch (error) {
         next(error);
     }
@@ -247,7 +273,11 @@ export const updateUsername = async (req: Request, res: Response, next: NextFunc
         });
 
         // Return updated user
-        res.status(STATUS_CODES.SUCCESS).json(user);
+        responseWrapper({
+            res,
+            status: STATUS_CODES.SUCCESS,
+            data: user
+        });
     } catch (error) {
         next(error);
     }
@@ -303,7 +333,12 @@ export const updateAddressBook = async (req: Request, res: Response, next: NextF
         });
 
         // Return updated user
-        res.status(STATUS_CODES.SUCCESS).json(updatedUser);
+        responseWrapper({
+            res,
+            status: STATUS_CODES.SUCCESS,
+            data: updatedUser,
+            message: "Address added to address book"
+        });
     } catch (error) {
         next(error);
     }

@@ -1,11 +1,11 @@
 import { Request, Response, NextFunction } from "express";
-import { GitHubWebhookPayload, APIResponse } from "../../models/ai-review.model";
+import { GitHubWebhookPayload } from "../../models/ai-review.model";
 import { WorkflowIntegrationService } from "../../services/ai-review/workflow-integration.service";
+import { responseWrapper, stellarTimestampToDate } from "../../utilities/helper";
 import { STATUS_CODES } from "../../utilities/data";
 import { prisma } from "../../config/database.config";
 import { dataLogger } from "../../config/logger.config";
 import { PRAnalysisService } from "../../services/ai-review/pr-analysis.service";
-import { stellarTimestampToDate } from "../../utilities/helper";
 import { TaskStatus } from "../../../prisma_client";
 import { ContractService } from "../../services/contract.service";
 import { KMSService } from "../../services/kms.service";
@@ -30,10 +30,11 @@ export const handlePRWebhook = async (req: Request, res: Response, next: NextFun
         return;
     }
 
-    res.status(STATUS_CODES.SUCCESS).json({
-        success: true,
-        message: "PR action not processed",
-        action
+    responseWrapper({
+        res,
+        status: STATUS_CODES.SUCCESS,
+        data: { action },
+        message: "PR action not processed"
     });
     return;
 };
@@ -50,30 +51,39 @@ export const handlePRReview = async (req: Request, res: Response, next: NextFunc
         const result = await workflowService.processWebhookWorkflow(payload);
 
         if (!result.success) {
-            return res.status(STATUS_CODES.UNKNOWN).json({
-                success: false,
-                error: result.error,
-                timestamp: new Date().toISOString()
-            } as APIResponse);
+            dataLogger.error("Failed to process PR webhook", {
+                payload,
+                result
+            });
+            return responseWrapper({
+                res,
+                status: STATUS_CODES.UNKNOWN,
+                data: { timestamp: new Date().toISOString() }
+            });
         }
 
         // Handle case where PR is not eligible for analysis
         if (result.reason && !result.jobId) {
-            return res.status(STATUS_CODES.SUCCESS).json({
-                success: true,
-                message: result.reason,
+            dataLogger.info("PR is not eligible for analysis", {
+                payload,
+                result
+            });
+            return responseWrapper({
+                res,
+                status: STATUS_CODES.SUCCESS,
                 data: {
                     prNumber: payload.pull_request.number,
-                    repositoryName: payload.repository.full_name
+                    repositoryName: payload.repository.full_name,
+                    timestamp: new Date().toISOString()
                 },
-                timestamp: new Date().toISOString()
-            } as APIResponse);
+                message: result.reason
+            });
         }
 
         // Return success response with job information
-        res.status(STATUS_CODES.BACKGROUND_JOB).json({
-            success: true,
-            message: "PR webhook processed successfully - analysis queued",
+        responseWrapper({
+            res,
+            status: STATUS_CODES.BACKGROUND_JOB,
             data: {
                 jobId: result.jobId,
                 installationId: result.prData?.installationId,
@@ -83,10 +93,11 @@ export const handlePRReview = async (req: Request, res: Response, next: NextFunc
                 linkedIssuesCount: result.prData?.linkedIssues.length || 0,
                 changedFilesCount: result.prData?.changedFiles.length || 0,
                 eligibleForAnalysis: true,
-                status: "queued"
+                status: "queued",
+                timestamp: new Date().toISOString()
             },
-            timestamp: new Date().toISOString()
-        } as APIResponse);
+            message: "PR webhook processed successfully - analysis queued"
+        });
 
     } catch (error) {
         next(error);
@@ -120,10 +131,11 @@ export const handleBountyPayout = async (req: Request, res: Response, next: Next
                 prUrl
             });
 
-            return res.status(STATUS_CODES.SUCCESS).json({
-                success: true,
-                message: "No linked issues found - no payment triggered",
-                data: { prNumber, repositoryName, prUrl }
+            return responseWrapper({
+                res,
+                status: STATUS_CODES.SUCCESS,
+                data: { prNumber, repositoryName, prUrl },
+                message: "No linked issues found - no payment triggered"
             });
         }
 
@@ -172,19 +184,21 @@ export const handleBountyPayout = async (req: Request, res: Response, next: Next
                 linkedIssues: linkedIssues.map(i => i.number)
             });
 
-            return res.status(STATUS_CODES.SUCCESS).json({
-                success: true,
-                message: "No matching active or submitted task found",
-                data: { prNumber, repositoryName, prUrl, linkedIssues: linkedIssues.map(i => i.number) }
+            return responseWrapper({
+                res,
+                status: STATUS_CODES.SUCCESS,
+                data: { prNumber, repositoryName, prUrl, linkedIssues: linkedIssues.map(i => i.number) },
+                message: "No matching active or submitted task found"
             });
         }
 
         // Verify contributor has a wallet
         if (!relatedTask.contributor || !relatedTask.contributor.wallet || !relatedTask.contributor.wallet.address) {
-            return res.status(STATUS_CODES.SUCCESS).json({
-                success: true,
-                message: "No wallet address found for contributor",
-                data: { prNumber, repositoryName, prUrl, linkedIssues: linkedIssues.map(i => i.number) }
+            return responseWrapper({
+                res,
+                status: STATUS_CODES.SUCCESS,
+                data: { prNumber, repositoryName, prUrl, linkedIssues: linkedIssues.map(i => i.number) },
+                message: "No wallet address found for contributor"
             });
         }
 
@@ -235,15 +249,16 @@ export const handleBountyPayout = async (req: Request, res: Response, next: Next
             ]);
 
             // Send success response
-            res.status(STATUS_CODES.SUCCESS).json({
-                success: true,
-                message: "PR merged - Payment processed successfully",
+            responseWrapper({
+                res,
+                status: STATUS_CODES.SUCCESS,
                 data: {
                     prNumber,
                     repositoryName,
                     prUrl,
                     linkedIssues: linkedIssues.map(i => i.number)
-                }
+                },
+                message: "PR merged - Payment processed successfully"
             });
 
             // Disable chat for the task
