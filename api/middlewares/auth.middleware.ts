@@ -3,7 +3,7 @@ import { firebaseAdmin } from "../config/firebase.config";
 import { STATUS_CODES } from "../utilities/data";
 import { getFieldFromUnknownObject, responseWrapper } from "../utilities/helper";
 import { Request, Response, NextFunction } from "express";
-import { AuthorizationError } from "../models/error.model";
+import { AuthorizationError, ValidationError } from "../models/error.model";
 import { dataLogger } from "../config/logger.config";
 
 /**
@@ -60,12 +60,16 @@ export const validateUserInstallation = async (req: Request, res: Response, next
                 id: installationId,
                 users: { some: { userId } }
             },
-            select: { id: true }
+            select: { id: true, status: true }
         });
 
-        // If not, throw authorization error
+        // Throw error if user is not part of the installation
         if (!installation) {
             throw new AuthorizationError("Only members of this installation are allowed access");
+        }
+        // Throw error if installation is archived
+        if (installation.status === "ARCHIVED") {
+            throw new ValidationError("This installation has been archived");
         }
 
         next();

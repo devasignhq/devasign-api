@@ -141,7 +141,8 @@ export const getInstallations = async (req: Request, res: Response, next: NextFu
             where: {
                 users: {
                     some: { userId: userId as string }
-                }
+                },
+                status: "ACTIVE"
             },
             select: {
                 id: true,
@@ -198,7 +199,8 @@ export const getInstallation = async (req: Request, res: Response, next: NextFun
                 id: installationId,
                 users: {
                     some: { userId: userId as string }
-                }
+                },
+                status: "ACTIVE"
             },
             select: {
                 id: true,
@@ -348,10 +350,9 @@ export const updateInstallation = async (req: Request, res: Response, next: Next
 };
 
 /**
- * Delete an installation.
+ * Archive an installation.
  */
-// TODO: restrict when installation has active tasks
-export const deleteInstallation = async (req: Request, res: Response, next: NextFunction) => {
+export const archiveInstallation = async (req: Request, res: Response, next: NextFunction) => {
     const { installationId } = req.params;
     const userId = res.locals.userId;
     const { walletAddress: _ } = req.body;
@@ -363,11 +364,18 @@ export const deleteInstallation = async (req: Request, res: Response, next: Next
                 id: installationId,
                 users: {
                     some: { userId: userId as string }
-                }
+                },
+                status: "ACTIVE"
             },
             select: {
                 wallet: true,
-                tasks: { select: { id: true, status: true, bounty: true } }
+                tasks: {
+                    where: { status: "OPEN" },
+                    select: {
+                        id: true,
+                        bounty: true
+                    }
+                }
             }
         });
 
@@ -375,15 +383,19 @@ export const deleteInstallation = async (req: Request, res: Response, next: Next
             throw new NotFoundError("Installation not found");
         }
 
-        // Check if there are active tasks
-        const activeStatuses = ["IN_PROGRESS", "MARKED_AS_COMPLETED"];
-        const hasActiveWork = installation.tasks.some(task =>
-            activeStatuses.includes(task.status)
-        );
+        const activeTaskCount = await prisma.task.count({
+            where: {
+                installationId,
+                status: {
+                    in: ["IN_PROGRESS", "MARKED_AS_COMPLETED"]
+                }
+            }
+        });
 
-        if (hasActiveWork) {
+        // Check if there are active tasks
+        if (activeTaskCount > 0) {
             throw new ValidationError(
-                "Cannot delete installation: there are tasks currently being worked on or awaiting payment."
+                "Cannot archive installation: there are tasks currently being worked on or awaiting payment."
             );
         }
 
@@ -395,8 +407,11 @@ export const deleteInstallation = async (req: Request, res: Response, next: Next
         const decryptedWalletSecret = await KMSService.decryptWallet(installation.wallet);
         let refunded = 0;
 
+        // TODO: Mark as Deleting to prevent new tasks from being created
+        // TODO: Use Redis to handle idempotency of this and other operations
+
         for (const task of installation.tasks) {
-            if (task.status === "OPEN" && task.bounty > 0) {
+            if (task.bounty > 0) {
                 try {
                     await ContractService.refund(decryptedWalletSecret, task.id);
                     refunded += task.bounty;
@@ -406,33 +421,10 @@ export const deleteInstallation = async (req: Request, res: Response, next: Next
             }
         }
 
-        // // 1. Mark as Deleting to prevent new tasks from being created
-        // await prisma.installation.update({
-        //     where: { id: installationId },
-        //     data: { status: "DELETING" }
-        // });
-
-        // // 2. Perform refunds
-        // const refundResults = await Promise.allSettled(
-        //     installation.tasks
-        //         .filter(t => t.status === "OPEN" && t.bounty > 0)
-        //         .map(t => ContractService.refund(decryptedWalletSecret, t.id))
-        // );
-
-        // const failedRefunds = refundResults.filter(r => r.status === 'rejected');
-
-        // if (failedRefunds.length > 0) {
-        //     // 3. If any fail, do NOT delete. Keep status as DELETING for manual retry.
-        //     throw new Error(`Failed to refund ${failedRefunds.length} tasks. Cleanup required.`);
-        // }
-
-        // // 4. Only hard delete if everything is clear
-        // await prisma.installation.delete({ where: { id: installationId } });
-
-        // TODO: Update installation status to ARCHIVED instead of deleting
         // Delete installation
-        await prisma.installation.delete({
-            where: { id: installationId }
+        await prisma.installation.update({
+            where: { id: installationId },
+            data: { status: "ARCHIVED" }
         });
 
         // Return deletion confirmation
@@ -440,7 +432,7 @@ export const deleteInstallation = async (req: Request, res: Response, next: Next
             res,
             status: STATUS_CODES.SUCCESS,
             data: { refunded: `${refunded} USDC` },
-            message: "Installation deleted successfully"
+            message: "Installation archived successfully"
         });
     } catch (error) {
         next(error);

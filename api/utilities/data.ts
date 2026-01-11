@@ -59,8 +59,8 @@ export const ENDPOINTS = {
         CREATE: "/",
         /** PUT /:installationId - Update installation */
         UPDATE: "/:installationId",
-        /** DELETE /:installationId - Delete installation */
-        DELETE: "/:installationId",
+        /** ARCHIVED /:installationId - Archive installation */
+        ARCHIVED: "/:installationId",
         /** Team member management endpoints */
         TEAM: {
             /** POST /:installationId/team - Add team member */

@@ -13,6 +13,12 @@ enum TaskStatus {
     IN_PROGRESS
     MARKED_AS_COMPLETED
     COMPLETED
+    ARCHIVED
+}
+
+enum InstallationStatus {
+    ACTIVE
+    ARCHIVED
 }
 
 enum TransactionCategory {
@@ -107,6 +113,7 @@ model Installation {
     htmlUrl                     String
     targetId                    Int
     targetType                  String
+    status                      InstallationStatus           @default(ACTIVE)
     account                     Json // { login String nodeId String avatarUrl String htmlUrl String }
     wallet                      Wallet?
     subscriptionPackage         SubscriptionPackage?         @relation(fields: [subscriptionPackageId], references: [id], onDelete: SetNull)

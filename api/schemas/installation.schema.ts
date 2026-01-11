@@ -39,7 +39,7 @@ export const updateInstallationSchema = {
     })
 };
 
-export const deleteInstallationSchema = {
+export const archiveInstallationSchema = {
     params: z.object({
         installationId: installationIdSchema
     }),

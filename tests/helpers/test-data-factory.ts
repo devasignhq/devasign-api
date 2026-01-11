@@ -16,7 +16,8 @@ import {
     TransactionCategory,
     RuleType,
     RuleSeverity,
-    ReviewStatus
+    ReviewStatus,
+    InstallationStatus
 } from "../../prisma_client";
 
 /**
@@ -102,6 +103,7 @@ export class TestDataFactory {
             htmlUrl: `https://github.com/test/repo${counter}`,
             targetId: counter,
             targetType: "Repository",
+            status: InstallationStatus.ACTIVE,
             account: {
                 login: `testorg${counter}`,
                 nodeId: `MDEwOlJlcG9zaXRvcnk${counter}`,
