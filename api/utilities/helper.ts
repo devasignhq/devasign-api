@@ -1,3 +1,5 @@
+import { Response } from "express";
+
 /**
  * Formats a numeric value into a localized string representation with proper currency formatting.
  * 
@@ -88,4 +90,41 @@ export function stellarTimestampToDate(timestamp: number | bigint): Date {
 
     // Stellar timestamps are in seconds, JavaScript Date expects milliseconds
     return new Date(timestampSeconds * 1000);
+}
+
+/**
+ * Wrapper function for sending responses.
+ * 
+ * @param res - The Express response object
+ * @param status - The HTTP status code to send
+ * @param data - The data to send in the response
+ * @param message - Optional message to send in the response
+ * @param warning - Optional warning message to send in the response
+ * @param meta - Optional meta data to send in the response
+ * @returns The response object
+ */
+export function responseWrapper({
+    res,
+    status,
+    data,
+    pagination,
+    message = "Request completed successfully",
+    warning,
+    meta
+}: {
+    res: Response;
+    status: number;
+    data: unknown;
+    pagination?: { hasMore: boolean };
+    message?: string;
+    warning?: string;
+    meta?: Record<string, unknown>;
+}) {
+    return res.status(status).json({
+        data,
+        message,
+        ...(pagination && { pagination }),
+        ...(warning && { warning }),
+        ...(meta && { meta })
+    });
 }
