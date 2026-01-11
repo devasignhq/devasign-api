@@ -27,82 +27,160 @@ export const createInstallation = async (req: Request, res: Response, next: Next
             throw new NotFoundError("User not found");
         }
 
-        // Check if installation already exists
-        const existingInstallation = await prisma.installation.findUnique({
-            where: { id: installationId },
-            select: { id: true }
-        });
-
-        if (existingInstallation) {
-            throw new ValidationError("Installation already exists");
-        }
-
         // Fetch installation details from GitHub
         const githubInstallation = await OctokitService.getInstallationDetails(
             installationId,
             user.username
         );
 
-        // Create Stellar wallets for installation
-        const installationWallet = await stellarService.createWallet();
-        const encryptedInstallationSecret = await KMSService.encryptWallet(installationWallet.secretKey);
-
-        // Create installation
-        const installation = await prisma.installation.create({
-            data: {
-                id: installationId,
-                htmlUrl: githubInstallation.html_url,
+        // Check if there's an existing installation with the same account GitHub details
+        const existingAccountInstallation = await prisma.installation.findFirst({
+            where: {
                 targetId: githubInstallation.target_id,
-                targetType: githubInstallation.target_type,
-                account: {
-                    login: "login" in githubInstallation.account!
-                        ? githubInstallation.account!.login
-                        : githubInstallation.account!.name,
-                    nodeId: githubInstallation.account!.node_id,
-                    avatarUrl: githubInstallation.account!.avatar_url,
-                    htmlUrl: githubInstallation.account!.html_url
-                },
-                wallet: {
-                    create: {
-                        address: installationWallet.publicKey,
-                        ...encryptedInstallationSecret
-                    }
-                },
-                users: {
-                    connect: { userId }
-                },
-                subscriptionPackage: {
-                    connect: { id: process.env.DEFAULT_SUBSCRIPTION_PACKAGE_ID! }
-                }
+                targetType: githubInstallation.target_type
             },
-            select: {
-                id: true,
-                htmlUrl: true,
-                targetId: true,
-                targetType: true,
-                account: true,
-                wallet: { select: { address: true } },
-                subscriptionPackage: true,
-                createdAt: true,
-                updatedAt: true
-            }
+            include: { wallet: true }
         });
 
+        let installation;
+        let installationWalletSecret: string;
+        let isNewWallet = false;
+
+        const select = {
+            id: true,
+            htmlUrl: true,
+            targetId: true,
+            targetType: true,
+            account: true,
+            wallet: { select: { address: true } },
+            subscriptionPackage: true,
+            createdAt: true,
+            updatedAt: true
+        };
+
+        if (existingAccountInstallation) {
+            if (existingAccountInstallation.status === "ACTIVE") {
+                throw new ValidationError("Installation already exists");
+            }
+
+            // Verify if the new installationId is already taken by a different record
+            if (existingAccountInstallation.id !== installationId) {
+                const idConflict = await prisma.installation.findUnique({
+                    where: { id: installationId }
+                });
+                if (idConflict) {
+                    throw new ValidationError("Installation ID already exists");
+                }
+            }
+
+            // Prepare wallet updates
+            let walletUpdate;
+            if (existingAccountInstallation.wallet) {
+                installationWalletSecret = await KMSService.decryptWallet(existingAccountInstallation.wallet);
+            } else {
+                const newWallet = await stellarService.createWallet();
+                installationWalletSecret = newWallet.secretKey;
+                const encryptedInstallationSecret = await KMSService.encryptWallet(newWallet.secretKey);
+                walletUpdate = {
+                    create: {
+                        address: newWallet.publicKey,
+                        ...encryptedInstallationSecret
+                    }
+                };
+                isNewWallet = true; // Mark as new to add trustline later
+            }
+
+            // Activate and update installation
+            installation = await prisma.installation.update({
+                where: { id: existingAccountInstallation.id },
+                data: {
+                    id: installationId,
+                    status: "ACTIVE",
+                    htmlUrl: githubInstallation.html_url,
+                    targetId: githubInstallation.target_id,
+                    targetType: githubInstallation.target_type,
+                    account: {
+                        login: "login" in githubInstallation.account!
+                            ? githubInstallation.account!.login
+                            : githubInstallation.account!.name,
+                        nodeId: githubInstallation.account!.node_id,
+                        avatarUrl: githubInstallation.account!.avatar_url,
+                        htmlUrl: githubInstallation.account!.html_url
+                    },
+                    wallet: walletUpdate,
+                    users: {
+                        connect: { userId }
+                    }
+                },
+                select
+            });
+        } else {
+            // Check if installation ID already exists (standard check)
+            const idCheck = await prisma.installation.findUnique({
+                where: { id: installationId }
+            });
+
+            if (idCheck) {
+                throw new ValidationError("Installation already exists");
+            }
+
+            // Create Stellar wallets for installation
+            const newWallet = await stellarService.createWallet();
+            installationWalletSecret = newWallet.secretKey;
+            const encryptedInstallationSecret = await KMSService.encryptWallet(newWallet.secretKey);
+            isNewWallet = true;
+
+            // Create installation
+            installation = await prisma.installation.create({
+                data: {
+                    id: installationId,
+                    htmlUrl: githubInstallation.html_url,
+                    targetId: githubInstallation.target_id,
+                    targetType: githubInstallation.target_type,
+                    account: {
+                        login: "login" in githubInstallation.account!
+                            ? githubInstallation.account!.login
+                            : githubInstallation.account!.name,
+                        nodeId: githubInstallation.account!.node_id,
+                        avatarUrl: githubInstallation.account!.avatar_url,
+                        htmlUrl: githubInstallation.account!.html_url
+                    },
+                    wallet: {
+                        create: {
+                            address: newWallet.publicKey,
+                            ...encryptedInstallationSecret
+                        }
+                    },
+                    users: {
+                        connect: { userId }
+                    },
+                    subscriptionPackage: {
+                        connect: { id: process.env.DEFAULT_SUBSCRIPTION_PACKAGE_ID! }
+                    }
+                },
+                select
+            });
+        }
+
         try {
-            const masterAccountSecret = process.env.STELLAR_MASTER_SECRET_KEY!;
+            // Add USDC trustline only if it's a new wallet
+            if (isNewWallet) {
+                const masterAccountSecret = process.env.STELLAR_MASTER_SECRET_KEY!;
 
-            // Add USDC trustline for installation wallet
-            await stellarService.addTrustLineViaSponsor(
-                masterAccountSecret,
-                installationWallet.secretKey
-            );
+                await stellarService.addTrustLineViaSponsor(
+                    masterAccountSecret,
+                    installationWalletSecret
+                );
+            }
 
-            // Return created installation
+            // Return created/updated installation
             responseWrapper({
                 res,
                 status: STATUS_CODES.CREATED,
                 data: installation,
-                message: "Installation created successfully"
+                message: existingAccountInstallation 
+                    ? "Installation reactivated successfully" 
+                    : "Installation created successfully"
             });
         } catch (error) {
             // If trustline addition fails, return installation but indicate partial success
@@ -110,7 +188,9 @@ export const createInstallation = async (req: Request, res: Response, next: Next
                 res,
                 status: STATUS_CODES.PARTIAL_SUCCESS,
                 data: installation,
-                message: "Installation created successfully",
+                message: existingAccountInstallation 
+                    ? "Installation reactivated successfully" 
+                    : "Installation created successfully",
                 warning: "Failed to add USDC trustline to wallet",
                 meta: { error }
             });
