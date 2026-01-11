@@ -3,6 +3,7 @@ import { STATUS_CODES } from "../utilities/data";
 import * as z from "zod";
 import { ValidationError } from "../models/error.model";
 import { dataLogger } from "../config/logger.config";
+import { responseWrapper } from "../utilities/helper";
 
 /**
  * Middleware to prevent caching on dynamic routes
@@ -42,8 +43,11 @@ export const localhostOnly = (req: Request, res: Response, next: NextFunction) =
     });
 
     // Deny access
-    res.status(STATUS_CODES.UNAUTHORIZED).json({
-        error: "Access denied. Local interface only."
+    responseWrapper({
+        res,
+        status: STATUS_CODES.UNAUTHORIZED,
+        data: {},
+        message: "Access denied. Local interface only."
     });
 };
 

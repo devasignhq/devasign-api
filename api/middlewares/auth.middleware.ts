@@ -1,9 +1,10 @@
 import { prisma } from "../config/database.config";
 import { firebaseAdmin } from "../config/firebase.config";
 import { STATUS_CODES } from "../utilities/data";
-import { getFieldFromUnknownObject } from "../utilities/helper";
+import { getFieldFromUnknownObject, responseWrapper } from "../utilities/helper";
 import { Request, Response, NextFunction } from "express";
-import { AuthorizationError, ErrorUtils } from "../models/error.model";
+import { AuthorizationError } from "../models/error.model";
+import { dataLogger } from "../config/logger.config";
 
 /**
  * Middleware to validate user authorization token
@@ -23,16 +24,23 @@ export const validateUser = async (req: Request, res: Response, next: NextFuncti
 
             next();
         } catch (error) {
+            dataLogger.error("Failed to verify ID token", { error });
             // Token verification failed 
-            return res.status(STATUS_CODES.UNAUTHENTICATED).json({
-                error: "Authentication failed",
-                details: getFieldFromUnknownObject<string>(error, "message")
+            return responseWrapper({
+                res,
+                status: STATUS_CODES.UNAUTHENTICATED,
+                data: {},
+                message: "Authentication failed",
+                warning: getFieldFromUnknownObject<string>(error, "message")
             });
         }
     } else {
         // No token provided
-        return res.status(STATUS_CODES.UNAUTHENTICATED).json({
-            error: "No authorization token sent"
+        return responseWrapper({
+            res,
+            status: STATUS_CODES.UNAUTHENTICATED,
+            data: {},
+            message: "No authorization token sent"
         });
     }
 };
@@ -62,18 +70,7 @@ export const validateUserInstallation = async (req: Request, res: Response, next
 
         next();
     } catch (error) {
-        // Handle authorization error
-        if (error instanceof AuthorizationError) {
-            return res.status(error.status).json({ ...ErrorUtils.sanitizeError(error) });
-        }
-
-        // Handle unknown errors
-        return res.status(STATUS_CODES.UNKNOWN).json({
-            message: "Failed to fetch installation details",
-            details: process.env.NODE_ENV === "development"
-                ? { ...(typeof error === "object" ? error : { error }) }
-                : null
-        });
+        next(error);
     }
 };
 
@@ -85,8 +82,11 @@ export const validateAdmin = async (req: Request, res: Response, next: NextFunct
 
     // Check if user has admin privileges
     if (!currentUser?.admin && !currentUser?.custom_claims?.admin) {
-        return res.status(STATUS_CODES.UNAUTHORIZED).json({
-            error: "Access denied. Admin privileges required."
+        return responseWrapper({
+            res,
+            status: STATUS_CODES.UNAUTHORIZED,
+            data: {},
+            message: "Access denied. Admin privileges required."
         });
     }
 
