@@ -1,5 +1,6 @@
 import { NextFunction, Request, Response } from "express";
 import { prisma } from "../../config/database.config";
+import { responseWrapper } from "../../utilities/helper";
 import { STATUS_CODES } from "../../utilities/data";
 import { NotFoundError } from "../../models/error.model";
 
@@ -64,9 +65,11 @@ export const getTaskActivities = async (req: Request, res: Response, next: NextF
         const results = hasMore ? activities.slice(0, take) : activities;
 
         // Return paginated activities
-        res.status(STATUS_CODES.SUCCESS).json({
+        responseWrapper({
+            res,
+            status: STATUS_CODES.SUCCESS,
             data: results,
-            hasMore
+            pagination: { hasMore }
         });
     } catch (error) {
         next(error);
@@ -110,9 +113,11 @@ export const markActivityAsViewed = async (req: Request, res: Response, next: Ne
         });
 
         // Return updated activity
-        res.status(STATUS_CODES.SUCCESS).json({
-            message: "Activity marked as viewed",
-            activity: updatedActivity
+        responseWrapper({
+            res,
+            status: STATUS_CODES.SUCCESS,
+            data: updatedActivity,
+            message: "Activity marked as viewed"
         });
     } catch (error) {
         next(error);

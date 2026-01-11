@@ -2,7 +2,7 @@ import { NextFunction, Request, Response } from "express";
 import { prisma } from "../../config/database.config";
 import { FirebaseService } from "../../services/firebase.service";
 import { stellarService } from "../../services/stellar.service";
-import { stellarTimestampToDate } from "../../utilities/helper";
+import { responseWrapper, stellarTimestampToDate } from "../../utilities/helper";
 import { STATUS_CODES } from "../../utilities/data";
 import { MessageType, TaskIssue } from "../../models/task.model";
 import { HorizonApi } from "../../models/horizonapi.model";
@@ -75,7 +75,12 @@ export const addBountyCommentId = async (req: Request, res: Response, next: Next
         });
 
         // Return updated task
-        res.status(STATUS_CODES.SUCCESS).json(updatedTask);
+        responseWrapper({
+            res,
+            status: STATUS_CODES.SUCCESS,
+            data: updatedTask,
+            message: "Bounty comment added successfully"
+        });
     } catch (error) {
         next(error);
     }
@@ -167,7 +172,7 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
                 if (error instanceof EscrowContractError) {
                     throw error;
                 }
-                throw new EscrowContractError("Failed to increase bounty on smart contract", error);
+                throw new EscrowContractError("Failed to increase bounty on smart contract", { error });
             }
         } else {
             try {
@@ -183,7 +188,7 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
                 if (error instanceof EscrowContractError) {
                     throw error;
                 }
-                throw new EscrowContractError("Failed to decrease bounty on smart contract", error);
+                throw new EscrowContractError("Failed to decrease bounty on smart contract", { error });
             }
         }
 
@@ -248,15 +253,22 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
 
         // Return updated task and notify user bounty comment failed to update
         if (!updatedComment) {
-            return res.status(STATUS_CODES.PARTIAL_SUCCESS).json({
-                bountyCommentPosted: false,
-                task,
-                message: "Failed to update bounty amount on GitHub."
+            return responseWrapper({
+                res,
+                status: STATUS_CODES.PARTIAL_SUCCESS,
+                data: { bountyCommentPosted: false, task },
+                message: "Task bounty updated",
+                warning: "Failed to update bounty amount on GitHub."
             });
         }
 
         // Return updated task
-        res.status(STATUS_CODES.SUCCESS).json(updatedTask);
+        responseWrapper({
+            res,
+            status: STATUS_CODES.SUCCESS,
+            data: updatedTask,
+            message: "Task bounty updated"
+        });
     } catch (error) {
         next(error);
     }
@@ -311,7 +323,12 @@ export const updateTaskTimeline = async (req: Request, res: Response, next: Next
         });
 
         // Return updated task
-        res.status(STATUS_CODES.SUCCESS).json(updatedTask);
+        responseWrapper({
+            res,
+            status: STATUS_CODES.SUCCESS,
+            data: updatedTask,
+            message: "Task timeline updated"
+        });
     } catch (error) {
         next(error);
     }
@@ -368,7 +385,12 @@ export const submitTaskApplication = async (req: Request, res: Response, next: N
         });
 
         // Return success response
-        res.status(STATUS_CODES.SUCCESS).json({ message: "Task application submitted" });
+        responseWrapper({
+            res,
+            status: STATUS_CODES.SUCCESS,
+            data: null,
+            message: "Task application submitted"
+        });
 
         // Update task activity for live updates
         FirebaseService.updateActivity(task.creatorId, "task", taskId).catch(
@@ -481,13 +503,21 @@ export const acceptTaskApplication = async (req: Request, res: Response, next: N
             await FirebaseService.createTask(taskId, userId, contributorId);
 
             // Return success response
-            res.status(STATUS_CODES.SUCCESS).json(updatedTask);
+            responseWrapper({
+                res,
+                status: STATUS_CODES.SUCCESS,
+                data: updatedTask,
+                message: "Task application accepted"
+            });
         } catch (error) {
-            dataLogger.info("Failed to enable chat functionality for this task", error);
+            dataLogger.info("Failed to enable chat functionality for this task", { error });
             // Return updated task but notify user of partial failure
-            res.status(STATUS_CODES.PARTIAL_SUCCESS).json({
-                task: updatedTask,
-                message: "Failed to enable chat functionality for this task."
+            responseWrapper({
+                res,
+                status: STATUS_CODES.PARTIAL_SUCCESS,
+                data: updatedTask,
+                message: "Task application accepted",
+                warning: "Failed to enable chat functionality for this task."
             });
         }
 
@@ -567,7 +597,12 @@ export const requestTimelineExtension = async (req: Request, res: Response, next
         });
 
         // Return message
-        res.status(STATUS_CODES.SUCCESS).json(message);
+        responseWrapper({
+            res,
+            status: STATUS_CODES.SUCCESS,
+            data: message,
+            message: "Timeline extension request sent successfully"
+        });
     } catch (error) {
         next(error);
     }
@@ -652,9 +687,11 @@ export const replyTimelineExtensionRequest = async (req: Request, res: Response,
             });
 
             // Return message and updated task
-            return res.status(STATUS_CODES.SUCCESS).json({
-                message,
-                task: updatedTask
+            return responseWrapper({
+                res,
+                status: STATUS_CODES.SUCCESS,
+                data: { message, task: updatedTask },
+                message: "Timeline extension request accepted"
             });
         }
 
@@ -672,7 +709,12 @@ export const replyTimelineExtensionRequest = async (req: Request, res: Response,
         });
 
         // Return message
-        res.status(STATUS_CODES.SUCCESS).json({ message });
+        responseWrapper({
+            res,
+            status: STATUS_CODES.SUCCESS,
+            data: { message },
+            message: "Timeline extension request rejected"
+        });
     } catch (error) {
         next(error);
     }
@@ -763,7 +805,12 @@ export const markAsComplete = async (req: Request, res: Response, next: NextFunc
         });
 
         // Return updated task
-        res.status(STATUS_CODES.SUCCESS).json(updatedTask);
+        responseWrapper({
+            res,
+            status: STATUS_CODES.SUCCESS,
+            data: updatedTask,
+            message: "Task submission completed"
+        });
 
         // Update task activity for live updates
         FirebaseService.updateActivity(task.creatorId, "task", taskId).catch(
@@ -885,7 +932,12 @@ export const validateCompletion = async (req: Request, res: Response, next: Next
         ]);
 
         // Return success response
-        res.status(STATUS_CODES.SUCCESS).json(updatedTask);
+        responseWrapper({
+            res,
+            status: STATUS_CODES.SUCCESS,
+            data: updatedTask,
+            message: "Task validated and completed"
+        });
 
         // Disable chat for the task
         FirebaseService.updateTaskStatus(taskId).catch(

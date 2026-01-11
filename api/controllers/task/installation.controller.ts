@@ -1,5 +1,6 @@
 import { NextFunction, Request, Response } from "express";
 import { prisma } from "../../config/database.config";
+import { responseWrapper } from "../../utilities/helper";
 import { STATUS_CODES } from "../../utilities/data";
 import { FilterTasks } from "../../models/task.model";
 import { Prisma, TaskStatus } from "../../../prisma_client";
@@ -142,9 +143,11 @@ export const getInstallationTasks = async (req: Request, res: Response, next: Ne
         const results = hasMore ? tasks.slice(0, take) : tasks;
 
         // Return paginated tasks
-        res.status(STATUS_CODES.SUCCESS).json({
+        responseWrapper({
+            res,
+            status: STATUS_CODES.SUCCESS,
             data: results,
-            hasMore
+            pagination: { hasMore }
         });
     } catch (error) {
         next(error);
@@ -212,7 +215,11 @@ export const getInstallationTask = async (req: Request, res: Response, next: Nex
         }
 
         // Return task
-        res.status(STATUS_CODES.SUCCESS).json(task);
+        responseWrapper({
+            res,
+            status: STATUS_CODES.SUCCESS,
+            data: task
+        });
     } catch (error) {
         next(error);
     }

@@ -1,7 +1,7 @@
 import { NextFunction, Request, Response } from "express";
 import { prisma } from "../../config/database.config";
 import { stellarService } from "../../services/stellar.service";
-import { stellarTimestampToDate } from "../../utilities/helper";
+import { responseWrapper, stellarTimestampToDate } from "../../utilities/helper";
 import { STATUS_CODES } from "../../utilities/data";
 import { CreateTask, TaskIssue, FilterTasks } from "../../models/task.model";
 import { HorizonApi } from "../../models/horizonapi.model";
@@ -89,7 +89,7 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
             if (error instanceof EscrowContractError) {
                 throw error;
             }
-            throw new EscrowContractError("Failed to create escrow on smart contract", error);
+            throw new EscrowContractError("Failed to create escrow on smart contract", { error });
         }
 
         let bountyComment, postedComment = false;
@@ -137,15 +137,22 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
 
         // Return task and notify user if bounty comment was not posted
         if (!postedComment) {
-            return res.status(STATUS_CODES.PARTIAL_SUCCESS).json({
-                bountyCommentPosted: false,
-                task,
-                message: "Failed to either post bounty comment or add bounty label."
+            return responseWrapper({
+                res,
+                status: STATUS_CODES.PARTIAL_SUCCESS,
+                data: task,
+                message: "Task created successfully",
+                warning: "Failed to either post bounty comment or add bounty label."
             });
         }
 
         // All operations successful
-        res.status(STATUS_CODES.CREATED).json({ ...task, ...updatedTask });
+        responseWrapper({
+            res,
+            status: STATUS_CODES.CREATED,
+            data: { ...task, ...updatedTask },
+            message: "Task created successfully"
+        });
     } catch (error) {
         next(error);
     }
@@ -249,9 +256,11 @@ export const getTasks = async (req: Request, res: Response, next: NextFunction) 
         const results = hasMore ? tasks.slice(0, take) : tasks;
 
         // Return paginated tasks
-        res.status(STATUS_CODES.SUCCESS).json({
+        responseWrapper({
+            res,
+            status: STATUS_CODES.SUCCESS,
             data: results,
-            hasMore
+            pagination: { hasMore }
         });
     } catch (error) {
         next(error);
@@ -296,7 +305,11 @@ export const getTask = async (req: Request, res: Response, next: NextFunction) =
         }
 
         // Return task
-        res.status(STATUS_CODES.SUCCESS).json(task);
+        responseWrapper({
+            res,
+            status: STATUS_CODES.SUCCESS,
+            data: task
+        });
     } catch (error) {
         next(error);
     }
@@ -367,21 +380,23 @@ export const deleteTask = async (req: Request, res: Response, next: NextFunction
             );
 
             // Return success response
-            res.status(STATUS_CODES.SUCCESS).json({
+            responseWrapper({
+                res,
+                status: STATUS_CODES.SUCCESS,
                 message: "Task deleted successfully",
-                refunded: `${task.bounty} USDC`
+                data: { refunded: `${task.bounty} USDC` }
             });
         } catch (error) {
             // Log error
-            dataLogger.info("Failed to remove bounty label from issue or delete bounty comment", error);
+            dataLogger.info("Failed to remove bounty label from issue or delete bounty comment", { error });
 
             // Return success response but notify user of partial failure
-            res.status(STATUS_CODES.PARTIAL_SUCCESS).json({
-                data: {
-                    message: "Task deleted successfully",
-                    refunded: `${task.bounty} USDC`
-                },
-                message: "Failed to either remove bounty label from the task issue or delete bounty comment."
+            responseWrapper({
+                res,
+                status: STATUS_CODES.PARTIAL_SUCCESS,
+                message: "Task deleted successfully",
+                data: { refunded: `${task.bounty} USDC` },
+                warning: "Failed to either remove bounty label from the task issue or delete bounty comment."
             });
         }
     } catch (error) {
