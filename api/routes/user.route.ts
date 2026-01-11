@@ -1,15 +1,13 @@
 import { RequestHandler, Router } from "express";
 import {
     createUser,
-    updateUsername,
     updateAddressBook,
     getUser
 } from "../controllers/user";
 import {
     createUserSchema,
     getUserSchema,
-    updateAddressBookSchema,
-    updateUsernameSchema
+    updateAddressBookSchema
 } from "../schemas/user.schema";
 import { ENDPOINTS } from "../utilities/data";
 import { validateRequestParameters } from "../middlewares/request.middleware";
@@ -28,13 +26,6 @@ userRoutes.get(
     ENDPOINTS.USER.GET,
     validateRequestParameters(getUserSchema),
     getUser as RequestHandler
-);
-
-// Update user username
-userRoutes.patch(
-    ENDPOINTS.USER.UPDATE_USERNAME,
-    validateRequestParameters(updateUsernameSchema),
-    updateUsername as RequestHandler
 );
 
 // Update user's address book

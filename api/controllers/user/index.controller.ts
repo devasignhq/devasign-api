@@ -244,46 +244,6 @@ export const getUser = async (req: Request, res: Response, next: NextFunction) =
 };
 
 /**
- * Update user's GitHub username.
- */
-export const updateUsername = async (req: Request, res: Response, next: NextFunction) => {
-    const { userId } = res.locals;
-    const { newUsername } = req.body;
-
-    try {
-        // Check if user exists
-        const existingUser = await prisma.user.findUnique({
-            where: { userId },
-            select: { userId: true }
-        });
-
-        if (!existingUser) {
-            throw new NotFoundError("User not found");
-        }
-
-        // Update username
-        const user = await prisma.user.update({
-            where: { userId },
-            data: { username: newUsername },
-            select: {
-                userId: true,
-                username: true,
-                updatedAt: true
-            }
-        });
-
-        // Return updated user
-        responseWrapper({
-            res,
-            status: STATUS_CODES.SUCCESS,
-            data: user
-        });
-    } catch (error) {
-        next(error);
-    }
-};
-
-/**
  * Add a new entry in the user's address book.
  */
 export const updateAddressBook = async (req: Request, res: Response, next: NextFunction) => {

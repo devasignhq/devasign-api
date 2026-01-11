@@ -16,12 +16,6 @@ export const getUserSchema = {
     })
 };
 
-export const updateUsernameSchema = {
-    body: z.object({
-        newUsername: z.string().min(1, "Username must be greater than 1 character")
-    })
-};
-
 export const updateAddressBookSchema = {
     body: z.object({
         address: z.string().regex(/^G[A-Z0-9]{55}$/, "Invalid Stellar address format"),

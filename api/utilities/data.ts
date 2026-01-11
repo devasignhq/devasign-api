@@ -43,8 +43,6 @@ export const ENDPOINTS = {
         CREATE: "/",
         /** GET / - Get user information */
         GET: "/",
-        /** PUT /username - Update user's username */
-        UPDATE_USERNAME: "/username",
         /** PUT /address-book - Update user's address book */
         UPDATE_ADDRESS_BOOK: "/address-book"
     },
@@ -57,8 +55,6 @@ export const ENDPOINTS = {
         GET_BY_ID: "/:installationId",
         /** POST / - Create a new installation */
         CREATE: "/",
-        /** PUT /:installationId - Update installation */
-        UPDATE: "/:installationId",
         /** ARCHIVED /:installationId - Archive installation */
         ARCHIVED: "/:installationId",
         /** Team member management endpoints */

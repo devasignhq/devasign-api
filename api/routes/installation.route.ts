@@ -3,7 +3,6 @@ import {
     getInstallations,
     getInstallation,
     createInstallation,
-    updateInstallation,
     archiveInstallation,
     addTeamMember,
     updateTeamMember,
@@ -25,7 +24,6 @@ import {
     getInstallationsSchema,
     getInstallationSchema,
     createInstallationSchema,
-    updateInstallationSchema,
     archiveInstallationSchema,
     addTeamMemberSchema,
     updateTeamMemberPermissionsSchema,
@@ -65,13 +63,6 @@ installationRoutes.post(
     ENDPOINTS.INSTALLATION.CREATE,
     validateRequestParameters(createInstallationSchema),
     createInstallation as RequestHandler
-);
-
-// Update an existing installation
-installationRoutes.patch(
-    ENDPOINTS.INSTALLATION.UPDATE,
-    validateRequestParameters(updateInstallationSchema),
-    updateInstallation as RequestHandler
 );
 
 // Archive an installation

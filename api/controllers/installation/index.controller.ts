@@ -4,11 +4,7 @@ import { stellarService } from "../../services/stellar.service";
 import { responseWrapper } from "../../utilities/helper";
 import { STATUS_CODES } from "../../utilities/data";
 import { OctokitService } from "../../services/octokit.service";
-import {
-    AuthorizationError,
-    NotFoundError,
-    ValidationError
-} from "../../models/error.model";
+import { NotFoundError, ValidationError } from "../../models/error.model";
 import { ContractService } from "../../services/contract.service";
 import { dataLogger } from "../../config/logger.config";
 import { KMSService } from "../../services/kms.service";
@@ -283,66 +279,6 @@ export const getInstallation = async (req: Request, res: Response, next: NextFun
             status: STATUS_CODES.SUCCESS,
             data: { ...installation, stats },
             message: "Installation details retrieved successfully"
-        });
-    } catch (error) {
-        next(error);
-    }
-};
-
-/**
- * Update an existing installation.
- */
-// TODO: Delete this controller and route (use github webhook instead)
-export const updateInstallation = async (req: Request, res: Response, next: NextFunction) => {
-    const { installationId } = req.params;
-    const userId = res.locals.userId;
-    const {
-        htmlUrl,
-        targetId,
-        account
-    } = req.body;
-
-    try {
-        // Get installation and verify it exists
-        const installation = await prisma.installation.findUnique({
-            where: { id: installationId },
-            select: {
-                users: { select: { userId: true } }
-            }
-        });
-
-        if (!installation) {
-            throw new NotFoundError("Installation not found");
-        }
-
-        // Check if user is a member of the installation
-        const userIsTeamMember = installation.users.some(user => user.userId === userId);
-        if (!userIsTeamMember) {
-            throw new AuthorizationError("Not authorized to update this installation");
-        }
-
-        // Update installation details
-        const updatedInstallation = await prisma.installation.update({
-            where: { id: installationId },
-            data: {
-                ...(htmlUrl && { htmlUrl }),
-                ...(targetId && { targetId }),
-                ...(account && { account })
-            },
-            select: {
-                htmlUrl: true,
-                targetId: true,
-                account: true,
-                updatedAt: true
-            }
-        });
-
-        // Return updated installation
-        responseWrapper({
-            res,
-            status: STATUS_CODES.SUCCESS,
-            data: updatedInstallation,
-            message: "Installation updated successfully"
         });
     } catch (error) {
         next(error);

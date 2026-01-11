@@ -350,56 +350,6 @@ describe("User API Integration Tests", () => {
         });
     });
 
-    describe(`PATCH ${getEndpointWithPrefix(["USER", "UPDATE_USERNAME"])} - Update Username`, () => {
-        let testUser: any;
-
-        beforeEach(async () => {
-            testUser = TestDataFactory.user({ userId: "test-update-user" });
-            await prisma.user.create({
-                data: {
-                    ...testUser,
-                    contributionSummary: { create: {} }
-                }
-            });
-        });
-
-        it("should update username successfully", async () => {
-            const updateData = {
-                newUsername: "newusername123"
-            };
-
-            const response = await request(app)
-                .patch(getEndpointWithPrefix(["USER", "UPDATE_USERNAME"]))
-                .set("x-test-user-id", "test-update-user")
-                .send(updateData)
-                .expect(STATUS_CODES.SUCCESS);
-
-            expect(response.body).toMatchObject({
-                userId: "test-update-user",
-                username: "newusername123",
-                updatedAt: expect.any(String)
-            });
-
-            // Verify username was updated in database
-            const updatedUser = await prisma.user.findUnique({
-                where: { userId: "test-update-user" }
-            });
-            expect(updatedUser?.username).toBe("newusername123");
-        });
-
-        it("should return 404 when user does not exist", async () => {
-            const updateData = {
-                newUsername: "newusername456"
-            };
-
-            await request(app)
-                .patch(getEndpointWithPrefix(["USER", "UPDATE_USERNAME"]))
-                .set("x-test-user-id", "non-existent-user")
-                .send(updateData)
-                .expect(STATUS_CODES.NOT_FOUND);
-        });
-    });
-
     describe(`PATCH ${getEndpointWithPrefix(["USER", "UPDATE_ADDRESS_BOOK"])} - Update Address Book`, () => {
         let testUser: any;
 

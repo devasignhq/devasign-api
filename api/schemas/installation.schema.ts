@@ -23,22 +23,6 @@ export const createInstallationSchema = {
     })
 };
 
-export const updateInstallationSchema = {
-    params: z.object({
-        installationId: installationIdSchema
-    }),
-    body: z.object({
-        htmlUrl: z.url("HTML URL must be a valid URL").optional(),
-        targetId: z.number().int("Target ID must be an integer").optional(),
-        account: z.object({
-            login: z.string(),
-            nodeId: z.string(),
-            avatarUrl: z.string(),
-            htmlUrl: z.string()
-        }).optional()
-    })
-};
-
 export const archiveInstallationSchema = {
     params: z.object({
         installationId: installationIdSchema
