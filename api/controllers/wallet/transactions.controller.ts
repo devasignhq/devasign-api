@@ -1,5 +1,6 @@
 import { NextFunction, Request, Response } from "express";
 import { prisma } from "../../config/database.config";
+import { responseWrapper } from "../../utilities/helper";
 import { STATUS_CODES } from "../../utilities/data";
 import { HorizonApi } from "../../models/horizonapi.model";
 import { Prisma, TransactionCategory } from "../../../prisma_client";
@@ -80,9 +81,11 @@ export const getTransactions = async (req: Request, res: Response, next: NextFun
         const hasMore = transactions.length > take;
         const results = hasMore ? transactions.slice(0, take) : transactions;
 
-        res.status(STATUS_CODES.SUCCESS).json({
-            transactions: results,
-            hasMore
+        responseWrapper({
+            res,
+            status: STATUS_CODES.SUCCESS,
+            data: results,
+            pagination: { hasMore }
         });
     } catch (error) {
         next(error);
@@ -141,9 +144,11 @@ export const recordWalletTopups = async (req: Request, res: Response, next: Next
 
         if (stellarTopups.length === 0) {
             // No topup transactions found
-            return res.status(STATUS_CODES.SUCCESS).json({
-                message: "No new topup transactions found",
-                processed: 0
+            return responseWrapper({
+                res,
+                status: STATUS_CODES.SUCCESS,
+                data: { processed: 0 },
+                message: "No new topup transactions found"
             });
         }
 
@@ -163,9 +168,11 @@ export const recordWalletTopups = async (req: Request, res: Response, next: Next
 
         // If last recorded topup matches the most recent stellar topup, no new transactions
         if (lastRecordedTopup && lastRecordedTopup.txHash === mostRecentStellarTxHash) {
-            return res.status(STATUS_CODES.SUCCESS).json({
-                message: "No new topup transactions found",
-                processed: 0
+            return responseWrapper({
+                res,
+                status: STATUS_CODES.SUCCESS,
+                data: { processed: 0 },
+                message: "No new topup transactions found"
             });
         }
 
@@ -214,16 +221,20 @@ export const recordWalletTopups = async (req: Request, res: Response, next: Next
         }
 
         // Return details of recorded transactions
-        res.status(STATUS_CODES.SUCCESS).json({
-            message: `Successfully processed ${processed} topup transactions`,
-            processed,
-            transactions: newTransactions.map(tx => ({
-                txHash: tx.txHash,
-                amount: tx.amount,
-                asset: tx.asset,
-                sourceAddress: tx.sourceAddress,
-                doneAt: tx.doneAt
-            }))
+        responseWrapper({
+            res,
+            status: STATUS_CODES.SUCCESS,
+            data: {
+                processed,
+                transactions: newTransactions.map(tx => ({
+                    txHash: tx.txHash,
+                    amount: tx.amount,
+                    asset: tx.asset,
+                    sourceAddress: tx.sourceAddress,
+                    doneAt: tx.doneAt
+                }))
+            },
+            message: `Successfully processed ${processed} topup transactions`
         });
     } catch (error) {
         next(error);

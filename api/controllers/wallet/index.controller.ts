@@ -1,5 +1,6 @@
 import { NextFunction, Request, Response } from "express";
 import { prisma } from "../../config/database.config";
+import { responseWrapper } from "../../utilities/helper";
 import { STATUS_CODES } from "../../utilities/data";
 import { HorizonApi } from "../../models/horizonapi.model";
 import { TransactionCategory } from "../../../prisma_client";
@@ -141,7 +142,12 @@ export const withdrawAsset = async (req: Request, res: Response, next: NextFunct
         const withdrawal = await prisma.transaction.create({ data: transactionPayload });
 
         // Return transaction details
-        res.status(STATUS_CODES.SUCCESS).json(withdrawal);
+        responseWrapper({
+            res,
+            status: STATUS_CODES.SUCCESS,
+            data: withdrawal,
+            message: "Withdrawal successful"
+        });
     } catch (error) {
         next(error);
     }
@@ -243,7 +249,12 @@ export const swapAsset = async (req: Request, res: Response, next: NextFunction)
         const swap = await prisma.transaction.create({ data: transactionPayload });
 
         // Return transaction details
-        res.status(STATUS_CODES.SUCCESS).json(swap);
+        responseWrapper({
+            res,
+            status: STATUS_CODES.SUCCESS,
+            data: swap,
+            message: "Swap successful"
+        });
     } catch (error) {
         next(error);
     }
@@ -264,7 +275,12 @@ export const getWalletInfo = async (req: Request, res: Response, next: NextFunct
         const accountInfo = await stellarService.getAccountInfo(wallet.address);
 
         // Return account info
-        res.status(STATUS_CODES.SUCCESS).json(accountInfo);
+        responseWrapper({
+            res,
+            status: STATUS_CODES.SUCCESS,
+            data: accountInfo,
+            message: "Wallet info retrieved successfully"
+        });
     } catch (error) {
         next(error);
     }
