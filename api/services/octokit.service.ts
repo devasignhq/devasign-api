@@ -797,58 +797,11 @@ ${accepted ? "**This bounty has already been assigned.**" : `**To work on this t
     static async removeBountyLabelAndDeleteBountyComment(
         installationId: string,
         issueId: string,
-        commentId: string
+        commentId: string,
+        bountyLabelId: string
     ) {
         // Get authenticated Octokit instance
         const octokit = await this.getOctokit(installationId);
-
-        // First, query the issue to find the bounty label ID
-        const issueQuery = `
-            query GetIssueLabels($issueId: ID!) {
-                node(id: $issueId) {
-                    ... on Issue {
-                        labels(first: 100) {
-                            nodes {
-                                id
-                                name
-                            }
-                        }
-                    }
-                }
-            }
-        `;
-
-        // Execute query to get issue labels
-        const issueResponse = await octokit.graphql(
-            issueQuery, { issueId }
-        ) as { node: { labels: { nodes: IssueLabel[] } } };
-
-        const labels = issueResponse.node.labels.nodes;
-        // Find the bounty label among all labels
-        const bountyLabel = labels.find((label) => label.name === "💵 Bounty");
-
-        // If bounty label not found, just delete the comment
-        if (!bountyLabel) {
-            if (commentId && issueId) {
-                // Build mutation to only delete the comment
-                const mutation = `
-                    mutation RemoveLabelAndDeleteComment($issueId: ID!, $commentId: ID!) {
-                        deleteIssueComment(input: {id: $commentId}) {
-                            clientMutationId
-                        }
-                    }
-                `;
-
-                // Execute comment deletion
-                await octokit.graphql(mutation, {
-                    issueId,
-                    commentId
-                });
-
-                return "SUCCESS";
-            }
-            throw new GitHubAPIError("Bounty label not found on this issue");
-        }
 
         // Build mutation to remove label and delete comment in one request
         const mutation = `
@@ -865,7 +818,7 @@ ${accepted ? "**This bounty has already been assigned.**" : `**To work on this t
         // Execute mutation to remove label and delete comment
         await octokit.graphql(mutation, {
             issueId,
-            labelIds: [bountyLabel.id],
+            labelIds: [bountyLabelId],
             commentId
         });
 

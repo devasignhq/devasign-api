@@ -114,6 +114,7 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
                 data: {
                     issue: {
                         ...(typeof task.issue === "object" && task.issue !== null ? task.issue : {}),
+                        bountyLabelId,
                         ...(bountyComment && { bountyCommentId: bountyComment.id })
                     },
                     escrowTransactions: {
@@ -376,7 +377,8 @@ export const deleteTask = async (req: Request, res: Response, next: NextFunction
             await OctokitService.removeBountyLabelAndDeleteBountyComment(
                 task.installation.id,
                 taskIssue.id,
-                taskIssue.bountyCommentId!
+                taskIssue.bountyCommentId!,
+                taskIssue.bountyLabelId!
             );
 
             // Return success response

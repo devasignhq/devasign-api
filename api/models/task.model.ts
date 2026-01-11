@@ -14,6 +14,7 @@ export enum MessageType {
 export type TaskIssue = Omit<IssueDto, "labels"> & {
     labels: IssueLabel[];
     bountyCommentId?: string;
+    bountyLabelId?: string;
 }
 
 /**
