@@ -133,7 +133,7 @@ export const getOrCreateBountyLabel = async (req: Request, res: Response, next: 
         }
 
         // If bounty label doesn't exist, create it
-        bountyLabel = await OctokitService.createBountyLabel(
+        bountyLabel = await OctokitService.createBountyLabels(
             repositoryId as string,
             installationId
         );

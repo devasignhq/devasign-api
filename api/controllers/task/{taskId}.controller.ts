@@ -532,7 +532,7 @@ export const acceptTaskApplication = async (req: Request, res: Response, next: N
         );
 
         // Update bounty comment on GitHub to state task has been assigned
-        await OctokitService.updateIssueComment(
+        OctokitService.updateIssueComment(
             task.installationId,
             (task.issue as TaskIssue).bountyCommentId!,
             OctokitService.customBountyMessage(task.bounty.toString(), taskId, true)
@@ -956,6 +956,14 @@ export const validateCompletion = async (req: Request, res: Response, next: Next
         // Disable chat for the task
         FirebaseService.updateTaskStatus(taskId).catch(
             error => dataLogger.warn("Failed to disable chat", { taskId, error })
+        );
+
+        // Add bounty paid label to the issue
+        OctokitService.addBountyPaidLabel(
+            task.installation.id,
+            (task.issue as TaskIssue).id
+        ).catch(
+            error => dataLogger.warn("Failed to add bounty paid label", { taskId, error })
         );
     } catch (error) {
         next(error);

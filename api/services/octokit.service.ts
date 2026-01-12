@@ -633,13 +633,19 @@ ${accepted ? "**This bounty has already been assigned.**" : `**To work on this t
     }
 
     /**
-     * Create bounty label
+     * Create a label in the repository
      */
-    static async createBountyLabel(repositoryId: string, installationId: string) {
+    static async createLabel(
+        repositoryId: string,
+        installationId: string,
+        name: string,
+        color: string,
+        description: string
+    ) {
         // Get authenticated Octokit instance
         const octokit = await this.getOctokit(installationId);
 
-        // Build GraphQL mutation to create the bounty label
+        // Build GraphQL mutation to create the label
         const mutation = `
             mutation CreateLabel($repositoryId: ID!, $name: String!, $color: String!, $description: String!) {
                 createLabel(input: {repositoryId: $repositoryId, name: $name, color: $color, description: $description}) {
@@ -653,60 +659,122 @@ ${accepted ? "**This bounty has already been assigned.**" : `**To work on this t
             }
         `;
 
-        // Execute mutation with bounty label details
+        // Execute mutation with label details
         const response = await octokit.graphql(mutation, {
             repositoryId,
-            name: "💵 Bounty",
-            color: "85BB65",
-            description: "Issues with a monetary reward"
+            name,
+            color,
+            description
         }) as { createLabel: { label: IssueLabel } };
 
         // Return the created label object
         return response.createLabel.label;
     }
 
-    /**
-     * Get bounty label
-     */
-    static async getBountyLabel(repositoryId: string, installationId: string) {
-        // Get authenticated Octokit instance
+    static async createBountyLabels(repositoryId: string, installationId: string) {
         const octokit = await this.getOctokit(installationId);
 
-        // Build GraphQL query to search for the bounty label in the repository
+        const labels = [
+            {
+                name: "💵 Bounty",
+                color: "85BB65",
+                description: "Issues with a monetary reward"
+            },
+            {
+                name: "Bounty Paid ✅",
+                color: "9C53E0",
+                description: "Bounty has been successfully paid"
+            }
+        ];
+
+        // Build mutation string using aliases
+        const mutationFields = labels.map((_, index) => `
+            label${index}: createLabel(input: $input${index}) {
+                label {
+                    id
+                    name
+                    color
+                    description
+                }
+            }
+        `).join("\n");
+
+        const mutation = `
+            mutation CreateMultipleLabels(${labels.map((_, index) => `$input${index}: CreateLabelInput!`).join(", ")}) {
+                ${mutationFields}
+            }
+        `;
+
+        // Map the label data to the numbered input variables
+        const variables = labels.reduce((acc, label, index) => {
+            acc[`input${index}`] = {
+                repositoryId,
+                name: label.name,
+                color: label.color,
+                description: label.description || ""
+            };
+            return acc;
+        }, {} as Record<string, unknown>);
+
+        // Execute request
+        const response = await octokit.graphql(mutation, variables) as Record<string, { label: IssueLabel }>;
+
+        // Return created labels
+        return Object.values(response).map(res => res.label);
+    }
+
+    /**
+     * Get a label from the repository by name
+     */
+    static async getLabel(
+        repositoryId: string,
+        installationId: string,
+        name: string
+    ) {
+        const octokit = await this.getOctokit(installationId);
+
+        // Use the direct 'label' field instead of 'labels' search
         const query = `
-            query GetBountyLabel($repositoryId: ID!) {
+            query GetLabel($repositoryId: ID!, $name: String!) {
                 node(id: $repositoryId) {
                     ... on Repository {
-                        labels(first: 100, query: "💵 Bounty") {
-                            nodes {
-                                id
-                                name
-                                color
-                                description
-                            }
+                        label(name: $name) {
+                            id
+                            name
+                            color
+                            description
                         }
                     }
                 }
             }
         `;
 
-        // Execute the query
         const response = await octokit.graphql(query, {
-            repositoryId
-        }) as { node: { labels: { nodes: IssueLabel[] } } };
+            repositoryId,
+            name
+        }) as { node: { label: IssueLabel | null } };
 
-        // Find the bounty label in the results
-        const bountyLabel = response.node.labels.nodes.find(
-            (label) => label.name === "💵 Bounty"
-        );
+        const label = response.node.label;
 
-        // Throw error if bounty label doesn't exist
-        if (!bountyLabel) {
-            throw new GitHubAPIError("Bounty label not found");
+        if (!label) {
+            throw new GitHubAPIError(`Label "${name}" not found`);
         }
 
-        // Return the bounty label
-        return bountyLabel;
+        return label;
+    }
+    
+    /**
+     * Get bounty label
+     */
+    static async getBountyLabel(repositoryId: string, installationId: string) {
+        return this.getLabel(repositoryId, installationId, "💵 Bounty");
+    }
+
+    /**
+     * Get bounty paid label
+     */
+    static async getBountyPaidLabel(repositoryId: string, installationId: string) {
+        return this.getLabel(repositoryId, installationId, "Bounty Paid ✅");
     }
 
     /**
@@ -751,6 +819,29 @@ ${accepted ? "**This bounty has already been assigned.**" : `**To work on this t
 
         // Return the created comment object
         return response.addComment.commentEdge.node;
+    }
+
+    /**
+     * Add bounty paid label to the issue
+     */
+    static async addBountyPaidLabel(installationId: string, issueId: string) {
+        const octokit = await this.getOctokit(installationId);
+
+        // Get the specific label ID
+        const bountyPaidLabel = await this.getBountyPaidLabel(issueId, installationId);
+
+        const mutation = `
+            mutation AddLabel($issueId: ID!, $labelIds: [ID!]!) {
+                addLabelsToLabelable(input: {labelableId: $issueId, labelIds: $labelIds}) {
+                    clientMutationId
+                }
+            }
+        `;
+
+        await octokit.graphql(mutation, {
+            issueId,
+            labelIds: [bountyPaidLabel.id]
+        });
     }
 
     /**
