@@ -60,120 +60,162 @@ export const validateGitHubWebhook = (req: Request, res: Response, next: NextFun
 };
 
 /**
- * Middleware to validate pull request events
+ * Middleware to validate GitHub webhook events (PR and Installation)
  */
-export const validatePRWebhookEvent = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const validateGitHubWebhookEvent = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     const eventType = req.get("X-GitHub-Event");
     const { action, pull_request, repository, installation } = req.body;
 
-    // Only process pull_request events
-    if (eventType !== "pull_request") {
-        responseWrapper({
-            res,
-            status: STATUS_CODES.SUCCESS,
-            data: {},
-            message: "Event type not processed",
-            meta: { eventType }
-        });
+    // Handle installation events
+    if (eventType === "installation") {
+        const validInstallationActions = ["created", "deleted", "suspend", "unsuspend"];
+        if (!validInstallationActions.includes(action)) {
+            responseWrapper({
+                res,
+                status: STATUS_CODES.SUCCESS,
+                data: {},
+                message: "Installation action not processed",
+                meta: { action }
+            });
+            return;
+        }
+
+        // Validate installation data
+        if (!installation) {
+            responseWrapper({
+                res,
+                status: STATUS_CODES.BAD_PAYLOAD,
+                data: {},
+                message: "Missing required installation data",
+                meta: { installation: Boolean(installation) }
+            });
+            return;
+        }
+
+        // Add event metadata
+        req.body.webhookMeta = {
+            eventType,
+            action,
+            deliveryId: req.get("X-GitHub-Delivery"),
+            timestamp: new Date().toISOString()
+        };
+
+        next();
         return;
     }
 
-    // Only process specific PR actions
-    const validActions = ["opened", "synchronize", "ready_for_review", "closed"];
-    if (!validActions.includes(action)) {
-        responseWrapper({
-            res,
-            status: STATUS_CODES.SUCCESS,
-            data: {},
-            message: "PR action not processed",
-            meta: { action }
-        });
-        return;
-    }
+    // Handle pull_request events 
+    if (eventType === "pull_request") {
+        // Only process specific PR actions
+        const validActions = ["opened", "synchronize", "ready_for_review", "closed"];
+        if (!validActions.includes(action)) {
+            responseWrapper({
+                res,
+                status: STATUS_CODES.SUCCESS,
+                data: {},
+                message: "PR action not processed",
+                meta: { action }
+            });
+            return;
+        }
 
-    // Check for draft PRs
-    if (pull_request?.draft) {
-        responseWrapper({
-            res,
-            status: STATUS_CODES.SUCCESS,
-            data: {},
-            message: "Skipping draft PR"
-        });
-        return;
-    }
+        // Check for draft PRs
+        if (pull_request?.draft) {
+            responseWrapper({
+                res,
+                status: STATUS_CODES.SUCCESS,
+                data: {},
+                message: "Skipping draft PR"
+            });
+            return;
+        }
 
-    if (!pull_request || !repository || !installation) {
-        responseWrapper({
-            res,
-            status: STATUS_CODES.BAD_PAYLOAD,
-            data: {},
-            message: "Missing required webhook data",
-            meta: {
-                pull_request: Boolean(pull_request),
-                repository: Boolean(repository),
-                installation: Boolean(installation)
+        // Validate required data
+        if (!pull_request || !repository || !installation) {
+            responseWrapper({
+                res,
+                status: STATUS_CODES.BAD_PAYLOAD,
+                data: {},
+                message: "Missing required webhook data",
+                meta: {
+                    pull_request: Boolean(pull_request),
+                    repository: Boolean(repository),
+                    installation: Boolean(installation)
+                }
+            });
+            return;
+        }
+
+        // Validate that PR is targeting the default branch
+        const targetBranch = pull_request.base.ref;
+        let defaultBranch = repository.default_branch;
+
+        // Fetch default branch if not available
+        if (!defaultBranch) {
+            try {
+                const installationId = installation.id.toString();
+                const repositoryName = repository.full_name;
+                defaultBranch = await OctokitService.getDefaultBranch(installationId, repositoryName);
+            } catch (error) {
+                // Log the error but don't fail the webhook - continue processing
+                dataLogger.warn(
+                    "Failed to validate default branch, continuing with processing",
+                    {
+                        repositoryName: repository.full_name,
+                        targetBranch,
+                        error: error instanceof Error ? error.message : String(error)
+                    }
+                );
             }
-        });
-        return;
-    }
+        }
 
-    // Validate that PR is targeting the default branch
-    const targetBranch = pull_request.base.ref;
-    let defaultBranch = repository.default_branch;
-
-    if (!defaultBranch) {
-        try {
-            const installationId = installation.id.toString();
-            const repositoryName = repository.full_name;
-            defaultBranch = await OctokitService.getDefaultBranch(installationId, repositoryName);
-        } catch (error) {
-            // Log the error but don't fail the webhook - continue processing
-            dataLogger.warn(
-                "Failed to validate default branch, continuing with processing",
+        // Skip PR if not targeting default branch
+        if (defaultBranch && targetBranch !== defaultBranch) {
+            dataLogger.info(
+                "PR skipped - not targeting default branch",
                 {
+                    prNumber: pull_request.number,
                     repositoryName: repository.full_name,
                     targetBranch,
-                    error: error instanceof Error ? error.message : String(error)
+                    defaultBranch,
+                    reason: "not_default_branch"
                 }
             );
+
+            responseWrapper({
+                res,
+                status: STATUS_CODES.SUCCESS,
+                data: {},
+                message: "PR not targeting default branch - skipping review",
+                meta: {
+                    prNumber: pull_request.number,
+                    repositoryName: repository.full_name,
+                    targetBranch,
+                    defaultBranch,
+                    reason: "not_default_branch"
+                }
+            });
+            return;
         }
-    }
 
-    if (defaultBranch && targetBranch !== defaultBranch) {
-        dataLogger.info(
-            "PR skipped - not targeting default branch",
-            {
-                prNumber: pull_request.number,
-                repositoryName: repository.full_name,
-                targetBranch,
-                defaultBranch,
-                reason: "not_default_branch"
-            }
-        );
+        // Add event metadata to request for use in controller
+        req.body.webhookMeta = {
+            eventType,
+            action,
+            deliveryId: req.get("X-GitHub-Delivery"),
+            timestamp: new Date().toISOString()
+        };
 
-        responseWrapper({
-            res,
-            status: STATUS_CODES.SUCCESS,
-            data: {},
-            message: "PR not targeting default branch - skipping review",
-            meta: {
-                prNumber: pull_request.number,
-                repositoryName: repository.full_name,
-                targetBranch,
-                defaultBranch,
-                reason: "not_default_branch"
-            }
-        });
+        next();
         return;
     }
 
-    // Add event metadata to request for use in controller
-    req.body.webhookMeta = {
-        eventType,
-        action,
-        deliveryId: req.get("X-GitHub-Delivery"),
-        timestamp: new Date().toISOString()
-    };
-
-    next();
+    // Event type not processed
+    responseWrapper({
+        res,
+        status: STATUS_CODES.SUCCESS,
+        data: {},
+        message: "Event type not processed",
+        meta: { eventType }
+    });
 };

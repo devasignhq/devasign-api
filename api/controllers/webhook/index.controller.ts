@@ -12,21 +12,46 @@ import { KMSService } from "../../services/kms.service";
 import { FirebaseService } from "../../services/firebase.service";
 
 /**
+ * Handles GitHub webhook events
+ */
+export const handleGitHubWebhook = async (req: Request, res: Response, next: NextFunction) => {
+    const { webhookMeta } = req.body;
+    const { eventType } = webhookMeta;
+
+    if (eventType === "pull_request") {
+        await handlePREvent(req, res, next);
+        return;
+    }
+
+    if (eventType === "installation") {
+        await handleInstallationEvent(req, res, next);
+        return;
+    }
+
+    responseWrapper({
+        res,
+        status: STATUS_CODES.SUCCESS,
+        data: { eventType },
+        message: "Event type not processed"
+    });
+};
+
+/**
  * Handles GitHub PR webhook events
  */
-export const handlePRWebhook = async (req: Request, res: Response, next: NextFunction) => {
+const handlePREvent = async (req: Request, res: Response, next: NextFunction) => {
     const { action, pull_request } = req.body;
 
     // Handle PR review events
     const validPRReviewActions = ["opened", "synchronize", "ready_for_review"];
     if (validPRReviewActions.includes(action)) {
-        handlePRReview(req, res, next);
+        await handlePRReview(req, res, next);
         return;
     }
 
     // Handle PR merged events for bounty payout
     if (action === "closed" && pull_request.merged) {
-        handleBountyPayout(req, res, next);
+        await handleBountyPayout(req, res, next);
         return;
     }
 
@@ -36,7 +61,125 @@ export const handlePRWebhook = async (req: Request, res: Response, next: NextFun
         data: { action },
         message: "PR action not processed"
     });
-    return;
+};
+
+/**
+ * Handles GitHub Installation webhook events
+ */
+const handleInstallationEvent = async (req: Request, res: Response, next: NextFunction) => {
+    const { action, installation: githubInstallation } = req.body;
+    const installationId = githubInstallation.id.toString();
+
+    try {
+        if (action === "created") {
+            // Log creation, actual setup happens via user flow
+            dataLogger.info(`Installation created: ${installationId}`);
+
+            responseWrapper({
+                res,
+                status: STATUS_CODES.SUCCESS,
+                data: { installationId },
+                message: "Installation creation logged"
+            });
+            return;
+        }
+
+        if (action === "deleted" || action === "suspend") {
+            // Archive installation and refund open tasks
+            const installation = await prisma.installation.findUnique({
+                where: { id: installationId },
+                include: {
+                    wallet: true,
+                    tasks: {
+                        where: {
+                            status: {
+                                in: ["OPEN", "IN_PROGRESS"]
+                            },
+                            bounty: { gt: 0 }
+                        }
+                    }
+                }
+            });
+
+            if (!installation) {
+                // If installation not found in DB, just return success (maybe it was never set up)
+                responseWrapper({
+                    res,
+                    status: STATUS_CODES.SUCCESS,
+                    data: { installationId },
+                    message: "Installation not found in database, skipping archive"
+                });
+                return;
+            }
+
+            let refundedAmount = 0;
+
+            // Refund escrow funds
+            if (installation.wallet && installation.tasks.length > 0) {
+                try {
+                    const decryptedWalletSecret = await KMSService.decryptWallet(installation.wallet);
+
+                    for (const task of installation.tasks) {
+                        try {
+                            await ContractService.refund(decryptedWalletSecret, task.id);
+
+                            // Update task status to ARCHIVED
+                            await prisma.task.update({
+                                where: { id: task.id },
+                                data: { status: "ARCHIVED" }
+                            });
+
+                            refundedAmount += task.bounty;
+                        } catch (error) {
+                            dataLogger.warn(`Failed to refund task ${task.id} during installation archive:`, { error });
+                        }
+                    }
+                } catch (error) {
+                    dataLogger.error("Failed to decrypt wallet for refund during installation archive", { error });
+                }
+            }
+
+            // Update installation status
+            await prisma.installation.update({
+                where: { id: installationId },
+                data: { status: "ARCHIVED" }
+            });
+
+            responseWrapper({
+                res,
+                status: STATUS_CODES.SUCCESS,
+                data: { installationId, refundedAmount },
+                message: `Installation archived and ${refundedAmount} USDC refunded`
+            });
+            return;
+        }
+
+        if (action === "unsuspend") {
+            // Reactivate installation
+            await prisma.installation.update({
+                where: { id: installationId },
+                data: { status: "ACTIVE" }
+            });
+
+            responseWrapper({
+                res,
+                status: STATUS_CODES.SUCCESS,
+                data: { installationId },
+                message: "Installation reactivated"
+            });
+            return;
+        }
+
+        responseWrapper({
+            res,
+            status: STATUS_CODES.SUCCESS,
+            data: { action },
+            message: "Installation action not processed"
+        });
+
+    } catch (error) {
+        next(error);
+    }
 };
 
 /**

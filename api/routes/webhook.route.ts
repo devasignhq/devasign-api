@@ -1,14 +1,14 @@
 import { Router, RequestHandler } from "express";
-import { handlePRWebhook } from "../controllers/webhook";
-import { validateGitHubWebhook, validatePRWebhookEvent } from "../middlewares/webhook.middleware";
+import { handleGitHubWebhook } from "../controllers/webhook";
+import { validateGitHubWebhook, validateGitHubWebhookEvent } from "../middlewares/webhook.middleware";
 import { ENDPOINTS } from "../utilities/data";
 
 export const webhookRoutes = Router();
 
-// Handle GitHub PR review webhook
+// Handle GitHub webhook
 webhookRoutes.post(
-    ENDPOINTS.WEBHOOK.PR_EVENT,
+    ENDPOINTS.WEBHOOK.GITHUB,
     validateGitHubWebhook,
-    validatePRWebhookEvent,
-    handlePRWebhook as RequestHandler
+    validateGitHubWebhookEvent,
+    handleGitHubWebhook as RequestHandler
 );

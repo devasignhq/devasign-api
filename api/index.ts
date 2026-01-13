@@ -57,7 +57,7 @@ app.set("trust proxy", true);
 
 // Raw body parser for webhook signature validation
 app.use(
-    ENDPOINTS.WEBHOOK.PREFIX + ENDPOINTS.WEBHOOK.PR_EVENT,
+    ENDPOINTS.WEBHOOK.PREFIX + ENDPOINTS.WEBHOOK.GITHUB,
     express.raw({ type: "application/json" })
 );
 
