@@ -31,11 +31,16 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
         // Get installation and verify it exists
         const installation = await prisma.installation.findUnique({
             where: { id: payload.installationId },
-            select: { wallet: true }
+            select: { wallet: true, status: true }
         });
 
         if (!installation) {
             throw new NotFoundError("Installation not found");
+        }
+
+        // Check if installation is archived
+        if (installation.status === "ARCHIVED") {
+            throw new ValidationError("Cannot create task for an archived installation");
         }
 
         // Check user balance
@@ -334,7 +339,7 @@ export const deleteTask = async (req: Request, res: Response, next: NextFunction
                 creatorId: true,
                 contributorId: true,
                 installation: {
-                    select: { id: true, wallet: true }
+                    select: { id: true, wallet: true, status: true }
                 }
             }
         });
@@ -342,6 +347,10 @@ export const deleteTask = async (req: Request, res: Response, next: NextFunction
         // Verify task exists
         if (!task) {
             throw new NotFoundError("Task not found");
+        }
+        // Check if installation is archived
+        if (task.installation.status === "ARCHIVED") {
+            throw new ValidationError("Cannot delete task for an archived installation");
         }
         // Verify user is the creator
         if (task.creatorId !== userId) {

@@ -268,6 +268,20 @@ describe("Task {taskId} API Integration Tests", () => {
                 .send({ bountyCommentId: "123456789" })
                 .expect(STATUS_CODES.NOT_FOUND);
         });
+
+        it("should return error when installation is archived", async () => {
+            await prisma.installation.update({
+                where: { id: "12345678" },
+                data: { status: "ARCHIVED" }
+            });
+
+            await request(app)
+                .patch(getEndpointWithPrefix(["TASK", "{TASKID}", "ADD_BOUNTY_COMMENT"])
+                    .replace(":taskId", testTask.id))
+                .set("x-test-user-id", "task-creator")
+                .send({ bountyCommentId: "123456789" })
+                .expect(STATUS_CODES.UNAUTHENTICATED);
+        });
     });
 
     describe(`PATCH ${getEndpointWithPrefix(["TASK", "{TASKID}", "UPDATE_BOUNTY"])} - Update Task Bounty`, () => {
@@ -429,6 +443,20 @@ describe("Task {taskId} API Integration Tests", () => {
                 message: expect.stringContaining("Failed to update bounty amount on GitHub")
             });
         });
+
+        it("should return error when installation is archived", async () => {
+            await prisma.installation.update({
+                where: { id: "12345678" },
+                data: { status: "ARCHIVED" }
+            });
+
+            await request(app)
+                .patch(getEndpointWithPrefix(["TASK", "{TASKID}", "UPDATE_BOUNTY"])
+                    .replace(":taskId", testTask.id))
+                .set("x-test-user-id", "task-creator")
+                .send({ newBounty: "150" })
+                .expect(STATUS_CODES.UNAUTHENTICATED); 
+        });
     });
 
     describe(`PATCH ${getEndpointWithPrefix(["TASK", "{TASKID}", "UPDATE_TIMELINE"])} - Update Task Timeline`, () => {
@@ -515,6 +543,20 @@ describe("Task {taskId} API Integration Tests", () => {
                 .expect(STATUS_CODES.SERVER_ERROR);
 
             expect(response.body.message).toContain("Cannot update the timeline");
+        });
+
+        it("should return error when installation is archived", async () => {
+            await prisma.installation.update({
+                where: { id: "12345678" },
+                data: { status: "ARCHIVED" }
+            });
+
+            await request(app)
+                .patch(getEndpointWithPrefix(["TASK", "{TASKID}", "UPDATE_TIMELINE"])
+                    .replace(":taskId", testTask.id))
+                .set("x-test-user-id", "task-creator")
+                .send({ newTimeline: 2 })
+                .expect(STATUS_CODES.UNAUTHENTICATED);
         });
     });
 
@@ -621,6 +663,19 @@ describe("Task {taskId} API Integration Tests", () => {
                     .replace(":taskId", cuid()))
                 .set("x-test-user-id", "applicant")
                 .expect(STATUS_CODES.NOT_FOUND);
+        });
+
+        it("should return error when installation is archived", async () => {
+            await prisma.installation.update({
+                where: { id: "12345678" },
+                data: { status: "ARCHIVED" }
+            });
+
+            await request(app)
+                .post(getEndpointWithPrefix(["TASK", "{TASKID}", "APPLY"])
+                    .replace(":taskId", testTask.id))
+                .set("x-test-user-id", "applicant")
+                .expect(STATUS_CODES.UNAUTHENTICATED);
         });
     });
 
@@ -766,6 +821,20 @@ describe("Task {taskId} API Integration Tests", () => {
             });
             expect(response.body.task.status).toBe("IN_PROGRESS");
         });
+
+        it("should return error when installation is archived", async () => {
+            await prisma.installation.update({
+                where: { id: "12345678" },
+                data: { status: "ARCHIVED" }
+            });
+
+            await request(app)
+                .post(getEndpointWithPrefix(["TASK", "{TASKID}", "ACCEPT_APPLICATION"])
+                    .replace(":taskId", testTask.id)
+                    .replace(":contributorId", contributorId))
+                .set("x-test-user-id", "task-creator")
+                .expect(STATUS_CODES.UNAUTHENTICATED);
+        });
     });
 
     describe(`POST ${getEndpointWithPrefix(["TASK", "{TASKID}", "REQUEST_TIMELINE_EXTENSION"])} - Request Timeline Extension`, () => {
@@ -862,6 +931,24 @@ describe("Task {taskId} API Integration Tests", () => {
                     reason: "Need more time"
                 })
                 .expect(STATUS_CODES.SERVER_ERROR);
+        });
+
+        it("should return error when installation is archived", async () => {
+            await prisma.installation.update({
+                where: { id: "12345678" },
+                data: { status: "ARCHIVED" }
+            });
+
+            await request(app)
+                .post(getEndpointWithPrefix(["TASK", "{TASKID}", "REQUEST_TIMELINE_EXTENSION"])
+                    .replace(":taskId", testTask.id))
+                .set("x-test-user-id", "contributor")
+                .send({
+                    githubUsername: "contributor",
+                    requestedTimeline: 1,
+                    reason: "Need more time"
+                })
+                .expect(STATUS_CODES.UNAUTHENTICATED);
         });
     });
 
@@ -1222,6 +1309,19 @@ describe("Task {taskId} API Integration Tests", () => {
                     .replace(":taskId", cuid()))
                 .set("x-test-user-id", "task-creator")
                 .expect(STATUS_CODES.NOT_FOUND);
+        });
+
+        it("should return error when installation is archived", async () => {
+            await prisma.installation.update({
+                where: { id: "12345678" },
+                data: { status: "ARCHIVED" }
+            });
+
+            await request(app)
+                .post(getEndpointWithPrefix(["TASK", "{TASKID}", "VALIDATE_COMPLETION"])
+                    .replace(":taskId", testTask.id))
+                .set("x-test-user-id", "task-creator")
+                .expect(STATUS_CODES.UNAUTHENTICATED);
         });
     });
 });

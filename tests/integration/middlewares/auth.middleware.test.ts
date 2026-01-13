@@ -286,6 +286,41 @@ describe("Authentication Middleware", () => {
             expect(mockNext).not.toHaveBeenCalled();
         });
 
+        it("should throw error when installation is archived", async () => {
+            // Create test user
+            const user = TestDataFactory.user({ userId: "test-user-id" });
+            await prisma.user.create({
+                data: { ...user, contributionSummary: { create: {} } }
+            });
+
+            // Create archived installation
+            const installation = TestDataFactory.installation({ id: "12345678" });
+            await prisma.installation.create({
+                data: {
+                    ...installation,
+                    status: "ARCHIVED",
+                    users: {
+                        connect: { userId: user.userId }
+                    },
+                    wallet: TestDataFactory.createWalletRelation()
+                }
+            });
+
+            mockRequest.params = { installationId: "12345678" };
+            mockResponse.locals = { userId: "test-user-id" };
+
+            // We expect validateUserInstallation to call next with ValidationError
+            // The validationError usually has code 400
+            const nextSpy = jest.fn();
+            await validateUserInstallation(mockRequest as Request, mockResponse as Response, nextSpy);
+
+            expect(nextSpy).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    message: "This installation has been archived"
+                })
+            );
+        });
+
         it("should handle database errors gracefully", async () => {
             // Create a scenario that would cause a database error
             await prisma.$disconnect();

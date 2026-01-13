@@ -37,13 +37,20 @@ export const addBountyCommentId = async (req: Request, res: Response, next: Next
                 status: true,
                 bounty: true,
                 creatorId: true,
-                issue: true
+                issue: true,
+                installation: {
+                    select: { status: true }
+                }
             }
         });
 
         // Verify task exists
         if (!task) {
             throw new NotFoundError("Task not found");
+        }
+        
+        if (task.installation.status === "ARCHIVED") {
+            throw new ValidationError("Cannot modify task for an archived installation");
         }
         // Verify user is the creator
         if (task.creatorId !== userId) {
@@ -106,7 +113,8 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
                 creatorId: true,
                 installation: {
                     select: {
-                        wallet: true
+                        wallet: true,
+                        status: true
                     }
                 },
                 _count: {
@@ -120,6 +128,10 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
         // Verify task exists
         if (!task) {
             throw new NotFoundError("Task not found");
+        }
+        // Check if installation is archived
+        if (task.installation.status === "ARCHIVED") {
+            throw new ValidationError("Cannot update task for an archived installation");
         }
         // Verify installation wallet exists
         if (!task.installation.wallet) {
@@ -290,6 +302,7 @@ export const updateTaskTimeline = async (req: Request, res: Response, next: Next
                 status: true,
                 creatorId: true,
                 timeline: true,
+                installation: { select: { status: true } },
                 _count: {
                     select: {
                         taskActivities: true
@@ -301,6 +314,10 @@ export const updateTaskTimeline = async (req: Request, res: Response, next: Next
         // Verify task exists
         if (!task) {
             throw new NotFoundError("Task not found");
+        }
+        // Check if installation is archived
+        if (task.installation.status === "ARCHIVED") {
+            throw new ValidationError("Cannot update task timeline for an archived installation");
         }
         // Verify user is the creator
         if (task.creatorId !== userId) {
@@ -345,11 +362,19 @@ export const submitTaskApplication = async (req: Request, res: Response, next: N
         // Fetch the task and check if it exists and is open
         const task = await prisma.task.findUnique({
             where: { id: taskId },
-            select: { status: true, creatorId: true }
+            select: {
+                status: true,
+                creatorId: true,
+                installation: { select: { status: true } }
+            }
         });
 
         if (!task) {
             throw new NotFoundError("Task not found");
+        }
+        // Check if installation is archived
+        if (task.installation.status === "ARCHIVED") {
+            throw new ValidationError("Cannot submit application for a task in an archived installation");
         }
         if (task.status !== "OPEN") {
             throw new ValidationError("Task is not open");
@@ -424,13 +449,17 @@ export const acceptTaskApplication = async (req: Request, res: Response, next: N
                 contributorId: true,
                 contributor: { select: { wallet: true } },
                 installationId: true,
-                installation: { select: { wallet: true } }
+                installation: { select: { wallet: true, status: true } }
             }
         });
 
         // Verify task exists
         if (!task) {
             throw new NotFoundError("Task not found");
+        }
+        // Check if installation is archived
+        if (task.installation.status === "ARCHIVED") {
+            throw new ValidationError("Cannot accept task application for an archived installation");
         }
         // Verify user is the creator
         if (task.creatorId !== userId) {
@@ -567,13 +596,18 @@ export const requestTimelineExtension = async (req: Request, res: Response, next
             select: {
                 status: true,
                 contributorId: true,
-                timeline: true
+                timeline: true,
+                installation: { select: { status: true } }
             }
         });
 
         // Verify task exists
         if (!task) {
             throw new NotFoundError("Task not found");
+        }
+        // Check if installation is archived
+        if (task.installation.status === "ARCHIVED") {
+            throw new ValidationError("Cannot request timeline extension for an archived installation");
         }
         // Verify task is in progress and user is the assigned contributor
         if (task.status !== "IN_PROGRESS" || task.contributorId !== userId) {
@@ -637,13 +671,18 @@ export const replyTimelineExtensionRequest = async (req: Request, res: Response,
             select: {
                 creatorId: true,
                 status: true,
-                timeline: true
+                timeline: true,
+                installation: { select: { status: true } }
             }
         });
 
         // Verify task exists
         if (!task) {
             throw new NotFoundError("Task not found");
+        }
+        // Check if installation is archived
+        if (task.installation.status === "ARCHIVED") {
+            throw new ValidationError("Cannot reply to extension request for an archived installation");
         }
         // Verify task is in progress and user is the creator
         if (task.status !== "IN_PROGRESS" || task.creatorId !== userId) {
@@ -750,13 +789,18 @@ export const markAsComplete = async (req: Request, res: Response, next: NextFunc
                 status: true,
                 contributorId: true,
                 installationId: true,
-                creatorId: true
+                creatorId: true,
+                installation: { select: { status: true } }
             }
         });
 
         // Verify task exists
         if (!task) {
             throw new NotFoundError("Task not found");
+        }
+        // Check if installation is archived
+        if (task.installation.status === "ARCHIVED") {
+            throw new ValidationError("Cannot mark task as complete for an archived installation");
         }
         // Verify user is the assigned contributor
         if (task.contributorId !== userId) {
@@ -862,7 +906,8 @@ export const validateCompletion = async (req: Request, res: Response, next: Next
                 installation: {
                     select: {
                         id: true,
-                        wallet: true
+                        wallet: true,
+                        status: true
                     }
                 },
                 issue: true,
@@ -874,6 +919,10 @@ export const validateCompletion = async (req: Request, res: Response, next: Next
         // Verify task exists
         if (!task) {
             throw new NotFoundError("Task not found");
+        }
+        // Check if installation is archived
+        if (task.installation.status === "ARCHIVED") {
+            throw new ValidationError("Cannot validate task completion for an archived installation");
         }
         // Verify user is the creator
         if (task.creator.userId !== userId) {

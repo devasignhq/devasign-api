@@ -298,6 +298,31 @@ describe("Task API Integration Tests", () => {
                 message: expect.stringContaining("Failed to either create bounty comment")
             });
         });
+
+        it("should return error when creating task for archived installation", async () => {
+            await prisma.installation.update({
+                where: { id: testInstallation.id },
+                data: { status: "ARCHIVED" }
+            });
+
+            const taskData = {
+                payload: {
+                    installationId: testInstallation.id,
+                    bountyLabelId: "label-123",
+                    bounty: "100",
+                    timeline: 7,
+                    issue: TestDataFactory.githubIssue()
+                }
+            };
+
+            const response = await request(app)
+                .post(getEndpointWithPrefix(["TASK", "CREATE"]))
+                .set("x-test-user-id", "task-creator-user")
+                .send(taskData)
+                .expect(STATUS_CODES.UNAUTHENTICATED);
+
+            expect(response.body.message).toBe("Cannot create task for an archived installation");
+        });
     });
 
     describe(`GET ${getEndpointWithPrefix(["TASK", "GET_ALL"])} - Get Tasks`, () => {
@@ -581,6 +606,20 @@ describe("Task API Integration Tests", () => {
                 .delete("/tasks/non-existent-task-id-0000")
                 .set("x-test-user-id", "task-owner")
                 .expect(STATUS_CODES.NOT_FOUND);
+        });
+
+        it("should return error when deleting task for archived installation", async () => {
+            await prisma.installation.update({
+                where: { id: testInstallation.id },
+                data: { status: "ARCHIVED" }
+            });
+
+            const response = await request(app)
+                .delete(`/tasks/${testTask.id}`)
+                .set("x-test-user-id", "task-owner")
+                .expect(STATUS_CODES.UNAUTHENTICATED);
+
+            expect(response.body.message).toBe("Cannot delete task for an archived installation");
         });
     });
 
