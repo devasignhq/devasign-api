@@ -1,4 +1,4 @@
-import { moneyFormat, getFieldFromUnknownObject } from "../../api/utilities/helper";
+import { moneyFormat, getFieldFromUnknownObject, stellarTimestampToDate } from "../../api/utilities/helper";
 
 describe("Helper Functions Unit Tests", () => {
     describe("moneyFormat", () => {
@@ -206,6 +206,32 @@ describe("Helper Functions Unit Tests", () => {
             const obj: unknown = { value: undefined };
             const result = getFieldFromUnknownObject<undefined>(obj, "value");
             expect(result).toBeUndefined();
+        });
+    });
+
+    describe("stellarTimestampToDate", () => {
+        it("should convert number timestamp to Date", () => {
+            const timestamp = 1678886400; // 2023-03-15T13:20:00.000Z
+            const result = stellarTimestampToDate(timestamp);
+            expect(result).toBeInstanceOf(Date);
+            expect(result.toISOString()).toBe("2023-03-15T13:20:00.000Z");
+        });
+
+        it("should convert bigint timestamp to Date", () => {
+            const timestamp = BigInt(1678886400); // 2023-03-15T13:20:00.000Z
+            const result = stellarTimestampToDate(timestamp);
+            expect(result).toBeInstanceOf(Date);
+            expect(result.toISOString()).toBe("2023-03-15T13:20:00.000Z");
+        });
+
+        it("should handle 0 timestamp", () => {
+            const result = stellarTimestampToDate(0);
+            expect(result.toISOString()).toBe("1970-01-01T00:00:00.000Z");
+        });
+
+        it("should handle negative timestamp", () => {
+            const result = stellarTimestampToDate(-60);
+            expect(result.toISOString()).toBe("1969-12-31T23:59:00.000Z");
         });
     });
 });
