@@ -3,6 +3,7 @@ import { prisma } from "../../config/database.config";
 import { responseWrapper } from "../../utilities/helper";
 import { STATUS_CODES } from "../../utilities/data";
 import { AuthorizationError, NotFoundError } from "../../models/error.model";
+import { OctokitService } from "../../services/octokit.service";
 
 /**
  * Add a user to the installation team.
@@ -18,6 +19,7 @@ export const addTeamMember = async (req: Request, res: Response, next: NextFunct
             where: { id: installationId },
             select: {
                 id: true,
+                status: true,
                 users: {
                     select: {
                         userId: true,
@@ -34,34 +36,48 @@ export const addTeamMember = async (req: Request, res: Response, next: NextFunct
         // Check if user exists in our system
         const existingUser = await prisma.user.findFirst({
             where: { username },
-            select: { userId: true }
+            select: { userId: true, username: true }
         });
 
-        let result: Record<string, unknown> = {};
-        if (existingUser) {
-            // Check if user is already a member of the installation
-            const isAlreadyMember = installation.users.some(user => user.userId === existingUser.userId);
-            if (isAlreadyMember) {
-                return responseWrapper({
-                    res,
-                    status: STATUS_CODES.SERVER_ERROR,
-                    data: { username, status: "already_member" },
-                    message: "User is already a member of this installation"
-                });
-            }
+        if (!existingUser) {
+            return responseWrapper({
+                res,
+                status: STATUS_CODES.SUCCESS,
+                data: { status: "not_found" },
+                message: "User not found in our system. We currently do not support adding users who haven't signed up on our platform"
+            });
+        }
 
+        // Check if user is already a member of the installation
+        const isAlreadyMember = installation.users.some(user => user.userId === existingUser.userId);
+        if (isAlreadyMember) {
+            return responseWrapper({
+                res,
+                status: STATUS_CODES.SERVER_ERROR,
+                data: { username, status: "already_member" },
+                message: "User is already a member of this installation"
+            });
+        }
+
+        // Fetch installation details from GitHub
+        // This validates the user is a member of the organization on GitHub
+        await OctokitService.getInstallationDetails(
+            installationId,
+            username
+        );
+
+        await prisma.$transaction([
             // Add user to installation
-            await prisma.installation.update({
+            prisma.installation.update({
                 where: { id: installationId },
                 data: {
                     users: {
                         connect: { userId: existingUser.userId }
                     }
                 }
-            });
-
+            }),
             // Assign permissions to user for this installation
-            await prisma.userInstallationPermission.create({
+            prisma.userInstallationPermission.create({
                 data: {
                     user: {
                         connect: { userId: existingUser.userId }
@@ -75,25 +91,14 @@ export const addTeamMember = async (req: Request, res: Response, next: NextFunct
                     },
                     assignedBy: userId
                 }
-            });
-
-            result = { username, status: "added" };
-        } else {
-            // const githubUserExists = await checkGithubUser(username);            
-            // if (githubUserExists) {
-            //     // Send invitation
-            //     await sendInvitation(username, email);
-            //     result = { username, status: "invited" };
-            // }
-
-            result = { username, status: "not_found" };
-        }
+            })
+        ]);
 
         // Return result
         responseWrapper({
             res,
             status: STATUS_CODES.SUCCESS,
-            data: result,
+            data: { username, status: "added" },
             message: "Team member added successfully"
         });
     } catch (error) {
@@ -102,7 +107,7 @@ export const addTeamMember = async (req: Request, res: Response, next: NextFunct
 };
 
 /**
- * Update info for a team member.
+ * Update permissions for a team member.
  */
 export const updateTeamMember = async (req: Request, res: Response, next: NextFunction) => {
     const { installationId, userId: memberId } = req.params;
@@ -179,25 +184,26 @@ export const removeTeamMember = async (req: Request, res: Response, next: NextFu
             throw new AuthorizationError("Not authorized to remove members from this installation");
         }
 
-        // Remove user from installation
-        await prisma.installation.update({
-            where: { id: installationId },
-            data: {
-                users: {
-                    disconnect: { userId: memberId }
+        await prisma.$transaction([
+            // Remove user from installation
+            prisma.installation.update({
+                where: { id: installationId },
+                data: {
+                    users: {
+                        disconnect: { userId: memberId }
+                    }
                 }
-            }
-        });
-
-        // Delete user installation permissions
-        await prisma.userInstallationPermission.delete({
-            where: {
-                userId_installationId: {
-                    userId: memberId,
-                    installationId
+            }),
+            // Delete user installation permissions
+            prisma.userInstallationPermission.delete({
+                where: {
+                    userId_installationId: {
+                        userId: memberId,
+                        installationId
+                    }
                 }
-            }
-        });
+            })
+        ]);
 
         // Return success message
         responseWrapper({

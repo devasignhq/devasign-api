@@ -147,7 +147,7 @@ ${accepted ? "**This bounty has already been assigned.**" : `**To work on this t
             ) {
                 // User is trying to access someone else's installation
                 throw new GitHubAPIError(
-                    "Unauthorized: You can only access installations on your own account"
+                    "Unauthorized: User can only access installations on their own account"
                 );
             }
         } else if (installation.target_type === "Organization" &&
@@ -164,7 +164,7 @@ ${accepted ? "**This bounty has already been assigned.**" : `**To work on this t
                 // Reject if membership is still pending (not yet accepted)
                 if (membership.data.state === "pending") {
                     throw new GitHubAPIError(
-                        "Unauthorized: You must be an active member of this organization to access its installation"
+                        "Unauthorized: User must be an active member of this organization to access its installation"
                     );
                 }
             } catch (error) {
@@ -174,7 +174,7 @@ ${accepted ? "**This bounty has already been assigned.**" : `**To work on this t
                 // 404 = not a member, 403 = forbidden
                 if (errorStatus === 404 || errorStatus === 403) {
                     throw new GitHubAPIError(
-                        "Unauthorized: You must be a member of this organization to access its installation",
+                        "Unauthorized: User must be a member of this organization to access its installation",
                         error
                     );
                 }

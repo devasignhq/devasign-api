@@ -66,7 +66,7 @@ installationRoutes.post(
 );
 
 // Archive an installation
-installationRoutes.delete(
+installationRoutes.patch(
     ENDPOINTS.INSTALLATION.ARCHIVED,
     validateRequestParameters(archiveInstallationSchema),
     archiveInstallation as RequestHandler
@@ -79,6 +79,7 @@ installationRoutes.delete(
 installationRoutes.post(
     ENDPOINTS.INSTALLATION.TEAM.ADD_MEMBER,
     validateRequestParameters(addTeamMemberSchema),
+    validateUserInstallation as RequestHandler,
     addTeamMember as RequestHandler
 );
 
@@ -86,6 +87,7 @@ installationRoutes.post(
 installationRoutes.patch(
     ENDPOINTS.INSTALLATION.TEAM.UPDATE_MEMBER,
     validateRequestParameters(updateTeamMemberPermissionsSchema),
+    validateUserInstallation as RequestHandler,
     updateTeamMember as RequestHandler
 );
 
@@ -93,6 +95,7 @@ installationRoutes.patch(
 installationRoutes.delete(
     ENDPOINTS.INSTALLATION.TEAM.REMOVE_MEMBER,
     validateRequestParameters(removeTeamMemberSchema),
+    validateUserInstallation as RequestHandler,
     removeTeamMember as RequestHandler
 );
 
