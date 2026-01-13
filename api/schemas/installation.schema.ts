@@ -8,7 +8,10 @@ import {
 } from "./index.schema";
 
 export const getInstallationsSchema = {
-    query: paginationSchema
+    query: z.object({
+        ...paginationSchema.shape,
+        status: z.enum(["ACTIVE", "ARCHIVED"]).optional()
+    })
 };
 
 export const getInstallationSchema = {

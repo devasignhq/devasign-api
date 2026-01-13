@@ -8,6 +8,7 @@ import { NotFoundError, ValidationError } from "../../models/error.model";
 import { ContractService } from "../../services/contract.service";
 import { dataLogger } from "../../config/logger.config";
 import { KMSService } from "../../services/kms.service";
+import { InstallationStatus } from "../../../prisma_client";
 
 /**
  * Create a new installation.
@@ -204,7 +205,12 @@ export const createInstallation = async (req: Request, res: Response, next: Next
  * Get all installations accessible by the current user.
  */
 export const getInstallations = async (req: Request, res: Response, next: NextFunction) => {
-    const { page = 1, limit = 10, sort } = req.query;
+    const { 
+        page = 1, 
+        limit = 10, 
+        sort, 
+        status = "ACTIVE" 
+    } = req.query;
     const userId = res.locals.userId;
 
     try {
@@ -218,7 +224,7 @@ export const getInstallations = async (req: Request, res: Response, next: NextFu
                 users: {
                     some: { userId: userId as string }
                 },
-                status: "ACTIVE"
+                status: status as InstallationStatus
             },
             select: {
                 id: true,
@@ -275,8 +281,7 @@ export const getInstallation = async (req: Request, res: Response, next: NextFun
                 id: installationId,
                 users: {
                     some: { userId: userId as string }
-                },
-                status: "ACTIVE"
+                }
             },
             select: {
                 id: true,
@@ -380,11 +385,11 @@ export const archiveInstallation = async (req: Request, res: Response, next: Nex
                 id: installationId,
                 users: {
                     some: { userId: userId as string }
-                },
-                status: "ACTIVE"
+                }
             },
             select: {
                 wallet: true,
+                status: true,
                 tasks: {
                     where: { status: "OPEN" },
                     select: {
@@ -397,6 +402,10 @@ export const archiveInstallation = async (req: Request, res: Response, next: Nex
 
         if (!installation) {
             throw new NotFoundError("Installation not found");
+        }
+        // Check if installation is already archived
+        if (installation.status === "ARCHIVED") {
+            throw new ValidationError("Installation already archived");
         }
 
         const activeTaskCount = await prisma.task.count({
