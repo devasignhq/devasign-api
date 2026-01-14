@@ -179,8 +179,8 @@ export const createInstallation = async (req: Request, res: Response, next: Next
                 res,
                 status: STATUS_CODES.CREATED,
                 data: installation,
-                message: existingAccountInstallation 
-                    ? "Installation reactivated successfully" 
+                message: existingAccountInstallation
+                    ? "Installation reactivated successfully"
                     : "Installation created successfully"
             });
         } catch (error) {
@@ -189,8 +189,8 @@ export const createInstallation = async (req: Request, res: Response, next: Next
                 res,
                 status: STATUS_CODES.PARTIAL_SUCCESS,
                 data: installation,
-                message: existingAccountInstallation 
-                    ? "Installation reactivated successfully" 
+                message: existingAccountInstallation
+                    ? "Installation reactivated successfully"
                     : "Installation created successfully",
                 warning: "Failed to add USDC trustline to wallet",
                 meta: { error }
@@ -205,11 +205,11 @@ export const createInstallation = async (req: Request, res: Response, next: Next
  * Get all installations accessible by the current user.
  */
 export const getInstallations = async (req: Request, res: Response, next: NextFunction) => {
-    const { 
-        page = 1, 
-        limit = 10, 
-        sort, 
-        status = "ACTIVE" 
+    const {
+        page = 1,
+        limit = 10,
+        sort,
+        status = "ACTIVE"
     } = req.query;
     const userId = res.locals.userId;
 
@@ -441,7 +441,7 @@ export const archiveInstallation = async (req: Request, res: Response, next: Nex
                     await ContractService.refund(decryptedWalletSecret, task.id);
                     refunded += task.bounty;
                 } catch (error) {
-                    dataLogger.warning(`Failed to refund task ${task.id}:`, { error });
+                    dataLogger.warn(`Failed to refund task ${task.id}:`, { error });
                 }
             }
         }

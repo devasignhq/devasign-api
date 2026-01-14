@@ -425,7 +425,7 @@ describe("Installation API Integration Tests", () => {
         });
     });
 
-    describe(`DELETE ${getEndpointWithPrefix(["INSTALLATION", "DELETE"])} - Delete Installation`, () => {
+    describe(`PATCH ${getEndpointWithPrefix(["INSTALLATION", "ARCHIVED"])} - Archive Installation`, () => {
         let testInstallation: any;
 
         beforeEach(async () => {
@@ -449,47 +449,128 @@ describe("Installation API Integration Tests", () => {
             });
         });
 
-        it("should delete installation successfully", async () => {
+        it("should archive installation successfully", async () => {
             const response = await request(app)
-                .delete(getEndpointWithPrefix(["INSTALLATION", "DELETE"])
+                .patch(getEndpointWithPrefix(["INSTALLATION", "ARCHIVED"])
                     .replace(":installationId", "12345678"))
                 .set("x-test-user-id", "user-1")
                 .send({ walletAddress: "GBPOJZGQPO23FSADGDD3PQFRGLWTETJRK2IY4D5HEQXLDCDEHYFSAAII" })
                 .expect(STATUS_CODES.SUCCESS);
 
             expect(response.body).toMatchObject({
-                message: "Installation deleted successfully",
+                message: "Installation archived successfully",
                 refunded: expect.stringContaining("USDC")
             });
 
-            // Verify installation was deleted
-            const deletedInstallation = await prisma.installation.findUnique({
+            // Verify installation was archived (not deleted)
+            const archivedInstallation = await prisma.installation.findUnique({
                 where: { id: "12345678" }
             });
-            expect(deletedInstallation).toBeNull();
+            expect(archivedInstallation).toBeTruthy();
+            expect(archivedInstallation?.status).toBe("ARCHIVED");
         });
 
-        it("should return error when installation has active tasks", async () => {
-            const task = TestDataFactory.task({
-                creatorId: "user-1",
-                installationId: "12345678",
-                status: "OPEN"
+        it("should return error when installation is already archived", async () => {
+            // Archive the installation first
+            await prisma.installation.update({
+                where: { id: "12345678" },
+                data: { status: "ARCHIVED" }
             });
-            await prisma.task.create({ data: task });
 
             await request(app)
-                .delete(getEndpointWithPrefix(["INSTALLATION", "DELETE"])
+                .patch(getEndpointWithPrefix(["INSTALLATION", "ARCHIVED"])
                     .replace(":installationId", "12345678"))
                 .set("x-test-user-id", "user-1")
                 .send({ walletAddress: "GBPOJZGQPO23FSADGDD3PQFRGLWTETJRK2IY4D5HEQXLDCDEHYFSAAII" })
                 .expect(STATUS_CODES.SERVER_ERROR);
         });
 
+        it("should return error when installation has tasks in progress", async () => {
+            const task = TestDataFactory.task({
+                creatorId: "user-1",
+                installationId: "12345678",
+                status: "IN_PROGRESS"
+            });
+            await prisma.task.create({ data: task });
+
+            await request(app)
+                .patch(getEndpointWithPrefix(["INSTALLATION", "ARCHIVED"])
+                    .replace(":installationId", "12345678"))
+                .set("x-test-user-id", "user-1")
+                .send({ walletAddress: "GBPOJZGQPO23FSADGDD3PQFRGLWTETJRK2IY4D5HEQXLDCDEHYFSAAII" })
+                .expect(STATUS_CODES.SERVER_ERROR);
+        });
+
+        it("should return error when installation has tasks marked as completed", async () => {
+            const task = TestDataFactory.task({
+                creatorId: "user-1",
+                installationId: "12345678",
+                status: "MARKED_AS_COMPLETED"
+            });
+            await prisma.task.create({ data: task });
+
+            await request(app)
+                .patch(getEndpointWithPrefix(["INSTALLATION", "ARCHIVED"])
+                    .replace(":installationId", "12345678"))
+                .set("x-test-user-id", "user-1")
+                .send({ walletAddress: "GBPOJZGQPO23FSADGDD3PQFRGLWTETJRK2IY4D5HEQXLDCDEHYFSAAII" })
+                .expect(STATUS_CODES.SERVER_ERROR);
+        });
+
+        it("should successfully archive installation with open tasks and refund bounties", async () => {
+            const task1 = TestDataFactory.task({
+                creatorId: "user-1",
+                installationId: "12345678",
+                status: "OPEN",
+                bounty: 100
+            });
+            const task2 = TestDataFactory.task({
+                creatorId: "user-1",
+                installationId: "12345678",
+                status: "OPEN",
+                bounty: 200
+            });
+            await prisma.task.create({ data: task1 });
+            await prisma.task.create({ data: task2 });
+
+            const response = await request(app)
+                .patch(getEndpointWithPrefix(["INSTALLATION", "ARCHIVED"])
+                    .replace(":installationId", "12345678"))
+                .set("x-test-user-id", "user-1")
+                .send({ walletAddress: "GBPOJZGQPO23FSADGDD3PQFRGLWTETJRK2IY4D5HEQXLDCDEHYFSAAII" })
+                .expect(STATUS_CODES.SUCCESS);
+
+            expect(response.body).toMatchObject({
+                message: "Installation archived successfully",
+                refunded: expect.stringContaining("USDC")
+            });
+
+            // Verify installation was archived
+            const archivedInstallation = await prisma.installation.findUnique({
+                where: { id: "12345678" }
+            });
+            expect(archivedInstallation?.status).toBe("ARCHIVED");
+        });
+
         it("should return 404 when installation not found", async () => {
             await request(app)
-                .delete(getEndpointWithPrefix(["INSTALLATION", "DELETE"])
+                .patch(getEndpointWithPrefix(["INSTALLATION", "ARCHIVED"])
                     .replace(":installationId", "99999999"))
                 .set("x-test-user-id", "user-1")
+                .send({ walletAddress: "GBPOJZGQPO23FSADGDD3PQFRGLWTETJRK2IY4D5HEQXLDCDEHYFSAAII" })
+                .expect(STATUS_CODES.NOT_FOUND);
+        });
+
+        it("should return 404 when user is not a member of installation", async () => {
+            const user2 = TestDataFactory.user({ userId: "user-2" });
+            await prisma.user.create({
+                data: { ...user2, contributionSummary: { create: {} } }
+            });
+
+            await request(app)
+                .patch(getEndpointWithPrefix(["INSTALLATION", "ARCHIVED"])
+                    .replace(":installationId", "12345678"))
+                .set("x-test-user-id", "user-2")
                 .send({ walletAddress: "GBPOJZGQPO23FSADGDD3PQFRGLWTETJRK2IY4D5HEQXLDCDEHYFSAAII" })
                 .expect(STATUS_CODES.NOT_FOUND);
         });
@@ -521,11 +602,6 @@ describe("Installation API Integration Tests", () => {
 
             await request(appWithoutAuth)
                 .patch("/installations/12345678")
-                .send({ htmlUrl: "https://github.com/test" })
-                .expect(STATUS_CODES.UNAUTHENTICATED);
-
-            await request(appWithoutAuth)
-                .delete("/installations/12345678")
                 .send({ walletAddress: "GTEST" })
                 .expect(STATUS_CODES.UNAUTHENTICATED);
         });
