@@ -59,12 +59,15 @@ describe("Admin API Integration Tests", () => {
                 .expect(STATUS_CODES.SUCCESS);
 
             expect(response.body).toMatchObject({
-                recovery: expect.objectContaining({
-                    success: true,
-                    message: "System recovery completed successfully",
-                    recoveredComponents: expect.arrayContaining(["database", "queue"])
-                }),
-                timestamp: expect.any(String)
+                message: "System recovery completed",
+                data: {
+                    recovery: expect.objectContaining({
+                        success: true,
+                        message: "System recovery completed successfully",
+                        recoveredComponents: expect.arrayContaining(["database", "queue"])
+                    }),
+                    timestamp: expect.any(String)
+                }
             });
 
             expect(mockErrorRecoveryService.attemptSystemRecovery).toHaveBeenCalledWith("complete", undefined);
@@ -83,7 +86,7 @@ describe("Admin API Integration Tests", () => {
                 .send({ type: "database" })
                 .expect(STATUS_CODES.SUCCESS);
 
-            expect(response.body.recovery).toMatchObject({
+            expect(response.body.data.recovery).toMatchObject({
                 success: true,
                 message: "Database recovery completed",
                 recoveredComponents: ["database"]
@@ -119,7 +122,7 @@ describe("Admin API Integration Tests", () => {
                 .get(getEndpointWithPrefix(["ADMIN", "RECOVER_SYSTEM"]))
                 .expect(STATUS_CODES.UNKNOWN);
 
-            expect(response.body.recovery).toMatchObject({
+            expect(response.body.data.recovery).toMatchObject({
                 success: false,
                 message: expect.stringContaining("Recovery failed")
             });
@@ -135,9 +138,11 @@ describe("Admin API Integration Tests", () => {
                 .expect(STATUS_CODES.UNKNOWN);
 
             expect(response.body).toMatchObject({
-                error: "Recovery attempt failed",
-                details: "Error: Unexpected recovery error",
-                timestamp: expect.any(String)
+                message: "Recovery attempt failed",
+                warning: "Error: Unexpected recovery error",
+                data: {
+                    timestamp: expect.any(String)
+                }
             });
         });
     });
@@ -263,8 +268,8 @@ describe("Admin API Integration Tests", () => {
                 .expect(STATUS_CODES.UNKNOWN);
 
             expect(response.body).toMatchObject({
-                error: "Recovery attempt failed",
-                details: expect.stringContaining("Service temporarily unavailable")
+                message: "Recovery attempt failed",
+                warning: expect.stringContaining("Service temporarily unavailable")
             });
         });
     });

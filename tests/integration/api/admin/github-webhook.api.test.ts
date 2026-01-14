@@ -117,7 +117,6 @@ describe("Admin GitHub Webhook API Integration Tests", () => {
                 .expect(STATUS_CODES.SUCCESS);
 
             expect(response.body).toMatchObject({
-                success: true,
                 message: "Webhook service is healthy",
                 data: {
                     health: expect.objectContaining({
@@ -132,10 +131,10 @@ describe("Admin GitHub Webhook API Integration Tests", () => {
                         initialized: true,
                         activeJobs: 2,
                         queueSize: 5
-                    })
-                },
-                timestamp: expect.any(String),
-                service: "ai-pr-review-webhook"
+                    }),
+                    timestamp: expect.any(String),
+                    service: "ai-pr-review-webhook"
+                }
             });
 
             expect(mockWorkflowService.healthCheck).toHaveBeenCalled();
@@ -158,7 +157,6 @@ describe("Admin GitHub Webhook API Integration Tests", () => {
                 .expect(STATUS_CODES.SERVER_ERROR);
 
             expect(response.body).toMatchObject({
-                success: false,
                 message: "Webhook service has issues",
                 data: {
                     health: expect.objectContaining({
@@ -184,11 +182,12 @@ describe("Admin GitHub Webhook API Integration Tests", () => {
                 .expect(STATUS_CODES.UNKNOWN);
 
             expect(response.body).toMatchObject({
-                success: false,
                 message: "Health check failed",
-                error: "Health check service unavailable",
-                timestamp: expect.any(String),
-                service: "ai-pr-review-webhook"
+                warning: "Health check service unavailable",
+                data: {
+                    timestamp: expect.any(String),
+                    service: "ai-pr-review-webhook"
+                }
             });
         });
 
@@ -226,7 +225,7 @@ describe("Admin GitHub Webhook API Integration Tests", () => {
                 .expect(STATUS_CODES.SUCCESS);
 
             expect(response.body).toMatchObject({
-                success: true,
+                message: "Job data retrieved successfully",
                 data: {
                     jobId: "test-job-123",
                     status: "completed",
@@ -243,9 +242,9 @@ describe("Admin GitHub Webhook API Integration Tests", () => {
                         suggestionsCount: 1,
                         rulesViolatedCount: 0,
                         summary: "PR looks good overall"
-                    }
-                },
-                timestamp: expect.any(String)
+                    },
+                    timestamp: expect.any(String)
+                }
             });
 
             expect(mockJobQueueService.getJobData).toHaveBeenCalledWith("test-job-123");
@@ -259,8 +258,8 @@ describe("Admin GitHub Webhook API Integration Tests", () => {
                 .expect(STATUS_CODES.NOT_FOUND);
 
             expect(response.body).toMatchObject({
-                success: false,
-                error: "Job not found"
+                message: "Job not found",
+                data: {}
             });
         });
 
@@ -313,8 +312,9 @@ describe("Admin GitHub Webhook API Integration Tests", () => {
                 .expect(STATUS_CODES.UNKNOWN);
 
             expect(response.body).toMatchObject({
-                success: false,
-                error: "Database connection error"
+                message: "Failed to get job data",
+                warning: "Database connection error",
+                data: {}
             });
         });
 
@@ -357,7 +357,7 @@ describe("Admin GitHub Webhook API Integration Tests", () => {
                 .expect(STATUS_CODES.SUCCESS);
 
             expect(response.body).toMatchObject({
-                success: true,
+                message: "Queue statistics retrieved successfully",
                 data: {
                     queue: {
                         pending: 3,
@@ -409,8 +409,9 @@ describe("Admin GitHub Webhook API Integration Tests", () => {
                 .expect(STATUS_CODES.UNKNOWN);
 
             expect(response.body).toMatchObject({
-                success: false,
-                error: "Queue service unavailable"
+                message: "Failed to fetch queue stats",
+                warning: "Queue service unavailable",
+                data: {}
             });
         });
 
@@ -448,15 +449,15 @@ describe("Admin GitHub Webhook API Integration Tests", () => {
                 .expect(STATUS_CODES.SUCCESS);
 
             expect(response.body).toMatchObject({
-                success: true,
+                message: "Workflow status retrieved successfully",
                 data: {
                     initialized: true,
                     activeJobs: 2,
                     queueSize: 5,
                     processingRate: 10,
-                    uptime: 3600000
-                },
-                timestamp: expect.any(String)
+                    uptime: 3600000,
+                    timestamp: expect.any(String)
+                }
             });
 
             expect(mockWorkflowService.getWorkflowStatus).toHaveBeenCalled();
@@ -530,9 +531,11 @@ describe("Admin GitHub Webhook API Integration Tests", () => {
                 .expect(STATUS_CODES.UNKNOWN);
 
             expect(response.body).toMatchObject({
-                success: false,
-                error: "Workflow service error",
-                timestamp: expect.any(String)
+                message: "Failed to get workflow status",
+                warning: "Workflow service error",
+                data: {
+                    timestamp: expect.any(String)
+                }
             });
         });
     });
@@ -549,7 +552,6 @@ describe("Admin GitHub Webhook API Integration Tests", () => {
                 .expect(STATUS_CODES.UNKNOWN);
 
             expect(response.body).toMatchObject({
-                success: false,
                 message: "Health check failed"
             });
 
@@ -569,7 +571,8 @@ describe("Admin GitHub Webhook API Integration Tests", () => {
 
             responses.forEach(response => {
                 expect(response.status).toBe(STATUS_CODES.SUCCESS);
-                expect(response.body.success).toBe(true);
+                expect(response.body.message).toBeDefined();
+                expect(response.body.data).toBeDefined();
             });
         });
 
