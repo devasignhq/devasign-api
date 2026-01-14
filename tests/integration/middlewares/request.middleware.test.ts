@@ -1,8 +1,8 @@
 import { Request, Response, NextFunction } from "express";
 import * as z from "zod";
 import { dynamicRoute, localhostOnly, validateRequestParameters } from "../../../api/middlewares/request.middleware";
-import { STATUS_CODES } from "../../../api/utilities/data";
 import { ValidationError } from "../../../api/models/error.model";
+import { STATUS_CODES } from "../../../api/utilities/data";
 
 describe("Request Middleware", () => {
     let mockRequest: Partial<Request>;
@@ -56,131 +56,56 @@ describe("Request Middleware", () => {
 
     describe("localhostOnly", () => {
         describe("Localhost Access", () => {
-            it("should allow requests from localhost origin", () => {
-                (mockRequest.get as jest.Mock).mockImplementation((header: string) => {
-                    if (header === "origin") return "http://localhost:3000";
-                    return undefined;
-                });
-
+            it("should allow requests from 127.0.0.1", () => {
+                (mockRequest as any).ip = "127.0.0.1";
                 localhostOnly(mockRequest as Request, mockResponse as Response, mockNext);
-
                 expect(mockNext).toHaveBeenCalled();
                 expect(mockResponse.status).not.toHaveBeenCalled();
             });
 
-            it("should allow requests from 127.0.0.1 origin", () => {
-                (mockRequest.get as jest.Mock).mockImplementation((header: string) => {
-                    if (header === "origin") return "http://127.0.0.1:3000";
-                    return undefined;
-                });
-
+            it("should allow requests from ::1", () => {
+                (mockRequest as any).ip = "::1";
                 localhostOnly(mockRequest as Request, mockResponse as Response, mockNext);
-
                 expect(mockNext).toHaveBeenCalled();
                 expect(mockResponse.status).not.toHaveBeenCalled();
             });
 
-            it("should allow requests from ::1 (IPv6 localhost)", () => {
-                (mockRequest.get as jest.Mock).mockImplementation((header: string) => {
-                    if (header === "origin") return "http://[::1]:3000";
-                    return undefined;
-                });
-
+            it("should allow requests from ::ffff:127.0.0.1", () => {
+                (mockRequest as any).ip = "::ffff:127.0.0.1";
                 localhostOnly(mockRequest as Request, mockResponse as Response, mockNext);
-
-                expect(mockNext).toHaveBeenCalled();
-                expect(mockResponse.status).not.toHaveBeenCalled();
-            });
-
-            it("should allow requests from localhost referer", () => {
-                (mockRequest.get as jest.Mock).mockImplementation((header: string) => {
-                    if (header === "referer") return "http://localhost:3000/page";
-                    return undefined;
-                });
-
-                localhostOnly(mockRequest as Request, mockResponse as Response, mockNext);
-
-                expect(mockNext).toHaveBeenCalled();
-                expect(mockResponse.status).not.toHaveBeenCalled();
-            });
-
-            it("should allow requests with no origin or referer (direct API calls)", () => {
-                (mockRequest.get as jest.Mock).mockReturnValue(undefined);
-
-                localhostOnly(mockRequest as Request, mockResponse as Response, mockNext);
-
                 expect(mockNext).toHaveBeenCalled();
                 expect(mockResponse.status).not.toHaveBeenCalled();
             });
         });
 
         describe("Non-Localhost Access Denial", () => {
-            it("should deny requests from external origin", () => {
-                (mockRequest.get as jest.Mock).mockImplementation((header: string) => {
-                    if (header === "origin") return "https://example.com";
-                    return undefined;
-                });
-
+            it("should deny requests from external IP", () => {
+                (mockRequest as any).ip = "192.168.1.1";
                 localhostOnly(mockRequest as Request, mockResponse as Response, mockNext);
-
                 expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.UNAUTHORIZED);
-                expect(mockResponse.json).toHaveBeenCalledWith({
-                    error: "Access denied. This endpoint is only available from localhost."
-                });
+                expect(mockResponse.json).toHaveBeenCalledWith(expect.objectContaining({
+                    message: "Access denied. Local interface only."
+                }));
                 expect(mockNext).not.toHaveBeenCalled();
             });
 
-            it("should deny requests from external referer", () => {
-                (mockRequest.get as jest.Mock).mockImplementation((header: string) => {
-                    if (header === "referer") return "https://malicious-site.com";
-                    return undefined;
-                });
-
+            it("should deny requests with missing IP", () => {
+                (mockRequest as any).ip = undefined;
                 localhostOnly(mockRequest as Request, mockResponse as Response, mockNext);
-
-                expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.UNAUTHORIZED);
-                expect(mockResponse.json).toHaveBeenCalledWith({
-                    error: "Access denied. This endpoint is only available from localhost."
-                });
-                expect(mockNext).not.toHaveBeenCalled();
-            });
-
-            it("should deny requests from production domain", () => {
-                (mockRequest.get as jest.Mock).mockImplementation((header: string) => {
-                    if (header === "origin") return "https://production.example.com";
-                    return undefined;
-                });
-
-                localhostOnly(mockRequest as Request, mockResponse as Response, mockNext);
-
                 expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.UNAUTHORIZED);
                 expect(mockNext).not.toHaveBeenCalled();
             });
         });
 
         describe("Edge Cases", () => {
-            it("should allow when host header contains localhost", () => {
-                (mockRequest.get as jest.Mock).mockImplementation((header: string) => {
-                    if (header === "origin") return undefined;
-                    if (header === "host") return "localhost:3000";
-                    return undefined;
-                });
+            it("should log unauthorized access attempts", () => {
+                (mockRequest as any).ip = "8.8.8.8";
+                (mockRequest as any).path = "/test-path";
+                (mockRequest.get as jest.Mock).mockReturnValue("1.1.1.1"); // cf-connecting-ip
 
                 localhostOnly(mockRequest as Request, mockResponse as Response, mockNext);
 
-                expect(mockNext).toHaveBeenCalled();
-            });
-
-            it("should check both origin and referer", () => {
-                (mockRequest.get as jest.Mock).mockImplementation((header: string) => {
-                    if (header === "origin") return "https://example.com";
-                    if (header === "referer") return "http://localhost:3000";
-                    return undefined;
-                });
-
-                localhostOnly(mockRequest as Request, mockResponse as Response, mockNext);
-
-                expect(mockNext).toHaveBeenCalled();
+                expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.UNAUTHORIZED);
             });
         });
     });

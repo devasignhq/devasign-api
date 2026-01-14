@@ -94,8 +94,9 @@ describe("Authentication Middleware", () => {
 
                 expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.UNAUTHENTICATED);
                 expect(mockResponse.json).toHaveBeenCalledWith({
-                    error: "Authentication failed",
-                    details: "Invalid or expired token"
+                    data: {},
+                    message: "Authentication failed",
+                    warning: "Invalid or expired token"
                 });
                 expect(mockNext).not.toHaveBeenCalled();
             });
@@ -111,7 +112,8 @@ describe("Authentication Middleware", () => {
 
                 expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.UNAUTHENTICATED);
                 expect(mockResponse.json).toHaveBeenCalledWith({
-                    error: "No authorization token sent"
+                    data: {},
+                    message: "No authorization token sent"
                 });
                 expect(mockNext).not.toHaveBeenCalled();
                 expect(mockFirebaseAuth).not.toHaveBeenCalled();
@@ -126,7 +128,8 @@ describe("Authentication Middleware", () => {
 
                 expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.UNAUTHENTICATED);
                 expect(mockResponse.json).toHaveBeenCalledWith({
-                    error: "No authorization token sent"
+                    data: {},
+                    message: "No authorization token sent"
                 });
                 expect(mockNext).not.toHaveBeenCalled();
                 expect(mockFirebaseAuth).not.toHaveBeenCalled();
@@ -154,7 +157,8 @@ describe("Authentication Middleware", () => {
 
                 expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.UNAUTHENTICATED);
                 expect(mockResponse.json).toHaveBeenCalledWith({
-                    error: "No authorization token sent"
+                    data: {},
+                    message: "No authorization token sent"
                 });
                 expect(mockNext).not.toHaveBeenCalled();
             });
@@ -172,8 +176,9 @@ describe("Authentication Middleware", () => {
 
                 expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.UNAUTHENTICATED);
                 expect(mockResponse.json).toHaveBeenCalledWith({
-                    error: "Authentication failed",
-                    details: "Invalid or expired token"
+                    data: {},
+                    message: "Authentication failed",
+                    warning: "Invalid or expired token"
                 });
                 expect(mockNext).not.toHaveBeenCalled();
             });
@@ -190,8 +195,9 @@ describe("Authentication Middleware", () => {
 
                 expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.UNAUTHENTICATED);
                 expect(mockResponse.json).toHaveBeenCalledWith({
-                    error: "Authentication failed",
-                    details: "Firebase ID token has invalid signature"
+                    data: {},
+                    message: "Authentication failed",
+                    warning: "Firebase ID token has invalid signature"
                 });
                 expect(mockNext).not.toHaveBeenCalled();
             });
@@ -262,13 +268,12 @@ describe("Authentication Middleware", () => {
 
             await validateUserInstallation(mockRequest as Request, mockResponse as Response, mockNext);
 
-            expect(mockResponse.status).toHaveBeenCalledWith(403);
-            expect(mockResponse.json).toHaveBeenCalledWith(
+            expect(mockNext).toHaveBeenCalledWith(
                 expect.objectContaining({
                     message: "Only members of this installation are allowed access"
                 })
             );
-            expect(mockNext).not.toHaveBeenCalled();
+            expect(mockResponse.status).not.toHaveBeenCalled();
         });
 
         it("should throw error when installation does not exist", async () => {
@@ -277,13 +282,12 @@ describe("Authentication Middleware", () => {
 
             await validateUserInstallation(mockRequest as Request, mockResponse as Response, mockNext);
 
-            expect(mockResponse.status).toHaveBeenCalledWith(403);
-            expect(mockResponse.json).toHaveBeenCalledWith(
+            expect(mockNext).toHaveBeenCalledWith(
                 expect.objectContaining({
                     message: "Only members of this installation are allowed access"
                 })
             );
-            expect(mockNext).not.toHaveBeenCalled();
+            expect(mockResponse.status).not.toHaveBeenCalled();
         });
 
         it("should throw error when installation is archived", async () => {
@@ -330,8 +334,8 @@ describe("Authentication Middleware", () => {
 
             await validateUserInstallation(mockRequest as Request, mockResponse as Response, mockNext);
 
-            expect(mockResponse.status).toHaveBeenCalled();
-            expect(mockNext).not.toHaveBeenCalled();
+            expect(mockNext).toHaveBeenCalled();
+            expect(mockResponse.status).not.toHaveBeenCalled();
 
             // Reconnect for other tests
             await prisma.$connect();
@@ -405,7 +409,8 @@ describe("Authentication Middleware", () => {
 
                 expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.UNAUTHORIZED);
                 expect(mockResponse.json).toHaveBeenCalledWith({
-                    error: "Access denied. Admin privileges required."
+                    data: {},
+                    message: "Access denied. Admin privileges required."
                 });
                 expect(mockNext).not.toHaveBeenCalled();
             });
@@ -423,7 +428,8 @@ describe("Authentication Middleware", () => {
 
                 expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.UNAUTHORIZED);
                 expect(mockResponse.json).toHaveBeenCalledWith({
-                    error: "Access denied. Admin privileges required."
+                    data: {},
+                    message: "Access denied. Admin privileges required."
                 });
                 expect(mockNext).not.toHaveBeenCalled();
             });
@@ -444,7 +450,8 @@ describe("Authentication Middleware", () => {
 
                 expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.UNAUTHORIZED);
                 expect(mockResponse.json).toHaveBeenCalledWith({
-                    error: "Access denied. Admin privileges required."
+                    data: {},
+                    message: "Access denied. Admin privileges required."
                 });
                 expect(mockNext).not.toHaveBeenCalled();
             });
@@ -456,7 +463,8 @@ describe("Authentication Middleware", () => {
 
                 expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.UNAUTHORIZED);
                 expect(mockResponse.json).toHaveBeenCalledWith({
-                    error: "Access denied. Admin privileges required."
+                    data: {},
+                    message: "Access denied. Admin privileges required."
                 });
                 expect(mockNext).not.toHaveBeenCalled();
             });
@@ -470,7 +478,8 @@ describe("Authentication Middleware", () => {
 
                 expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.UNAUTHORIZED);
                 expect(mockResponse.json).toHaveBeenCalledWith({
-                    error: "Access denied. Admin privileges required."
+                    data: {},
+                    message: "Access denied. Admin privileges required."
                 });
                 expect(mockNext).not.toHaveBeenCalled();
             });
@@ -484,7 +493,8 @@ describe("Authentication Middleware", () => {
 
                 expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.UNAUTHORIZED);
                 expect(mockResponse.json).toHaveBeenCalledWith({
-                    error: "Access denied. Admin privileges required."
+                    data: {},
+                    message: "Access denied. Admin privileges required."
                 });
                 expect(mockNext).not.toHaveBeenCalled();
             });
@@ -507,7 +517,8 @@ describe("Authentication Middleware", () => {
 
                 expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.UNAUTHORIZED);
                 expect(mockResponse.json).toHaveBeenCalledWith({
-                    error: "Access denied. Admin privileges required."
+                    data: {},
+                    message: "Access denied. Admin privileges required."
                 });
                 expect(mockNext).not.toHaveBeenCalled();
             });
@@ -540,7 +551,8 @@ describe("Authentication Middleware", () => {
 
                 expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.UNAUTHORIZED);
                 expect(mockResponse.json).toHaveBeenCalledWith({
-                    error: "Access denied. Admin privileges required."
+                    data: {},
+                    message: "Access denied. Admin privileges required."
                 });
                 expect(mockNext).not.toHaveBeenCalled();
             });

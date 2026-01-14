@@ -1,11 +1,19 @@
 import { Request, Response, NextFunction } from "express";
 import crypto from "crypto";
-import { validateGitHubWebhook, validatePRWebhookEvent } from "../../../api/middlewares/webhook.middleware";
+import { validateGitHubWebhook, validateGitHubWebhookEvent } from "../../../api/middlewares/webhook.middleware";
 import { STATUS_CODES } from "../../../api/utilities/data";
 import { OctokitService } from "../../../api/services/octokit.service";
+import { GitHubWebhookError } from "../../../api/models/error.model";
 
 // Mock OctokitService
-jest.mock("../../../api/services/octokit.service");
+jest.mock("../../../api/services/octokit.service", () => ({
+    OctokitService: {
+        getDefaultBranch: jest.fn(),
+        updateIssueComment: jest.fn(),
+        createBountyLabel: jest.fn(),
+        getOwnerAndRepo: jest.fn()
+    }
+}));
 
 // Mock logger
 jest.mock("../../../api/config/logger.config", () => ({
@@ -145,13 +153,10 @@ describe("Webhook Middleware", () => {
 
                 validateGitHubWebhook(mockRequest as Request, mockResponse as Response, mockNext);
 
-                expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.SERVER_ERROR);
-                expect(mockResponse.json).toHaveBeenCalledWith({
-                    success: false,
-                    error: "Invalid webhook signature",
-                    code: "GITHUB_WEBHOOK_ERROR"
-                });
-                expect(mockNext).not.toHaveBeenCalled();
+                expect(mockNext).toHaveBeenCalledWith(expect.any(GitHubWebhookError));
+                const error = (mockNext as jest.Mock).mock.calls[0][0];
+                expect(error.message).toBe("Invalid webhook signature");
+                expect(mockResponse.status).not.toHaveBeenCalled();
             });
 
             it("should reject missing signature", () => {
@@ -163,13 +168,10 @@ describe("Webhook Middleware", () => {
 
                 validateGitHubWebhook(mockRequest as Request, mockResponse as Response, mockNext);
 
-                expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.SERVER_ERROR);
-                expect(mockResponse.json).toHaveBeenCalledWith({
-                    success: false,
-                    error: "Missing webhook signature",
-                    code: "GITHUB_WEBHOOK_ERROR"
-                });
-                expect(mockNext).not.toHaveBeenCalled();
+                expect(mockNext).toHaveBeenCalledWith(expect.any(GitHubWebhookError));
+                const error = (mockNext as jest.Mock).mock.calls[0][0];
+                expect(error.message).toBe("Missing webhook signature");
+                expect(mockResponse.status).not.toHaveBeenCalled();
             });
 
             it("should reject when webhook secret is not configured", () => {
@@ -183,13 +185,10 @@ describe("Webhook Middleware", () => {
 
                 validateGitHubWebhook(mockRequest as Request, mockResponse as Response, mockNext);
 
-                expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.SERVER_ERROR);
-                expect(mockResponse.json).toHaveBeenCalledWith({
-                    success: false,
-                    error: "GitHub webhook secret not configured",
-                    code: "GITHUB_WEBHOOK_ERROR"
-                });
-                expect(mockNext).not.toHaveBeenCalled();
+                expect(mockNext).toHaveBeenCalledWith(expect.any(GitHubWebhookError));
+                const error = (mockNext as jest.Mock).mock.calls[0][0];
+                expect(error.message).toBe("GitHub webhook secret not configured");
+                expect(mockResponse.status).not.toHaveBeenCalled();
 
                 // Restore secret
                 process.env.GITHUB_WEBHOOK_SECRET = WEBHOOK_SECRET;
@@ -206,13 +205,10 @@ describe("Webhook Middleware", () => {
 
                 validateGitHubWebhook(mockRequest as Request, mockResponse as Response, mockNext);
 
-                expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.SERVER_ERROR);
-                expect(mockResponse.json).toHaveBeenCalledWith({
-                    success: false,
-                    error: "Invalid request body format",
-                    code: "GITHUB_WEBHOOK_ERROR"
-                });
-                expect(mockNext).not.toHaveBeenCalled();
+                expect(mockNext).toHaveBeenCalledWith(expect.any(GitHubWebhookError));
+                const error = (mockNext as jest.Mock).mock.calls[0][0];
+                expect(error.message).toBe("Invalid request body format");
+                expect(mockResponse.status).not.toHaveBeenCalled();
             });
 
             it("should reject malformed JSON payload", () => {
@@ -228,13 +224,10 @@ describe("Webhook Middleware", () => {
 
                 validateGitHubWebhook(mockRequest as Request, mockResponse as Response, mockNext);
 
-                expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.SERVER_ERROR);
-                expect(mockResponse.json).toHaveBeenCalledWith({
-                    success: false,
-                    error: "Invalid JSON payload",
-                    code: "GITHUB_WEBHOOK_ERROR"
-                });
-                expect(mockNext).not.toHaveBeenCalled();
+                expect(mockNext).toHaveBeenCalledWith(expect.any(GitHubWebhookError));
+                const error = (mockNext as jest.Mock).mock.calls[0][0];
+                expect(error.message).toBe("Invalid JSON payload");
+                expect(mockResponse.status).not.toHaveBeenCalled();
             });
         });
 
@@ -255,13 +248,13 @@ describe("Webhook Middleware", () => {
 
                 validateGitHubWebhook(mockRequest as Request, mockResponse as Response, mockNext);
 
-                expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.SERVER_ERROR);
-                expect(mockNext).not.toHaveBeenCalled();
+                expect(mockNext).toHaveBeenCalledWith(expect.any(GitHubWebhookError));
+                expect(mockResponse.status).not.toHaveBeenCalled();
             });
         });
     });
 
-    describe("validatePRWebhookEvent", () => {
+    describe("validateGitHubWebhookEvent", () => {
         const createValidPRPayload = (overrides = {}) => ({
             action: "opened",
             pull_request: {
@@ -283,6 +276,79 @@ describe("Webhook Middleware", () => {
             (OctokitService.getDefaultBranch as jest.Mock).mockResolvedValue("main");
         });
 
+        describe("Installation Events", () => {
+            it("should process valid installation created event", async () => {
+                const payload = {
+                    action: "created",
+                    installation: { id: 12345678 }
+                };
+
+                (mockRequest.get as jest.Mock).mockImplementation((header: string) => {
+                    if (header === "X-GitHub-Event") return "installation";
+                    if (header === "X-GitHub-Delivery") return "test-delivery-123";
+                    return undefined;
+                });
+                mockRequest.body = payload;
+
+                await validateGitHubWebhookEvent(mockRequest as Request, mockResponse as Response, mockNext);
+
+                expect(mockNext).toHaveBeenCalled();
+                expect(mockRequest.body.webhookMeta).toMatchObject({
+                    eventType: "installation",
+                    action: "created",
+                    deliveryId: "test-delivery-123"
+                });
+            });
+
+            it("should ignore unsupported installation action", async () => {
+                const payload = {
+                    action: "new_permissions_accepted", // unsupported action
+                    installation: { id: 12345678 }
+                };
+
+                (mockRequest.get as jest.Mock).mockImplementation((header: string) => {
+                    if (header === "X-GitHub-Event") return "installation";
+                    return undefined;
+                });
+                mockRequest.body = payload;
+
+                await validateGitHubWebhookEvent(mockRequest as Request, mockResponse as Response, mockNext);
+
+                expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.SUCCESS);
+                expect(mockResponse.json).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        message: "Installation action not processed",
+                        meta: { action: "new_permissions_accepted" }
+                    })
+                );
+                expect(mockNext).not.toHaveBeenCalled();
+            });
+
+            it("should reject when installation data is missing", async () => {
+                const payload = {
+                    action: "created"
+                    // missing installation object
+                };
+
+                (mockRequest.get as jest.Mock).mockImplementation((header: string) => {
+                    if (header === "X-GitHub-Event") return "installation";
+                    return undefined;
+                });
+                mockRequest.body = payload;
+
+                await validateGitHubWebhookEvent(mockRequest as Request, mockResponse as Response, mockNext);
+
+                expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.BAD_PAYLOAD);
+                expect(mockResponse.json).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        message: "Missing required installation data",
+                        meta: { installation: false }
+                    })
+                );
+                expect(mockNext).not.toHaveBeenCalled();
+            });
+        });
+
         describe("Valid PR Events", () => {
             it("should process valid opened PR event", async () => {
                 const payload = createValidPRPayload();
@@ -294,12 +360,37 @@ describe("Webhook Middleware", () => {
                 });
                 mockRequest.body = payload;
 
-                await validatePRWebhookEvent(mockRequest as Request, mockResponse as Response, mockNext);
+                await validateGitHubWebhookEvent(mockRequest as Request, mockResponse as Response, mockNext);
 
                 expect(mockNext).toHaveBeenCalled();
                 expect(mockRequest.body.webhookMeta).toBeDefined();
                 expect(mockRequest.body.webhookMeta.eventType).toBe("pull_request");
                 expect(mockRequest.body.webhookMeta.action).toBe("opened");
+            });
+
+            it("should skip draft PRs", async () => {
+                const payload = createValidPRPayload({
+                    pull_request: {
+                        number: 1,
+                        draft: true
+                    }
+                });
+
+                (mockRequest.get as jest.Mock).mockImplementation((header: string) => {
+                    if (header === "X-GitHub-Event") return "pull_request";
+                    return undefined;
+                });
+                mockRequest.body = payload;
+
+                await validateGitHubWebhookEvent(mockRequest as Request, mockResponse as Response, mockNext);
+
+                expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.SUCCESS);
+                expect(mockResponse.json).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        message: "Skipping draft PR"
+                    })
+                );
+                expect(mockNext).not.toHaveBeenCalled();
             });
 
             it("should process synchronize action", async () => {
@@ -312,7 +403,7 @@ describe("Webhook Middleware", () => {
                 });
                 mockRequest.body = payload;
 
-                await validatePRWebhookEvent(mockRequest as Request, mockResponse as Response, mockNext);
+                await validateGitHubWebhookEvent(mockRequest as Request, mockResponse as Response, mockNext);
 
                 expect(mockNext).toHaveBeenCalled();
                 expect(mockRequest.body.webhookMeta.action).toBe("synchronize");
@@ -327,7 +418,7 @@ describe("Webhook Middleware", () => {
                 });
                 mockRequest.body = payload;
 
-                await validatePRWebhookEvent(mockRequest as Request, mockResponse as Response, mockNext);
+                await validateGitHubWebhookEvent(mockRequest as Request, mockResponse as Response, mockNext);
 
                 expect(mockNext).toHaveBeenCalled();
             });
@@ -341,7 +432,7 @@ describe("Webhook Middleware", () => {
                 });
                 mockRequest.body = payload;
 
-                await validatePRWebhookEvent(mockRequest as Request, mockResponse as Response, mockNext);
+                await validateGitHubWebhookEvent(mockRequest as Request, mockResponse as Response, mockNext);
 
                 expect(mockNext).toHaveBeenCalled();
             });
@@ -357,7 +448,7 @@ describe("Webhook Middleware", () => {
                 });
                 mockRequest.body = payload;
 
-                await validatePRWebhookEvent(mockRequest as Request, mockResponse as Response, mockNext);
+                await validateGitHubWebhookEvent(mockRequest as Request, mockResponse as Response, mockNext);
 
                 expect(mockRequest.body.webhookMeta).toMatchObject({
                     eventType: "pull_request",
@@ -376,13 +467,13 @@ describe("Webhook Middleware", () => {
                 });
                 mockRequest.body = {};
 
-                await validatePRWebhookEvent(mockRequest as Request, mockResponse as Response, mockNext);
+                await validateGitHubWebhookEvent(mockRequest as Request, mockResponse as Response, mockNext);
 
                 expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.SUCCESS);
                 expect(mockResponse.json).toHaveBeenCalledWith({
-                    success: true,
+                    data: {},
                     message: "Event type not processed",
-                    eventType: "push"
+                    meta: { eventType: "push" }
                 });
                 expect(mockNext).not.toHaveBeenCalled();
             });
@@ -396,13 +487,13 @@ describe("Webhook Middleware", () => {
                 });
                 mockRequest.body = payload;
 
-                await validatePRWebhookEvent(mockRequest as Request, mockResponse as Response, mockNext);
+                await validateGitHubWebhookEvent(mockRequest as Request, mockResponse as Response, mockNext);
 
                 expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.SUCCESS);
                 expect(mockResponse.json).toHaveBeenCalledWith({
-                    success: true,
+                    data: {},
                     message: "PR action not processed",
-                    action: "labeled"
+                    meta: { action: "labeled" }
                 });
                 expect(mockNext).not.toHaveBeenCalled();
             });
@@ -421,13 +512,15 @@ describe("Webhook Middleware", () => {
                 });
                 mockRequest.body = payload;
 
-                await validatePRWebhookEvent(mockRequest as Request, mockResponse as Response, mockNext);
+                await validateGitHubWebhookEvent(mockRequest as Request, mockResponse as Response, mockNext);
 
                 expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.SUCCESS);
                 expect(mockResponse.json).toHaveBeenCalledWith(
                     expect.objectContaining({
-                        success: true,
-                        message: "PR not targeting default branch - skipping review"
+                        message: "PR not targeting default branch - skipping review",
+                        meta: expect.objectContaining({
+                            targetBranch: "develop"
+                        })
                     })
                 );
                 expect(mockNext).not.toHaveBeenCalled();
@@ -448,13 +541,13 @@ describe("Webhook Middleware", () => {
                 });
                 mockRequest.body = payload;
 
-                await validatePRWebhookEvent(mockRequest as Request, mockResponse as Response, mockNext);
+                await validateGitHubWebhookEvent(mockRequest as Request, mockResponse as Response, mockNext);
 
                 expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.BAD_PAYLOAD);
                 expect(mockResponse.json).toHaveBeenCalledWith({
-                    success: false,
-                    error: "Missing required webhook data",
-                    validation: {
+                    data: {},
+                    message: "Missing required webhook data",
+                    meta: {
                         pull_request: false,
                         repository: true,
                         installation: true
@@ -476,7 +569,7 @@ describe("Webhook Middleware", () => {
                 });
                 mockRequest.body = payload;
 
-                await validatePRWebhookEvent(mockRequest as Request, mockResponse as Response, mockNext);
+                await validateGitHubWebhookEvent(mockRequest as Request, mockResponse as Response, mockNext);
 
                 expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.BAD_PAYLOAD);
                 expect(mockNext).not.toHaveBeenCalled();
@@ -495,7 +588,7 @@ describe("Webhook Middleware", () => {
                 });
                 mockRequest.body = payload;
 
-                await validatePRWebhookEvent(mockRequest as Request, mockResponse as Response, mockNext);
+                await validateGitHubWebhookEvent(mockRequest as Request, mockResponse as Response, mockNext);
 
                 expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.BAD_PAYLOAD);
                 expect(mockNext).not.toHaveBeenCalled();
@@ -516,7 +609,7 @@ describe("Webhook Middleware", () => {
                 });
                 mockRequest.body = payload;
 
-                await validatePRWebhookEvent(mockRequest as Request, mockResponse as Response, mockNext);
+                await validateGitHubWebhookEvent(mockRequest as Request, mockResponse as Response, mockNext);
 
                 expect(mockNext).toHaveBeenCalled();
                 expect(mockRequest.body.webhookMeta).toBeDefined();
@@ -533,13 +626,12 @@ describe("Webhook Middleware", () => {
                 });
                 mockRequest.body = payload;
 
-                await validatePRWebhookEvent(mockRequest as Request, mockResponse as Response, mockNext);
+                await validateGitHubWebhookEvent(mockRequest as Request, mockResponse as Response, mockNext);
 
                 expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.BAD_PAYLOAD);
                 expect(mockResponse.json).toHaveBeenCalledWith(
                     expect.objectContaining({
-                        success: false,
-                        error: "Missing required webhook data"
+                        message: "Missing required webhook data"
                     })
                 );
                 expect(mockNext).not.toHaveBeenCalled();
