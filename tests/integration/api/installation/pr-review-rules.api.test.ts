@@ -150,7 +150,6 @@ describe("Installation PR Review Rules API Integration Tests", () => {
                 .expect(STATUS_CODES.SUCCESS);
 
             expect(response.body).toMatchObject({
-                success: true,
                 data: expect.arrayContaining([
                     expect.objectContaining({
                         name: "Code Quality Rule",
@@ -163,7 +162,7 @@ describe("Installation PR Review Rules API Integration Tests", () => {
                         severity: RuleSeverity.CRITICAL
                     })
                 ]),
-                count: 3
+                meta: { count: 3 }
             });
         });
 
@@ -174,7 +173,7 @@ describe("Installation PR Review Rules API Integration Tests", () => {
                 .set("x-test-user-id", "user-1")
                 .expect(STATUS_CODES.SUCCESS);
 
-            expect(response.body.count).toBe(2);
+            expect(response.body.meta.count).toBe(2);
             expect(response.body.data.every((rule: any) => rule.active === true)).toBe(true);
         });
 
@@ -185,7 +184,7 @@ describe("Installation PR Review Rules API Integration Tests", () => {
                 .set("x-test-user-id", "user-1")
                 .expect(STATUS_CODES.SUCCESS);
 
-            expect(response.body.count).toBe(1);
+            expect(response.body.meta.count).toBe(1);
             expect(response.body.data[0].ruleType).toBe(RuleType.SECURITY);
         });
 
@@ -196,7 +195,7 @@ describe("Installation PR Review Rules API Integration Tests", () => {
                 .set("x-test-user-id", "user-1")
                 .expect(STATUS_CODES.SUCCESS);
 
-            expect(response.body.count).toBe(1);
+            expect(response.body.meta.count).toBe(1);
             expect(response.body.data[0].severity).toBe(RuleSeverity.CRITICAL);
         });
     });
@@ -244,7 +243,6 @@ describe("Installation PR Review Rules API Integration Tests", () => {
                 .expect(STATUS_CODES.SUCCESS);
 
             expect(response.body).toMatchObject({
-                success: true,
                 data: expect.objectContaining({
                     id: testRule.id,
                     name: "Test Rule",
@@ -304,7 +302,6 @@ describe("Installation PR Review Rules API Integration Tests", () => {
                 .expect(STATUS_CODES.CREATED);
 
             expect(response.body).toMatchObject({
-                success: true,
                 data: expect.objectContaining({
                     name: "New Code Quality Rule",
                     ruleType: RuleType.CODE_QUALITY,
@@ -423,7 +420,6 @@ describe("Installation PR Review Rules API Integration Tests", () => {
                 .expect(STATUS_CODES.SUCCESS);
 
             expect(response.body).toMatchObject({
-                success: true,
                 data: expect.objectContaining({
                     name: "Updated Rule",
                     description: "Updated description",
@@ -523,7 +519,6 @@ describe("Installation PR Review Rules API Integration Tests", () => {
                 .expect(STATUS_CODES.SUCCESS);
 
             expect(response.body).toMatchObject({
-                success: true,
                 message: "Custom rule deleted successfully"
             });
 
@@ -551,9 +546,8 @@ describe("Installation PR Review Rules API Integration Tests", () => {
                 .expect(STATUS_CODES.SUCCESS);
 
             expect(response.body).toMatchObject({
-                success: true,
                 data: expect.any(Array),
-                count: expect.any(Number)
+                meta: { count: expect.any(Number) }
             });
 
             expect(response.body.data.length).toBeGreaterThan(0);

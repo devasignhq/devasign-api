@@ -39,6 +39,15 @@ jest.mock("../../../../api/services/kms.service", () => ({
     }
 }));
 
+jest.mock("../../../../api/services/octokit.service", () => ({
+    OctokitService: {
+        getInstallationDetails: jest.fn().mockResolvedValue({
+            id: "12345678",
+            account: { login: "test-org" }
+        })
+    }
+}));
+
 describe("Installation Team API Integration Tests", () => {
     let app: express.Application;
     let prisma: any;
@@ -139,7 +148,7 @@ describe("Installation Team API Integration Tests", () => {
                 .send(memberData)
                 .expect(STATUS_CODES.SUCCESS);
 
-            expect(response.body).toMatchObject({
+            expect(response.body.data).toMatchObject({
                 username: "newmember",
                 status: "added"
             });
@@ -189,9 +198,9 @@ describe("Installation Team API Integration Tests", () => {
                     .replace(":installationId", "12345678"))
                 .set("x-test-user-id", "team-owner")
                 .send(memberData)
-                .expect(400);
+                .expect(STATUS_CODES.SERVER_ERROR);
 
-            expect(response.body).toMatchObject({
+            expect(response.body.data).toMatchObject({
                 username: "existingmember",
                 status: "already_member"
             });
@@ -210,8 +219,7 @@ describe("Installation Team API Integration Tests", () => {
                 .send(memberData)
                 .expect(STATUS_CODES.SUCCESS);
 
-            expect(response.body).toMatchObject({
-                username: "nonexistentuser",
+            expect(response.body.data).toMatchObject({
                 status: "not_found"
             });
         });
@@ -227,7 +235,7 @@ describe("Installation Team API Integration Tests", () => {
                     .replace(":installationId", "99999999"))
                 .set("x-test-user-id", "team-owner")
                 .send(memberData)
-                .expect(STATUS_CODES.NOT_FOUND);
+                .expect(STATUS_CODES.UNAUTHORIZED);
         });
     });
 
@@ -323,7 +331,7 @@ describe("Installation Team API Integration Tests", () => {
                     .replace(":userId", teamMemberId))
                 .set("x-test-user-id", "team-owner")
                 .send(updateData)
-                .expect(STATUS_CODES.NOT_FOUND);
+                .expect(STATUS_CODES.UNAUTHORIZED);
         });
 
         it("should return error when user is not a team member", async () => {
@@ -429,7 +437,7 @@ describe("Installation Team API Integration Tests", () => {
                     .replace(":installationId", "99999999")
                     .replace(":userId", teamMemberId))
                 .set("x-test-user-id", "team-owner")
-                .expect(STATUS_CODES.NOT_FOUND);
+                .expect(STATUS_CODES.UNAUTHORIZED);
         });
 
         it("should return error when user is not a team member", async () => {

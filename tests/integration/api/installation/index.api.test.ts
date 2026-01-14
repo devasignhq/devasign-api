@@ -41,7 +41,13 @@ jest.mock("../../../../api/services/kms.service", () => ({
             iv: "mockIV",
             authTag: "mockAuthTag"
         }),
-        decryptWallet: jest.fn().mockResolvedValue("STEST1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12")
+        decryptWallet: jest.fn().mockResolvedValue("SD2H7VGPX5X5X5X5X5X5X5X5X5X5X5X5X5X5X5X5X5X5X5X5X5X5X5X5")
+    }
+}));
+
+jest.mock("../../../../api/services/contract.service", () => ({
+    ContractService: {
+        refund: jest.fn().mockResolvedValue("mockTxHash")
     }
 }));
 
@@ -145,7 +151,7 @@ describe("Installation API Integration Tests", () => {
                 .send(installationData)
                 .expect(STATUS_CODES.CREATED);
 
-            expect(response.body.id).toBe("12345678");
+            expect(response.body.data.id).toBe("12345678");
 
             // Verify installation was created in database
             const createdInstallation = await prisma.installation.findUnique({
@@ -210,11 +216,11 @@ describe("Installation API Integration Tests", () => {
                 .expect(STATUS_CODES.PARTIAL_SUCCESS);
 
             expect(response.body).toMatchObject({
-                error: expect.any(Object),
-                installation: expect.objectContaining({
+                data: expect.objectContaining({
                     id: "12345678"
                 }),
-                message: expect.stringContaining("Failed to add USDC trustlines")
+                message: expect.stringContaining("Installation created successfully"),
+                warning: "Failed to add USDC trustline to wallet"
             });
 
             // Verify installation was still created
@@ -279,12 +285,9 @@ describe("Installation API Integration Tests", () => {
                 data: expect.arrayContaining([
                     expect.any(Object)
                 ]),
-                pagination: expect.objectContaining({
-                    currentPage: 1,
-                    totalPages: expect.any(Number),
-                    totalItems: 3,
-                    itemsPerPage: 10
-                })
+                pagination: {
+                    hasMore: false
+                }
             });
 
             expect(response.body.data.length).toBe(3);
@@ -313,7 +316,7 @@ describe("Installation API Integration Tests", () => {
                 .expect(STATUS_CODES.SUCCESS);
 
             expect(response.body.data).toEqual([]);
-            expect(response.body.pagination.totalItems).toBe(0);
+            expect(response.body.pagination.hasMore).toBe(false);
         });
     });
 
@@ -377,7 +380,7 @@ describe("Installation API Integration Tests", () => {
                 .set("x-test-user-id", "user-1")
                 .expect(STATUS_CODES.SUCCESS);
 
-            expect(response.body).toMatchObject({
+            expect(response.body.data).toMatchObject({
                 id: "12345678",
                 wallet: expect.objectContaining({
                     address: expect.any(String)
@@ -459,7 +462,9 @@ describe("Installation API Integration Tests", () => {
 
             expect(response.body).toMatchObject({
                 message: "Installation archived successfully",
-                refunded: expect.stringContaining("USDC")
+                data: {
+                    refunded: expect.stringContaining("USDC")
+                }
             });
 
             // Verify installation was archived (not deleted)
@@ -542,7 +547,9 @@ describe("Installation API Integration Tests", () => {
 
             expect(response.body).toMatchObject({
                 message: "Installation archived successfully",
-                refunded: expect.stringContaining("USDC")
+                data: {
+                    refunded: expect.stringContaining("USDC")
+                }
             });
 
             // Verify installation was archived

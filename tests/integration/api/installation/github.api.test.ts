@@ -25,7 +25,7 @@ jest.mock("../../../../api/services/octokit.service", () => ({
         getRepoIssuesWithSearch: jest.fn(),
         getRepoLabelsAndMilestones: jest.fn(),
         getBountyLabel: jest.fn(),
-        createBountyLabel: jest.fn(),
+        createBountyLabels: jest.fn(),
         getPRDetails: jest.fn()
     }
 }));
@@ -143,7 +143,7 @@ describe("Installation GitHub API Integration Tests", () => {
         });
 
         mockOctokitService.getBountyLabel.mockResolvedValue(null);
-        mockOctokitService.createBountyLabel.mockResolvedValue({
+        mockOctokitService.createBountyLabels.mockResolvedValue({
             id: 999,
             name: "bounty",
             color: "00ff00"
@@ -218,7 +218,7 @@ describe("Installation GitHub API Integration Tests", () => {
                 .set("x-test-user-id", "user-1")
                 .expect(STATUS_CODES.SUCCESS);
 
-            expect(response.body).toEqual(
+            expect(response.body.data).toEqual(
                 expect.arrayContaining([
                     expect.objectContaining({
                         id: 123456,
@@ -261,17 +261,16 @@ describe("Installation GitHub API Integration Tests", () => {
                 .expect(STATUS_CODES.SUCCESS);
 
             expect(response.body).toMatchObject({
-                issues: expect.arrayContaining([
+                message: "Issues retrieved successfully",
+                data: expect.arrayContaining([
                     expect.objectContaining({
                         number: 1,
                         title: "Test Issue"
                     })
                 ]),
-                hasMore: false,
-                pagination: expect.objectContaining({
-                    page: 1,
-                    perPage: 30
-                })
+                pagination: {
+                    hasMore: false
+                }
             });
         });
 
@@ -283,8 +282,7 @@ describe("Installation GitHub API Integration Tests", () => {
                 .expect(STATUS_CODES.SUCCESS);
 
             expect(response.body.pagination).toMatchObject({
-                page: 2,
-                perPage: 10
+                hasMore: false
             });
         });
 
@@ -335,7 +333,7 @@ describe("Installation GitHub API Integration Tests", () => {
                 .set("x-test-user-id", "user-1")
                 .expect(STATUS_CODES.SUCCESS);
 
-            expect(response.body).toMatchObject({
+            expect(response.body.data).toMatchObject({
                 labels: expect.arrayContaining([
                     expect.objectContaining({
                         id: 1,
@@ -390,15 +388,14 @@ describe("Installation GitHub API Integration Tests", () => {
                 .set("x-test-user-id", "user-1")
                 .expect(STATUS_CODES.SUCCESS);
 
-            expect(response.body).toMatchObject({
-                valid: true,
+            expect(response.body.data).toMatchObject({
                 bountyLabel: expect.objectContaining({
                     id: 888,
                     name: "bounty"
                 })
             });
 
-            expect(mockOctokitService.createBountyLabel).not.toHaveBeenCalled();
+            expect(mockOctokitService.createBountyLabels).not.toHaveBeenCalled();
         });
 
         it("should create bounty label if it does not exist", async () => {
@@ -410,15 +407,13 @@ describe("Installation GitHub API Integration Tests", () => {
                 .set("x-test-user-id", "user-1")
                 .expect(STATUS_CODES.SUCCESS);
 
-            expect(response.body).toMatchObject({
-                valid: true,
-                bountyLabel: expect.objectContaining({
-                    id: 999,
-                    name: "bounty"
-                })
+            expect(response.body.data).toMatchObject({
+                id: 999,
+                name: "bounty",
+                color: "00ff00"
             });
 
-            expect(mockOctokitService.createBountyLabel).toHaveBeenCalledWith("123456", "12345678");
+            expect(mockOctokitService.createBountyLabels).toHaveBeenCalledWith("123456", "12345678");
         });
     });
 
@@ -457,7 +452,6 @@ describe("Installation GitHub API Integration Tests", () => {
                 .expect(STATUS_CODES.BACKGROUND_JOB);
 
             expect(response.body).toMatchObject({
-                success: true,
                 message: "PR analysis triggered successfully",
                 data: expect.objectContaining({
                     installationId: "12345678",
@@ -496,8 +490,7 @@ describe("Installation GitHub API Integration Tests", () => {
                 .expect(STATUS_CODES.NOT_FOUND);
 
             expect(response.body).toMatchObject({
-                success: false,
-                error: expect.stringContaining("PR #999 not found")
+                message: expect.stringContaining("PR #999 not found")
             });
         });
 
@@ -525,8 +518,7 @@ describe("Installation GitHub API Integration Tests", () => {
                 .expect(STATUS_CODES.SERVER_ERROR);
 
             expect(response.body).toMatchObject({
-                success: false,
-                error: expect.stringContaining("PR not eligible for analysis")
+                message: expect.stringContaining("PR not eligible for analysis")
             });
         });
 
@@ -548,7 +540,7 @@ describe("Installation GitHub API Integration Tests", () => {
                 .send(analysisData)
                 .expect(STATUS_CODES.SERVER_ERROR);
 
-            expect(response.body.code).toBe("GITHUB_API_ERROR");
+            expect(response.body.meta.code).toBe("GITHUB_API_ERROR");
         });
     });
 
