@@ -7,6 +7,16 @@ import { DatabaseTestHelper } from "../../../../tests/helpers/database-test-help
 import { TestDataFactory } from "../../../../tests/helpers/test-data-factory";
 import { ENDPOINTS, STATUS_CODES } from "../../../../api/utilities/data";
 import { getEndpointWithPrefix } from "../../../helpers/test-utils";
+import { mockFirebaseAuth } from "../../../mocks/firebase.service.mock";
+
+// Mock Firebase admin for authentication
+jest.mock("../../../../api/config/firebase.config", () => {
+    return {
+        firebaseAdmin: {
+            auth: () => (mockFirebaseAuth)
+        }
+    };
+});
 
 // Mock external services
 jest.mock("../../../../api/services/ai-review/workflow-integration.service", () => ({
@@ -21,6 +31,13 @@ jest.mock("../../../../api/services/ai-review/pr-analysis.service", () => ({
     }
 }));
 
+// Mock Firebase service for task messaging
+jest.mock("../../../../api/services/firebase.service", () => ({
+    FirebaseService: {
+        updateTaskStatus: jest.fn().mockResolvedValue(true)
+    }
+}));
+
 jest.mock("../../../../api/services/octokit.service", () => ({
     OctokitService: {
         getOctokit: jest.fn(),
@@ -32,7 +49,8 @@ jest.mock("../../../../api/services/octokit.service", () => ({
 // Mock Contract service
 jest.mock("../../../../api/services/contract.service", () => ({
     ContractService: {
-        approveCompletion: jest.fn()
+        approveCompletion: jest.fn(),
+        refund: jest.fn()
     }
 }));
 
@@ -67,7 +85,7 @@ describe("Webhook API Integration Tests", () => {
 
         // Use raw middleware for webhook signature validation
         app.use(
-            getEndpointWithPrefix(["WEBHOOK", "PR_EVENT"]),
+            getEndpointWithPrefix(["WEBHOOK", "GITHUB"]),
             express.raw({ type: "application/json" })
         );
         app.use(ENDPOINTS.WEBHOOK.PREFIX, webhookRoutes);
@@ -125,6 +143,11 @@ describe("Webhook API Integration Tests", () => {
         mockContractService.approveCompletion.mockResolvedValue({
             success: true,
             txHash: "test-approve-completion-tx-hash",
+            result: { createdAt: 1234567890 }
+        });
+        mockContractService.refund.mockResolvedValue({
+            success: true,
+            txHash: "test-refund-tx-hash",
             result: { createdAt: 1234567890 }
         });
 
@@ -187,14 +210,164 @@ describe("Webhook API Integration Tests", () => {
         };
     };
 
-    describe(`POST ${getEndpointWithPrefix(["WEBHOOK", "PR_EVENT"])} - Pull Request Review`, () => {
+    // Helper function to create Installation webhook payload
+    const createInstallationPayload = (action: string, overrides: any = {}) => {
+        return {
+            action,
+            installation: {
+                id: parseInt(VALID_INSTALLATION_ID),
+                account: {
+                    id: 12345,
+                    login: "test",
+                    url: "https://api.github.com/users/test",
+                    type: "User",
+                    site_admin: false
+                },
+                repository_selection: "selected",
+                ...overrides
+            },
+            sender: {
+                login: "test-sender",
+                id: 12345
+            }
+        };
+    };
+
+    describe(`POST ${getEndpointWithPrefix(["WEBHOOK", "GITHUB"])} - Installation Events`, () => {
+        it("should log installation creation", async () => {
+            const payload = createInstallationPayload("created");
+            const payloadString = JSON.stringify(payload);
+            const signature = createWebhookSignature(payloadString);
+
+            const response = await request(app)
+                .post(getEndpointWithPrefix(["WEBHOOK", "GITHUB"]))
+                .set("X-GitHub-Event", "installation")
+                .set("X-Hub-Signature-256", signature)
+                .set("Content-Type", "application/json")
+                .send(payloadString)
+                .expect(STATUS_CODES.SUCCESS);
+
+            expect(response.body).toMatchObject({
+                message: "Installation creation logged",
+                data: { installationId: VALID_INSTALLATION_ID }
+            });
+        });
+
+        it("should archive installation and refund open tasks on delete", async () => {
+            // Create user and installation with wallet
+            const creator = await prisma.user.create({
+                data: TestDataFactory.user({ userId: "task-creator" })
+            });
+
+            const installation = await prisma.installation.create({
+                data: {
+                    ...TestDataFactory.installation({ id: VALID_INSTALLATION_ID }),
+                    wallet: TestDataFactory.createWalletRelation()
+                }
+            });
+
+            // Create an open task with bounty
+            const task = await prisma.task.create({
+                data: {
+                    ...TestDataFactory.task({
+                        status: "OPEN",
+                        bounty: 100,
+                        timeline: 6,
+                        creatorId: undefined,
+                        contributorId: undefined,
+                        installationId: undefined
+                    }),
+                    creator: { connect: { userId: creator.userId } },
+                    installation: { connect: { id: installation.id } }
+                }
+            });
+
+            mockContractService.approveCompletion.mockResolvedValue({
+                success: true,
+                txHash: "test-refund-tx-hash",
+                result: { createdAt: 1234567890 }
+            });
+            mockContractService.refund.mockResolvedValue({
+                success: true,
+                txHash: "refund-tx",
+                result: { createdAt: 1234567890 }
+            });
+
+            const payload = createInstallationPayload("deleted");
+            const payloadString = JSON.stringify(payload);
+            const signature = createWebhookSignature(payloadString);
+
+            const response = await request(app)
+                .post(getEndpointWithPrefix(["WEBHOOK", "GITHUB"]))
+                .set("X-GitHub-Event", "installation")
+                .set("X-Hub-Signature-256", signature)
+                .set("Content-Type", "application/json")
+                .send(payloadString)
+                .expect(STATUS_CODES.SUCCESS);
+
+            expect(response.body).toMatchObject({
+                message: "Installation archived and 100 USDC refunded",
+                data: {
+                    installationId: VALID_INSTALLATION_ID,
+                    refundedAmount: 100
+                }
+            });
+
+            // Verify installation is archived
+            const updatedInstallation = await prisma.installation.findUnique({
+                where: { id: VALID_INSTALLATION_ID }
+            });
+            expect(updatedInstallation?.status).toBe("ARCHIVED");
+
+            // Verify task is archived
+            const updatedTask = await prisma.task.findUnique({
+                where: { id: task.id }
+            });
+            expect(updatedTask?.status).toBe("ARCHIVED");
+
+            expect(mockContractService.refund).toHaveBeenCalled();
+        });
+
+        it("should reactivate installation on unsuspend", async () => {
+            // Create archived installation
+            await prisma.installation.create({
+                data: {
+                    ...TestDataFactory.installation({ id: VALID_INSTALLATION_ID, status: "ARCHIVED" })
+                }
+            });
+
+            const payload = createInstallationPayload("unsuspend");
+            const payloadString = JSON.stringify(payload);
+            const signature = createWebhookSignature(payloadString);
+
+            const response = await request(app)
+                .post(getEndpointWithPrefix(["WEBHOOK", "GITHUB"]))
+                .set("X-GitHub-Event", "installation")
+                .set("X-Hub-Signature-256", signature)
+                .set("Content-Type", "application/json")
+                .send(payloadString)
+                .expect(STATUS_CODES.SUCCESS);
+
+            expect(response.body).toMatchObject({
+                message: "Installation reactivated",
+                data: { installationId: VALID_INSTALLATION_ID }
+            });
+
+            const updatedInstallation = await prisma.installation.findUnique({
+                where: { id: VALID_INSTALLATION_ID }
+            });
+            expect(updatedInstallation?.status).toBe("ACTIVE");
+        });
+    });
+
+    describe(`POST ${getEndpointWithPrefix(["WEBHOOK", "GITHUB"])} - Pull Request Review`, () => {
         it("should process valid PR webhook with realistic payload successfully", async () => {
             const payload = createWebhookPayload();
             const payloadString = JSON.stringify(payload);
             const signature = createWebhookSignature(payloadString);
 
             const response = await request(app)
-                .post(getEndpointWithPrefix(["WEBHOOK", "PR_EVENT"]))
+                .post(getEndpointWithPrefix(["WEBHOOK", "GITHUB"]))
                 .set("X-GitHub-Event", "pull_request")
                 .set("X-Hub-Signature-256", signature)
                 .set("X-GitHub-Delivery", "test-delivery-123")
@@ -203,7 +376,6 @@ describe("Webhook API Integration Tests", () => {
                 .expect(STATUS_CODES.BACKGROUND_JOB);
 
             expect(response.body).toMatchObject({
-                success: true,
                 message: "PR webhook processed successfully - analysis queued",
                 data: {
                     jobId: "test-job-123",
@@ -214,9 +386,9 @@ describe("Webhook API Integration Tests", () => {
                     linkedIssuesCount: 1,
                     changedFilesCount: 1,
                     eligibleForAnalysis: true,
-                    status: "queued"
-                },
-                timestamp: expect.any(String)
+                    status: "queued",
+                    timestamp: expect.any(String)
+                }
             });
 
             expect(mockWorkflowService.processWebhookWorkflow).toHaveBeenCalledWith(
@@ -253,7 +425,7 @@ describe("Webhook API Integration Tests", () => {
             const signature = createWebhookSignature(payloadString);
 
             const response = await request(app)
-                .post(getEndpointWithPrefix(["WEBHOOK", "PR_EVENT"]))
+                .post(getEndpointWithPrefix(["WEBHOOK", "GITHUB"]))
                 .set("X-GitHub-Event", "pull_request")
                 .set("X-Hub-Signature-256", signature)
                 .set("X-GitHub-Delivery", "test-delivery-123")
@@ -262,13 +434,12 @@ describe("Webhook API Integration Tests", () => {
                 .expect(STATUS_CODES.SUCCESS);
 
             expect(response.body).toMatchObject({
-                success: true,
                 message: "PR not eligible for analysis: No linked issues found",
                 data: {
                     prNumber: 1,
-                    repositoryName: VALID_REPO_NAME
-                },
-                timestamp: expect.any(String)
+                    repositoryName: VALID_REPO_NAME,
+                    timestamp: expect.any(String)
+                }
             });
         });
 
@@ -283,13 +454,14 @@ describe("Webhook API Integration Tests", () => {
             const signature = createWebhookSignature(payloadString);
 
             const response = await request(app)
-                .post(getEndpointWithPrefix(["WEBHOOK", "PR_EVENT"]))
+                .post(getEndpointWithPrefix(["WEBHOOK", "GITHUB"]))
                 .set("X-GitHub-Event", "pull_request")
                 .set("X-Hub-Signature-256", signature)
+                .set("Content-Type", "application/json")
                 .send(payloadString)
                 .expect(STATUS_CODES.SERVER_ERROR);
 
-            expect(response.body.success).toBe(false);
+            expect(response.body.message).toBe("GitHub API rate limit exceeded");
         });
 
         it("should validate webhook signature and reject invalid signatures", async () => {
@@ -301,14 +473,14 @@ describe("Webhook API Integration Tests", () => {
                 .digest("hex")}`;
 
             const response = await request(app)
-                .post(getEndpointWithPrefix(["WEBHOOK", "PR_EVENT"]))
+                .post(getEndpointWithPrefix(["WEBHOOK", "GITHUB"]))
                 .set("X-GitHub-Event", "pull_request")
                 .set("X-Hub-Signature-256", invalidSignature)
                 .set("Content-Type", "application/json")
                 .send(payloadString)
                 .expect(STATUS_CODES.SERVER_ERROR);
 
-            expect(response.body.error).toBe("Invalid webhook signature");
+            expect(response.body.message).toBe("Invalid webhook signature");
             expect(mockWorkflowService.processWebhookWorkflow).not.toHaveBeenCalled();
         });
 
@@ -317,13 +489,13 @@ describe("Webhook API Integration Tests", () => {
             const payloadString = JSON.stringify(payload);
 
             const response = await request(app)
-                .post(getEndpointWithPrefix(["WEBHOOK", "PR_EVENT"]))
+                .post(getEndpointWithPrefix(["WEBHOOK", "GITHUB"]))
                 .set("X-GitHub-Event", "pull_request")
                 .set("Content-Type", "application/json")
                 .send(payloadString)
                 .expect(STATUS_CODES.SERVER_ERROR);
 
-            expect(response.body.error).toBe("Missing webhook signature");
+            expect(response.body.message).toBe("Missing webhook signature");
             expect(mockWorkflowService.processWebhookWorkflow).not.toHaveBeenCalled();
         });
 
@@ -333,7 +505,7 @@ describe("Webhook API Integration Tests", () => {
             const signature = createWebhookSignature(payloadString);
 
             const response = await request(app)
-                .post(getEndpointWithPrefix(["WEBHOOK", "PR_EVENT"]))
+                .post(getEndpointWithPrefix(["WEBHOOK", "GITHUB"]))
                 .set("X-GitHub-Event", "issues")
                 .set("X-Hub-Signature-256", signature)
                 .set("Content-Type", "application/json")
@@ -341,9 +513,8 @@ describe("Webhook API Integration Tests", () => {
                 .expect(STATUS_CODES.SUCCESS);
 
             expect(response.body).toMatchObject({
-                success: true,
                 message: "Event type not processed",
-                eventType: "issues"
+                meta: { eventType: "issues" }
             });
 
             expect(mockWorkflowService.processWebhookWorkflow).not.toHaveBeenCalled();
@@ -355,7 +526,7 @@ describe("Webhook API Integration Tests", () => {
             const signature = createWebhookSignature(payloadString);
 
             const response = await request(app)
-                .post(getEndpointWithPrefix(["WEBHOOK", "PR_EVENT"]))
+                .post(getEndpointWithPrefix(["WEBHOOK", "GITHUB"]))
                 .set("X-GitHub-Event", "pull_request")
                 .set("X-Hub-Signature-256", signature)
                 .set("Content-Type", "application/json")
@@ -363,9 +534,8 @@ describe("Webhook API Integration Tests", () => {
                 .expect(STATUS_CODES.SUCCESS);
 
             expect(response.body).toMatchObject({
-                success: true,
                 message: "PR action not processed",
-                action: "closed"
+                data: { action: "closed" }
             });
 
             expect(mockWorkflowService.processWebhookWorkflow).not.toHaveBeenCalled();
@@ -382,7 +552,7 @@ describe("Webhook API Integration Tests", () => {
             const signature = createWebhookSignature(payloadString);
 
             const response = await request(app)
-                .post(getEndpointWithPrefix(["WEBHOOK", "PR_EVENT"]))
+                .post(getEndpointWithPrefix(["WEBHOOK", "GITHUB"]))
                 .set("X-GitHub-Event", "pull_request")
                 .set("X-Hub-Signature-256", signature)
                 .set("Content-Type", "application/json")
@@ -390,9 +560,8 @@ describe("Webhook API Integration Tests", () => {
                 .expect(STATUS_CODES.SUCCESS);
 
             expect(response.body).toMatchObject({
-                success: true,
                 message: "PR not targeting default branch - skipping review",
-                data: {
+                meta: {
                     prNumber: 1,
                     repositoryName: VALID_REPO_NAME,
                     targetBranch: "develop",
@@ -409,13 +578,14 @@ describe("Webhook API Integration Tests", () => {
             const signature = createWebhookSignature(invalidJson);
 
             const response = await request(app)
-                .post(getEndpointWithPrefix(["WEBHOOK", "PR_EVENT"]))
+                .post(getEndpointWithPrefix(["WEBHOOK", "GITHUB"]))
                 .set("X-GitHub-Event", "pull_request")
                 .set("X-Hub-Signature-256", signature)
+                .set("Content-Type", "application/json")
                 .send(invalidJson)
                 .expect(STATUS_CODES.SERVER_ERROR);
 
-            expect(response.body.error).toBe("Invalid request body format");
+            expect(response.body.message).toBe("Invalid JSON payload");
         });
 
         it("should process synchronize action for PR updates", async () => {
@@ -424,7 +594,7 @@ describe("Webhook API Integration Tests", () => {
             const signature = createWebhookSignature(payloadString);
 
             const response = await request(app)
-                .post(getEndpointWithPrefix(["WEBHOOK", "PR_EVENT"]))
+                .post(getEndpointWithPrefix(["WEBHOOK", "GITHUB"]))
                 .set("X-GitHub-Event", "pull_request")
                 .set("X-Hub-Signature-256", signature)
                 .set("X-GitHub-Delivery", "test-delivery-123")
@@ -432,7 +602,7 @@ describe("Webhook API Integration Tests", () => {
                 .send(payloadString)
                 .expect(STATUS_CODES.BACKGROUND_JOB);
 
-            expect(response.body.success).toBe(true);
+            expect(response.body.message).toBe("PR webhook processed successfully - analysis queued");
             expect(mockWorkflowService.processWebhookWorkflow).toHaveBeenCalledWith(
                 expect.objectContaining({
                     action: "synchronize"
@@ -446,7 +616,7 @@ describe("Webhook API Integration Tests", () => {
             const signature = createWebhookSignature(payloadString);
 
             const response = await request(app)
-                .post(getEndpointWithPrefix(["WEBHOOK", "PR_EVENT"]))
+                .post(getEndpointWithPrefix(["WEBHOOK", "GITHUB"]))
                 .set("X-GitHub-Event", "pull_request")
                 .set("X-Hub-Signature-256", signature)
                 .set("X-GitHub-Delivery", "test-delivery-123")
@@ -454,7 +624,7 @@ describe("Webhook API Integration Tests", () => {
                 .send(payloadString)
                 .expect(STATUS_CODES.BACKGROUND_JOB);
 
-            expect(response.body.success).toBe(true);
+            expect(response.body.message).toBe("PR webhook processed successfully - analysis queued");
             expect(mockWorkflowService.processWebhookWorkflow).toHaveBeenCalledWith(
                 expect.objectContaining({
                     action: "ready_for_review"
@@ -463,7 +633,7 @@ describe("Webhook API Integration Tests", () => {
         });
     });
 
-    describe(`POST ${getEndpointWithPrefix(["WEBHOOK", "PR_EVENT"])} - Bounty Payout on PR Merge`, () => {
+    describe(`POST ${getEndpointWithPrefix(["WEBHOOK", "GITHUB"])} - Bounty Payout on PR Merge`, () => {
         let testTask: any;
 
         beforeEach(async () => {
@@ -528,7 +698,7 @@ describe("Webhook API Integration Tests", () => {
             const signature = createWebhookSignature(payloadString);
 
             const response = await request(app)
-                .post(getEndpointWithPrefix(["WEBHOOK", "PR_EVENT"]))
+                .post(getEndpointWithPrefix(["WEBHOOK", "GITHUB"]))
                 .set("X-GitHub-Event", "pull_request")
                 .set("X-Hub-Signature-256", signature)
                 .set("Content-Type", "application/json")
@@ -536,7 +706,6 @@ describe("Webhook API Integration Tests", () => {
                 .expect(STATUS_CODES.SUCCESS);
 
             expect(response.body).toMatchObject({
-                success: true,
                 message: "PR merged - Payment processed successfully",
                 data: {
                     prNumber: 1,
@@ -580,7 +749,7 @@ describe("Webhook API Integration Tests", () => {
             const signature = createWebhookSignature(payloadString);
 
             const response = await request(app)
-                .post(getEndpointWithPrefix(["WEBHOOK", "PR_EVENT"]))
+                .post(getEndpointWithPrefix(["WEBHOOK", "GITHUB"]))
                 .set("X-GitHub-Event", "pull_request")
                 .set("X-Hub-Signature-256", signature)
                 .set("Content-Type", "application/json")
@@ -588,7 +757,6 @@ describe("Webhook API Integration Tests", () => {
                 .expect(STATUS_CODES.SUCCESS);
 
             expect(response.body).toMatchObject({
-                success: true,
                 message: "No linked issues found - no payment triggered"
             });
 
@@ -613,7 +781,7 @@ describe("Webhook API Integration Tests", () => {
             ]);
 
             const response = await request(app)
-                .post(getEndpointWithPrefix(["WEBHOOK", "PR_EVENT"]))
+                .post(getEndpointWithPrefix(["WEBHOOK", "GITHUB"]))
                 .set("X-GitHub-Event", "pull_request")
                 .set("X-Hub-Signature-256", signature)
                 .set("Content-Type", "application/json")
@@ -621,8 +789,7 @@ describe("Webhook API Integration Tests", () => {
                 .expect(STATUS_CODES.SUCCESS);
 
             expect(response.body).toMatchObject({
-                success: true,
-                message: "No matching tasks found"
+                message: "No matching active or submitted task found"
             });
 
             expect(mockContractService.approveCompletion).not.toHaveBeenCalled();
@@ -682,7 +849,7 @@ describe("Webhook API Integration Tests", () => {
             const signature = createWebhookSignature(payloadString);
 
             const response = await request(app)
-                .post(getEndpointWithPrefix(["WEBHOOK", "PR_EVENT"]))
+                .post(getEndpointWithPrefix(["WEBHOOK", "GITHUB"]))
                 .set("X-GitHub-Event", "pull_request")
                 .set("X-Hub-Signature-256", signature)
                 .set("Content-Type", "application/json")
@@ -690,7 +857,6 @@ describe("Webhook API Integration Tests", () => {
                 .expect(STATUS_CODES.SUCCESS);
 
             expect(response.body).toMatchObject({
-                success: true,
                 message: "No wallet address found for contributor"
             });
 
@@ -709,7 +875,7 @@ describe("Webhook API Integration Tests", () => {
             const signature = createWebhookSignature(payloadString);
 
             const response = await request(app)
-                .post(getEndpointWithPrefix(["WEBHOOK", "PR_EVENT"]))
+                .post(getEndpointWithPrefix(["WEBHOOK", "GITHUB"]))
                 .set("X-GitHub-Event", "pull_request")
                 .set("X-Hub-Signature-256", signature)
                 .set("Content-Type", "application/json")
@@ -717,9 +883,8 @@ describe("Webhook API Integration Tests", () => {
                 .expect(STATUS_CODES.SUCCESS);
 
             expect(response.body).toMatchObject({
-                success: true,
                 message: "PR action not processed",
-                action: "closed"
+                data: { action: "closed" }
             });
 
             expect(mockContractService.approveCompletion).not.toHaveBeenCalled();
@@ -738,7 +903,7 @@ describe("Webhook API Integration Tests", () => {
             const signature = createWebhookSignature(payloadString);
 
             const response = await request(app)
-                .post(getEndpointWithPrefix(["WEBHOOK", "PR_EVENT"]))
+                .post(getEndpointWithPrefix(["WEBHOOK", "GITHUB"]))
                 .set("X-GitHub-Event", "pull_request")
                 .set("X-Hub-Signature-256", signature)
                 .set("X-GitHub-Delivery", "test-delivery-123")
@@ -761,7 +926,7 @@ describe("Webhook API Integration Tests", () => {
             const signature = createWebhookSignature(payloadString);
 
             const response = await request(app)
-                .post(getEndpointWithPrefix(["WEBHOOK", "PR_EVENT"]))
+                .post(getEndpointWithPrefix(["WEBHOOK", "GITHUB"]))
                 .set("X-GitHub-Event", "pull_request")
                 .set("X-Hub-Signature-256", signature)
                 .set("X-GitHub-Delivery", "test-delivery-123")
@@ -785,7 +950,7 @@ describe("Webhook API Integration Tests", () => {
             const signature = createWebhookSignature(payloadString);
 
             const response = await request(app)
-                .post(getEndpointWithPrefix(["WEBHOOK", "PR_EVENT"]))
+                .post(getEndpointWithPrefix(["WEBHOOK", "GITHUB"]))
                 .set("X-GitHub-Event", "pull_request")
                 .set("X-Hub-Signature-256", signature)
                 .set("X-GitHub-Delivery", "test-delivery-123")
@@ -807,7 +972,7 @@ describe("Webhook API Integration Tests", () => {
 
             // Should still process the webhook despite default branch validation error
             const response = await request(app)
-                .post(getEndpointWithPrefix(["WEBHOOK", "PR_EVENT"]))
+                .post(getEndpointWithPrefix(["WEBHOOK", "GITHUB"]))
                 .set("X-GitHub-Event", "pull_request")
                 .set("X-Hub-Signature-256", signature)
                 .set("X-GitHub-Delivery", "test-delivery-123")
@@ -815,7 +980,7 @@ describe("Webhook API Integration Tests", () => {
                 .send(payloadString)
                 .expect(STATUS_CODES.BACKGROUND_JOB);
 
-            expect(response.body.success).toBe(true);
+            expect(response.body.message).toContain("PR webhook processed successfully");
         });
     });
 
@@ -827,15 +992,14 @@ describe("Webhook API Integration Tests", () => {
             const payloadString = JSON.stringify(payload);
 
             const response = await request(app)
-                .post(getEndpointWithPrefix(["WEBHOOK", "PR_EVENT"]))
+                .post(getEndpointWithPrefix(["WEBHOOK", "GITHUB"]))
                 .set("X-GitHub-Event", "pull_request")
                 .set("X-Hub-Signature-256", "sha256=test")
                 .send(payloadString)
                 .expect(STATUS_CODES.SERVER_ERROR);
 
             expect(response.body).toMatchObject({
-                success: false,
-                error: "GitHub webhook secret not configured",
+                message: "GitHub webhook secret not configured",
                 code: "GITHUB_WEBHOOK_ERROR"
             });
 
@@ -852,7 +1016,7 @@ describe("Webhook API Integration Tests", () => {
             const invalidSignature = validSignature.replace(/[0-9]/g, "a");
 
             const response = await request(app)
-                .post(getEndpointWithPrefix(["WEBHOOK", "PR_EVENT"]))
+                .post(getEndpointWithPrefix(["WEBHOOK", "GITHUB"]))
                 .set("X-GitHub-Event", "pull_request")
                 .set("X-Hub-Signature-256", invalidSignature)
                 .set("Content-Type", "application/json")
@@ -860,8 +1024,7 @@ describe("Webhook API Integration Tests", () => {
                 .expect(STATUS_CODES.SERVER_ERROR);
 
             expect(response.body).toMatchObject({
-                success: false,
-                error: "Invalid webhook signature"
+                message: "Invalid webhook signature"
             });
         });
 
@@ -876,15 +1039,14 @@ describe("Webhook API Integration Tests", () => {
             const signature = createWebhookSignature(JSON.stringify(payload));
 
             const response = await request(testApp)
-                .post(getEndpointWithPrefix(["WEBHOOK", "PR_EVENT"]))
+                .post(getEndpointWithPrefix(["WEBHOOK", "GITHUB"]))
                 .set("X-GitHub-Event", "pull_request")
                 .set("X-Hub-Signature-256", signature)
                 .send(payload)
                 .expect(STATUS_CODES.SERVER_ERROR);
 
             expect(response.body).toMatchObject({
-                success: false,
-                error: "Invalid request body format",
+                message: "Invalid request body format",
                 code: "GITHUB_WEBHOOK_ERROR"
             });
         });
@@ -918,7 +1080,7 @@ describe("Webhook API Integration Tests", () => {
                 });
 
                 return request(app)
-                    .post(getEndpointWithPrefix(["WEBHOOK", "PR_EVENT"]))
+                    .post(getEndpointWithPrefix(["WEBHOOK", "GITHUB"]))
                     .set("X-GitHub-Event", "pull_request")
                     .set("X-Hub-Signature-256", signature)
                     .set("X-GitHub-Delivery", `test-delivery-${i + 1}`)
@@ -930,7 +1092,7 @@ describe("Webhook API Integration Tests", () => {
 
             responses.forEach((response, _i) => {
                 expect(response.status).toBe(STATUS_CODES.BACKGROUND_JOB);
-                expect(response.body.success).toBe(true);
+                expect(response.body.message).toContain("PR webhook processed");
             });
 
             expect(mockWorkflowService.processWebhookWorkflow).toHaveBeenCalledTimes(5);

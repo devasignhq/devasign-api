@@ -200,8 +200,9 @@ export const handlePRReview = async (req: Request, res: Response, next: NextFunc
             });
             return responseWrapper({
                 res,
-                status: STATUS_CODES.UNKNOWN,
-                data: { timestamp: new Date().toISOString() }
+                status: STATUS_CODES.SERVER_ERROR,
+                data: { timestamp: new Date().toISOString() },
+                message: result.error || "Failed to process PR webhook"
             });
         }
 
@@ -405,9 +406,13 @@ export const handleBountyPayout = async (req: Request, res: Response, next: Next
             });
 
             // Disable chat for the task
-            FirebaseService.updateTaskStatus(relatedTask.id).catch(
-                error => dataLogger.warn("Failed to disable chat", { taskId: relatedTask.id, error })
-            );
+            try {
+                FirebaseService.updateTaskStatus(relatedTask.id).catch(
+                    error => dataLogger.warn("Failed to disable chat", { taskId: relatedTask.id, error })
+                );
+            } catch (err) {
+                dataLogger.warn("Failed to initiate chat disable", { taskId: relatedTask.id, error: err });
+            }
         } catch (error) {
             dataLogger.error("Contribution approved on smart contract but DB failed to update", {
                 taskId: relatedTask.id,
