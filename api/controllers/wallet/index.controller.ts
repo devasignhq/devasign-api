@@ -131,7 +131,7 @@ export const withdrawAsset = async (req: Request, res: Response, next: NextFunct
             txHash,
             category: TransactionCategory.WITHDRAWAL,
             amount: parseFloat(amount.toString()),
-            asset: "XLM",
+            asset: assetType,
             destinationAddress,
             ...(installationId
                 ? { installation: { connect: { id: installationId } } }

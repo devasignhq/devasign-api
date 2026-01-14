@@ -85,9 +85,10 @@ describe("Wallet API Integration Tests", () => {
             });
 
             // Create test transactions
+            const now = Date.now();
             const transactions = [
                 {
-                    txHash: `test-tx-hash-${Date.now()}`,
+                    txHash: `test-tx-hash-${now}-1`,
                     category: TransactionCategory.TOP_UP,
                     amount: 20,
                     asset: "XLM",
@@ -96,7 +97,7 @@ describe("Wallet API Integration Tests", () => {
                     user: { connect: { userId: "test-user-1" } }
                 },
                 {
-                    txHash: `test-tx-hash-${Date.now()}`,
+                    txHash: `test-tx-hash-${now}-2`,
                     category: TransactionCategory.TOP_UP,
                     amount: 45,
                     asset: "USDC",
@@ -105,7 +106,7 @@ describe("Wallet API Integration Tests", () => {
                     user: { connect: { userId: "test-user-1" } }
                 },
                 {
-                    txHash: `test-tx-hash-${Date.now()}`,
+                    txHash: `test-tx-hash-${now}-3`,
                     category: TransactionCategory.WITHDRAWAL,
                     amount: 67,
                     asset: "XLM",
@@ -125,8 +126,8 @@ describe("Wallet API Integration Tests", () => {
                 .set("x-test-user-id", "test-user-1")
                 .expect(STATUS_CODES.SUCCESS);
 
-            expect(response.body.transactions).toHaveLength(3);
-            expect(response.body.hasMore).toBe(false);
+            expect(response.body.data).toHaveLength(3);
+            expect(response.body.pagination.hasMore).toBe(false);
         });
 
         it("should filter transactions by category", async () => {
@@ -135,8 +136,8 @@ describe("Wallet API Integration Tests", () => {
                 .set("x-test-user-id", "test-user-1")
                 .expect(STATUS_CODES.SUCCESS);
 
-            expect(response.body.transactions).toHaveLength(2);
-            expect(response.body.transactions.every((tx: any) =>
+            expect(response.body.data).toHaveLength(2);
+            expect(response.body.data.every((tx: any) =>
                 tx.category === TransactionCategory.TOP_UP
             )).toBe(true);
         });
@@ -147,8 +148,8 @@ describe("Wallet API Integration Tests", () => {
                 .set("x-test-user-id", "test-user-1")
                 .expect(STATUS_CODES.SUCCESS);
 
-            expect(response.body.transactions).toHaveLength(2);
-            expect(response.body.hasMore).toBe(true);
+            expect(response.body.data).toHaveLength(2);
+            expect(response.body.pagination.hasMore).toBe(true);
         });
 
         it("should sort transactions", async () => {
@@ -157,7 +158,7 @@ describe("Wallet API Integration Tests", () => {
                 .set("x-test-user-id", "test-user-1")
                 .expect(STATUS_CODES.SUCCESS);
 
-            const transactions = response.body.transactions;
+            const transactions = response.body.data;
             expect(transactions).toHaveLength(3);
         });
 
@@ -174,7 +175,7 @@ describe("Wallet API Integration Tests", () => {
             });
 
             const installationTx = {
-                txHash: `test-tx-hash-${Date.now()}`,
+                txHash: `test-tx-hash-${Date.now()}-inst`,
                 category: TransactionCategory.TOP_UP,
                 amount: 20,
                 asset: "XLM",
@@ -189,8 +190,8 @@ describe("Wallet API Integration Tests", () => {
                 .set("x-test-user-id", "test-user-1")
                 .expect(STATUS_CODES.SUCCESS);
 
-            expect(response.body.transactions).toHaveLength(1);
-            expect(response.body.transactions[0].category).toBe(TransactionCategory.TOP_UP);
+            expect(response.body.data).toHaveLength(1);
+            expect(response.body.data[0].category).toBe(TransactionCategory.TOP_UP);
         });
     });
 
@@ -235,19 +236,21 @@ describe("Wallet API Integration Tests", () => {
 
             expect(response.body).toMatchObject({
                 message: "Successfully processed 2 topup transactions",
-                processed: 2,
-                transactions: expect.arrayContaining([
-                    expect.objectContaining({
-                        txHash: "tx_hash_1",
-                        amount: 100,
-                        asset: "USDC"
-                    }),
-                    expect.objectContaining({
-                        txHash: "tx_hash_2",
-                        amount: 50,
-                        asset: "XLM"
-                    })
-                ])
+                data: {
+                    processed: 2,
+                    transactions: expect.arrayContaining([
+                        expect.objectContaining({
+                            txHash: "tx_hash_1",
+                            amount: 100,
+                            asset: "USDC"
+                        }),
+                        expect.objectContaining({
+                            txHash: "tx_hash_2",
+                            amount: 50,
+                            asset: "XLM"
+                        })
+                    ])
+                }
             });
 
             // Verify transactions were recorded
@@ -289,7 +292,7 @@ describe("Wallet API Integration Tests", () => {
 
             expect(response.body).toMatchObject({
                 message: "No new topup transactions found",
-                processed: 0
+                data: { processed: 0 }
             });
         });
 
@@ -304,7 +307,7 @@ describe("Wallet API Integration Tests", () => {
 
             expect(response.body).toMatchObject({
                 message: "No new topup transactions found",
-                processed: 0
+                data: { processed: 0 }
             });
         });
     });

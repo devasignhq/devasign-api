@@ -76,8 +76,8 @@ describe("Wallet API Integration Tests", () => {
         // Reset mocks
         jest.clearAllMocks();
 
-        // Setup default mock implementations
         mockStellarService.getAccountInfo.mockResolvedValue({
+            subentry_count: 0,
             balances: [
                 {
                     asset_type: "native",
@@ -96,7 +96,8 @@ describe("Wallet API Integration Tests", () => {
         });
 
         mockStellarService.swapAsset.mockResolvedValue({
-            txHash: "mock_swap_tx_hash_123"
+            txHash: "mock_swap_tx_hash_123",
+            receivedAmount: "45"
         });
 
         // Reset test data factory counters
@@ -128,7 +129,7 @@ describe("Wallet API Integration Tests", () => {
                 .set("x-test-user-id", "test-user-1")
                 .expect(STATUS_CODES.SUCCESS);
 
-            expect(response.body).toMatchObject({
+            expect(response.body.data).toMatchObject({
                 balances: expect.arrayContaining([
                     expect.objectContaining({
                         asset_type: "native",
@@ -163,7 +164,7 @@ describe("Wallet API Integration Tests", () => {
                 .set("x-test-user-id", "test-user-1")
                 .expect(STATUS_CODES.SUCCESS);
 
-            expect(response.body).toMatchObject({
+            expect(response.body.data).toMatchObject({
                 balances: expect.any(Array)
             });
 
@@ -224,7 +225,7 @@ describe("Wallet API Integration Tests", () => {
                 .send(withdrawData)
                 .expect(STATUS_CODES.SUCCESS);
 
-            expect(response.body).toMatchObject({
+            expect(response.body.data).toMatchObject({
                 txHash: "mock_tx_hash_123",
                 category: TransactionCategory.WITHDRAWAL,
                 amount: 50,
@@ -253,16 +254,17 @@ describe("Wallet API Integration Tests", () => {
                 .send(withdrawData)
                 .expect(STATUS_CODES.SUCCESS);
 
-            expect(response.body).toMatchObject({
+            expect(response.body.data).toMatchObject({
                 txHash: "mock_tx_hash_123",
                 category: TransactionCategory.WITHDRAWAL,
                 amount: 100,
-                asset: "XLM"
+                asset: "USDC"
             });
         });
 
         it("should return error when insufficient XLM balance", async () => {
             mockStellarService.getAccountInfo.mockResolvedValue({
+                subentry_count: 0,
                 balances: [
                     {
                         asset_type: "native",
@@ -286,6 +288,7 @@ describe("Wallet API Integration Tests", () => {
 
         it("should return error when insufficient USDC balance", async () => {
             mockStellarService.getAccountInfo.mockResolvedValue({
+                subentry_count: 0,
                 balances: [
                     {
                         asset_type: "credit_alphanum12",
@@ -350,7 +353,7 @@ describe("Wallet API Integration Tests", () => {
                 .send(withdrawData)
                 .expect(STATUS_CODES.SUCCESS);
 
-            expect(response.body).toMatchObject({
+            expect(response.body.data).toMatchObject({
                 txHash: "mock_tx_hash_123",
                 category: TransactionCategory.WITHDRAWAL
             });
@@ -393,7 +396,7 @@ describe("Wallet API Integration Tests", () => {
                 .send(swapData)
                 .expect(STATUS_CODES.SUCCESS);
 
-            expect(response.body).toMatchObject({
+            expect(response.body.data).toMatchObject({
                 txHash: "mock_swap_tx_hash_123",
                 category: TransactionCategory.SWAP_XLM,
                 amount: 50,
@@ -423,7 +426,7 @@ describe("Wallet API Integration Tests", () => {
                 .send(swapData)
                 .expect(STATUS_CODES.SUCCESS);
 
-            expect(response.body).toMatchObject({
+            expect(response.body.data).toMatchObject({
                 txHash: "mock_swap_tx_hash_123",
                 category: TransactionCategory.SWAP_USDC,
                 assetFrom: "USDC",
@@ -433,6 +436,7 @@ describe("Wallet API Integration Tests", () => {
 
         it("should return error when insufficient balance for swap", async () => {
             mockStellarService.getAccountInfo.mockResolvedValue({
+                subentry_count: 0,
                 balances: [
                     {
                         asset_type: "native",
