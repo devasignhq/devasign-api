@@ -114,7 +114,7 @@ describe("User API Integration Tests", () => {
                 .send(userData)
                 .expect(STATUS_CODES.CREATED);
 
-            expect(response.body).toMatchObject({
+            expect(response.body.data).toMatchObject({
                 userId: "new-user-123",
                 username: "testuser123",
                 wallet: {
@@ -126,6 +126,7 @@ describe("User API Integration Tests", () => {
                     totalEarnings: 0
                 })
             });
+            expect(response.body.message).toBe("User created successfully");
 
             // Verify user was created in database
             const createdUser = await prisma.user.findUnique({
@@ -158,7 +159,7 @@ describe("User API Integration Tests", () => {
                 .send(userData)
                 .expect(STATUS_CODES.CREATED);
 
-            expect(response.body).toMatchObject({
+            expect(response.body.data).toMatchObject({
                 userId: "new-user-456",
                 username: "testuser456",
                 contributionSummary: expect.objectContaining({
@@ -167,9 +168,10 @@ describe("User API Integration Tests", () => {
                     totalEarnings: 0
                 })
             });
+            expect(response.body.message).toBe("User created successfully");
 
             // Should not have a wallet
-            expect(response.body.wallet).toBeNull();
+            expect(response.body.data.wallet).toBeNull();
 
             // Verify Stellar service was not called
             expect(mockStellarService.createWallet).not.toHaveBeenCalled();
@@ -225,14 +227,12 @@ describe("User API Integration Tests", () => {
                 .send(userData)
                 .expect(STATUS_CODES.PARTIAL_SUCCESS);
 
-            expect(response.body).toMatchObject({
-                user: expect.objectContaining({
-                    userId: "new-user-888",
-                    username: "testuser888"
-                }),
-                error: expect.any(Object),
-                message: expect.stringContaining("Failed to add USDC trustline")
+            expect(response.body.data).toMatchObject({
+                userId: "new-user-888",
+                username: "testuser888"
             });
+            expect(response.body.warning).toContain("Failed to add USDC trustline");
+            expect(response.body.message).toBe("User created successfully");
 
             // Verify user was still created
             const createdUser = await prisma.user.findUnique({
@@ -275,7 +275,7 @@ describe("User API Integration Tests", () => {
                 .set("x-test-user-id", "test-get-user")
                 .expect(STATUS_CODES.SUCCESS);
 
-            expect(response.body).toMatchObject({
+            expect(response.body.data).toMatchObject({
                 userId: "test-get-user",
                 username: testUser.username,
                 wallet: {
@@ -297,7 +297,7 @@ describe("User API Integration Tests", () => {
                 .set("x-test-user-id", "test-get-user")
                 .expect(STATUS_CODES.SUCCESS);
 
-            expect(response.body).toMatchObject({
+            expect(response.body.data).toMatchObject({
                 userId: "test-get-user",
                 username: testUser.username,
                 wallet: {
@@ -380,7 +380,7 @@ describe("User API Integration Tests", () => {
                 .send(newAddress)
                 .expect(200);
 
-            expect(response.body).toMatchObject({
+            expect(response.body.data).toMatchObject({
                 userId: "test-addressbook-user",
                 addressBook: expect.arrayContaining([
                     { address: "GBPOJZGQPO23FSADGDD3PQFRGLWTETJRK2IY4D5HEQXLDCDEHYFSAAII", name: "Existing Contact" },
@@ -388,6 +388,7 @@ describe("User API Integration Tests", () => {
                 ]),
                 updatedAt: expect.any(String)
             });
+            expect(response.body.message).toBe("Address added to address book");
 
             // Verify address book was updated in database
             const updatedUser = await prisma.user.findUnique({
@@ -441,11 +442,6 @@ describe("User API Integration Tests", () => {
                 .expect(STATUS_CODES.UNAUTHENTICATED);
 
             await request(appWithoutAuth)
-                .patch(getEndpointWithPrefix(["USER", "UPDATE_USERNAME"]))
-                .send({ githubUsername: "test" })
-                .expect(STATUS_CODES.UNAUTHENTICATED);
-
-            await request(appWithoutAuth)
                 .patch(getEndpointWithPrefix(["USER", "UPDATE_ADDRESS_BOOK"]))
                 .send({ address: "GTEST1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12", name: "Test" })
                 .expect(STATUS_CODES.UNAUTHENTICATED);
@@ -462,7 +458,7 @@ describe("User API Integration Tests", () => {
                 .send(userData)
                 .expect(STATUS_CODES.CREATED);
 
-            const userId = createResponse.body.userId;
+            const userId = createResponse.body.data.userId;
 
             // Get user to verify creation
             const getResponse = await request(app)
@@ -470,15 +466,8 @@ describe("User API Integration Tests", () => {
                 .set("x-test-user-id", userId)
                 .expect(STATUS_CODES.SUCCESS);
 
-            expect(getResponse.body.userId).toBe(userId);
-            expect(getResponse.body.username).toBe("consistencytest");
-
-            // Update username
-            await request(app)
-                .patch(getEndpointWithPrefix(["USER", "UPDATE_USERNAME"]))
-                .set("x-test-user-id", userId)
-                .send({ newUsername: "updatedname" })
-                .expect(STATUS_CODES.SUCCESS);
+            expect(getResponse.body.data.userId).toBe(userId);
+            expect(getResponse.body.data.username).toBe("consistencytest");
 
             // Add address to address book
             await request(app)
@@ -496,9 +485,8 @@ describe("User API Integration Tests", () => {
                 .set("x-test-user-id", userId)
                 .expect(STATUS_CODES.SUCCESS);
 
-            expect(finalGetResponse.body).toMatchObject({
+            expect(finalGetResponse.body.data).toMatchObject({
                 userId,
-                username: "updatedname",
                 addressBook: expect.arrayContaining([
                     { address: "GBPOJZGQPO23FSADGDD3PQFRGLWTETJRK2IY4D5HEQXLDCDEHYFSAAII", name: "Test Contact" }
                 ]),
