@@ -163,12 +163,9 @@ describe("Task Installation API Integration Tests", () => {
 
             expect(response.body).toMatchObject({
                 data: expect.any(Array),
-                pagination: expect.objectContaining({
-                    currentPage: 1,
-                    totalPages: expect.any(Number),
-                    totalItems: 3,
-                    itemsPerPage: 10
-                })
+                pagination: {
+                    hasMore: false
+                }
             });
 
             expect(response.body.data.length).toBe(3);
@@ -290,7 +287,7 @@ describe("Task Installation API Integration Tests", () => {
                 .set("x-test-user-id", "installation-user")
                 .expect(STATUS_CODES.SUCCESS);
 
-            expect(response.body).toMatchObject({
+            expect(response.body.data).toMatchObject({
                 id: testTask.id,
                 installation: expect.objectContaining({
                     id: testInstallation.id

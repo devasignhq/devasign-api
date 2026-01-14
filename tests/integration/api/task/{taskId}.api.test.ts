@@ -42,7 +42,8 @@ jest.mock("../../../../api/services/firebase.service", () => ({
     FirebaseService: {
         createMessage: jest.fn(),
         createTask: jest.fn(),
-        updateTaskStatus: jest.fn()
+        updateTaskStatus: jest.fn(),
+        updateActivity: jest.fn()
     }
 }));
 
@@ -51,7 +52,9 @@ jest.mock("../../../../api/services/octokit.service", () => ({
     OctokitService: {
         updateIssueComment: jest.fn(),
         customBountyMessage: jest.fn(),
-        getOwnerAndRepo: jest.fn()
+        getOwnerAndRepo: jest.fn(),
+        addBountyLabelAndCreateBountyComment: jest.fn(),
+        addBountyPaidLabel: jest.fn()
     }
 }));
 
@@ -151,10 +154,13 @@ describe("Task {taskId} API Integration Tests", () => {
         });
 
         mockFirebaseService.updateTaskStatus.mockResolvedValue(true);
+        mockFirebaseService.updateActivity.mockResolvedValue(true);
 
         mockOctokitService.updateIssueComment.mockResolvedValue(true);
         mockOctokitService.customBountyMessage.mockReturnValue("Updated bounty message");
         mockOctokitService.getOwnerAndRepo.mockReturnValue(["test-owner", "test-repo"]);
+        mockOctokitService.addBountyLabelAndCreateBountyComment.mockResolvedValue({ id: "bounty-comment-id" });
+        mockOctokitService.addBountyPaidLabel.mockResolvedValue(true);
 
         mockContractService.increaseBounty.mockResolvedValue({
             success: true,
@@ -223,10 +229,14 @@ describe("Task {taskId} API Integration Tests", () => {
                 .patch(getEndpointWithPrefix(["TASK", "{TASKID}", "ADD_BOUNTY_COMMENT"])
                     .replace(":taskId", testTask.id))
                 .set("x-test-user-id", "task-creator")
-                .send({ bountyCommentId: "123456789" })
+                .send({
+                    installationId: "12345678",
+                    issueId: "issue-123",
+                    bountyLabelId: "label-123"
+                })
                 .expect(STATUS_CODES.SUCCESS);
 
-            expect(response.body).toMatchObject({
+            expect(response.body.data).toMatchObject({
                 id: testTask.id
             });
 
@@ -234,7 +244,7 @@ describe("Task {taskId} API Integration Tests", () => {
             const updatedTask = await prisma.task.findUnique({
                 where: { id: testTask.id }
             });
-            expect((updatedTask.issue as any).bountyCommentId).toBe("123456789");
+            expect((updatedTask.issue as any).bountyCommentId).toBe("bounty-comment-id");
         });
 
         it("should return error when user is not the creator", async () => {
@@ -242,7 +252,11 @@ describe("Task {taskId} API Integration Tests", () => {
                 .patch(getEndpointWithPrefix(["TASK", "{TASKID}", "ADD_BOUNTY_COMMENT"])
                     .replace(":taskId", testTask.id))
                 .set("x-test-user-id", "different-user")
-                .send({ bountyCommentId: "123456789" })
+                .send({
+                    installationId: "12345678",
+                    issueId: "issue-123",
+                    bountyLabelId: "label-123"
+                })
                 .expect(STATUS_CODES.UNAUTHORIZED);
         });
 
@@ -256,7 +270,11 @@ describe("Task {taskId} API Integration Tests", () => {
                 .patch(getEndpointWithPrefix(["TASK", "{TASKID}", "ADD_BOUNTY_COMMENT"])
                     .replace(":taskId", testTask.id))
                 .set("x-test-user-id", "task-creator")
-                .send({ bountyCommentId: "123456789" })
+                .send({
+                    installationId: "12345678",
+                    issueId: "issue-123",
+                    bountyLabelId: "label-123"
+                })
                 .expect(STATUS_CODES.SERVER_ERROR);
         });
 
@@ -265,7 +283,11 @@ describe("Task {taskId} API Integration Tests", () => {
                 .patch(getEndpointWithPrefix(["TASK", "{TASKID}", "ADD_BOUNTY_COMMENT"])
                     .replace(":taskId", cuid()))
                 .set("x-test-user-id", "task-creator")
-                .send({ bountyCommentId: "123456789" })
+                .send({
+                    installationId: "12345678",
+                    issueId: "issue-123",
+                    bountyLabelId: "label-123"
+                })
                 .expect(STATUS_CODES.NOT_FOUND);
         });
 
@@ -279,8 +301,12 @@ describe("Task {taskId} API Integration Tests", () => {
                 .patch(getEndpointWithPrefix(["TASK", "{TASKID}", "ADD_BOUNTY_COMMENT"])
                     .replace(":taskId", testTask.id))
                 .set("x-test-user-id", "task-creator")
-                .send({ bountyCommentId: "123456789" })
-                .expect(STATUS_CODES.UNAUTHENTICATED);
+                .send({
+                    installationId: "12345678",
+                    issueId: "issue-123",
+                    bountyLabelId: "label-123"
+                })
+                .expect(STATUS_CODES.SERVER_ERROR);
         });
     });
 
@@ -333,7 +359,7 @@ describe("Task {taskId} API Integration Tests", () => {
                 .send({ newBounty: "150" })
                 .expect(STATUS_CODES.SUCCESS);
 
-            expect(response.body).toMatchObject({
+            expect(response.body.data).toMatchObject({
                 bounty: 150,
                 updatedAt: expect.any(String)
             });
@@ -350,7 +376,7 @@ describe("Task {taskId} API Integration Tests", () => {
                 .send({ newBounty: "50" })
                 .expect(STATUS_CODES.SUCCESS);
 
-            expect(response.body).toMatchObject({
+            expect(response.body.data).toMatchObject({
                 bounty: 50,
                 updatedAt: expect.any(String)
             });
@@ -434,14 +460,14 @@ describe("Task {taskId} API Integration Tests", () => {
                 .send({ newBounty: "150" })
                 .expect(STATUS_CODES.PARTIAL_SUCCESS);
 
-            expect(response.body).toMatchObject({
-                error: expect.any(Object),
+            expect(response.body.data).toMatchObject({
+                bountyCommentPosted: false,
                 task: expect.objectContaining({
                     bounty: 150,
                     updatedAt: expect.any(String)
-                }),
-                message: expect.stringContaining("Failed to update bounty amount on GitHub")
+                })
             });
+            expect(response.body.warning).toContain("Failed to update bounty amount on GitHub");
         });
 
         it("should return error when installation is archived", async () => {
@@ -455,7 +481,7 @@ describe("Task {taskId} API Integration Tests", () => {
                     .replace(":taskId", testTask.id))
                 .set("x-test-user-id", "task-creator")
                 .send({ newBounty: "150" })
-                .expect(STATUS_CODES.UNAUTHENTICATED); 
+                .expect(STATUS_CODES.SERVER_ERROR);
         });
     });
 
@@ -507,7 +533,7 @@ describe("Task {taskId} API Integration Tests", () => {
                 .send({ newTimeline: 2 })
                 .expect(STATUS_CODES.SUCCESS);
 
-            expect(response.body).toMatchObject({
+            expect(response.body.data).toMatchObject({
                 timeline: 2,
                 updatedAt: expect.any(String)
             });
@@ -556,7 +582,7 @@ describe("Task {taskId} API Integration Tests", () => {
                     .replace(":taskId", testTask.id))
                 .set("x-test-user-id", "task-creator")
                 .send({ newTimeline: 2 })
-                .expect(STATUS_CODES.UNAUTHENTICATED);
+                .expect(STATUS_CODES.SERVER_ERROR);
         });
     });
 
@@ -675,7 +701,7 @@ describe("Task {taskId} API Integration Tests", () => {
                 .post(getEndpointWithPrefix(["TASK", "{TASKID}", "APPLY"])
                     .replace(":taskId", testTask.id))
                 .set("x-test-user-id", "applicant")
-                .expect(STATUS_CODES.UNAUTHENTICATED);
+                .expect(STATUS_CODES.SERVER_ERROR);
         });
     });
 
@@ -744,7 +770,7 @@ describe("Task {taskId} API Integration Tests", () => {
                 .set("x-test-user-id", "task-creator")
                 .expect(STATUS_CODES.SUCCESS);
 
-            expect(response.body).toMatchObject({
+            expect(response.body.data).toMatchObject({
                 id: testTask.id,
                 status: "IN_PROGRESS",
                 contributor: {
@@ -814,12 +840,11 @@ describe("Task {taskId} API Integration Tests", () => {
                 .set("x-test-user-id", "task-creator")
                 .expect(STATUS_CODES.PARTIAL_SUCCESS);
 
-            expect(response.body).toMatchObject({
-                error: expect.any(Object),
-                task: expect.any(Object),
-                message: expect.stringContaining("Failed to enable chat functionality")
+            expect(response.body.data).toMatchObject({
+                id: testTask.id,
+                status: "IN_PROGRESS"
             });
-            expect(response.body.task.status).toBe("IN_PROGRESS");
+            expect(response.body.warning).toContain("Failed to enable chat functionality");
         });
 
         it("should return error when installation is archived", async () => {
@@ -833,7 +858,7 @@ describe("Task {taskId} API Integration Tests", () => {
                     .replace(":taskId", testTask.id)
                     .replace(":contributorId", contributorId))
                 .set("x-test-user-id", "task-creator")
-                .expect(STATUS_CODES.UNAUTHENTICATED);
+                .expect(STATUS_CODES.SERVER_ERROR);
         });
     });
 
@@ -948,7 +973,7 @@ describe("Task {taskId} API Integration Tests", () => {
                     requestedTimeline: 1,
                     reason: "Need more time"
                 })
-                .expect(STATUS_CODES.UNAUTHENTICATED);
+                .expect(STATUS_CODES.SERVER_ERROR);
         });
     });
 
@@ -1011,7 +1036,7 @@ describe("Task {taskId} API Integration Tests", () => {
                 })
                 .expect(STATUS_CODES.SUCCESS);
 
-            expect(response.body).toMatchObject({
+            expect(response.body.data).toMatchObject({
                 message: expect.any(Object),
                 task: expect.objectContaining({
                     timeline: 2,
@@ -1031,7 +1056,7 @@ describe("Task {taskId} API Integration Tests", () => {
                 })
                 .expect(STATUS_CODES.SUCCESS);
 
-            expect(response.body).toMatchObject({
+            expect(response.body.data).toMatchObject({
                 message: expect.any(Object)
             });
 
@@ -1051,7 +1076,7 @@ describe("Task {taskId} API Integration Tests", () => {
                     accept: true,
                     requestedTimeline: 1
                 })
-                .expect(STATUS_CODES.UNAUTHORIZED);
+                .expect(STATUS_CODES.SERVER_ERROR);
         });
 
 
@@ -1115,7 +1140,7 @@ describe("Task {taskId} API Integration Tests", () => {
                 })
                 .expect(STATUS_CODES.SUCCESS);
 
-            expect(response.body).toMatchObject({
+            expect(response.body.data).toMatchObject({
                 status: "MARKED_AS_COMPLETED",
                 updatedAt: expect.any(String),
                 taskSubmissions: expect.arrayContaining([
@@ -1226,7 +1251,7 @@ describe("Task {taskId} API Integration Tests", () => {
                 .set("x-test-user-id", "task-creator")
                 .expect(STATUS_CODES.SUCCESS);
 
-            expect(response.body).toMatchObject({
+            expect(response.body.data).toMatchObject({
                 status: "COMPLETED",
                 completedAt: expect.any(String),
                 settled: true,
@@ -1280,11 +1305,11 @@ describe("Task {taskId} API Integration Tests", () => {
                 .set("x-test-user-id", "task-creator")
                 .expect(STATUS_CODES.PARTIAL_SUCCESS);
 
-            expect(response.body).toMatchObject({
-                error: expect.any(Object),
+            expect(response.body.data).toMatchObject({
                 validated: true,
-                message: expect.stringContaining("Failed to update the developer contribution summary")
+                task: expect.any(Object)
             });
+            expect(response.body.warning).toContain("Failed to update the developer contribution summary");
         });
 
         it("should handle partial success when firebase task status update fails", async () => {
@@ -1296,11 +1321,11 @@ describe("Task {taskId} API Integration Tests", () => {
                 .set("x-test-user-id", "task-creator")
                 .expect(STATUS_CODES.PARTIAL_SUCCESS);
 
-            expect(response.body).toMatchObject({
-                error: expect.any(Object),
+            expect(response.body.data).toMatchObject({
                 validated: true,
-                message: expect.stringContaining("Failed to disable chat for the task.")
+                task: expect.any(Object)
             });
+            expect(response.body.warning).toContain("Failed to disable chat for the task.");
         });
 
         it("should return 404 when task not found", async () => {
@@ -1321,7 +1346,7 @@ describe("Task {taskId} API Integration Tests", () => {
                 .post(getEndpointWithPrefix(["TASK", "{TASKID}", "VALIDATE_COMPLETION"])
                     .replace(":taskId", testTask.id))
                 .set("x-test-user-id", "task-creator")
-                .expect(STATUS_CODES.UNAUTHENTICATED);
+                .expect(STATUS_CODES.SERVER_ERROR);
         });
     });
 });

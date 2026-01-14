@@ -215,7 +215,7 @@ describe("Task API Integration Tests", () => {
 
             // Verify task was created in database
             const createdTask = await prisma.task.findUnique({
-                where: { id: response.body.id }
+                where: { id: response.body.data.id }
             });
             expect(createdTask).toBeTruthy();
 
@@ -292,11 +292,11 @@ describe("Task API Integration Tests", () => {
                 .send(taskData)
                 .expect(STATUS_CODES.PARTIAL_SUCCESS);
 
-            expect(response.body).toMatchObject({
-                task: expect.any(Object),
-                error: expect.any(Object),
-                message: expect.stringContaining("Failed to either create bounty comment")
+            expect(response.body.data).toMatchObject({
+                id: expect.any(String),
+                bounty: 100
             });
+            expect(response.body.warning).toContain("Failed to either post bounty comment or add bounty label");
         });
 
         it("should return error when creating task for archived installation", async () => {
@@ -319,7 +319,7 @@ describe("Task API Integration Tests", () => {
                 .post(getEndpointWithPrefix(["TASK", "CREATE"]))
                 .set("x-test-user-id", "task-creator-user")
                 .send(taskData)
-                .expect(STATUS_CODES.UNAUTHENTICATED);
+                .expect(STATUS_CODES.SERVER_ERROR);
 
             expect(response.body.message).toBe("Cannot create task for an archived installation");
         });
@@ -380,19 +380,16 @@ describe("Task API Integration Tests", () => {
                 .get(`${getEndpointWithPrefix(["TASK", "GET_ALL"])}?page=1&limit=10`)
                 .expect(STATUS_CODES.SUCCESS);
 
-            expect(response.body).toMatchObject({
-                data: expect.arrayContaining([
+            expect(response.body.data).toMatchObject(
+                expect.arrayContaining([
                     expect.objectContaining({
                         status: "OPEN",
                         bounty: expect.any(Number)
                     })
-                ]),
-                pagination: expect.objectContaining({
-                    currentPage: 1,
-                    totalPages: expect.any(Number),
-                    totalItems: 2,
-                    itemsPerPage: 10
-                })
+                ])
+            );
+            expect(response.body.pagination).toMatchObject({
+                hasMore: false
             });
 
             expect(response.body.data.length).toBe(2);
@@ -466,7 +463,7 @@ describe("Task API Integration Tests", () => {
                 .get(`/tasks/${testTask.id}`)
                 .expect(STATUS_CODES.SUCCESS);
 
-            expect(response.body.id).toBe(testTask.id);
+            expect(response.body.data.id).toBe(testTask.id);
         });
 
         it("should return 404 when task not found", async () => {
@@ -524,10 +521,10 @@ describe("Task API Integration Tests", () => {
                 .set("x-test-user-id", "task-owner")
                 .expect(STATUS_CODES.SUCCESS);
 
-            expect(response.body).toMatchObject({
-                message: "Task deleted successfully",
+            expect(response.body.data).toMatchObject({
                 refunded: "100 USDC"
             });
+            expect(response.body.message).toBe("Task deleted successfully");
 
             // Verify task was deleted
             const deletedTask = await prisma.task.findUnique({
@@ -585,14 +582,11 @@ describe("Task API Integration Tests", () => {
                 .set("x-test-user-id", "task-owner")
                 .expect(STATUS_CODES.PARTIAL_SUCCESS);
 
-            expect(response.body).toMatchObject({
-                error: expect.any(Object),
-                data: expect.objectContaining({
-                    message: "Task deleted successfully",
-                    refunded: "100 USDC"
-                }),
-                message: expect.stringContaining("Failed to either remove bounty label")
+            expect(response.body.data).toMatchObject({
+                refunded: "100 USDC"
             });
+            expect(response.body.warning).toContain("Failed to either remove bounty label");
+            expect(response.body.message).toBe("Task deleted successfully");
 
             // Verify task was still deleted
             const deletedTask = await prisma.task.findUnique({
@@ -617,7 +611,7 @@ describe("Task API Integration Tests", () => {
             const response = await request(app)
                 .delete(`/tasks/${testTask.id}`)
                 .set("x-test-user-id", "task-owner")
-                .expect(STATUS_CODES.UNAUTHENTICATED);
+                .expect(STATUS_CODES.SERVER_ERROR);
 
             expect(response.body.message).toBe("Cannot delete task for an archived installation");
         });

@@ -165,12 +165,9 @@ describe("Task Activities API Integration Tests", () => {
 
             expect(response.body).toMatchObject({
                 data: expect.any(Array),
-                pagination: expect.objectContaining({
-                    currentPage: 1,
-                    totalPages: expect.any(Number),
-                    totalItems: 2,
-                    itemsPerPage: 10
-                })
+                pagination: {
+                    hasMore: false
+                }
             });
 
             expect(response.body.data.length).toBe(2);
@@ -325,14 +322,12 @@ describe("Task Activities API Integration Tests", () => {
                 .set("x-test-user-id", "installation-user")
                 .expect(STATUS_CODES.SUCCESS);
 
-            expect(response.body).toMatchObject({
-                message: "Activity marked as viewed",
-                activity: expect.objectContaining({
-                    id: testActivity.id,
-                    viewed: true,
-                    updatedAt: expect.any(String)
-                })
+            expect(response.body.data).toMatchObject({
+                id: testActivity.id,
+                viewed: true,
+                updatedAt: expect.any(String)
             });
+            expect(response.body.message).toBe("Activity marked as viewed");
 
             // Verify activity was updated in database
             const updatedActivity = await prisma.taskActivity.findUnique({
@@ -375,7 +370,7 @@ describe("Task Activities API Integration Tests", () => {
                 .set("x-test-user-id", "installation-user")
                 .expect(STATUS_CODES.SUCCESS);
 
-            expect(response.body.activity.viewed).toBe(true);
+            expect(response.body.data.viewed).toBe(true);
         });
     });
 });

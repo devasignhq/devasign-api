@@ -48,7 +48,7 @@ export const addBountyCommentId = async (req: Request, res: Response, next: Next
         if (!task) {
             throw new NotFoundError("Task not found");
         }
-        
+
         if (task.installation.status === "ARCHIVED") {
             throw new ValidationError("Cannot modify task for an archived installation");
         }
@@ -268,7 +268,10 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
             return responseWrapper({
                 res,
                 status: STATUS_CODES.PARTIAL_SUCCESS,
-                data: { bountyCommentPosted: false, task },
+                data: {
+                    bountyCommentPosted: false,
+                    task: updatedTask
+                },
                 message: "Task bounty updated",
                 warning: "Failed to update bounty amount on GitHub."
             });
@@ -447,7 +450,6 @@ export const acceptTaskApplication = async (req: Request, res: Response, next: N
                 bounty: true,
                 taskActivities: { select: { userId: true } },
                 contributorId: true,
-                contributor: { select: { wallet: true } },
                 installationId: true,
                 installation: { select: { wallet: true, status: true } }
             }
@@ -456,6 +458,13 @@ export const acceptTaskApplication = async (req: Request, res: Response, next: N
         // Verify task exists
         if (!task) {
             throw new NotFoundError("Task not found");
+        }
+        // Verify installation and wallet exists
+        if (!task.installation) {
+            throw new NotFoundError("Installation not found");
+        }
+        if (!task.installation.wallet) {
+            throw new NotFoundError("Installation wallet not found");
         }
         // Check if installation is archived
         if (task.installation.status === "ARCHIVED") {
@@ -478,19 +487,17 @@ export const acceptTaskApplication = async (req: Request, res: Response, next: N
         if (!hasApplied) {
             throw new ValidationError("User did not apply for this task");
         }
+
         // Verify contributor exists
-        if (!task.contributor) {
+        const contributor = await prisma.user.findUnique({
+            where: { userId: contributorId },
+            select: { wallet: true }
+        });
+        if (!contributor) {
             throw new NotFoundError("Contributor not found");
         }
-        if (!task.contributor.wallet) {
+        if (!contributor.wallet) {
             throw new ValidationError("Contributor does not have a wallet");
-        }
-        // Verify installation exists
-        if (!task.installation) {
-            throw new NotFoundError("Installation not found");
-        }
-        if (!task.installation.wallet) {
-            throw new NotFoundError("Installation wallet not found");
         }
 
         const decryptedWalletSecret = await KMSService.decryptWallet(task.installation.wallet);
@@ -499,7 +506,7 @@ export const acceptTaskApplication = async (req: Request, res: Response, next: N
         const { txHash: assignmentTxHash } = await ContractService.assignContributor(
             decryptedWalletSecret,
             taskId,
-            task.contributor.wallet.address
+            contributor.wallet.address
         );
 
         // Assign the contributor and update task status
@@ -887,7 +894,7 @@ export const markAsComplete = async (req: Request, res: Response, next: NextFunc
  */
 export const validateCompletion = async (req: Request, res: Response, next: NextFunction) => {
     const { taskId } = req.params;
-    const { userId } = req.body;
+    const { userId } = res.locals;
 
     try {
         // Fetch the task
@@ -982,30 +989,33 @@ export const validateCompletion = async (req: Request, res: Response, next: Next
                     user: { connect: { userId: task.contributor.userId } },
                     doneAt: stellarTimestampToDate(transactionResponse.result.createdAt)
                 }
-            }),
+            })
+        ]);
+
+        let summaryUpdated = false;
+        try {
             // Update contribution summary
-            prisma.contributionSummary.update({
+            await prisma.contributionSummary.update({
                 where: { userId: task.contributor.userId },
                 data: {
                     activeTasks: { decrement: 1 },
                     tasksCompleted: { increment: 1 },
                     totalEarnings: { increment: task.bounty }
                 }
-            })
-        ]);
+            });
+            summaryUpdated = true;
+        } catch (error) {
+            dataLogger.warn("Failed to update the developer contribution summary", { userId: task.contributor.userId, error });
+        }
 
-        // Return success response
-        responseWrapper({
-            res,
-            status: STATUS_CODES.SUCCESS,
-            data: updatedTask,
-            message: "Task validated and completed"
-        });
-
-        // Disable chat for the task
-        FirebaseService.updateTaskStatus(taskId).catch(
-            error => dataLogger.warn("Failed to disable chat", { taskId, error })
-        );
+        let chatDisabled = false;
+        try {
+            // Disable chat for the task
+            await FirebaseService.updateTaskStatus(taskId);
+            chatDisabled = true;
+        } catch (error) {
+            dataLogger.warn("Failed to disable chat", { taskId, error });
+        }
 
         // Add bounty paid label to the issue
         OctokitService.addBountyPaidLabel(
@@ -1014,6 +1024,34 @@ export const validateCompletion = async (req: Request, res: Response, next: Next
         ).catch(
             error => dataLogger.warn("Failed to add bounty paid label", { taskId, error })
         );
+
+        if (!summaryUpdated) {
+            return responseWrapper({
+                res,
+                status: STATUS_CODES.PARTIAL_SUCCESS,
+                data: { validated: true, task: updatedTask },
+                message: "Task validated and completed",
+                warning: "Failed to update the developer contribution summary"
+            });
+        }
+
+        if (!chatDisabled) {
+            return responseWrapper({
+                res,
+                status: STATUS_CODES.PARTIAL_SUCCESS,
+                data: { validated: true, task: updatedTask },
+                message: "Task validated and completed",
+                warning: "Failed to disable chat for the task."
+            });
+        }
+
+        // Return success response
+        responseWrapper({
+            res,
+            status: STATUS_CODES.SUCCESS,
+            data: updatedTask,
+            message: "Task validated and completed"
+        });
     } catch (error) {
         next(error);
     }
