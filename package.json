@@ -17,7 +17,9 @@
     "lint:fix": "eslint . --ext .ts,.js --fix",
     "lint:check": "eslint . --ext .ts,.js --max-warnings 0",
     "prisma-gen-acc": "npx prisma generate --no-engine",
-    "prisma-gen": "npx prisma generate"
+    "prisma-gen": "npx prisma generate",
+    "type-check": "tsc --noEmit",
+    "type-check:watch": "tsc --noEmit --watch"
   },
   "keywords": [],
   "author": "",

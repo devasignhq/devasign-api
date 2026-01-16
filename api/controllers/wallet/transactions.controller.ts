@@ -70,8 +70,7 @@ export const getTransactions = async (req: Request, res: Response, next: NextFun
                     select: {
                         id: true,
                         issue: true,
-                        bounty: true,
-                        contributor: { select: { userId: true, username: true } }
+                        bounty: true
                     }
                 }
             }

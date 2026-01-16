@@ -23,7 +23,7 @@ export type TaskIssue = Omit<IssueDto, "labels"> & {
 export type CreateTask = {
     installationId: string;
     issue: TaskIssue;
-    timeline?: number;
+    timeline: number;
     bounty: string;
     bountyLabelId: string;
 }

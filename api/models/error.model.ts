@@ -325,6 +325,10 @@ export class ErrorUtils {
     static sanitizeError(error: ErrorClass) {
         return (process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test") 
             ? { ...error } 
-            : { message: error.message, code: error.code };
+            : { 
+                message: error.message, 
+                code: error.code, 
+                status: error.status 
+            };
     }
 }

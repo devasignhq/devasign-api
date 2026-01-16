@@ -55,8 +55,8 @@ export const ENDPOINTS = {
         GET_BY_ID: "/:installationId",
         /** POST / - Create a new installation */
         CREATE: "/",
-        /** ARCHIVED /:installationId - Archive installation */
-        ARCHIVED: "/:installationId",
+        /** ARCHIVE /:installationId - Archive installation */
+        ARCHIVE: "/:installationId/archive",
         /** Team member management endpoints */
         TEAM: {
             /** POST /:installationId/team - Add team member */

@@ -428,7 +428,7 @@ describe("Installation API Integration Tests", () => {
         });
     });
 
-    describe(`PATCH ${getEndpointWithPrefix(["INSTALLATION", "ARCHIVED"])} - Archive Installation`, () => {
+    describe(`PATCH ${getEndpointWithPrefix(["INSTALLATION", "ARCHIVE"])} - Archive Installation`, () => {
         let testInstallation: any;
 
         beforeEach(async () => {
@@ -454,7 +454,7 @@ describe("Installation API Integration Tests", () => {
 
         it("should archive installation successfully", async () => {
             const response = await request(app)
-                .patch(getEndpointWithPrefix(["INSTALLATION", "ARCHIVED"])
+                .patch(getEndpointWithPrefix(["INSTALLATION", "ARCHIVE"])
                     .replace(":installationId", "12345678"))
                 .set("x-test-user-id", "user-1")
                 .send({ walletAddress: "GBPOJZGQPO23FSADGDD3PQFRGLWTETJRK2IY4D5HEQXLDCDEHYFSAAII" })
@@ -483,7 +483,7 @@ describe("Installation API Integration Tests", () => {
             });
 
             await request(app)
-                .patch(getEndpointWithPrefix(["INSTALLATION", "ARCHIVED"])
+                .patch(getEndpointWithPrefix(["INSTALLATION", "ARCHIVE"])
                     .replace(":installationId", "12345678"))
                 .set("x-test-user-id", "user-1")
                 .send({ walletAddress: "GBPOJZGQPO23FSADGDD3PQFRGLWTETJRK2IY4D5HEQXLDCDEHYFSAAII" })
@@ -499,7 +499,7 @@ describe("Installation API Integration Tests", () => {
             await prisma.task.create({ data: task });
 
             await request(app)
-                .patch(getEndpointWithPrefix(["INSTALLATION", "ARCHIVED"])
+                .patch(getEndpointWithPrefix(["INSTALLATION", "ARCHIVE"])
                     .replace(":installationId", "12345678"))
                 .set("x-test-user-id", "user-1")
                 .send({ walletAddress: "GBPOJZGQPO23FSADGDD3PQFRGLWTETJRK2IY4D5HEQXLDCDEHYFSAAII" })
@@ -515,7 +515,7 @@ describe("Installation API Integration Tests", () => {
             await prisma.task.create({ data: task });
 
             await request(app)
-                .patch(getEndpointWithPrefix(["INSTALLATION", "ARCHIVED"])
+                .patch(getEndpointWithPrefix(["INSTALLATION", "ARCHIVE"])
                     .replace(":installationId", "12345678"))
                 .set("x-test-user-id", "user-1")
                 .send({ walletAddress: "GBPOJZGQPO23FSADGDD3PQFRGLWTETJRK2IY4D5HEQXLDCDEHYFSAAII" })
@@ -539,7 +539,7 @@ describe("Installation API Integration Tests", () => {
             await prisma.task.create({ data: task2 });
 
             const response = await request(app)
-                .patch(getEndpointWithPrefix(["INSTALLATION", "ARCHIVED"])
+                .patch(getEndpointWithPrefix(["INSTALLATION", "ARCHIVE"])
                     .replace(":installationId", "12345678"))
                 .set("x-test-user-id", "user-1")
                 .send({ walletAddress: "GBPOJZGQPO23FSADGDD3PQFRGLWTETJRK2IY4D5HEQXLDCDEHYFSAAII" })
@@ -561,7 +561,7 @@ describe("Installation API Integration Tests", () => {
 
         it("should return 404 when installation not found", async () => {
             await request(app)
-                .patch(getEndpointWithPrefix(["INSTALLATION", "ARCHIVED"])
+                .patch(getEndpointWithPrefix(["INSTALLATION", "ARCHIVE"])
                     .replace(":installationId", "99999999"))
                 .set("x-test-user-id", "user-1")
                 .send({ walletAddress: "GBPOJZGQPO23FSADGDD3PQFRGLWTETJRK2IY4D5HEQXLDCDEHYFSAAII" })
@@ -575,7 +575,7 @@ describe("Installation API Integration Tests", () => {
             });
 
             await request(app)
-                .patch(getEndpointWithPrefix(["INSTALLATION", "ARCHIVED"])
+                .patch(getEndpointWithPrefix(["INSTALLATION", "ARCHIVE"])
                     .replace(":installationId", "12345678"))
                 .set("x-test-user-id", "user-2")
                 .send({ walletAddress: "GBPOJZGQPO23FSADGDD3PQFRGLWTETJRK2IY4D5HEQXLDCDEHYFSAAII" })

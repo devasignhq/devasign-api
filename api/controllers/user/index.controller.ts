@@ -218,7 +218,7 @@ export const getUser = async (req: Request, res: Response, next: NextFunction) =
                     res,
                     status: STATUS_CODES.PARTIAL_SUCCESS,
                     data: user,
-                    message: "Created wallet",
+                    message: "Created wallet successfully",
                     warning: "Failed to add USDC trustline to wallet",
                     meta: { walletStatus }
                 });

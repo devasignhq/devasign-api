@@ -100,7 +100,7 @@ export const createTaskSchema = {
             bounty: z.string().refine((val) => !isNaN(parseFloat(val)) && parseFloat(val) > 0, {
                 message: "Bounty must be a positive number"
             }),
-            timeline: z.coerce.number().int().min(1, "Timeline must be a positive integer").optional(),
+            timeline: z.coerce.number().int().min(1, "Timeline must be a positive integer"),
             bountyLabelId: z.string()
         })
     })

@@ -184,6 +184,7 @@ export const createInstallation = async (req: Request, res: Response, next: Next
                     : "Installation created successfully"
             });
         } catch (error) {
+            dataLogger.error("Failed to add USDC trustline to wallet", { installationId, error });
             // If trustline addition fails, return installation but indicate partial success
             responseWrapper({
                 res,
@@ -192,8 +193,7 @@ export const createInstallation = async (req: Request, res: Response, next: Next
                 message: existingAccountInstallation
                     ? "Installation reactivated successfully"
                     : "Installation created successfully",
-                warning: "Failed to add USDC trustline to wallet",
-                meta: { error }
+                warning: "Failed to add USDC trustline to wallet"
             });
         }
     } catch (error) {

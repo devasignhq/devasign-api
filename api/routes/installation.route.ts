@@ -67,7 +67,7 @@ installationRoutes.post(
 
 // Archive an installation
 installationRoutes.patch(
-    ENDPOINTS.INSTALLATION.ARCHIVED,
+    ENDPOINTS.INSTALLATION.ARCHIVE,
     validateRequestParameters(archiveInstallationSchema),
     archiveInstallation as RequestHandler
 );
