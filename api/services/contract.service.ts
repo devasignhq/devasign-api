@@ -20,7 +20,7 @@ export class ContractService {
     private static CONFIG = {
         network: process.env.STELLAR_NETWORK!,
         rpcUrl: process.env.STELLAR_RPC_URL!,
-        networkPassphrase: Networks.TESTNET,
+        networkPassphrase: Networks.PUBLIC,
         contractId: process.env.TASK_ESCROW_CONTRACT_ID!,
         usdcContractId: process.env.USDC_CONTRACT_ID!,
         masterPublicKey: process.env.STELLAR_MASTER_PUBLIC_KEY!

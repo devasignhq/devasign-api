@@ -1,7 +1,7 @@
-import { 
-    ApplicationConfiguration, 
-    DefaultSigner, 
-    Wallet, 
+import {
+    ApplicationConfiguration,
+    DefaultSigner,
+    Wallet,
     StellarConfiguration,
     IssuedAssetId,
     NativeAssetId
@@ -14,16 +14,16 @@ const customClient: AxiosInstance = axios.create({
 const appConfig = new ApplicationConfiguration(DefaultSigner, customClient);
 
 export const wallet = new Wallet({
-    stellarConfiguration: StellarConfiguration.TestNet(),
+    stellarConfiguration: StellarConfiguration.MainNet(),
     applicationConfiguration: appConfig
 });
 
 export const stellar = wallet.stellar();
 export const account = stellar.account();
-export const anchor = wallet.anchor({ homeDomain: "testanchor.stellar.org" });
+export const anchor = wallet.anchor({ homeDomain: "anchor.stellar.org" });
 
 export const xlmAssetId = new NativeAssetId();
 export const usdcAssetId = new IssuedAssetId(
     "USDC",
-    "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5"
+    process.env.USDC_ASSET_ID!
 );

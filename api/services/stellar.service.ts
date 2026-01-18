@@ -172,14 +172,8 @@ export class StellarService {
      * Fund a wallet on the Stellar testnet using Friendbot.
      * Only works on testnet - provides free XLM for testing purposes.
      */
-    async fundWallet(accountAddress: string) {
-        try {
-            // Request funding from Friendbot
-            await stellar.fundTestnetAccount(accountAddress);
-            return "SUCCESS";
-        } catch (error) {
-            throw new StellarServiceError("Failed to fund wallet", error);
-        }
+    async fundWallet(_accountAddress: string) {
+        throw new StellarServiceError("Friendbot funding is only available on Testnet");
     }
 
     /**
