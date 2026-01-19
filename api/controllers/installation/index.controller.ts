@@ -53,6 +53,7 @@ export const createInstallation = async (req: Request, res: Response, next: Next
             targetId: true,
             targetType: true,
             account: true,
+            status: true,
             wallet: { select: { address: true } },
             subscriptionPackage: true,
             createdAt: true,
@@ -232,6 +233,7 @@ export const getInstallations = async (req: Request, res: Response, next: NextFu
                 targetId: true,
                 targetType: true,
                 account: true,
+                status: true,
                 wallet: { select: { address: true } },
                 subscriptionPackage: true,
                 createdAt: true,
@@ -289,6 +291,7 @@ export const getInstallation = async (req: Request, res: Response, next: NextFun
                 targetId: true,
                 targetType: true,
                 account: true,
+                status: true,
                 wallet: { select: { address: true } },
                 tasks: {
                     select: {
