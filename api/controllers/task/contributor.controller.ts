@@ -32,10 +32,37 @@ export const getContributorTasks = async (req: Request, res: Response, next: Nex
 
     try {
         // Build where clause based on filters
-        const where: Prisma.TaskWhereInput = { contributorId: userId };
+        let where: Prisma.TaskWhereInput;
 
-        if (status) {
-            where.status = status as TaskStatus;
+        if (status === "APPLIED") {
+            where = {
+                taskActivities: {
+                    some: {
+                        userId,
+                        taskSubmissionId: null
+                    }
+                },
+                status: { not: TaskStatus.ARCHIVED },
+                contributorId: { equals: null }
+            };
+        } else {
+            where = {
+                OR: [
+                    { contributorId: userId },
+                    {
+                        taskActivities: {
+                            some: {
+                                userId,
+                                taskSubmissionId: null
+                            }
+                        }
+                    }
+                ]
+            };
+
+            if (status) {
+                where.status = status as TaskStatus;
+            }
         }
         if (installationId) {
             where.installationId = installationId as string;
@@ -135,9 +162,23 @@ export const getContributorTask = async (req: Request, res: Response, next: Next
     const { userId } = res.locals;
 
     try {
-        // Fetch task and ensure it is assigned to the contributor
-        const task = await prisma.task.findUnique({
-            where: { id: taskId, contributorId: userId },
+        // Fetch task and ensure it is assigned to the contributor or they have applied
+        const task = await prisma.task.findFirst({
+            where: {
+                id: taskId,
+                status: { not: TaskStatus.ARCHIVED },
+                OR: [
+                    { contributorId: userId },
+                    {
+                        taskActivities: {
+                            some: {
+                                userId,
+                                taskSubmissionId: null
+                            }
+                        }
+                    }
+                ]
+            },
             select: {
                 id: true,
                 issue: true,
@@ -147,6 +188,8 @@ export const getContributorTask = async (req: Request, res: Response, next: Next
                 settled: true,
                 acceptedAt: true,
                 completedAt: true,
+                creatorId: true,
+                contributorId: true,
                 installation: {
                     select: {
                         id: true,
