@@ -210,7 +210,7 @@ export const getInstallations = async (req: Request, res: Response, next: NextFu
         page = 1,
         limit = 10,
         sort,
-        status = "ACTIVE"
+        status
     } = req.query;
     const userId = res.locals.userId;
 
@@ -225,7 +225,7 @@ export const getInstallations = async (req: Request, res: Response, next: NextFu
                 users: {
                     some: { userId: userId as string }
                 },
-                status: status as InstallationStatus
+                ...(status && { status: status as InstallationStatus })
             },
             select: {
                 id: true,

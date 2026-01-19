@@ -102,7 +102,7 @@ const handleInstallationEvent = async (req: Request, res: Response, next: NextFu
             });
 
             if (!installation) {
-                // If installation not found in DB, just return success (maybe it was never set up)
+                // Installation not found
                 responseWrapper({
                     res,
                     status: STATUS_CODES.SUCCESS,
