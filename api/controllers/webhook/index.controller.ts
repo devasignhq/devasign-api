@@ -6,10 +6,12 @@ import { STATUS_CODES } from "../../utilities/data";
 import { prisma } from "../../config/database.config";
 import { dataLogger } from "../../config/logger.config";
 import { PRAnalysisService } from "../../services/ai-review/pr-analysis.service";
-import { TaskStatus } from "../../../prisma_client";
+import { Task, TaskStatus } from "../../../prisma_client";
 import { ContractService } from "../../services/contract.service";
 import { KMSService } from "../../services/kms.service";
 import { FirebaseService } from "../../services/firebase.service";
+import { OctokitService } from "../../services/octokit.service";
+import { TaskIssue } from "../../models/task.model";
 
 /**
  * Handles GitHub webhook events
@@ -113,6 +115,7 @@ const handleInstallationEvent = async (req: Request, res: Response, next: NextFu
             }
 
             let refundedAmount = 0;
+            const taskRefunds: { task: Task; refunded: boolean }[] = [];
 
             // Refund escrow funds
             if (installation.wallet && installation.tasks.length > 0) {
@@ -122,16 +125,11 @@ const handleInstallationEvent = async (req: Request, res: Response, next: NextFu
                     for (const task of installation.tasks) {
                         try {
                             await ContractService.refund(decryptedWalletSecret, task.id);
-
-                            // Update task status to ARCHIVED
-                            await prisma.task.update({
-                                where: { id: task.id },
-                                data: { status: "ARCHIVED" }
-                            });
-
                             refundedAmount += task.bounty;
+                            taskRefunds.push({ task, refunded: true });
                         } catch (error) {
                             dataLogger.warn(`Failed to refund task ${task.id} during installation archive:`, { error });
+                            taskRefunds.push({ task, refunded: false });
                         }
                     }
                 } catch (error) {
@@ -151,6 +149,36 @@ const handleInstallationEvent = async (req: Request, res: Response, next: NextFu
                 data: { installationId, refundedAmount },
                 message: `Installation archived and ${refundedAmount} USDC refunded`
             });
+
+            for (const taskRefund of taskRefunds) {
+                // Remove bounty label and delete bounty comment
+                const taskIssue = taskRefund.task.issue as TaskIssue;
+                OctokitService.removeBountyLabelAndDeleteBountyComment(
+                    installationId,
+                    taskIssue.id,
+                    taskIssue.bountyCommentId!,
+                    taskIssue.bountyLabelId!
+                ).catch((error) => {
+                    dataLogger.warn(
+                        `Failed to remove bounty label and delete bounty comment for task ${taskRefund.task.id} during installation archive:`,
+                        { error }
+                    );
+                });
+
+                // Update task status and settled state
+                prisma.task.update({
+                    where: { id: taskRefund.task.id },
+                    data: {
+                        status: "ARCHIVED",
+                        settled: taskRefund.refunded
+                    }
+                }).catch((error) => {
+                    dataLogger.warn(
+                        `Failed to update task ${taskRefund.task.id} status to ARCHIVED during installation archive:`,
+                        { error }
+                    );
+                });
+            }
             return;
         }
 

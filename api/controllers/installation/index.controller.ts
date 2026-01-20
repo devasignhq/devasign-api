@@ -8,7 +8,8 @@ import { NotFoundError, ValidationError } from "../../models/error.model";
 import { ContractService } from "../../services/contract.service";
 import { dataLogger } from "../../config/logger.config";
 import { KMSService } from "../../services/kms.service";
-import { InstallationStatus } from "../../../prisma_client";
+import { InstallationStatus, Task } from "../../../prisma_client";
+import { TaskIssue } from "../../models/task.model";
 
 /**
  * Create a new installation.
@@ -379,10 +380,9 @@ export const getInstallation = async (req: Request, res: Response, next: NextFun
 export const archiveInstallation = async (req: Request, res: Response, next: NextFunction) => {
     const { installationId } = req.params;
     const userId = res.locals.userId;
-    const { walletAddress: _ } = req.body;
 
     try {
-        // Get installation and verify it exists
+        // Get installation and verify it exists and user has access
         const installation = await prisma.installation.findUnique({
             where: {
                 id: installationId,
@@ -390,14 +390,14 @@ export const archiveInstallation = async (req: Request, res: Response, next: Nex
                     some: { userId: userId as string }
                 }
             },
-            select: {
+            include: {
                 wallet: true,
-                status: true,
                 tasks: {
-                    where: { status: "OPEN" },
-                    select: {
-                        id: true,
-                        bounty: true
+                    where: {
+                        status: {
+                            in: ["OPEN", "IN_PROGRESS"]
+                        },
+                        bounty: { gt: 0 }
                     }
                 }
             }
@@ -406,62 +406,81 @@ export const archiveInstallation = async (req: Request, res: Response, next: Nex
         if (!installation) {
             throw new NotFoundError("Installation not found");
         }
+
         // Check if installation is already archived
         if (installation.status === "ARCHIVED") {
             throw new ValidationError("Installation already archived");
         }
 
-        const activeTaskCount = await prisma.task.count({
-            where: {
-                installationId,
-                status: {
-                    in: ["IN_PROGRESS", "MARKED_AS_COMPLETED"]
+        // Refund escrow funds from smart contract for open and in-progress tasks
+        let refundedAmount = 0;
+        const taskRefunds: { task: Task; refunded: boolean }[] = [];
+
+        if (installation.wallet && installation.tasks.length > 0) {
+            try {
+                const decryptedWalletSecret = await KMSService.decryptWallet(installation.wallet);
+
+                for (const task of installation.tasks) {
+                    if (task.bounty > 0) {
+                        try {
+                            await ContractService.refund(decryptedWalletSecret, task.id);
+                            refundedAmount += task.bounty;
+                            taskRefunds.push({ task, refunded: true });
+                        } catch (error) {
+                            dataLogger.warn(`Failed to refund task ${task.id}:`, { error });
+                            taskRefunds.push({ task, refunded: false });
+                        }
+                    }
                 }
-            }
-        });
-
-        // Check if there are active tasks
-        if (activeTaskCount > 0) {
-            throw new ValidationError(
-                "Cannot archive installation: there are tasks currently being worked on or awaiting payment."
-            );
-        }
-
-        // Refund escrow funds from smart contract for open tasks
-        if (!installation.wallet) {
-            throw new NotFoundError("Installation wallet not found");
-        }
-
-        const decryptedWalletSecret = await KMSService.decryptWallet(installation.wallet);
-        let refunded = 0;
-
-        // TODO: Mark as Deleting to prevent new tasks from being created
-        // TODO: Use Redis to handle idempotency of this and other operations
-
-        for (const task of installation.tasks) {
-            if (task.bounty > 0) {
-                try {
-                    await ContractService.refund(decryptedWalletSecret, task.id);
-                    refunded += task.bounty;
-                } catch (error) {
-                    dataLogger.warn(`Failed to refund task ${task.id}:`, { error });
-                }
+            } catch (error) {
+                dataLogger.error("Failed to decrypt wallet for refund during installation archive", { error });
             }
         }
 
-        // Delete installation
+        // Update installation status to ARCHIVED
         await prisma.installation.update({
             where: { id: installationId },
             data: { status: "ARCHIVED" }
         });
 
-        // Return deletion confirmation
+        // Return success confirmation
         responseWrapper({
             res,
             status: STATUS_CODES.SUCCESS,
-            data: { refunded: `${refunded} USDC` },
-            message: "Installation archived successfully"
+            data: { installationId, refundedAmount: `${refundedAmount} USDC` },
+            message: `Installation archived and ${refundedAmount} USDC refunded`
         });
+
+        // Perform cleanup for each task (labels, comments, and task status)
+        for (const taskRefund of taskRefunds) {
+            // Remove bounty label and delete bounty comment
+            const taskIssue = taskRefund.task.issue as unknown as TaskIssue;
+            OctokitService.removeBountyLabelAndDeleteBountyComment(
+                installationId,
+                taskIssue.id,
+                taskIssue.bountyCommentId!,
+                taskIssue.bountyLabelId!
+            ).catch((error) => {
+                dataLogger.warn(
+                    `Failed to remove bounty label and delete bounty comment for task ${taskRefund.task.id} during installation archive:`,
+                    { error }
+                );
+            });
+
+            // Update task status and settled state
+            prisma.task.update({
+                where: { id: taskRefund.task.id },
+                data: {
+                    status: "ARCHIVED",
+                    settled: taskRefund.refunded
+                }
+            }).catch((error) => {
+                dataLogger.warn(
+                    `Failed to update task ${taskRefund.task.id} status to ARCHIVED during installation archive:`,
+                    { error }
+                );
+            });
+        }
     } catch (error) {
         next(error);
     }
