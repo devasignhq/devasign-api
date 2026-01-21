@@ -612,10 +612,6 @@ export const requestTimelineExtension = async (req: Request, res: Response, next
         if (!task) {
             throw new NotFoundError("Task not found");
         }
-        // Check if installation is archived
-        if (task.installation.status === "ARCHIVED") {
-            throw new ValidationError("Cannot request timeline extension for an archived installation");
-        }
         // Verify task is in progress and user is the assigned contributor
         if (task.status !== "IN_PROGRESS" || task.contributorId !== userId) {
             throw new ValidationError(
@@ -686,10 +682,6 @@ export const replyTimelineExtensionRequest = async (req: Request, res: Response,
         // Verify task exists
         if (!task) {
             throw new NotFoundError("Task not found");
-        }
-        // Check if installation is archived
-        if (task.installation.status === "ARCHIVED") {
-            throw new ValidationError("Cannot reply to extension request for an archived installation");
         }
         // Verify task is in progress and user is the creator
         if (task.status !== "IN_PROGRESS" || task.creatorId !== userId) {
@@ -805,16 +797,15 @@ export const markAsComplete = async (req: Request, res: Response, next: NextFunc
         if (!task) {
             throw new NotFoundError("Task not found");
         }
-        // Check if installation is archived
-        if (task.installation.status === "ARCHIVED") {
-            throw new ValidationError("Cannot mark task as complete for an archived installation");
-        }
         // Verify user is the assigned contributor
         if (task.contributorId !== userId) {
             throw new AuthorizationError("Only the active contributor can make this action");
         }
         // Verify task is in progress
-        if (task.status !== "IN_PROGRESS" && task.status !== "MARKED_AS_COMPLETED") {
+        if (task.status !== TaskStatus.IN_PROGRESS) {
+            if (task.status === TaskStatus.MARKED_AS_COMPLETED) {
+                throw new ValidationError("Task is already in review");
+            }
             throw new ValidationError("Task is not active");
         }
 
@@ -835,7 +826,7 @@ export const markAsComplete = async (req: Request, res: Response, next: NextFunc
             const updatedTask = await tx.task.update({
                 where: { id: taskId },
                 data: {
-                    status: "MARKED_AS_COMPLETED"
+                    status: TaskStatus.MARKED_AS_COMPLETED
                 },
                 select: {
                     status: true,
@@ -927,10 +918,6 @@ export const validateCompletion = async (req: Request, res: Response, next: Next
         if (!task) {
             throw new NotFoundError("Task not found");
         }
-        // Check if installation is archived
-        if (task.installation.status === "ARCHIVED") {
-            throw new ValidationError("Cannot validate task completion for an archived installation");
-        }
         // Verify user is the creator
         if (task.creator.userId !== userId) {
             throw new AuthorizationError("Only task creator can perform this action");
@@ -989,24 +976,17 @@ export const validateCompletion = async (req: Request, res: Response, next: Next
                     user: { connect: { userId: task.contributor.userId } },
                     doneAt: stellarTimestampToDate(transactionResponse.result.createdAt)
                 }
-            })
-        ]);
-
-        let summaryUpdated = false;
-        try {
-            // Update contribution summary
-            await prisma.contributionSummary.update({
+            }),
+            // Update the contributor's contribution summary
+            prisma.contributionSummary.update({
                 where: { userId: task.contributor.userId },
                 data: {
                     activeTasks: { decrement: 1 },
                     tasksCompleted: { increment: 1 },
                     totalEarnings: { increment: task.bounty }
                 }
-            });
-            summaryUpdated = true;
-        } catch (error) {
-            dataLogger.warn("Failed to update the developer contribution summary", { userId: task.contributor.userId, error });
-        }
+            })
+        ]);
 
         let chatDisabled = false;
         try {
@@ -1015,24 +995,6 @@ export const validateCompletion = async (req: Request, res: Response, next: Next
             chatDisabled = true;
         } catch (error) {
             dataLogger.warn("Failed to disable chat", { taskId, error });
-        }
-
-        // Add bounty paid label to the issue
-        OctokitService.addBountyPaidLabel(
-            task.installation.id,
-            (task.issue as TaskIssue).id
-        ).catch(
-            error => dataLogger.warn("Failed to add bounty paid label", { taskId, error })
-        );
-
-        if (!summaryUpdated) {
-            return responseWrapper({
-                res,
-                status: STATUS_CODES.PARTIAL_SUCCESS,
-                data: { validated: true, task: updatedTask },
-                message: "Task validated and completed",
-                warning: "Failed to update the developer contribution summary"
-            });
         }
 
         if (!chatDisabled) {
@@ -1052,6 +1014,14 @@ export const validateCompletion = async (req: Request, res: Response, next: Next
             data: updatedTask,
             message: "Task validated and completed"
         });
+
+        // Add bounty paid label to the issue
+        OctokitService.addBountyPaidLabel(
+            task.installation.id,
+            (task.issue as TaskIssue).id
+        ).catch(
+            error => dataLogger.warn("Failed to add bounty paid label", { taskId, error })
+        );
     } catch (error) {
         next(error);
     }
