@@ -9,6 +9,7 @@ import { prisma } from "./config/database.config";
 import { validateAdmin, validateUser } from "./middlewares/auth.middleware";
 import { dynamicRoute, localhostOnly } from "./middlewares/request.middleware";
 import { errorHandler } from "./middlewares/error.middleware";
+import { apiLimiter, webhookLimiter } from "./middlewares/rate-limit.middleware";
 import {
     adminRoutes,
     userRoutes,
@@ -54,6 +55,10 @@ app.use(
 );
 app.use(morgan("dev"));
 app.set("trust proxy", true);
+
+// Rate limiting
+app.use(ENDPOINTS.WEBHOOK.PREFIX, webhookLimiter);
+app.use(apiLimiter);
 
 // Raw body parser for webhook signature validation
 app.use(
