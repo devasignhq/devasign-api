@@ -54,7 +54,7 @@ app.use(
     })
 );
 app.use(morgan("dev"));
-app.set("trust proxy", true);
+app.set("trust proxy", 1);
 
 // Rate limiting
 app.use(ENDPOINTS.WEBHOOK.PREFIX, webhookLimiter);
