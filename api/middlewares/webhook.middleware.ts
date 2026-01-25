@@ -219,3 +219,56 @@ export const validateGitHubWebhookEvent = async (req: Request, res: Response, ne
         meta: { eventType }
     });
 };
+
+/**
+ * Middleware to validate Sumsub webhook signatures
+ */
+export const validateSumsubWebhook = (req: Request, res: Response, next: NextFunction): void => {
+    try {
+        // Get signature and secret
+        const signature = req.get("x-payload-digest");
+        const secret = process.env.SUMSUB_SECRET_KEY;
+
+        if (!secret) {
+            throw new Error("Sumsub webhook secret not configured");
+        }
+
+        if (!signature) {
+            throw new Error("Missing webhook signature");
+        }
+
+        // Get raw body (should be Buffer from express.raw middleware)
+        const rawBody = req.body;
+        if (!Buffer.isBuffer(rawBody)) {
+            throw new Error("Invalid request body format");
+        }
+
+        // Calculate expected signature using HMAC-SHA256
+        const expectedSignature = crypto
+            .createHmac("sha256", secret)
+            .update(rawBody)
+            .digest("hex");
+
+        // Compare signatures using timing-safe comparison to prevent timing attacks
+        const isValid = crypto.timingSafeEqual(
+            Buffer.from(signature),
+            Buffer.from(expectedSignature)
+        );
+
+        if (!isValid) {
+            throw new Error("Invalid webhook signature");
+        }
+
+        // Parse JSON body for downstream controllers
+        try {
+            req.body = JSON.parse(rawBody.toString());
+        } catch {
+            throw new Error("Invalid JSON payload");
+        }
+
+        next();
+    } catch (error) {
+        dataLogger.error("Sumsub webhook validation failed", { error });
+        next(error);
+    }
+};

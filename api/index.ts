@@ -62,7 +62,10 @@ app.use(apiLimiter);
 
 // Raw body parser for webhook signature validation
 app.use(
-    ENDPOINTS.WEBHOOK.PREFIX + ENDPOINTS.WEBHOOK.GITHUB,
+    [
+        ENDPOINTS.WEBHOOK.PREFIX + ENDPOINTS.WEBHOOK.GITHUB,
+        ENDPOINTS.WEBHOOK.PREFIX + ENDPOINTS.WEBHOOK.SUMSUB
+    ],
     express.raw({ type: "application/json" })
 );
 
