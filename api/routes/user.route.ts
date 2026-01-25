@@ -2,8 +2,10 @@ import { RequestHandler, Router } from "express";
 import {
     createUser,
     updateAddressBook,
-    getUser
+    getUser,
+    generateSumsubSdkToken
 } from "../controllers/user";
+
 import {
     createUserSchema,
     getUserSchema,
@@ -33,4 +35,10 @@ userRoutes.patch(
     ENDPOINTS.USER.UPDATE_ADDRESS_BOOK,
     validateRequestParameters(updateAddressBookSchema),
     updateAddressBook as RequestHandler
+);
+
+// Generate Sumsub SDK token
+userRoutes.post(
+    ENDPOINTS.USER.SUMSUB_TOKEN,
+    generateSumsubSdkToken as RequestHandler
 );

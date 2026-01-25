@@ -191,21 +191,26 @@ export class ErrorHandlerService {
             errors.push("USDC_CONTRACT_ID not configured - USDC token operations will fail");
         }
 
-        // Firebase Configuration (Warning - may be optional)
+        // Firebase Configuration (Critical)
         if (!process.env.FIREBASE_PROJECT_ID || !process.env.FIREBASE_CLIENT_EMAIL || !process.env.FIREBASE_PRIVATE_KEY) {
-            warnings.push("Firebase credentials not configured - Firebase integration will fail");
+            errors.push("Firebase credentials not configured - Firebase integration will fail");
         }
 
-        // GCP Configuration (Warning - for KMS encryption)
+        // GCP Configuration (Critical)
         if (!process.env.GCP_PROJECT_ID || !process.env.GCP_LOCATION_ID || !process.env.GCP_KEY_RING_ID || !process.env.GCP_KEY_ID) {
-            warnings.push("GCP credentials not configured - wallet encryption will fail");
+            errors.push("GCP credentials not configured - wallet encryption will fail");
         }
 
-        // AI Service Configuration (Warning - optional feature)
+        // AI Service Configuration (Critical)
         if (!process.env.GROQ_API_KEY) {
-            warnings.push("GROQ_API_KEY not configured - AI review service will be unavailable");
+            errors.push("GROQ_API_KEY not configured - AI review service will be unavailable");
         }
 
+        // Sumsub Configuration (Critical)
+        if (!process.env.SUMSUB_APP_TOKEN || !process.env.SUMSUB_SECRET_KEY || !process.env.SUMSUB_LEVEL_NAME) {
+            errors.push("Sumsub misconfiguration");
+        }
+        
         // Application Configuration
         if (!process.env.NODE_ENV) {
             warnings.push("NODE_ENV not configured - defaulting to development mode");

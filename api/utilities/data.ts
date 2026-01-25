@@ -44,7 +44,9 @@ export const ENDPOINTS = {
         /** GET / - Get user information */
         GET: "/",
         /** PUT /address-book - Update user's address book */
-        UPDATE_ADDRESS_BOOK: "/address-book"
+        UPDATE_ADDRESS_BOOK: "/address-book",
+        /** POST /sumsub-token - Generate Sumsub SDK access token */
+        SUMSUB_TOKEN: "/sumsub-token"
     },
     /** Installation management endpoints */
     INSTALLATION: {
@@ -170,7 +172,9 @@ export const ENDPOINTS = {
     WEBHOOK: {
         PREFIX: "/webhook",
         /** POST /github - GitHub webhook events */
-        GITHUB: "/github"
+        GITHUB: "/github",
+        /** POST /sumsub - Sumsub webhook events */
+        SUMSUB: "/sumsub"
     },
     /** Administrative endpoints */
     ADMIN: {
