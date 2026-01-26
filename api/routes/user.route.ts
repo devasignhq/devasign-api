@@ -38,7 +38,7 @@ userRoutes.patch(
 );
 
 // Generate Sumsub SDK token
-userRoutes.post(
+userRoutes.get(
     ENDPOINTS.USER.SUMSUB_TOKEN,
     generateSumsubSdkToken as RequestHandler
 );

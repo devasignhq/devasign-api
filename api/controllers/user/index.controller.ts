@@ -37,6 +37,7 @@ export const createUser = async (req: Request, res: Response, next: NextFunction
         const select: Prisma.UserSelect = {
             userId: true,
             username: true,
+            verified: true,
             wallet: { select: { address: true } },
             contributionSummary: true,
             createdAt: true,
@@ -129,6 +130,7 @@ export const getUser = async (req: Request, res: Response, next: NextFunction) =
         const baseSelect: Prisma.UserSelect = {
             userId: true,
             username: true,
+            verified: true,
             wallet: { select: { address: true } },
             addressBook: true,
             createdAt: true,
