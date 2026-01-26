@@ -227,7 +227,7 @@ export const validateSumsubWebhook = (req: Request, res: Response, next: NextFun
     try {
         // Get signature and secret
         const signature = req.get("x-payload-digest");
-        const secret = process.env.SUMSUB_SECRET_KEY;
+        const secret = process.env.SUMSUB_WEBHOOK_SECRET;
 
         if (!secret) {
             throw new Error("Sumsub webhook secret not configured");
