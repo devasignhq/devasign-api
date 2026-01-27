@@ -1,9 +1,6 @@
 import * as z from "zod";
 
 export const createUserSchema = {
-    query: z.object({
-        skipWallet: z.literal("true").optional()
-    }),
     body: z.object({
         githubUsername: z.string().min(1, "Username must be greater than 1 character")
     })
@@ -11,8 +8,7 @@ export const createUserSchema = {
 
 export const getUserSchema = {
     query: z.object({
-        view: z.enum(["basic", "full"]).optional(),
-        setWallet: z.literal("true").optional()
+        view: z.enum(["basic", "full"]).optional()
     })
 };
 

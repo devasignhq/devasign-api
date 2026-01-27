@@ -41,7 +41,9 @@ export const getTaskActivities = async (req: Request, res: Response, next: NextF
                     select: {
                         userId: true,
                         username: true,
-                        contributionSummary: true
+                        contributionSummary: true,
+                        techStack: true,
+                        verified: true
                     }
                 },
                 taskSubmission: {

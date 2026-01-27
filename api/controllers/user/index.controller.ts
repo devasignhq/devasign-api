@@ -8,6 +8,7 @@ import { NotFoundError, ValidationError } from "../../models/error.model";
 import { dataLogger } from "../../config/logger.config";
 import { Prisma } from "../../../prisma_client";
 import { KMSService } from "../../services/kms.service";
+import { OctokitService } from "../../services/octokit.service";
 
 // User's address book
 export type AddressBook = {
@@ -21,7 +22,11 @@ export type AddressBook = {
 export const createUser = async (req: Request, res: Response, next: NextFunction) => {
     const { userId } = res.locals;
     const { githubUsername } = req.body;
-    const { skipWallet } = req.query;
+
+    // Extract the origin from headers
+    const origin = req.get("origin");
+    // Check if it matches the maintainer app domain
+    const isMaintainerApp = origin?.includes("app.devasign.com");
 
     try {
         // Check if user already exists
@@ -40,19 +45,18 @@ export const createUser = async (req: Request, res: Response, next: NextFunction
             verified: true,
             wallet: { select: { address: true } },
             contributionSummary: true,
+            techStack: true,
             createdAt: true,
             updatedAt: true
         };
 
         // Create user without wallet (for the project maintainer app)
-        if (skipWallet === "true") {
+        if (isMaintainerApp) {
             const user = await prisma.user.create({
                 data: {
                     userId,
                     username: githubUsername,
-                    contributionSummary: {
-                        create: {}
-                    }
+                    contributionSummary: { create: {} }
                 },
                 select
             });
@@ -66,6 +70,9 @@ export const createUser = async (req: Request, res: Response, next: NextFunction
             });
         }
 
+        // Fetch tech stack from GitHub
+        const techStack = await OctokitService.getUserTopLanguages(githubUsername);
+
         // Create user wallet (for the contributor app)
         const userWallet = await stellarService.createWallet();
         const encryptedUserSecret = await KMSService.encryptWallet(userWallet.secretKey);
@@ -75,6 +82,7 @@ export const createUser = async (req: Request, res: Response, next: NextFunction
             data: {
                 userId,
                 username: githubUsername,
+                techStack,
                 wallet: {
                     create: {
                         address: userWallet.publicKey,
@@ -123,7 +131,12 @@ export const createUser = async (req: Request, res: Response, next: NextFunction
  */
 export const getUser = async (req: Request, res: Response, next: NextFunction) => {
     const { userId } = res.locals;
-    const { view = "basic", setWallet } = req.query; // view: "basic" | "full"
+    const { view = "basic" } = req.query; // view: "basic" | "full"
+
+    // Extract the origin from headers
+    const origin = req.get("origin");
+    // Check if it matches the contributor app domain
+    const isContributorApp = origin?.includes("contributor.devasign.com");
 
     try {
         // Base selection - always included
@@ -133,6 +146,7 @@ export const getUser = async (req: Request, res: Response, next: NextFunction) =
             verified: true,
             wallet: { select: { address: true } },
             addressBook: true,
+            techStack: true,
             createdAt: true,
             updatedAt: true
         };
@@ -166,11 +180,25 @@ export const getUser = async (req: Request, res: Response, next: NextFunction) =
             throw new NotFoundError("User not found");
         }
 
+        // Fetch tech stack from GitHub if it's empty and it's the contributor app
+        if (user.techStack.length === 0 && isContributorApp) {
+            try {
+                const techStack = await OctokitService.getUserTopLanguages(user.username);
+                user = await prisma.user.update({
+                    where: { userId },
+                    data: { techStack },
+                    select: selectObject
+                });
+            } catch (error) {
+                dataLogger.warn("Failed to fetch tech stack for user", { userId, error });
+            }
+        }
+
         // If setWallet is true and user has no wallet, create one
         const walletStatus = { wallet: false, usdcTrustline: false };
 
         // TODO: Idempotency protection
-        if ((!user.wallet || !user.wallet.address) && setWallet === "true") {
+        if ((!user.wallet || !user.wallet.address) && isContributorApp) {
             let userWallet;
             try {
                 // Create wallet

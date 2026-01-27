@@ -401,7 +401,7 @@ export const submitTaskApplication = async (req: Request, res: Response, next: N
         }
 
         // Create task application activity
-        await prisma.taskActivity.create({
+        const taskActivity = await prisma.taskActivity.create({
             data: {
                 task: {
                     connect: { id: taskId }
@@ -409,6 +409,10 @@ export const submitTaskApplication = async (req: Request, res: Response, next: N
                 user: {
                     connect: { userId }
                 }
+            },
+            select: { 
+                id: true,
+                user: { select: { techStack: true, username: true } }
             }
         });
 
@@ -427,6 +431,21 @@ export const submitTaskApplication = async (req: Request, res: Response, next: N
                 { taskId, error }
             )
         );
+
+        // Update user tech stack if none was found
+        if (taskActivity.user?.techStack && taskActivity.user.techStack.length === 0) {
+            const techStack = await OctokitService.getUserTopLanguages(taskActivity.user.username);
+
+            prisma.user.update({
+                where: { userId },
+                data: { techStack }
+            }).catch(error => {
+                dataLogger.warn(
+                    "Failed to update user tech stack",
+                    { userId, error }
+                );
+            });
+        }
     } catch (error) {
         next(error);
     }

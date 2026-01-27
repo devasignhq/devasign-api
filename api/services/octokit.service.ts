@@ -1,4 +1,4 @@
-import { App } from "octokit";
+import { App, Octokit } from "octokit";
 import {
     GitHubComment,
     InstallationOctokit,
@@ -18,6 +18,10 @@ export class OctokitService {
     private static githubApp = new App({
         appId: process.env.GITHUB_APP_ID!,
         privateKey: process.env.GITHUB_APP_PRIVATE_KEY!.toString().replace(/\\n/g, "\n")
+    });
+
+    private static systemOctokit = new Octokit({
+        auth: process.env.GITHUB_ACCESS_TOKEN
     });
 
     /**
@@ -207,6 +211,63 @@ ${accepted ? "**This bounty has already been assigned.**" : `**To work on this t
         } catch {
             // If request fails (404 or other error), user doesn't exist or is inaccessible
             return false;
+        }
+    }
+
+    /**
+     * Get user's top languages from GitHub
+     */
+    public static async getUserTopLanguages(username: string): Promise<string[]> {
+        const octokit = this.systemOctokit;
+
+        const query = `
+            query($username: String!) {
+                user(login: $username) {
+                    repositories(first: 50, isFork: false, orderBy: {field: UPDATED_AT, direction: DESC}) {
+                        nodes {
+                            languages(first: 5, orderBy: {field: SIZE, direction: DESC}) {
+                                nodes {
+                                    name
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        `;
+
+        try {
+            const response = await octokit.graphql(query, { username }) as {
+                user: {
+                    repositories: {
+                        nodes: {
+                            languages: {
+                                nodes: {
+                                    name: string;
+                                }[];
+                            } | null;
+                        }[];
+                    } | null;
+                } | null;
+            };
+
+            const repos = response.user?.repositories?.nodes || [];
+            const languageCounts: Record<string, number> = {};
+
+            repos.forEach((repo) => {
+                repo.languages?.nodes?.forEach((lang) => {
+                    languageCounts[lang.name] = (languageCounts[lang.name] || 0) + 1;
+                });
+            });
+
+            // Sort languages by frequency and take top 10
+            return Object.entries(languageCounts)
+                .sort(([, a], [, b]) => b - a)
+                .map(([name]) => name)
+                .slice(0, 10);
+        } catch (error) {
+            dataLogger.error("Error fetching user languages from GitHub", { username, error });
+            return [];
         }
     }
 
@@ -762,7 +823,7 @@ ${accepted ? "**This bounty has already been assigned.**" : `**To work on this t
 
         return label;
     }
-    
+
     /**
      * Get bounty label
      */

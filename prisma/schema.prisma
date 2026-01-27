@@ -74,6 +74,7 @@ model User {
     wallet                      Wallet?
     contributionSummary         ContributionSummary?
     addressBook                 Json[]                       @default([])
+    techStack                   String[]                     @default([])
     createdAt                   DateTime                     @default(now())
     updatedAt                   DateTime                     @updatedAt
     createdTasks                Task[]                       @relation("TaskCreator")
@@ -196,9 +197,9 @@ model TaskActivity {
     task             Task            @relation(fields: [taskId], references: [id], onDelete: Cascade)
     taskId           String
     viewed           Boolean         @default(false)
-    user             User?           @relation(fields: [userId], references: [userId], onDelete: SetNull)
+    user             User?           @relation(fields: [userId], references: [userId], onDelete: Cascade)
     userId           String?
-    taskSubmission   TaskSubmission? @relation(fields: [taskSubmissionId], references: [id], onDelete: SetNull)
+    taskSubmission   TaskSubmission? @relation(fields: [taskSubmissionId], references: [id], onDelete: Cascade)
     taskSubmissionId String?
     createdAt        DateTime        @default(now())
     updatedAt        DateTime        @updatedAt
