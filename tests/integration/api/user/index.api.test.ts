@@ -38,6 +38,13 @@ jest.mock("../../../../api/services/kms.service", () => ({
     }
 }));
 
+// Mock Octokit service for GitHub operations
+jest.mock("../../../../api/services/octokit.service", () => ({
+    OctokitService: {
+        getUserTopLanguages: jest.fn()
+    }
+}));
+
 describe("User API Integration Tests", () => {
     let app: express.Application;
     let prisma: any;

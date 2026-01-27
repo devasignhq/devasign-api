@@ -54,7 +54,8 @@ jest.mock("../../../../api/services/octokit.service", () => ({
         customBountyMessage: jest.fn(),
         getOwnerAndRepo: jest.fn(),
         addBountyLabelAndCreateBountyComment: jest.fn(),
-        addBountyPaidLabel: jest.fn()
+        addBountyPaidLabel: jest.fn(),
+        getUserTopLanguages: jest.fn()
     }
 }));
 
