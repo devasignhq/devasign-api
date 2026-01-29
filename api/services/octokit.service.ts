@@ -221,15 +221,27 @@ ${accepted ? "**This bounty has already been assigned.**" : `**To work on this t
         const octokit = this.systemOctokit;
 
         const query = `
-            query($username: String!) {
+            query($username: String!, $cursor: String) {
                 user(login: $username) {
-                    repositories(first: 50, isFork: false, orderBy: {field: UPDATED_AT, direction: DESC}) {
+                    repositories(
+                        first: 100, 
+                        isFork: false, 
+                        orderBy: {field: UPDATED_AT, direction: DESC},
+                        after: $cursor
+                    ) {
                         nodes {
-                            languages(first: 5, orderBy: {field: SIZE, direction: DESC}) {
-                                nodes {
-                                    name
+                            languages(first: 10, orderBy: {field: SIZE, direction: DESC}) {
+                                edges {
+                                    size
+                                    node {
+                                        name
+                                    }
                                 }
                             }
+                        }
+                        pageInfo {
+                            hasNextPage
+                            endCursor
                         }
                     }
                 }
@@ -237,31 +249,50 @@ ${accepted ? "**This bounty has already been assigned.**" : `**To work on this t
         `;
 
         try {
-            const response = await octokit.graphql(query, { username }) as {
-                user: {
-                    repositories: {
-                        nodes: {
-                            languages: {
-                                nodes: {
-                                    name: string;
-                                }[];
-                            } | null;
-                        }[];
+            const languageBytes: Record<string, number> = {};
+            let hasNextPage = true;
+            let cursor: string | null = null;
+            let repoCount = 0;
+            const maxRepos = 100; // Limit to avoid excessive API calls
+
+            while (hasNextPage && repoCount < maxRepos) {
+                const response = await octokit.graphql(query, { username, cursor }) as {
+                    user: {
+                        repositories: {
+                            nodes: {
+                                languages: {
+                                    edges: {
+                                        size: number;
+                                        node: {
+                                            name: string;
+                                        };
+                                    }[];
+                                } | null;
+                            }[];
+                            pageInfo: {
+                                hasNextPage: boolean;
+                                endCursor: string | null;
+                            };
+                        } | null;
                     } | null;
-                } | null;
-            };
+                };
 
-            const repos = response.user?.repositories?.nodes || [];
-            const languageCounts: Record<string, number> = {};
+                const repos = response.user?.repositories?.nodes || [];
+                repoCount += repos.length;
 
-            repos.forEach((repo) => {
-                repo.languages?.nodes?.forEach((lang) => {
-                    languageCounts[lang.name] = (languageCounts[lang.name] || 0) + 1;
+                repos.forEach((repo) => {
+                    repo.languages?.edges?.forEach((edge) => {
+                        const langName = edge.node.name;
+                        languageBytes[langName] = (languageBytes[langName] || 0) + edge.size;
+                    });
                 });
-            });
 
-            // Sort languages by frequency and take top 10
-            return Object.entries(languageCounts)
+                hasNextPage = response.user?.repositories?.pageInfo.hasNextPage ?? false;
+                cursor = response.user?.repositories?.pageInfo.endCursor ?? null;
+            }
+
+            // Sort by total bytes and return top 10
+            return Object.entries(languageBytes)
                 .sort(([, a], [, b]) => b - a)
                 .map(([name]) => name)
                 .slice(0, 10);
