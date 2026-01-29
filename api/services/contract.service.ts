@@ -27,7 +27,9 @@ export class ContractService {
     };
 
     // Soroban RPC server instance for network communication
-    private static server = new SorobanRpc.Server(this.CONFIG.rpcUrl);
+    private static server = new SorobanRpc.Server(this.CONFIG.rpcUrl, {
+        timeout: 10000 // 10 seconds
+    });
 
     // Task escrow contract instance
     private static contract = new Contract(this.CONFIG.contractId);
