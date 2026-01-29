@@ -1,4 +1,15 @@
 /**
+ * List of allowed origins for API requests.
+ */
+export const ALLOWED_ORIGINS = [
+    "https://devasign.com",
+    "https://app.devasign.com",
+    "https://contributor.devasign.com",
+    "http://localhost:3000",
+    "http://localhost:4000"
+];
+
+/**
  * HTTP status codes used throughout the application.
  */
 export const STATUS_CODES = {

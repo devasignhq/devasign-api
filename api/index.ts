@@ -24,7 +24,8 @@ import {
 } from "./routes";
 import { ErrorHandlerService } from "./services/error-handler.service";
 import { dataLogger, messageLogger } from "./config/logger.config";
-import { ENDPOINTS, STATUS_CODES } from "./utilities/data";
+import { ALLOWED_ORIGINS, ENDPOINTS, STATUS_CODES } from "./utilities/data";
+import { ErrorClass } from "./models/error.model";
 
 const app = express();
 const PORT = process.env.NODE_ENV === "development"
@@ -35,21 +36,16 @@ app.use(helmet());
 app.use(
     cors({
         origin(origin, callback) {
-            // Allow requests with no origin (like mobile apps or curl requests)
-            if (!origin) return callback(null, true);
-
-            // Allow localhost ports 3000 and 4000
-            if (origin === "http://localhost:3000" || origin === "http://localhost:4000") {
+            // Allowed origins
+            if (!origin || ALLOWED_ORIGINS.includes(origin)) {
                 return callback(null, true);
             }
-
-            // Allow devasign.com and its subdomains
-            if (origin === "https://devasign.com" || origin.match(/^https:\/\/.*\.devasign\.com$/)) {
-                return callback(null, true);
-            }
-
-            // Reject other origins
-            callback(new Error("Not allowed by CORS"));
+            callback(new ErrorClass(
+                "CORS_ERROR",
+                null,
+                "Not allowed by CORS",
+                STATUS_CODES.UNAUTHORIZED
+            ));
         }
     })
 );
