@@ -3,6 +3,7 @@ import axios from "axios";
 import crypto from "crypto-js";
 import { STATUS_CODES } from "../../utilities/data";
 import { responseWrapper } from "../../utilities/helper";
+import { ErrorClass } from "../../models/error.model";
 
 /**
  * Generate Sumsub SDK access token
@@ -44,6 +45,15 @@ export const generateSumsubSdkToken = async (req: Request, res: Response, next: 
                 }
             }
         );
+
+        if (response.status !== 200) {
+            throw new ErrorClass(
+                "SUMSUB_API_ERROR",
+                response.data,
+                "Sumsub SDK token generation failed",
+                STATUS_CODES.SERVER_ERROR
+            );
+        }
 
         responseWrapper({
             res,
