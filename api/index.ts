@@ -20,7 +20,8 @@ import {
     stellarRoutes,
     testRoutes,
     aiServicesRoutes,
-    contractRoutes
+    contractRoutes,
+    octokitTestRoutes
 } from "./routes";
 import { ErrorHandlerService } from "./services/error-handler.service";
 import { dataLogger, messageLogger } from "./config/logger.config";
@@ -52,11 +53,8 @@ app.use(
 app.use(morgan("dev"));
 app.set("trust proxy", 1);
 
-// Rate limiting
+// Specific Webhook Handling
 app.use(ENDPOINTS.WEBHOOK.PREFIX, webhookLimiter);
-app.use(apiLimiter);
-
-// Raw body parser for webhook signature validation
 app.use(
     [
         ENDPOINTS.WEBHOOK.PREFIX + ENDPOINTS.WEBHOOK.GITHUB,
@@ -65,7 +63,8 @@ app.use(
     express.raw({ type: "application/json" })
 );
 
-// JSON parser for all other routes
+// General API Middleware
+app.use(apiLimiter);
 app.use(express.json());
 
 app.get("/get-packages", validateUser as RequestHandler, async (_, res) => {
@@ -113,14 +112,24 @@ app.use(
     validateUser as RequestHandler,
     walletRoutes
 );
-// Webhook routes (no auth required for GitHub webhooks)
+// Webhook routes
 app.use(ENDPOINTS.WEBHOOK.PREFIX, webhookRoutes);
 
-// Local host routes for testing purposes
-app.use("/stellar", dynamicRoute, localhostOnly, stellarRoutes);
-app.use("/test", dynamicRoute, localhostOnly, testRoutes);
-app.use("/ai-services", dynamicRoute, localhostOnly, aiServicesRoutes);
-app.use("/contract", dynamicRoute, localhostOnly, contractRoutes);
+/**
+ * Internal/Test Routes
+ * Only mounted in development or local testing environments
+ */
+if (process.env.NODE_ENV !== "production") {
+    messageLogger.warn("⚠️ Mounting internal test routes. Ensure this is not production.");
+    
+    const internalMiddlware = [dynamicRoute, localhostOnly];
+    
+    app.use("/stellar", internalMiddlware, stellarRoutes);
+    app.use("/test", internalMiddlware, testRoutes);
+    app.use("/ai-services", internalMiddlware, aiServicesRoutes);
+    app.use("/contract", internalMiddlware, contractRoutes);
+    app.use("/octokit", internalMiddlware, octokitTestRoutes);
+}
 
 app.use(errorHandler);
 
@@ -150,8 +159,8 @@ const server = app.listen(PORT, "0.0.0.0", () => {
 });
 
 // Graceful shutdown handling
-process.on("SIGTERM", async () => {
-    messageLogger.info("SIGTERM received, starting graceful shutdown...");
+const gracefulShutdown = async (signal: string) => {
+    messageLogger.info(`${signal} received, starting graceful shutdown...`);
 
     try {
         // Stop accepting new connections
@@ -174,30 +183,7 @@ process.on("SIGTERM", async () => {
         dataLogger.error("Error during graceful shutdown", { error });
         process.exit(1);
     }
-});
+};
 
-process.on("SIGINT", async () => {
-    messageLogger.info("SIGINT received, starting graceful shutdown...");
-
-    try {
-        // Stop accepting new connections
-        server.close(() => {
-            messageLogger.info("HTTP server closed");
-        });
-
-        // Shutdown workflow integration service
-        const { WorkflowIntegrationService } = await import("./services/ai-review/workflow-integration.service");
-        const workflowService = WorkflowIntegrationService.getInstance();
-        await workflowService.shutdown();
-
-        // Close database connection
-        await prisma.$disconnect();
-        messageLogger.info("Database connection closed");
-
-        messageLogger.info("Graceful shutdown completed");
-        process.exit(0);
-    } catch (error) {
-        dataLogger.error("Error during graceful shutdown", { error });
-        process.exit(1);
-    }
-});
+process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+process.on("SIGINT", () => gracefulShutdown("SIGINT"));
