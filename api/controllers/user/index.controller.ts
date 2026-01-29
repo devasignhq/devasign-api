@@ -23,10 +23,24 @@ export const createUser = async (req: Request, res: Response, next: NextFunction
     const { userId } = res.locals;
     const { githubUsername } = req.body;
 
-    // Extract the origin from headers
-    const origin = req.get("origin");
     // Check if it matches the maintainer app domain
-    const isMaintainerApp = origin?.includes("app.devasign.com");
+    const origin = req.get("origin");
+    let isMaintainerApp = false;
+
+    if (origin) {
+        try {
+            const url = new URL(origin);
+            const hostname = url.hostname;
+            const port = url.port;
+
+            // Check Production or Localhost for Maintainer App
+            isMaintainerApp =
+                hostname === "app.devasign.com" ||
+                (hostname === "localhost" && port === "3000");
+        } catch {
+            isMaintainerApp = false;
+        }
+    }
 
     try {
         // Check if user already exists
@@ -70,9 +84,6 @@ export const createUser = async (req: Request, res: Response, next: NextFunction
             });
         }
 
-        // Fetch tech stack from GitHub
-        const techStack = await OctokitService.getUserTopLanguages(githubUsername);
-
         // Create user wallet (for the contributor app)
         const userWallet = await stellarService.createWallet();
         const encryptedUserSecret = await KMSService.encryptWallet(userWallet.secretKey);
@@ -82,7 +93,6 @@ export const createUser = async (req: Request, res: Response, next: NextFunction
             data: {
                 userId,
                 username: githubUsername,
-                techStack,
                 wallet: {
                     create: {
                         address: userWallet.publicKey,
@@ -121,6 +131,29 @@ export const createUser = async (req: Request, res: Response, next: NextFunction
                 meta: { error }
             });
         }
+
+        // Fetch user tech stack from GitHub
+        let techStack: string[] = [];
+        try {
+            techStack = await OctokitService.getUserTopLanguages(user.username);
+        } catch (error) {
+            dataLogger.warn(
+                "Failed to get user top languages",
+                { userId, error }
+            );
+        }
+
+        if (techStack.length > 0) {
+            prisma.user.update({
+                where: { userId },
+                data: { techStack }
+            }).catch(error => {
+                dataLogger.warn(
+                    "Failed to set user tech stack",
+                    { userId, error }
+                );
+            });
+        }
     } catch (error) {
         next(error);
     }
@@ -133,10 +166,24 @@ export const getUser = async (req: Request, res: Response, next: NextFunction) =
     const { userId } = res.locals;
     const { view = "basic" } = req.query; // view: "basic" | "full"
 
-    // Extract the origin from headers
-    const origin = req.get("origin");
     // Check if it matches the contributor app domain
-    const isContributorApp = origin?.includes("contributor.devasign.com");
+    const origin = req.get("origin");
+    let isContributorApp = false;
+
+    if (origin) {
+        try {
+            const url = new URL(origin);
+            const hostname = url.hostname;
+            const port = url.port;
+
+            // Check Production or Localhost for Maintainer App
+            isContributorApp =
+                hostname === "contributor.devasign.com" ||
+                (hostname === "localhost" && port === "4000");
+        } catch {
+            isContributorApp = false;
+        }
+    }
 
     try {
         // Base selection - always included
@@ -180,93 +227,78 @@ export const getUser = async (req: Request, res: Response, next: NextFunction) =
             throw new NotFoundError("User not found");
         }
 
-        // Fetch tech stack from GitHub if it's empty and it's the contributor app
-        if (user.techStack.length === 0 && isContributorApp) {
-            try {
-                const techStack = await OctokitService.getUserTopLanguages(user.username);
-                user = await prisma.user.update({
-                    where: { userId },
-                    data: { techStack },
-                    select: selectObject
-                });
-            } catch (error) {
-                dataLogger.warn("Failed to fetch tech stack for user", { userId, error });
-            }
-        }
-
-        // If setWallet is true and user has no wallet, create one
-        const walletStatus = { wallet: false, usdcTrustline: false };
-
-        // TODO: Idempotency protection
-        if ((!user.wallet || !user.wallet.address) && isContributorApp) {
-            let userWallet;
-            try {
-                // Create wallet
-                userWallet = await stellarService.createWallet();
-                const encryptedUserSecret = await KMSService.encryptWallet(userWallet.secretKey);
-
-                // Update user with wallet information
-                const updatedUser = await prisma.user.update({
-                    where: { userId },
-                    data: {
-                        wallet: {
-                            create: {
-                                address: userWallet.publicKey,
-                                ...encryptedUserSecret
-                            }
-                        }
-                    },
-                    select: selectObject
-                });
-
-                user = updatedUser;
-                walletStatus.wallet = true;
-            } catch (error) {
-                dataLogger.warn("Failed to create wallet for existing user", { error });
-                // Return user info and notify user wallet creation failed
-                return responseWrapper({
-                    res,
-                    status: STATUS_CODES.PARTIAL_SUCCESS,
-                    data: user,
-                    message: "Failed to create wallet",
-                    meta: { walletStatus }
-                });
-            }
-
-            try {
-                // Add USDC trustline to wallet
-                await stellarService.addTrustLineViaSponsor(
-                    process.env.STELLAR_MASTER_SECRET_KEY!,
-                    userWallet.secretKey
-                );
-                walletStatus.usdcTrustline = true;
-            } catch (error) {
-                dataLogger.warn("Failed to add USDC trustline", { error });
-
-                // Return user info and notify user USDC trustline addition failed 
-                return responseWrapper({
-                    res,
-                    status: STATUS_CODES.PARTIAL_SUCCESS,
-                    data: user,
-                    message: "Created wallet successfully",
-                    warning: "Failed to add USDC trustline to wallet",
-                    meta: { walletStatus }
-                });
-            }
-
-            // Return user with new wallet
+        // Return user data if it's not the contributor app or the user has a wallet
+        if (!isContributorApp || (user.wallet && user.wallet.address)) {
             return responseWrapper({
                 res,
                 status: STATUS_CODES.SUCCESS,
-                data: { user, walletStatus }
+                data: user
             });
         }
 
-        // Return user data
-        responseWrapper({
+        // If user has no wallet, create one
+        const walletStatus = { wallet: false, usdcTrustline: false };
+
+        let userWallet;
+        try {
+            // Create wallet
+            userWallet = await stellarService.createWallet();
+            const encryptedUserSecret = await KMSService.encryptWallet(userWallet.secretKey);
+
+            // Update user with wallet information
+            const updatedUser = await prisma.user.update({
+                where: { userId },
+                data: {
+                    wallet: {
+                        create: {
+                            address: userWallet.publicKey,
+                            ...encryptedUserSecret
+                        }
+                    }
+                },
+                select: selectObject
+            });
+
+            user = updatedUser;
+            walletStatus.wallet = true;
+        } catch (error) {
+            dataLogger.warn("Failed to create wallet for existing user", { error });
+            // Return user info and notify user wallet creation failed
+            return responseWrapper({
+                res,
+                status: STATUS_CODES.PARTIAL_SUCCESS,
+                data: user,
+                message: "Failed to create wallet",
+                meta: { walletStatus }
+            });
+        }
+
+        try {
+            // Add USDC trustline to wallet
+            await stellarService.addTrustLineViaSponsor(
+                process.env.STELLAR_MASTER_SECRET_KEY!,
+                userWallet.secretKey
+            );
+            walletStatus.usdcTrustline = true;
+        } catch (error) {
+            dataLogger.warn("Failed to add USDC trustline", { error });
+
+            // Return user info and notify user USDC trustline addition failed 
+            return responseWrapper({
+                res,
+                status: STATUS_CODES.PARTIAL_SUCCESS,
+                data: user,
+                message: "Created wallet successfully",
+                warning: "Failed to add USDC trustline to wallet",
+                meta: { walletStatus }
+            });
+        }
+
+        // Return user with new wallet
+        return responseWrapper({
             res,
             status: STATUS_CODES.SUCCESS,
-            data: user
+            data: { user, walletStatus }
         });
     } catch (error) {
         next(error);

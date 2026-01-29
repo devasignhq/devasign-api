@@ -434,17 +434,27 @@ export const submitTaskApplication = async (req: Request, res: Response, next: N
 
         // Update user tech stack if none was found
         if (taskActivity.user?.techStack && taskActivity.user.techStack.length === 0) {
-            const techStack = await OctokitService.getUserTopLanguages(taskActivity.user.username);
-
-            prisma.user.update({
-                where: { userId },
-                data: { techStack }
-            }).catch(error => {
+            let techStack: string[] = [];
+            try {
+                techStack = await OctokitService.getUserTopLanguages(taskActivity.user.username);
+            } catch (error) {
                 dataLogger.warn(
-                    "Failed to update user tech stack",
+                    "Failed to get user top languages",
                     { userId, error }
                 );
-            });
+            }
+
+            if (techStack.length > 0) {
+                prisma.user.update({
+                    where: { userId },
+                    data: { techStack }
+                }).catch(error => {
+                    dataLogger.warn(
+                        "Failed to update user tech stack",
+                        { userId, error }
+                    );
+                });
+            }
         }
     } catch (error) {
         next(error);
