@@ -9,7 +9,7 @@ import { dataLogger } from "../config/logger.config";
  */
 export const errorHandler = ((error: unknown, req: Request, res: Response, _next: NextFunction) => {
     // Log the error
-    dataLogger.error("api_error", {
+    dataLogger.error("An error occured", {
         error,
         url: req.url,
         method: req.method,

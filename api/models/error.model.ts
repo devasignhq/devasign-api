@@ -238,6 +238,21 @@ export class GitHubWebhookError extends AIReviewError {
 }
 
 /**
+ * Sumsub webhook validation errors
+ */
+export class SumsubWebhookError extends AIReviewError {
+    constructor(message: string, details?: unknown) {
+        super(
+            "SUMSUB_WEBHOOK_ERROR",
+            details,
+            message,
+            false,
+            STATUS_CODES.SERVER_ERROR
+        );
+    }
+}
+
+/**
  * PR analysis processing errors
  */
 export class PRAnalysisError extends AIReviewError {

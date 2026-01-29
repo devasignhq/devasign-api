@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import crypto from "crypto";
-import { GitHubWebhookError } from "../models/error.model";
+import { GitHubWebhookError, SumsubWebhookError } from "../models/error.model";
 import { OctokitService } from "../services/octokit.service";
 import { STATUS_CODES } from "../utilities/data";
 import { dataLogger } from "../config/logger.config";
@@ -230,17 +230,17 @@ export const validateSumsubWebhook = (req: Request, res: Response, next: NextFun
         const secret = process.env.SUMSUB_WEBHOOK_SECRET;
 
         if (!secret) {
-            throw new Error("Sumsub webhook secret not configured");
+            throw new SumsubWebhookError("Sumsub webhook secret not configured");
         }
 
         if (!signature) {
-            throw new Error("Missing webhook signature");
+            throw new SumsubWebhookError("Missing webhook signature");
         }
 
         // Get raw body (should be Buffer from express.raw middleware)
         const rawBody = req.body;
         if (!Buffer.isBuffer(rawBody)) {
-            throw new Error("Invalid request body format");
+            throw new SumsubWebhookError("Invalid request body format");
         }
 
         // Calculate expected signature using HMAC-SHA256
@@ -256,19 +256,18 @@ export const validateSumsubWebhook = (req: Request, res: Response, next: NextFun
         );
 
         if (!isValid) {
-            throw new Error("Invalid webhook signature");
+            throw new SumsubWebhookError("Invalid webhook signature");
         }
 
         // Parse JSON body for downstream controllers
         try {
             req.body = JSON.parse(rawBody.toString());
         } catch {
-            throw new Error("Invalid JSON payload");
+            throw new SumsubWebhookError("Invalid JSON payload");
         }
 
         next();
     } catch (error) {
-        dataLogger.error("Sumsub webhook validation failed", { error });
         next(error);
     }
 };
