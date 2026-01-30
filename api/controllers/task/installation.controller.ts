@@ -42,7 +42,17 @@ export const getInstallationTasks = async (req: Request, res: Response, next: Ne
         };
 
         if (status) {
+            if (status === TaskStatus.PENDING_PAYMENT) {
+                return responseWrapper({
+                    res,
+                    status: STATUS_CODES.SUCCESS,
+                    data: [],
+                    pagination: { hasMore: false }
+                });
+            }
             where.status = status as TaskStatus;
+        } else {
+            where.status = { not: TaskStatus.PENDING_PAYMENT };
         }
 
         const issueFilters: Prisma.JsonFilter<"Task">[] = [];
@@ -163,9 +173,10 @@ export const getInstallationTask = async (req: Request, res: Response, next: Nex
 
     try {
         // Fetch task and ensure it belongs to the installation and user has access
-        const task = await prisma.task.findUnique({
+        const task = await prisma.task.findFirst({
             where: {
                 id: taskId,
+                status: { not: TaskStatus.PENDING_PAYMENT },
                 installation: {
                     id: installationId,
                     users: {

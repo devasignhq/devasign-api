@@ -5,7 +5,7 @@ import { responseWrapper, stellarTimestampToDate } from "../../utilities/helper"
 import { STATUS_CODES } from "../../utilities/data";
 import { CreateTask, TaskIssue, FilterTasks } from "../../models/task.model";
 import { HorizonApi } from "../../models/horizonapi.model";
-import { Prisma } from "../../../prisma_client";
+import { Prisma, TaskStatus } from "../../../prisma_client";
 import { OctokitService } from "../../services/octokit.service";
 import {
     AuthorizationError,
@@ -15,7 +15,7 @@ import {
 } from "../../models/error.model";
 import { ContractService } from "../../services/contract.service";
 import { KMSService } from "../../services/kms.service";
-import { dataLogger } from "../../config/logger.config";
+import { dataLogger, messageLogger } from "../../config/logger.config";
 
 type USDCBalance = HorizonApi.BalanceLineAsset<"credit_alphanum12">;
 
@@ -89,8 +89,9 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
                 parseFloat(payload.bounty)
             );
         } catch (error) {
-            // If escrow creation fails, delete the task and rethrow
-            await prisma.task.delete({ where: { id: task.id } });
+            // If escrow creation fails, log and throw error
+            messageLogger.error("Failed to create escrow on smart contract");
+
             if (error instanceof EscrowContractError) {
                 throw error;
             }
@@ -117,6 +118,7 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
             prisma.task.update({
                 where: { id: task.id },
                 data: {
+                    status: TaskStatus.OPEN,
                     issue: {
                         ...(typeof task.issue === "object" && task.issue !== null ? task.issue : {}),
                         bountyLabelId,

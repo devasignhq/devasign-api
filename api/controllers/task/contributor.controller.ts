@@ -42,7 +42,7 @@ export const getContributorTasks = async (req: Request, res: Response, next: Nex
                         taskSubmissionId: null
                     }
                 },
-                status: { not: TaskStatus.ARCHIVED },
+                status: { notIn: [TaskStatus.ARCHIVED, TaskStatus.PENDING_PAYMENT] },
                 contributorId: { equals: null }
             };
         } else {
@@ -61,7 +61,17 @@ export const getContributorTasks = async (req: Request, res: Response, next: Nex
             };
 
             if (status) {
+                if (status === TaskStatus.PENDING_PAYMENT) {
+                    return responseWrapper({
+                        res,
+                        status: STATUS_CODES.SUCCESS,
+                        data: [],
+                        pagination: { hasMore: false }
+                    });
+                }
                 where.status = status as TaskStatus;
+            } else {
+                where.status = { not: TaskStatus.PENDING_PAYMENT };
             }
         }
         if (installationId) {
@@ -166,7 +176,7 @@ export const getContributorTask = async (req: Request, res: Response, next: Next
         const task = await prisma.task.findFirst({
             where: {
                 id: taskId,
-                status: { not: TaskStatus.ARCHIVED },
+                status: { notIn: [TaskStatus.ARCHIVED, TaskStatus.PENDING_PAYMENT] },
                 OR: [
                     { contributorId: userId },
                     {

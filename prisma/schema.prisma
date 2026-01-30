@@ -9,6 +9,7 @@ generator client {
 }
 
 enum TaskStatus {
+    PENDING_PAYMENT
     OPEN
     IN_PROGRESS
     MARKED_AS_COMPLETED
@@ -151,7 +152,7 @@ model Task {
     issue              Json
     timeline           Float?           @default(0)
     bounty             Float            @default(0.0)
-    status             TaskStatus       @default(OPEN)
+    status             TaskStatus       @default(PENDING_PAYMENT)
     escrowTransactions Json[]           @default([]) // [{txHash: string, method: string}]
     settled            Boolean          @default(false)
     applications       User[]           @relation("UserApplications")
