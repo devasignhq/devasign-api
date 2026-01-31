@@ -1,9 +1,9 @@
 import { Request, Response, NextFunction } from "express";
 import crypto from "crypto";
-import { validateGitHubWebhook, validateGitHubWebhookEvent } from "../../../api/middlewares/webhook.middleware";
+import { validateGitHubWebhook, validateGitHubWebhookEvent, validateSumsubWebhook } from "../../../api/middlewares/webhook.middleware";
 import { STATUS_CODES } from "../../../api/utilities/data";
 import { OctokitService } from "../../../api/services/octokit.service";
-import { GitHubWebhookError } from "../../../api/models/error.model";
+import { GitHubWebhookError, SumsubWebhookError } from "../../../api/models/error.model";
 
 // Mock OctokitService
 jest.mock("../../../api/services/octokit.service", () => ({
@@ -636,6 +636,133 @@ describe("Webhook Middleware", () => {
                 );
                 expect(mockNext).not.toHaveBeenCalled();
             });
+        });
+    });
+    describe("validateSumsubWebhook", () => {
+        const SUMSUB_SECRET = "test-sumsub-secret";
+        let originalSumsubSecret: string | undefined;
+
+        const createValidSumsubSignature = (payload: string): string => {
+            return crypto
+                .createHmac("sha256", SUMSUB_SECRET)
+                .update(payload)
+                .digest("hex");
+        };
+
+        beforeAll(() => {
+            originalSumsubSecret = process.env.SUMSUB_WEBHOOK_SECRET;
+            process.env.SUMSUB_WEBHOOK_SECRET = SUMSUB_SECRET;
+        });
+
+        afterAll(() => {
+            if (originalSumsubSecret) {
+                process.env.SUMSUB_WEBHOOK_SECRET = originalSumsubSecret;
+            } else {
+                delete process.env.SUMSUB_WEBHOOK_SECRET;
+            }
+        });
+
+        it("should accept valid webhook signature", () => {
+            const payload = JSON.stringify({ test: "sumsub-data" });
+            const rawBody = Buffer.from(payload);
+            const signature = createValidSumsubSignature(payload);
+
+            (mockRequest.get as jest.Mock).mockImplementation((header: string) => {
+                if (header === "x-payload-digest") return signature;
+                return undefined;
+            });
+            mockRequest.body = rawBody;
+
+            validateSumsubWebhook(mockRequest as Request, mockResponse as Response, mockNext);
+
+            expect(mockNext).toHaveBeenCalled();
+            expect(mockResponse.status).not.toHaveBeenCalled();
+            expect(mockRequest.body).toEqual({ test: "sumsub-data" });
+        });
+
+        it("should reject invalid signature", () => {
+            const payload = JSON.stringify({ test: "sumsub-data" });
+            const rawBody = Buffer.from(payload);
+            const validSignature = createValidSumsubSignature(payload);
+            const invalidSignature = `${validSignature.slice(0, -10)}0000000000`;
+
+            (mockRequest.get as jest.Mock).mockImplementation((header: string) => {
+                if (header === "x-payload-digest") return invalidSignature;
+                return undefined;
+            });
+            mockRequest.body = rawBody;
+
+            validateSumsubWebhook(mockRequest as Request, mockResponse as Response, mockNext);
+
+            expect(mockNext).toHaveBeenCalledWith(expect.any(SumsubWebhookError));
+            const error = (mockNext as jest.Mock).mock.calls[0][0];
+            expect(error.message).toBe("Invalid webhook signature");
+        });
+
+        it("should reject missing signature", () => {
+            const payload = JSON.stringify({ test: "data" });
+            const rawBody = Buffer.from(payload);
+
+            (mockRequest.get as jest.Mock).mockReturnValue(undefined);
+            mockRequest.body = rawBody;
+
+            validateSumsubWebhook(mockRequest as Request, mockResponse as Response, mockNext);
+
+            expect(mockNext).toHaveBeenCalledWith(expect.any(SumsubWebhookError));
+            const error = (mockNext as jest.Mock).mock.calls[0][0];
+            expect(error.message).toBe("Missing webhook signature");
+        });
+
+        it("should reject when secret not configured", () => {
+            delete process.env.SUMSUB_WEBHOOK_SECRET;
+
+            const payload = JSON.stringify({ test: "data" });
+            const rawBody = Buffer.from(payload);
+
+            (mockRequest.get as jest.Mock).mockReturnValue("some-signature");
+            mockRequest.body = rawBody;
+
+            validateSumsubWebhook(mockRequest as Request, mockResponse as Response, mockNext);
+
+            expect(mockNext).toHaveBeenCalledWith(expect.any(SumsubWebhookError));
+            const error = (mockNext as jest.Mock).mock.calls[0][0];
+            expect(error.message).toBe("Sumsub webhook secret not configured");
+
+            process.env.SUMSUB_WEBHOOK_SECRET = SUMSUB_SECRET;
+        });
+
+        it("should reject non-Buffer body", () => {
+            const signature = "signature";
+
+            (mockRequest.get as jest.Mock).mockImplementation((header: string) => {
+                if (header === "x-payload-digest") return signature;
+                return undefined;
+            });
+            mockRequest.body = { test: "data" };
+
+            validateSumsubWebhook(mockRequest as Request, mockResponse as Response, mockNext);
+
+            expect(mockNext).toHaveBeenCalledWith(expect.any(SumsubWebhookError));
+            const error = (mockNext as jest.Mock).mock.calls[0][0];
+            expect(error.message).toBe("Invalid request body format");
+        });
+
+        it("should reject malformed JSON", () => {
+            const payload = "{ invalid json";
+            const rawBody = Buffer.from(payload);
+            const signature = createValidSumsubSignature(payload);
+
+            (mockRequest.get as jest.Mock).mockImplementation((header: string) => {
+                if (header === "x-payload-digest") return signature;
+                return undefined;
+            });
+            mockRequest.body = rawBody;
+
+            validateSumsubWebhook(mockRequest as Request, mockResponse as Response, mockNext);
+
+            expect(mockNext).toHaveBeenCalledWith(expect.any(SumsubWebhookError));
+            const error = (mockNext as jest.Mock).mock.calls[0][0];
+            expect(error.message).toBe("Invalid JSON payload");
         });
     });
 });
