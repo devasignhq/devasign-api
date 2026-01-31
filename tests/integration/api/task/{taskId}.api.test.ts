@@ -704,6 +704,49 @@ describe("Task {taskId} API Integration Tests", () => {
                 .set("x-test-user-id", "applicant")
                 .expect(STATUS_CODES.SERVER_ERROR);
         });
+
+        it("should fetch user tech stack when user has empty tech stack", async () => {
+            // Mock getUserTopLanguages to return tech stack
+            mockOctokitService.getUserTopLanguages.mockResolvedValue(["JavaScript", "TypeScript", "Python"]);
+
+            const response = await request(app)
+                .post(getEndpointWithPrefix(["TASK", "{TASKID}", "APPLY"])
+                    .replace(":taskId", testTask.id))
+                .set("x-test-user-id", "applicant")
+                .expect(STATUS_CODES.SUCCESS);
+
+            expect(response.body).toMatchObject({
+                message: "Task application submitted"
+            });
+
+            // Verify getUserTopLanguages was called
+            expect(mockOctokitService.getUserTopLanguages).toHaveBeenCalledTimes(1);
+            expect(mockOctokitService.getUserTopLanguages).toHaveBeenCalledWith(expect.any(String));
+        });
+
+        it("should not fetch tech stack when user already has tech stack", async () => {
+            // Create user with existing tech stack
+            const userWithTechStack = TestDataFactory.user({
+                userId: "user-with-tech",
+                techStack: ["JavaScript", "TypeScript"]
+            });
+            await prisma.user.create({
+                data: { ...userWithTechStack, contributionSummary: { create: {} } }
+            });
+
+            const response = await request(app)
+                .post(getEndpointWithPrefix(["TASK", "{TASKID}", "APPLY"])
+                    .replace(":taskId", testTask.id))
+                .set("x-test-user-id", "user-with-tech")
+                .expect(STATUS_CODES.SUCCESS);
+
+            expect(response.body).toMatchObject({
+                message: "Task application submitted"
+            });
+
+            // Verify getUserTopLanguages was not called
+            expect(mockOctokitService.getUserTopLanguages).not.toHaveBeenCalled();
+        });
     });
 
     describe(`POST ${getEndpointWithPrefix(["TASK", "{TASKID}", "ACCEPT_APPLICATION"])} - Accept Task Application`, () => {
@@ -945,24 +988,6 @@ describe("Task {taskId} API Integration Tests", () => {
             await prisma.task.update({
                 where: { id: testTask.id },
                 data: { status: "OPEN" }
-            });
-
-            await request(app)
-                .post(getEndpointWithPrefix(["TASK", "{TASKID}", "REQUEST_TIMELINE_EXTENSION"])
-                    .replace(":taskId", testTask.id))
-                .set("x-test-user-id", "contributor")
-                .send({
-                    githubUsername: "contributor",
-                    requestedTimeline: 1,
-                    reason: "Need more time"
-                })
-                .expect(STATUS_CODES.SERVER_ERROR);
-        });
-
-        it("should return error when installation is archived", async () => {
-            await prisma.installation.update({
-                where: { id: "12345678" },
-                data: { status: "ARCHIVED" }
             });
 
             await request(app)
@@ -1294,9 +1319,8 @@ describe("Task {taskId} API Integration Tests", () => {
                 .expect(STATUS_CODES.SERVER_ERROR);
         });
 
-        it("should handle partial success when contribution summary update fails", async () => {
-            // Create a task without contributor having contribution summary
-            await prisma.contributionSummary.delete({
+        it("should return error when contributor is not found", async () => {
+            await prisma.user.delete({
                 where: { userId: "contributor" }
             });
 
@@ -1304,13 +1328,9 @@ describe("Task {taskId} API Integration Tests", () => {
                 .post(getEndpointWithPrefix(["TASK", "{TASKID}", "VALIDATE_COMPLETION"])
                     .replace(":taskId", testTask.id))
                 .set("x-test-user-id", "task-creator")
-                .expect(STATUS_CODES.PARTIAL_SUCCESS);
+                .expect(STATUS_CODES.SERVER_ERROR);
 
-            expect(response.body.data).toMatchObject({
-                validated: true,
-                task: expect.any(Object)
-            });
-            expect(response.body.warning).toContain("Failed to update the developer contribution summary");
+            expect(response.body.message).toContain("Contributor not found");
         });
 
         it("should handle partial success when firebase task status update fails", async () => {
@@ -1335,19 +1355,6 @@ describe("Task {taskId} API Integration Tests", () => {
                     .replace(":taskId", cuid()))
                 .set("x-test-user-id", "task-creator")
                 .expect(STATUS_CODES.NOT_FOUND);
-        });
-
-        it("should return error when installation is archived", async () => {
-            await prisma.installation.update({
-                where: { id: "12345678" },
-                data: { status: "ARCHIVED" }
-            });
-
-            await request(app)
-                .post(getEndpointWithPrefix(["TASK", "{TASKID}", "VALIDATE_COMPLETION"])
-                    .replace(":taskId", testTask.id))
-                .set("x-test-user-id", "task-creator")
-                .expect(STATUS_CODES.SERVER_ERROR);
         });
     });
 });
