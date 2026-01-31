@@ -42,7 +42,8 @@ jest.mock("../../../../api/services/octokit.service", () => ({
     OctokitService: {
         getOctokit: jest.fn(),
         getOwnerAndRepo: jest.fn(),
-        getDefaultBranch: jest.fn()
+        getDefaultBranch: jest.fn(),
+        removeBountyLabelAndDeleteBountyComment: jest.fn()
     }
 }));
 
@@ -104,7 +105,8 @@ describe("Webhook API Integration Tests", () => {
         mockOctokitService = {
             getOctokit: jest.fn(),
             getOwnerAndRepo: jest.fn(),
-            getDefaultBranch: jest.fn()
+            getDefaultBranch: jest.fn(),
+            removeBountyLabelAndDeleteBountyComment: jest.fn()
         };
         Object.assign(OctokitService, mockOctokitService);
 
@@ -267,7 +269,7 @@ describe("Webhook API Integration Tests", () => {
             });
 
             // Create an open task with bounty
-            const task = await prisma.task.create({
+            await prisma.task.create({
                 data: {
                     ...TestDataFactory.task({
                         status: "OPEN",
@@ -319,13 +321,8 @@ describe("Webhook API Integration Tests", () => {
             });
             expect(updatedInstallation?.status).toBe("ARCHIVED");
 
-            // Verify task is archived
-            const updatedTask = await prisma.task.findUnique({
-                where: { id: task.id }
-            });
-            expect(updatedTask?.status).toBe("ARCHIVED");
-
             expect(mockContractService.refund).toHaveBeenCalled();
+            expect(mockOctokitService.removeBountyLabelAndDeleteBountyComment).toHaveBeenCalled();
         });
 
         it("should reactivate installation on unsuspend", async () => {

@@ -452,7 +452,7 @@ describe("Installation API Integration Tests", () => {
             });
         });
 
-        it("should archive installation successfully", async () => {
+        it("should archive installation successfully with no tasks", async () => {
             const response = await request(app)
                 .patch(getEndpointWithPrefix(["INSTALLATION", "ARCHIVE"])
                     .replace(":installationId", "12345678"))
@@ -461,9 +461,10 @@ describe("Installation API Integration Tests", () => {
                 .expect(STATUS_CODES.SUCCESS);
 
             expect(response.body).toMatchObject({
-                message: "Installation archived successfully",
+                message: "Installation archived and 0 USDC refunded",
                 data: {
-                    refunded: expect.stringContaining("USDC")
+                    installationId: "12345678",
+                    refundedAmount: "0 USDC"
                 }
             });
 
@@ -490,36 +491,66 @@ describe("Installation API Integration Tests", () => {
                 .expect(STATUS_CODES.SERVER_ERROR);
         });
 
-        it("should return error when installation has tasks in progress", async () => {
+        it("should archive installation with tasks in progress and refund them", async () => {
             const task = TestDataFactory.task({
                 creatorId: "user-1",
                 installationId: "12345678",
-                status: "IN_PROGRESS"
+                status: "IN_PROGRESS",
+                bounty: 150
             });
             await prisma.task.create({ data: task });
 
-            await request(app)
+            const response = await request(app)
                 .patch(getEndpointWithPrefix(["INSTALLATION", "ARCHIVE"])
                     .replace(":installationId", "12345678"))
                 .set("x-test-user-id", "user-1")
                 .send({ walletAddress: "GBPOJZGQPO23FSADGDD3PQFRGLWTETJRK2IY4D5HEQXLDCDEHYFSAAII" })
-                .expect(STATUS_CODES.SERVER_ERROR);
+                .expect(STATUS_CODES.SUCCESS);
+
+            expect(response.body).toMatchObject({
+                message: "Installation archived and 150 USDC refunded",
+                data: {
+                    installationId: "12345678",
+                    refundedAmount: "150 USDC"
+                }
+            });
+
+            // Verify installation was archived
+            const archivedInstallation = await prisma.installation.findUnique({
+                where: { id: "12345678" }
+            });
+            expect(archivedInstallation?.status).toBe("ARCHIVED");
         });
 
-        it("should return error when installation has tasks marked as completed", async () => {
+        it("should archive installation with marked as completed tasks without refunding them", async () => {
             const task = TestDataFactory.task({
                 creatorId: "user-1",
                 installationId: "12345678",
-                status: "MARKED_AS_COMPLETED"
+                status: "MARKED_AS_COMPLETED",
+                bounty: 100
             });
             await prisma.task.create({ data: task });
 
-            await request(app)
+            const response = await request(app)
                 .patch(getEndpointWithPrefix(["INSTALLATION", "ARCHIVE"])
                     .replace(":installationId", "12345678"))
                 .set("x-test-user-id", "user-1")
                 .send({ walletAddress: "GBPOJZGQPO23FSADGDD3PQFRGLWTETJRK2IY4D5HEQXLDCDEHYFSAAII" })
-                .expect(STATUS_CODES.SERVER_ERROR);
+                .expect(STATUS_CODES.SUCCESS);
+
+            expect(response.body).toMatchObject({
+                message: "Installation archived and 0 USDC refunded",
+                data: {
+                    installationId: "12345678",
+                    refundedAmount: "0 USDC"
+                }
+            });
+
+            // Verify installation was archived
+            const archivedInstallation = await prisma.installation.findUnique({
+                where: { id: "12345678" }
+            });
+            expect(archivedInstallation?.status).toBe("ARCHIVED");
         });
 
         it("should successfully archive installation with open tasks and refund bounties", async () => {
@@ -546,9 +577,10 @@ describe("Installation API Integration Tests", () => {
                 .expect(STATUS_CODES.SUCCESS);
 
             expect(response.body).toMatchObject({
-                message: "Installation archived successfully",
+                message: "Installation archived and 300 USDC refunded",
                 data: {
-                    refunded: expect.stringContaining("USDC")
+                    installationId: "12345678",
+                    refundedAmount: "300 USDC"
                 }
             });
 

@@ -54,6 +54,8 @@ export class TestDataFactory {
             userId: `test-user-${counter}`,
             username: `testuser${counter}`,
             addressBook: [],
+            verified: false,
+            techStack: [],
             ...overrides
         };
     }

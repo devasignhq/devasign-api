@@ -50,6 +50,7 @@ describe("User API Integration Tests", () => {
     let prisma: any;
     let mockFirebaseAuth: jest.Mock;
     let mockStellarService: any;
+    let mockOctokitService: any;
 
     beforeAll(async () => {
         prisma = await DatabaseTestHelper.setupTestDatabase();
@@ -78,6 +79,9 @@ describe("User API Integration Tests", () => {
 
         const { stellarService } = await import("../../../../api/services/stellar.service");
         mockStellarService = stellarService;
+
+        const { OctokitService } = await import("../../../../api/services/octokit.service");
+        mockOctokitService = OctokitService;
     });
 
     beforeEach(async () => {
@@ -153,16 +157,18 @@ describe("User API Integration Tests", () => {
             // Verify Stellar service was called
             expect(mockStellarService.createWallet).toHaveBeenCalledTimes(1);
             expect(mockStellarService.addTrustLineViaSponsor).toHaveBeenCalledTimes(1);
+            expect(mockOctokitService.getUserTopLanguages).toHaveBeenCalledTimes(1);
         });
 
-        it("should create a user without wallet when skipWallet=true", async () => {
+        it("should create a user without wallet when origin is maintainer app", async () => {
             const userData = {
                 githubUsername: "testuser456"
             };
 
             const response = await request(app)
-                .post("/users?skipWallet=true")
+                .post(getEndpointWithPrefix(["USER", "CREATE"]))
                 .set("x-test-user-id", "new-user-456")
+                .set("origin", "http://localhost:3000")
                 .send(userData)
                 .expect(STATUS_CODES.CREATED);
 
@@ -321,7 +327,7 @@ describe("User API Integration Tests", () => {
             });
         });
 
-        it("should create wallet when setWallet=true and user has no wallet", async () => {
+        it("should create wallet when origin is contributor app and user has no wallet", async () => {
             // Create user without wallet
             const userWithoutWallet = TestDataFactory.user({
                 userId: "user-no-wallet"
@@ -335,10 +341,18 @@ describe("User API Integration Tests", () => {
                 }
             });
 
-            await request(app)
-                .get("/users?setWallet=true")
+            const response = await request(app)
+                .get(getEndpointWithPrefix(["USER", "GET"]))
                 .set("x-test-user-id", "user-no-wallet")
+                .set("origin", "http://localhost:4000")
                 .expect(STATUS_CODES.SUCCESS);
+
+            // Response should include user and walletStatus
+            expect(response.body.data.user).toBeDefined();
+            expect(response.body.data.walletStatus).toEqual({
+                wallet: true,
+                usdcTrustline: true
+            });
 
             // Verify wallet was added to database
             const updatedUser = await prisma.user.findUnique({
