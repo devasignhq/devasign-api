@@ -25,9 +25,16 @@ winston.addColors(logColors);
 
 // Create transports
 const transports = [
-    // Console transport for development
-    new winston.transports.Console(),
+    new winston.transports.Console({
+        format: NODE_ENV === "production" ? 
+            winston.format.combine(
+                winston.format.timestamp(),
+                winston.format.errors({ stack: true }),
+                winston.format.json()
+            ) : undefined
+    }),
 
+    // Console transport for development
     ...(NODE_ENV === "development" ? [
         // File transport for errors
         new winston.transports.File({
