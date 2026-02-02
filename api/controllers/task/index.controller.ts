@@ -283,8 +283,11 @@ export const getTask = async (req: Request, res: Response, next: NextFunction) =
 
     try {
         // Fetch task and ensure it is open
-        const task = await prisma.task.findUnique({
-            where: { id: taskId, status: "OPEN" },
+        const task = await prisma.task.findFirst({
+            where: {
+                id: taskId,
+                status: { in: ["OPEN", "IN_PROGRESS"] }
+            },
             select: {
                 id: true,
                 issue: true,
