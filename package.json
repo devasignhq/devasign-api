@@ -26,6 +26,7 @@
   "license": "ISC",
   "dependencies": {
     "@google-cloud/kms": "^5.2.1",
+    "@google-cloud/logging-winston": "^6.0.1",
     "@octokit/rest": "^22.0.0",
     "@prisma/client": "^6.6.0",
     "@prisma/extension-accelerate": "^1.2.2",
@@ -42,7 +43,7 @@
     "eventsource": "^4.0.0",
     "express": "^4.21.2",
     "express-rate-limit": "^8.2.1",
-    "firebase-admin": "^13.2.0",
+    "firebase-admin": "^13.6.0",
     "groq-sdk": "^0.30.0",
     "helmet": "^8.0.0",
     "http-errors": "^2.0.0",
@@ -77,5 +78,8 @@
     "ts-jest": "^29.4.1",
     "ts-node-dev": "^2.0.0",
     "typescript-eslint": "^8.44.1"
+  },
+  "overrides": {
+    "fast-xml-parser": "5.3.4"
   }
 }

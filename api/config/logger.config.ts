@@ -1,4 +1,5 @@
 import winston from "winston";
+import { LoggingWinston } from "@google-cloud/logging-winston";
 
 const LOG_LEVEL = process.env.LOG_LEVEL || "info";
 const NODE_ENV = process.env.NODE_ENV || "development";
@@ -26,7 +27,7 @@ winston.addColors(logColors);
 // Create transports
 const transports = [
     new winston.transports.Console({
-        format: NODE_ENV === "production" ? 
+        format: NODE_ENV === "production" ?
             winston.format.combine(
                 winston.format.timestamp(),
                 winston.format.errors({ stack: true }),
@@ -46,6 +47,11 @@ const transports = [
         new winston.transports.File({
             filename: "logs/combined.log"
         })
+    ] : []),
+
+    // Google Cloud Logging transport for production
+    ...(NODE_ENV === "production" ? [
+        new LoggingWinston()
     ] : [])
 ];
 
