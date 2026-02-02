@@ -18,7 +18,7 @@ export const generateSumsubSdkToken = async (req: Request, res: Response, next: 
 
         // Generate the request URL, timestamp and request body
         const url = "/resources/accessTokens/sdk";
-        const timestamp = Math.floor(Date.now() / 1000); 
+        const timestamp = Math.floor(Date.now() / 1000);
         const requestBody = {
             userId,
             levelName: SUMSUB_LEVEL_NAME,
@@ -63,6 +63,19 @@ export const generateSumsubSdkToken = async (req: Request, res: Response, next: 
         });
 
     } catch (error) {
+        // Check if it's an Axios Error
+        if (axios.isAxiosError(error)) {
+            const errorData = error.response?.data || error.message;
+
+            return next(new ErrorClass(
+                "SUMSUB_API_ERROR",
+                errorData,
+                `Sumsub API failed: ${error.message}`,
+                STATUS_CODES.SERVER_ERROR
+            ));
+        }
+
+        // Fallback for other synchronous errors
         next(error);
     }
 };

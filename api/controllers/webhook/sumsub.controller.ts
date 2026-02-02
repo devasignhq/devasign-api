@@ -51,12 +51,14 @@ export const handleSumsubWebhook = async (req: Request, res: Response, next: Nex
             break;
 
         case "applicantActivated":
-            // Set user as verified
-            await prisma.user.update({
-                where: { userId: externalUserId },
-                data: { verified: true }
-            });
-            dataLogger.info(`User verification activated via Sumsub: ${externalUserId}`);
+            // Check if review was successful (GREEN)
+            if (reviewResult?.reviewAnswer === "GREEN") {
+                await prisma.user.update({
+                    where: { userId: externalUserId },
+                    data: { verified: true }
+                });
+                dataLogger.info(`User verification activated via Sumsub: ${externalUserId}`);
+            }
             break;
 
         case "applicantReset":

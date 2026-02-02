@@ -17,8 +17,13 @@ import { TaskIssue } from "../../models/task.model";
  * Handles GitHub webhook events
  */
 export const handleGitHubWebhook = async (req: Request, res: Response, next: NextFunction) => {
-    const { webhookMeta } = req.body;
+    const { webhookMeta, installation, action } = req.body;
     const { eventType } = webhookMeta;
+
+    dataLogger.info(
+        `Received GitHub webhook: ${eventType} for installation ${installation.id}`,
+        { webhookMeta, action }
+    );
 
     if (eventType === "pull_request") {
         await handlePREvent(req, res, next);

@@ -194,7 +194,7 @@ export const swapAsset = async (req: Request, res: Response, next: NextFunction)
 
             if (availableXLMForTransfer < Number(amount)) {
                 throw new ValidationError(
-                    `Insufficient XLM balance (${minimumReserve} XLM reserve required)`,
+                    `Insufficient XLM balance (${minimumReserve} XLM reserve required). You have ${availableXLMForTransfer} XLM available for swap.`,
                     { available: availableXLMForTransfer.toString() }
                 );
             }
