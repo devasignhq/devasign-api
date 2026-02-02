@@ -434,13 +434,9 @@ export const handleBountyPayout = async (req: Request, res: Response, next: Next
             });
 
             // Disable chat for the task
-            try {
-                FirebaseService.updateTaskStatus(relatedTask.id).catch(
-                    error => dataLogger.warn("Failed to disable chat", { taskId: relatedTask.id, error })
-                );
-            } catch (err) {
-                dataLogger.warn("Failed to initiate chat disable", { taskId: relatedTask.id, error: err });
-            }
+            FirebaseService.updateTaskStatus(relatedTask.id).catch(
+                error => dataLogger.warn("Failed to disable chat", { taskId: relatedTask.id, error })
+            );
         } catch (error) {
             dataLogger.error("Contribution approved on smart contract but DB failed to update", {
                 taskId: relatedTask.id,
