@@ -51,7 +51,7 @@ const transports = [
 
     // Google Cloud Logging transport for production
     ...(NODE_ENV === "production" ? [
-        new LoggingWinston()
+        new LoggingWinston({ logName: "winston_log" })
     ] : [])
 ];
 
@@ -61,17 +61,19 @@ winston.loggers.add("message", {
     levels: logLevels,
     format: winston.format.combine(
         winston.format.timestamp({ format: "YYYY-MM-DD HH:mm:ss:ms" }),
-        winston.format.colorize({ all: true }),
-        winston.format.printf(({ timestamp, level, service, eventType, message }) => {
-            let logMessage = `${timestamp} [${level}]`;
+        ...(NODE_ENV !== "production" ? [
+            winston.format.colorize({ all: true }),
+            winston.format.printf(({ timestamp, level, service, eventType, message }) => {
+                let logMessage = `${timestamp} [${level}]`;
 
-            if (service) logMessage += ` [${service}]`;
-            if (eventType) logMessage += ` [${eventType}]`;
+                if (service) logMessage += ` [${service}]`;
+                if (eventType) logMessage += ` [${eventType}]`;
 
-            logMessage += `: ${message}`;
+                logMessage += `: ${message}`;
 
-            return logMessage;
-        })
+                return logMessage;
+            })
+        ] : [])
     ),
     transports
 });
@@ -84,7 +86,9 @@ winston.loggers.add("data", {
         winston.format.timestamp({ format: "YYYY-MM-DD HH:mm:ss:ms" }),
         winston.format.errors({ stack: true }),
         winston.format.json(),
-        winston.format.prettyPrint()
+        ...(NODE_ENV !== "production" ? [
+            winston.format.prettyPrint()
+        ] : [])
     ),
     transports
 });
