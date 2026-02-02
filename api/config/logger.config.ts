@@ -1,5 +1,4 @@
 import winston from "winston";
-import { LoggingWinston } from "@google-cloud/logging-winston";
 
 const LOG_LEVEL = process.env.LOG_LEVEL || "info";
 const NODE_ENV = process.env.NODE_ENV || "development";
@@ -26,14 +25,7 @@ winston.addColors(logColors);
 
 // Create transports
 const transports = [
-    new winston.transports.Console({
-        format: NODE_ENV === "production" ?
-            winston.format.combine(
-                winston.format.timestamp(),
-                winston.format.errors({ stack: true }),
-                winston.format.json()
-            ) : undefined
-    }),
+    new winston.transports.Console(),
 
     // Console transport for development
     ...(NODE_ENV === "development" ? [
@@ -47,11 +39,6 @@ const transports = [
         new winston.transports.File({
             filename: "logs/combined.log"
         })
-    ] : []),
-
-    // Google Cloud Logging transport for production
-    ...(NODE_ENV === "production" ? [
-        new LoggingWinston({ logName: "winston_log" })
     ] : [])
 ];
 
@@ -61,19 +48,17 @@ winston.loggers.add("message", {
     levels: logLevels,
     format: winston.format.combine(
         winston.format.timestamp({ format: "YYYY-MM-DD HH:mm:ss:ms" }),
-        ...(NODE_ENV !== "production" ? [
-            winston.format.colorize({ all: true }),
-            winston.format.printf(({ timestamp, level, service, eventType, message }) => {
-                let logMessage = `${timestamp} [${level}]`;
+        winston.format.colorize({ all: true }),
+        winston.format.printf(({ timestamp, level, service, eventType, message }) => {
+            let logMessage = `${timestamp} [${level}]`;
 
-                if (service) logMessage += ` [${service}]`;
-                if (eventType) logMessage += ` [${eventType}]`;
+            if (service) logMessage += ` [${service}]`;
+            if (eventType) logMessage += ` [${eventType}]`;
 
-                logMessage += `: ${message}`;
+            logMessage += `: ${message}`;
 
-                return logMessage;
-            })
-        ] : [])
+            return logMessage;
+        })
     ),
     transports
 });
