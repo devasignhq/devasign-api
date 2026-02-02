@@ -147,7 +147,6 @@ ErrorHandlerService.initialize().catch(error => {
         const { WorkflowIntegrationService } = await import("./services/ai-review/workflow-integration.service");
         const workflowService = WorkflowIntegrationService.getInstance();
         await workflowService.initialize();
-        messageLogger.info("Workflow Integration Service initialized successfully");
     } catch (error) {
         dataLogger.error("Failed to initialize Workflow Integration Service", { error });
         // Continue startup even if workflow initialization fails
