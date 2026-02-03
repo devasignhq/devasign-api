@@ -4,15 +4,15 @@ import { messageLogger } from "../config/logger.config";
 
 /**
  * General API rate limiter
- * Limits requests to 150 per 15 minutes by default
+ * Limits requests to 300 per minute by default
  */
 export const apiLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 150, // Limit each IP to 150 requests per 15 minutes
+    windowMs: 1 * 60 * 1000, // 1 minute
+    max: 300, // Limit each IP to 300 requests per minute
     standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
     legacyHeaders: false, // Disable the `X-RateLimit-*` headers
     message: {
-        message: "Too many requests from this IP, please try again after 15 minutes"
+        message: "Too many requests from this IP, please try again after 1 minute"
     },
     statusCode: STATUS_CODES.RATE_LIMIT,
     skip: (req) => req.originalUrl.startsWith(ENDPOINTS.WEBHOOK.PREFIX),
