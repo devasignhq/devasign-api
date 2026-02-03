@@ -63,6 +63,25 @@ export const createUser = async (req: Request, res: Response, next: NextFunction
             createdAt: true,
             updatedAt: true
         };
+        
+        // Check if user already exists
+        const existingUsername = await prisma.user.findUnique({
+            where: { username: githubUsername }
+        });
+
+        if (existingUsername) {
+            const updatedUser = await prisma.user.update({
+                where: { username: githubUsername },
+                data: { userId },
+                select
+            });
+
+            return responseWrapper({
+                res,
+                status: STATUS_CODES.SUCCESS,
+                data: updatedUser
+            });
+        }
 
         // Create user without wallet (for the project maintainer app)
         if (isMaintainerApp) {
