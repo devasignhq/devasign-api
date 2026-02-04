@@ -1051,6 +1051,14 @@ export const validateCompletion = async (req: Request, res: Response, next: Next
         ).catch(
             error => dataLogger.warn("Failed to add bounty paid label", { taskId, error })
         );
+
+        // Update task activity for live updates
+        FirebaseService.updateActivity(task.contributor.userId, "contributor").catch(
+            error => dataLogger.warn(
+                "Failed to update contributor activity for live updates",
+                { contributorId: task.contributor?.userId, error }
+            )
+        );
     } catch (error) {
         next(error);
     }
