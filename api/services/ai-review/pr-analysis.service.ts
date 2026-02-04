@@ -9,7 +9,7 @@ import { PRAnalysisError, GitHubAPIError, ErrorClass } from "../../models/error.
 import { OctokitService } from "../octokit.service";
 import { GitHubComment, GitHubFile, IssueDto, IssueLabel } from "../../models/github.model";
 import { PullRequestContextAnalyzerService } from "./context-analyzer.service";
-import { GroqAIService } from "./groq-ai.service";
+import { GeminiAIService } from "./gemini-ai.service";
 import { getFieldFromUnknownObject } from "../../utilities/helper";
 import { RuleEngineService } from "./rule-engine.service";
 import { dataLogger, messageLogger } from "../../config/logger.config";
@@ -19,7 +19,7 @@ import { dataLogger, messageLogger } from "../../config/logger.config";
  */
 export class PRAnalysisService {
     private static contextAnalyzer = new PullRequestContextAnalyzerService();
-    private static groqService = new GroqAIService();
+    private static geminiService = new GeminiAIService();
 
     /**
      * Determines if a PR should be analyzed
@@ -461,7 +461,7 @@ ${codeChangesPreview}`;
                     const relevantFiles = await this.contextAnalyzer.analyzeContextNeeds(prData);
 
                     // Generate AI review with enhanced context
-                    const aiReview = await this.groqService.generateReview(
+                    const aiReview = await this.geminiService.generateReview(
                         prData,
                         relevantFiles
                     );
