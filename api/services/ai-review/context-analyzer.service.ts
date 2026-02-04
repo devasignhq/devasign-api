@@ -1,5 +1,5 @@
-import { GroqAIService } from "./groq-ai.service";
-import { GroqServiceError, GroqRateLimitError } from "../../models/error.model";
+import { GeminiAIService } from "./gemini-ai.service";
+import { GeminiServiceError, GeminiRateLimitError } from "../../models/error.model";
 import { FetchedFile, PullRequestData, RelevantFileRecommendation } from "../../models/ai-review.model";
 import { FileFetcherService } from "./file-fetcher.service";
 import { dataLogger, messageLogger } from "../../config/logger.config";
@@ -8,7 +8,7 @@ import { dataLogger, messageLogger } from "../../config/logger.config";
  * Uses AI to determine which files are most relevant for PR
  */
 export class PullRequestContextAnalyzerService {
-    private groqService: GroqAIService;
+    private geminiService: GeminiAIService;
     private fileFetcher: FileFetcherService;
     private readonly config: {
         analysisTimeout: number;
@@ -16,11 +16,11 @@ export class PullRequestContextAnalyzerService {
     };
 
     constructor() {
-        this.groqService = new GroqAIService();
+        this.geminiService = new GeminiAIService();
         this.fileFetcher = new FileFetcherService();
 
         this.config = {
-            analysisTimeout: parseInt(process.env.ANALYSIS_TIMEOUT || "30000"), // 30 seconds
+            analysisTimeout: parseInt(process.env.ANALYSIS_TIMEOUT || "180000"), // 3 minutes
             maxRetries: parseInt(process.env.CONTEXT_ANALYSIS_MAX_RETRIES || "3")
         };
     }
@@ -39,9 +39,9 @@ export class PullRequestContextAnalyzerService {
             const aiResponse = await this.callAIWithTimeout(prompt);
 
             // Parse and validate AI response
-            const parsedResponse = this.groqService.parseAIResponse<{ relevantFiles: RelevantFileRecommendation[] }>(aiResponse);
+            const parsedResponse = this.geminiService.parseAIResponse<{ relevantFiles: RelevantFileRecommendation[] }>(aiResponse);
             if (!parsedResponse) {
-                throw new GroqServiceError("AI response validation failed", { response: aiResponse });
+                throw new GeminiServiceError("AI response validation failed", { response: aiResponse });
             }
 
             const relevantFiles = this.validateAndNormalizeRecommendations(parsedResponse.relevantFiles || []);
@@ -64,7 +64,7 @@ export class PullRequestContextAnalyzerService {
 
                     // // Call AI service with timeout
                     // const aiResponse = await this.callAIWithTimeout(prompt);
-                    // const optimizedFile = this.groqService.parseAIResponse<{ file: string, content: string }>(aiResponse);
+                    // const optimizedFile = this.geminiService.parseAIResponse<{ file: string, content: string }>(aiResponse);
                     // messageLogger.info("optimizing...", file.filePath);
                     // if (!optimizedFile) {
                     //     messageLogger.warn(`"AI response validation failed for: ${file.filePath}`, { parsedResponse: optimizedFile });
@@ -96,11 +96,11 @@ export class PullRequestContextAnalyzerService {
             dataLogger.error("Error in context analysis", { error });
 
             // Handle specific error types
-            if (error instanceof GroqRateLimitError) {
+            if (error instanceof GeminiRateLimitError) {
                 messageLogger.warn("Rate limit hit");
             }
 
-            throw new GroqServiceError("Context analysis validation failed", error);
+            throw new GeminiServiceError("Context analysis validation failed", error);
         }
     }
 
@@ -204,7 +204,7 @@ IMPORTANT:Respond with ONLY the JSON object. Do not include any text before or a
      * Calls AI service with timeout handling
      */
     private async callAIWithTimeout(prompt: string): Promise<string> {
-        const operationPromise = this.groqService.callGroqAPI(prompt);
+        const operationPromise = this.geminiService.callGeminiAPI(prompt);
 
         const timeoutPromise = new Promise<never>((_, reject) => {
             setTimeout(() => {

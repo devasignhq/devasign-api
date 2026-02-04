@@ -57,14 +57,14 @@ export const getAccountInfoSchema = {
 };
 
 // AI Services test schemas
-export const groqChatSchema = {
+export const geminiChatSchema = {
     body: z.object({
         message: z.string().min(1, "Message is required"),
         model: z.string().optional()
     })
 };
 
-export const groqCodeReviewSchema = {
+export const geminiCodeReviewSchema = {
     body: z.object({
         code: z.string().min(1, "Code content is required"),
         language: z.string().optional(),
@@ -72,14 +72,14 @@ export const groqCodeReviewSchema = {
     })
 };
 
-export const groqTestModelsSchema = {
+export const geminiTestModelsSchema = {
     body: z.object({
         prompt: z.string().min(1, "Prompt is required"),
         models: z.array(z.string()).optional()
     })
 };
 
-export const groqTestJsonSchema = {
+export const geminiTestJsonSchema = {
     body: z.object({
         testPrompt: z.string().optional()
     })

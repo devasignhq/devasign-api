@@ -1,4 +1,4 @@
-import Groq from "groq-sdk";
+import { VertexAI, GenerativeModel } from "@google-cloud/vertexai";
 import {
     PullRequestData,
     AIReview,
@@ -6,47 +6,60 @@ import {
     RelevantFileRecommendation
 } from "../../models/ai-review.model";
 import {
-    GroqServiceError,
-    GroqRateLimitError,
-    GroqContextLimitError,
+    GeminiServiceError,
+    GeminiRateLimitError,
+    GeminiContextLimitError,
     ErrorUtils
 } from "../../models/error.model";
 import { getFieldFromUnknownObject } from "../../utilities/helper";
 import { dataLogger, messageLogger } from "../../config/logger.config";
 
 /**
- * Implements AI-powered code review.
+ * Implements AI-powered code review using Google's Vertex AI (Gemini).
  */
-export class GroqAIService {
-    private groqClient: Groq;
+export class GeminiAIService {
+    private vertexAI: VertexAI;
+    private model: GenerativeModel;
     private readonly config: {
         model: string;
         maxTokens: number;
         temperature: number;
         maxRetries: number;
         contextLimit: number;
+        projectId: string;
+        location: string;
     };
 
     constructor() {
-        // Initialize Groq client with API key
-        const apiKey = process.env.GROQ_API_KEY;
-        if (!apiKey) {
-            throw new Error("GROQ_API_KEY environment variable is required");
-        }
+        // Initialize Vertex AI with project and location
+        const projectId = process.env.GCP_PROJECT_ID!;
+        // const location = process.env.GCP_LOCATION_ID!;
+        const location = "us-central1";
 
-        this.groqClient = new Groq({
-            apiKey
+        // Configuration for Gemini models
+        this.config = {
+            model: process.env.GEMINI_MODEL || "gemini-2.5-pro",
+            maxTokens: parseInt(process.env.GEMINI_MAX_TOKENS || "8192"),
+            temperature: parseFloat(process.env.GEMINI_TEMPERATURE || "0.0"),
+            maxRetries: parseInt(process.env.GEMINI_MAX_RETRIES || "3"),
+            contextLimit: parseInt(process.env.GEMINI_CONTEXT_LIMIT || "1048576"),
+            projectId,
+            location
+        };
+
+        this.vertexAI = new VertexAI({
+            project: this.config.projectId,
+            location: this.config.location
         });
 
-        // Configuration for Groq models
-        this.config = {
-            model: process.env.GROQ_MODEL || "groq/compound",
-            // model: process.env.GROQ_MODEL || "llama-3.3-70b-versatile",
-            maxTokens: parseInt(process.env.GROQ_MAX_TOKENS || "4096"),
-            temperature: parseFloat(process.env.GROQ_TEMPERATURE || "0.0"), // Lower temperature for more consistent JSON
-            maxRetries: parseInt(process.env.GROQ_MAX_RETRIES || "3"),
-            contextLimit: parseInt(process.env.GROQ_CONTEXT_LIMIT || "8000")
-        };
+        this.model = this.vertexAI.getGenerativeModel({
+            model: this.config.model,
+            generationConfig: {
+                maxOutputTokens: this.config.maxTokens,
+                temperature: this.config.temperature
+                // responseMimeType: "application/json"
+            }
+        });
     }
 
     /**
@@ -57,27 +70,27 @@ export class GroqAIService {
         relevantFiles: RelevantFileRecommendation[]
     ): Promise<AIReview> {
         try {
-            // Generate the review using Groq
+            // Generate the review using Gemini
             const reviewPrompt = this.buildReviewPrompt(prData, relevantFiles);
-            const aiResponse = await this.callGroqAPI(reviewPrompt);
+            const aiResponse = await this.callGeminiAPI(reviewPrompt);
 
             // Parse and validate the response
             const parsedReview = this.parseAIResponse<AIReview>(aiResponse);
             if (!parsedReview) {
-                throw new GroqServiceError("AI response validation failed", { response: aiResponse });
+                throw new GeminiServiceError("AI response validation failed", { response: aiResponse });
             }
 
             // Validate the review quality
             if (!this.validateAIResponse(parsedReview)) {
-                throw new GroqServiceError("AI response validation failed", { response: aiResponse });
+                throw new GeminiServiceError("AI response validation failed", { response: aiResponse });
             }
 
             return parsedReview;
         } catch (error) {
-            if (error instanceof GroqServiceError) {
+            if (error instanceof GeminiServiceError) {
                 throw error;
             }
-            throw new GroqServiceError("Failed to generate AI review", error);
+            throw new GeminiServiceError("Failed to generate AI review", error);
         }
     }
 
@@ -182,7 +195,7 @@ export class GroqAIService {
     // ============================================================================
 
     /**
-     * Builds the main review prompt for Groq
+     * Builds the main review prompt for Gemini
      */
     private buildReviewPrompt(
         prData: PullRequestData,
@@ -196,7 +209,7 @@ export class GroqAIService {
                 ---CONTENT END---` : "";
         }).join("\n\n");
 
-        return `You are an expert code reviewer analyzing a pull request. Provide a comprehensive review with specific, actionable feedback.
+        return `You are an expert code reviewer analyzing a pull request. Provide a concise review with specific, actionable feedback.
 
 ${prData.formattedPullRequest}
 
@@ -252,53 +265,39 @@ IMPORTANT: Respond with ONLY the JSON object. Do not include any text before or 
     }
 
     /**
-     * Calls Groq API with error handling and retries
+     * Calls Gemini API with error handling and retries
      */
-    async callGroqAPI(prompt: string): Promise<string> {
+    async callGeminiAPI(prompt: string): Promise<string> {
         return this.handleRateLimit(async () => {
             try {
-                const completion = await this.groqClient.chat.completions.create({
-                    messages: [
-                        {
-                            role: "system",
-                            content: "You are a code review assistant. You MUST respond with valid JSON only. No additional text, explanations, or markdown formatting. Your response must be a valid JSON object that can be parsed directly."
-                        },
-                        {
-                            role: "user",
-                            content: prompt
-                        }
-                    ],
-                    model: this.config.model,
-                    // max_completion_tokens: this.config.maxTokens,
-                    temperature: this.config.temperature
-                });
+                const result = await this.model.generateContent(prompt);
+                const response = await result.response;
 
-                const content = completion.choices[0]?.message?.content;
-                if (!content) {
-                    throw new GroqServiceError("Empty response from Groq API");
+                const text = response.candidates?.[0]?.content?.parts?.[0]?.text;
+
+                if (!text) {
+                    throw new GeminiServiceError("Empty response from Gemini API");
                 }
 
-                return content;
+                return text;
             } catch (error) {
                 const errorStatus = getFieldFromUnknownObject<number>(error, "status");
                 const errorMessage = getFieldFromUnknownObject<string>(error, "message");
-                const errorHeaders = getFieldFromUnknownObject<Record<string, unknown>>(error, "headers");
 
-                // Handle specific Groq API errors
-                if (errorStatus === 429) {
-                    const retryAfter = errorHeaders?.["retry-after"] ? parseInt(errorHeaders["retry-after"] as string) : undefined;
-                    throw new GroqRateLimitError("Groq API rate limit exceeded", retryAfter, error);
+                // Handle specific Gemini API errors
+                if (errorStatus === 429 || errorMessage?.includes("429")) {
+                    throw new GeminiRateLimitError("Gemini API rate limit exceeded", undefined, error);
                 }
 
-                if (errorStatus === 413 || errorMessage?.includes("context_length_exceeded")) {
-                    throw new GroqContextLimitError(
+                if (errorMessage?.includes("context") || errorMessage?.includes("token")) {
+                    throw new GeminiContextLimitError(
                         this.estimateTokens(prompt),
                         this.config.contextLimit,
                         error
                     );
                 }
 
-                throw new GroqServiceError(`Groq API error: ${errorMessage}`, error);
+                throw new GeminiServiceError(`Gemini API error: ${errorMessage}`, error);
             }
         });
     }
@@ -361,7 +360,7 @@ IMPORTANT: Respond with ONLY the JSON object. Do not include any text before or 
             return parsed as T;
         } catch (error) {
             dataLogger.error("Error parsing AI response", { error, rawResponse: response });
-            
+
             return null;
         }
     }
@@ -380,9 +379,10 @@ IMPORTANT: Respond with ONLY the JSON object. Do not include any text before or 
     private isRateLimitError(error: unknown): boolean {
         const errorStatus = getFieldFromUnknownObject<number>(error, "status");
         const errorMessage = getFieldFromUnknownObject<string>(error, "message");
-        return error instanceof GroqRateLimitError ||
+        return error instanceof GeminiRateLimitError ||
             (errorStatus === 429) ||
-            Boolean(errorMessage && errorMessage.includes("rate limit"));
+            Boolean(errorMessage && errorMessage.includes("rate limit")) ||
+            Boolean(errorMessage && errorMessage.includes("429"));
     }
 
     /**

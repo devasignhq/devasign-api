@@ -1,6 +1,6 @@
 import { Router, Request, Response, NextFunction, RequestHandler } from "express";
 import createError from "http-errors";
-import { GroqAIService } from "../../services/ai-review/groq-ai.service";
+import { GeminiAIService } from "../../services/ai-review/gemini-ai.service";
 import { dataLogger } from "../../config/logger.config";
 import { STATUS_CODES } from "../../utilities/data";
 import { GitHubPullRequest, GitHubInstallation, APIResponse } from "../../models/ai-review.model";
@@ -8,39 +8,38 @@ import { OctokitService } from "../../services/octokit.service";
 import { WorkflowIntegrationService } from "../../services/ai-review/workflow-integration.service";
 import { validateRequestParameters } from "../../middlewares/request.middleware";
 import {
-    groqChatSchema,
-    groqCodeReviewSchema,
-    groqTestModelsSchema,
-    groqTestJsonSchema,
+    geminiChatSchema,
+    geminiCodeReviewSchema,
+    geminiTestModelsSchema,
+    geminiTestJsonSchema,
     manualAnalysisSchema
 } from "./test.schema";
 
 const router = Router();
-const groqService = new GroqAIService();
+const geminiService = new GeminiAIService();
 
-// Simple chat with Groq AI
-router.post("/groq/chat",
-    validateRequestParameters(groqChatSchema),
+// Simple chat with Gemini AI
+router.post("/gemini/chat",
+    validateRequestParameters(geminiChatSchema),
     (async (req: Request, res: Response, next: NextFunction) => {
         try {
 
-            const { message, model } = req.body;
+            const { message } = req.body;
 
             // Create a simple chat prompt
             const chatPrompt = `You are a helpful AI assistant. Please respond to the following message in a conversational way:
 
-User: ${message}A
-ssistant: Please provide a helpful and informative response.`;
+User: ${message}
+Assistant: Please provide a helpful and informative response.`;
 
-            // Call Groq API using the service's internal method
-            const response = await (groqService as any).callGroqAPI(chatPrompt);
+            // Call Gemini API using the service's internal method
+            const response = await (geminiService as any).callGeminiAPI(chatPrompt);
 
             res.status(200).json({
                 message: "Chat response generated successfully",
                 data: {
                     userMessage: message,
                     aiResponse: response,
-                    model: model || "llama3-8b-8192",
                     timestamp: new Date().toISOString()
                 }
             });
@@ -50,9 +49,9 @@ ssistant: Please provide a helpful and informative response.`;
     }) as RequestHandler
 );
 
-// Code review simulation with Groq AI
-router.post("/groq/code-review",
-    validateRequestParameters(groqCodeReviewSchema),
+// Code review simulation with Gemini AI
+router.post("/gemini/code-review",
+    validateRequestParameters(geminiCodeReviewSchema),
     (async (req: Request, res: Response, next: NextFunction) => {
         try {
 
@@ -87,8 +86,8 @@ Format your response as JSON:
   "overall_feedback": "<comprehensive feedback>"
 }`;
 
-            // Call Groq API
-            const response = await (groqService as any).callGroqAPI(reviewPrompt);
+            // Call Gemini API
+            const response = await (geminiService as any).callGeminiAPI(reviewPrompt);
 
             res.status(200).json({
                 message: "Code review completed successfully",
@@ -97,6 +96,7 @@ Format your response as JSON:
                     language,
                     codeLength: code.length,
                     review: response,
+                    parsed: (geminiService as any).parseAIResponse(response),
                     timestamp: new Date().toISOString()
                 }
             });
@@ -106,13 +106,13 @@ Format your response as JSON:
     }) as RequestHandler
 );
 
-// Test Groq AI with different models and parameters
-router.post("/groq/test-models",
-    validateRequestParameters(groqTestModelsSchema),
+// Test Gemini AI with different models and parameters
+router.post("/gemini/test-models",
+    validateRequestParameters(geminiTestModelsSchema),
     (async (req: Request, res: Response, next: NextFunction) => {
         try {
 
-            const { prompt, models = ["llama3-8b-8192", "mixtral-8x7b-32768"] } = req.body;
+            const { prompt, models = ["gemini-1.5-pro", "gemini-1.5-flash"] } = req.body;
 
             const results = [];
 
@@ -121,24 +121,20 @@ router.post("/groq/test-models",
                 try {
                     const startTime = Date.now();
 
-                    // Create Groq client with specific model
-                    const groqClient = (groqService as any).groqClient;
-                    const completion = await groqClient.chat.completions.create({
-                        messages: [{ role: "user", content: prompt }],
-                        model,
-                        max_tokens: 1000,
-                        temperature: 0.1
-                    });
+                    // Create Gemini client with specific model
+                    const genAI = (geminiService as any).genAI;
+                    const modelInstance = genAI.getGenerativeModel({ model });
+                    const result = await modelInstance.generateContent(prompt);
+                    const response = result.response.text();
 
                     const endTime = Date.now();
-                    const response = completion.choices[0]?.message?.content || "No response";
 
                     results.push({
                         model,
                         response,
                         responseTime: endTime - startTime,
-                        success: true,
-                        tokens: completion.usage?.total_tokens || 0
+                        success: true
+                        // tokens: result.usage?.totalTokens || 0 // Usage info might differ
                     });
                 } catch (modelError: any) {
                     results.push({
@@ -164,9 +160,9 @@ router.post("/groq/test-models",
     }) as RequestHandler
 );
 
-// Test Groq AI JSON parsing
-router.post("/groq/test-json",
-    validateRequestParameters(groqTestJsonSchema),
+// Test Gemini AI JSON parsing
+router.post("/gemini/test-json",
+    validateRequestParameters(geminiTestJsonSchema),
     (async (req: Request, res: Response, next: NextFunction) => {
         try {
 
@@ -203,21 +199,21 @@ Code to analyze: ${testPrompt}
 
 Respond with ONLY the JSON object above, modified for the actual code analysis.`;
 
-            // Call Groq API directly
-            const response = await (groqService as any).callGroqAPI(prompt);
+            // Call Gemini API directly
+            const response = await (geminiService as any).callGeminiAPI(prompt);
 
             // Try to parse the response
             let parsedResponse;
             let parseError = null;
 
             try {
-                parsedResponse = (groqService as any).parseAIResponse(response);
+                parsedResponse = (geminiService as any).parseAIResponse(response);
             } catch (error: any) {
                 parseError = error.message;
             }
 
             res.status(200).json({
-                message: "Groq AI JSON test completed",
+                message: "Gemini AI JSON test completed",
                 data: {
                     rawResponse: response,
                     parsedResponse,
@@ -227,20 +223,20 @@ Respond with ONLY the JSON object above, modified for the actual code analysis.`
                 }
             });
         } catch (error) {
-            next(createError(500, "Failed to test Groq AI JSON parsing", { cause: error }));
+            next(createError(500, "Failed to test Gemini AI JSON parsing", { cause: error }));
         }
     }) as RequestHandler
 );
 
 // Trigger manual analysis
-router.post("/github/manual-analysis", 
+router.post("/github/manual-analysis",
     validateRequestParameters(manualAnalysisSchema),
     (async (req: Request, res: Response, next: NextFunction) => {
         try {
             const { installationId, repositoryName, prNumber, reason } = req.body;
 
             if (!installationId || !repositoryName || !prNumber) {
-            // Missing required fields
+                // Missing required fields
                 return res.status(STATUS_CODES.SERVER_ERROR).json({
                     success: false,
                     error: "Missing required fields: installationId, repositoryName, prNumber"
@@ -263,7 +259,7 @@ router.post("/github/manual-analysis",
             );
 
             const { data: repository } = await octokit.request(
-                "GET /repos/{owner}/{repo}", 
+                "GET /repos/{owner}/{repo}",
                 { owner, repo }
             );
 
@@ -276,9 +272,9 @@ router.post("/github/manual-analysis",
                 repository,
                 installation: installation as GitHubInstallation
             });
-        
+
             if (!result.success) {
-            // Analysis could not be queued
+                // Analysis could not be queued
                 return res.status(STATUS_CODES.UNKNOWN).json({
                     success: false,
                     error: result.error,
@@ -302,7 +298,7 @@ router.post("/github/manual-analysis",
             } as APIResponse);
 
         } catch (error) {
-        // Log and pass error to middleware
+            // Log and pass error to middleware
             dataLogger.error("Error in manual analysis trigger", { error });
             next(error);
         }

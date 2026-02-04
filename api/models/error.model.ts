@@ -150,12 +150,12 @@ export class EscrowContractError extends ErrorClass {
 }
 
 /**
- * Groq AI service related errors
+ * Gemini AI service related errors
  */
-export class GroqServiceError extends AIReviewError {
+export class GeminiServiceError extends AIReviewError {
     constructor(message: string, details?: unknown, retryable: boolean = true) {
         super(
-            "GROQ_SERVICE_ERROR",
+            "GEMINI_SERVICE_ERROR",
             details,
             message,
             retryable,
@@ -165,22 +165,22 @@ export class GroqServiceError extends AIReviewError {
 }
 
 /**
- * Groq rate limiting error
+ * Gemini rate limiting error
  */
-export class GroqRateLimitError extends GroqServiceError {
+export class GeminiRateLimitError extends GeminiServiceError {
     public readonly retryAfter?: number;
 
     constructor(message: string, retryAfter?: number, details?: unknown) {
         super(message, details, true);
-        this.code = "GROQ_RATE_LIMIT";
+        this.code = "GEMINI_RATE_LIMIT";
         this.retryAfter = retryAfter;
     }
 }
 
 /**
- * Groq model context limit exceeded
+ * Gemini model context limit exceeded
  */
-export class GroqContextLimitError extends GroqServiceError {
+export class GeminiContextLimitError extends GeminiServiceError {
     public readonly tokenCount: number;
     public readonly maxTokens: number;
 
@@ -190,7 +190,7 @@ export class GroqContextLimitError extends GroqServiceError {
             details,
             false
         );
-        this.code = "GROQ_CONTEXT_LIMIT";
+        this.code = "GEMINI_CONTEXT_LIMIT";
         this.tokenCount = tokenCount;
         this.maxTokens = maxTokens;
     }
@@ -323,7 +323,7 @@ export class ErrorUtils {
         const baseDelay = 1000; // 1 second
         const maxDelay = 30000; // 30 seconds
 
-        if (error instanceof GroqRateLimitError && error.retryAfter) {
+        if (error instanceof GeminiRateLimitError && error.retryAfter) {
             return error.retryAfter * 1000;
         }
 
@@ -338,12 +338,12 @@ export class ErrorUtils {
      * Sanitizes error for client response (removes sensitive data)
      */
     static sanitizeError(error: ErrorClass) {
-        return (process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test") 
-            ? { ...error } 
-            : { 
-                message: error.message, 
-                code: error.code, 
-                status: error.status 
+        return (process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test")
+            ? { ...error }
+            : {
+                message: error.message,
+                code: error.code,
+                status: error.status
             };
     }
 }
