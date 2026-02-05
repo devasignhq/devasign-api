@@ -25,6 +25,7 @@ import { StellarServiceError } from "../models/error.model";
  */
 export class StellarService {
     private masterAccount: AccountKeypair;
+    readonly isMainnet: boolean;
 
     /**
      * Initialize the Stellar service with the master account credentials.
@@ -35,6 +36,8 @@ export class StellarService {
         if (!process.env.STELLAR_MASTER_SECRET_KEY || !process.env.STELLAR_MASTER_PUBLIC_KEY) {
             throw new StellarServiceError("Missing Stellar master account credentials in environment variables");
         }
+
+        this.isMainnet = process.env.STELLAR_NETWORK === "public";
 
         try {
             // Create keypair from the master secret key
@@ -172,8 +175,18 @@ export class StellarService {
      * Fund a wallet on the Stellar testnet using Friendbot.
      * Only works on testnet - provides free XLM for testing purposes.
      */
-    async fundWallet(_accountAddress: string) {
-        throw new StellarServiceError("Friendbot funding is only available on Testnet");
+    async fundWallet(accountAddress: string) {
+        if (this.isMainnet) {
+            throw new StellarServiceError("Friendbot funding is only available on Testnet");
+        }
+        
+        try {
+            // Request funding from Friendbot
+            await stellar.fundTestnetAccount(accountAddress);
+            return "SUCCESS";
+        } catch (error) {
+            throw new StellarServiceError("Failed to fund wallet", error);
+        }
     }
 
     /**

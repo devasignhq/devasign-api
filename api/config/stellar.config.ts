@@ -14,13 +14,19 @@ const customClient: AxiosInstance = axios.create({
 const appConfig = new ApplicationConfiguration(DefaultSigner, customClient);
 
 export const wallet = new Wallet({
-    stellarConfiguration: StellarConfiguration.MainNet(),
+    stellarConfiguration: process.env.STELLAR_NETWORK === "public" 
+        ? StellarConfiguration.MainNet() 
+        : StellarConfiguration.TestNet(),
     applicationConfiguration: appConfig
 });
 
 export const stellar = wallet.stellar();
 export const account = stellar.account();
-export const anchor = wallet.anchor({ homeDomain: "anchor.stellar.org" });
+export const anchor = wallet.anchor({ 
+    homeDomain: process.env.STELLAR_NETWORK === "public" 
+        ? "anchor.stellar.org" 
+        : "testanchor.stellar.org" 
+});
 
 export const xlmAssetId = new NativeAssetId();
 export const usdcAssetId = new IssuedAssetId(
