@@ -5,7 +5,7 @@ import {
     AuthorizationError,
     ErrorClass,
     GitHubAPIError,
-    GroqServiceError,
+    GeminiServiceError,
     NotFoundError,
     ValidationError
 } from "../../../api/models/error.model";
@@ -96,13 +96,13 @@ describe("Error Handling Middleware", () => {
                 message: "Failed to fetch pr"
             }));
 
-            // Groq API
-            error = new GroqServiceError("Completion failed");
+            // Gemini API
+            error = new GeminiServiceError("Completion failed");
             errorHandler(error, mockRequest as Request, mockResponse as Response, mockNext);
 
             expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.SERVER_ERROR);
             expect(mockResponse.json).toHaveBeenCalledWith(expect.objectContaining({
-                code: "GROQ_SERVICE_ERROR",
+                code: "GEMINI_SERVICE_ERROR",
                 message: "Completion failed"
             }));
         });

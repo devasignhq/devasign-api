@@ -1,6 +1,6 @@
 import {
     AIReviewError,
-    GroqRateLimitError,
+    GeminiRateLimitError,
     GitHubAPIError,
     TimeoutError
 } from "../models/error.model";
@@ -75,14 +75,14 @@ export class RetryService {
 
             // Log final failure
             dataLogger.error(
-                "Retry exhausted", 
+                "Retry exhausted",
                 { error: lastError, operationName, maxRetries }
             );
 
             // Use fallback if available
             if (fallback) {
                 dataLogger.warn(
-                    `Using fallback for ${operationName}`, 
+                    `Using fallback for ${operationName}`,
                     { originalError: lastError.message }
                 );
                 const fallbackResult = await fallback();
@@ -104,7 +104,7 @@ export class RetryService {
         baseDelay: number,
         maxDelay: number,
         timeout: number,
-         
+
         retryCondition: (error: Error, attempt: number) => boolean
     ): Promise<T> {
         let lastError: unknown;
@@ -117,7 +117,7 @@ export class RetryService {
                 // Log success if this was a retry
                 if (attempt > 0) {
                     dataLogger.info(
-                        `${operationName} succeeded on attempt ${attempt + 1}`, 
+                        `${operationName} succeeded on attempt ${attempt + 1}`,
                         {
                             operationName,
                             attempt: attempt + 1,
@@ -132,7 +132,7 @@ export class RetryService {
 
                 // Log the attempt
                 dataLogger.warn(
-                    `Attempt ${attempt + 1}/${maxRetries} failed for ${operationName}`, 
+                    `Attempt ${attempt + 1}/${maxRetries} failed for ${operationName}`,
                     {
                         operationName,
                         attempt: attempt + 1,
@@ -146,7 +146,7 @@ export class RetryService {
                 // Check if we should retry
                 if (!retryCondition(error as Error, attempt)) {
                     dataLogger.error(
-                        "Retry aborted", 
+                        "Retry aborted",
                         {
                             error: lastError,
                             operationName,
@@ -161,7 +161,7 @@ export class RetryService {
                 if (attempt < maxRetries - 1) {
                     const delay = RetryService.calculateDelay(error as Error, attempt, baseDelay, maxDelay);
                     dataLogger.info(
-                        `Waiting ${delay}ms before retry ${attempt + 2}/${maxRetries} for ${operationName}`, 
+                        `Waiting ${delay}ms before retry ${attempt + 2}/${maxRetries} for ${operationName}`,
                         {
                             operationName,
                             delay,
@@ -233,7 +233,7 @@ export class RetryService {
         maxDelay: number
     ): number {
         // Handle specific error types
-        if (error instanceof GroqRateLimitError && error.retryAfter) {
+        if (error instanceof GeminiRateLimitError && error.retryAfter) {
             return Math.min(error.retryAfter * 1000, maxDelay);
         }
 
@@ -257,9 +257,9 @@ export class RetryService {
     }
 
     /**
-     * Creates a retry configuration for Groq AI operations
+     * Creates a retry configuration for Gemini AI operations
      */
-    static groqRetryConfig(): RetryOptions {
+    static geminiRetryConfig(): RetryOptions {
         return {
             maxRetries: 5,
             baseDelay: 2000,
@@ -269,7 +269,7 @@ export class RetryService {
             retryCondition: (error: Error, attempt: number) => {
                 if (attempt >= 5) return false;
 
-                if (error instanceof GroqRateLimitError) return true;
+                if (error instanceof GeminiRateLimitError) return true;
                 if (error instanceof TimeoutError) return true;
 
                 return RetryService.defaultRetryCondition(error, attempt);

@@ -8,7 +8,7 @@ export class ErrorHandlerService {
     private static initialized = false;
     private static shutdownHandlers: Array<() => Promise<void> | void> = [];
     private static readonly CIRCUIT_BREAKER_CONFIG = {
-        groq: { failureThreshold: 3, recoveryTimeout: 120000 }, // 2 minutes
+        gemini: { failureThreshold: 3, recoveryTimeout: 120000 }, // 2 minutes
         github: { failureThreshold: 10, recoveryTimeout: 30000 }, // 30 seconds
         database: { failureThreshold: 3, recoveryTimeout: 60000 } // 1 minute
     };
@@ -202,15 +202,15 @@ export class ErrorHandlerService {
         }
 
         // AI Service Configuration (Critical)
-        if (!process.env.GROQ_API_KEY) {
-            errors.push("GROQ_API_KEY not configured - AI review service will be unavailable");
+        if (!process.env.GEMINI_API_KEY) {
+            errors.push("GEMINI_API_KEY not configured - AI review service will be unavailable");
         }
 
         // Sumsub Configuration (Critical)
         if (!process.env.SUMSUB_APP_TOKEN || !process.env.SUMSUB_SECRET_KEY || !process.env.SUMSUB_LEVEL_NAME) {
             errors.push("Sumsub misconfiguration");
         }
-        
+
         // Application Configuration
         if (!process.env.NODE_ENV) {
             warnings.push("NODE_ENV not configured - defaulting to development mode");

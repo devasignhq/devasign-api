@@ -33,7 +33,7 @@ export const testConfig = {
             webhookSecret: process.env.GITHUB_WEBHOOK_SECRET || "test-webhook-secret"
         },
         ai: {
-            groqApiKey: process.env.GROQ_API_KEY || "test-groq-key",
+            geminiApiKey: process.env.GEMINI_API_KEY || "test-gemini-key",
             huggingfaceApiKey: process.env.HUGGINGFACE_API_KEY || "test-hf-key",
             openaiApiKey: process.env.OPENAI_API_KEY || "test-openai-key"
         },

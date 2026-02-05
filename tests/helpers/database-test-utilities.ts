@@ -307,6 +307,7 @@ export class DatabaseTestUtilities {
             const openTask = await this.client.task.create({
                 data: {
                     ...taskData,
+                    escrowTransactions: [] as Prisma.InputJsonValue[],
                     issue: taskData.issue as Prisma.InputJsonValue
                 }
             });
@@ -327,6 +328,7 @@ export class DatabaseTestUtilities {
             const inProgressTask = await this.client.task.create({
                 data: {
                     ...inProgressTaskData,
+                    escrowTransactions: [] as Prisma.InputJsonValue[],
                     issue: inProgressTaskData.issue as Prisma.InputJsonValue
                 }
             });
@@ -349,6 +351,7 @@ export class DatabaseTestUtilities {
             const completedTask = await this.client.task.create({
                 data: {
                     ...completedTaskData,
+                    escrowTransactions: [] as Prisma.InputJsonValue[],
                     issue: completedTaskData.issue as Prisma.InputJsonValue
                 }
             });
@@ -663,6 +666,7 @@ export class DatabaseTestUtilities {
             const task = await this.client.task.create({
                 data: {
                     ...taskData,
+                    escrowTransactions: [] as Prisma.InputJsonValue[],
                     issue: taskData.issue as Prisma.InputJsonValue
                 }
             });

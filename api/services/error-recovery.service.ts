@@ -7,7 +7,7 @@ import { dataLogger, messageLogger } from "../config/logger.config";
  */
 export class ErrorRecoveryService {
     private static readonly RECOVERY_STRATEGIES = {
-        groq: "fallback_ai_analysis",
+        gemini: "fallback_ai_analysis",
         github: "skip_comment_posting",
         database: "in_memory_fallback"
     } as const;
@@ -54,22 +54,22 @@ export class ErrorRecoveryService {
             let result: RecoveryResult;
 
             switch (failureType) {
-            case "service":
-                result = await ErrorRecoveryService.recoverFromServiceFailure(context);
-                break;
-            case "circuit_breaker":
-                result = await ErrorRecoveryService.recoverFromCircuitBreakerFailure(context);
-                break;
-            case "complete":
-                result = await ErrorRecoveryService.performCompleteSystemRecovery(context);
-                break;
-            default:
-                result = {
-                    success: false,
-                    strategy: "unknown",
-                    message: `Unknown failure type: ${failureType}`,
-                    timestamp: new Date()
-                };
+                case "service":
+                    result = await ErrorRecoveryService.recoverFromServiceFailure(context);
+                    break;
+                case "circuit_breaker":
+                    result = await ErrorRecoveryService.recoverFromCircuitBreakerFailure(context);
+                    break;
+                case "complete":
+                    result = await ErrorRecoveryService.performCompleteSystemRecovery(context);
+                    break;
+                default:
+                    result = {
+                        success: false,
+                        strategy: "unknown",
+                        message: `Unknown failure type: ${failureType}`,
+                        timestamp: new Date()
+                    };
             }
 
             dataLogger.info(
@@ -118,19 +118,19 @@ export class ErrorRecoveryService {
 
         try {
             switch (serviceName) {
-            case "groq":
-                return await ErrorRecoveryService.recoverGroqService(context);
-            case "github":
-                return await ErrorRecoveryService.recoverGitHubService(context);
-            case "database":
-                return await ErrorRecoveryService.recoverDatabaseService(context);
-            default:
-                return {
-                    success: false,
-                    strategy,
-                    message: `No recovery implementation for service: ${serviceName}`,
-                    timestamp: new Date()
-                };
+                case "gemini":
+                    return await ErrorRecoveryService.recoverGeminiService(context);
+                case "github":
+                    return await ErrorRecoveryService.recoverGitHubService(context);
+                case "database":
+                    return await ErrorRecoveryService.recoverDatabaseService(context);
+                default:
+                    return {
+                        success: false,
+                        strategy,
+                        message: `No recovery implementation for service: ${serviceName}`,
+                        timestamp: new Date()
+                    };
             }
         } catch (error) {
             return {
@@ -144,21 +144,21 @@ export class ErrorRecoveryService {
     }
 
     /**
-     * Recovers Groq AI service
+     * Recovers Gemini AI service
      */
-    private static async recoverGroqService(context?: Record<string, unknown>): Promise<RecoveryResult> {
-        dataLogger.info("Attempting to recover Groq AI service", { context });
+    private static async recoverGeminiService(context?: Record<string, unknown>): Promise<RecoveryResult> {
+        dataLogger.info("Attempting to recover Gemini AI service", { context });
 
-        // Reset circuit breaker for Groq
-        const circuit = CircuitBreakerService.getCircuit("groq");
+        // Reset circuit breaker for Gemini
+        const circuit = CircuitBreakerService.getCircuit("gemini");
         circuit.reset();
 
         // Verify configuration
-        if (!process.env.GROQ_API_KEY) {
+        if (!process.env.GEMINI_API_KEY) {
             return {
                 success: false,
                 strategy: "fallback_ai_analysis",
-                message: "Groq API key not configured - using fallback analysis",
+                message: "Gemini API key not configured - using fallback analysis",
                 timestamp: new Date()
             };
         }
@@ -171,14 +171,14 @@ export class ErrorRecoveryService {
             return {
                 success: true,
                 strategy: "service_restart",
-                message: "Groq service recovered successfully",
+                message: "Gemini service recovered successfully",
                 timestamp: new Date()
             };
         } catch (error) {
             return {
                 success: false,
                 strategy: "fallback_ai_analysis",
-                message: "Groq service still unavailable - using fallback",
+                message: "Gemini service still unavailable - using fallback",
                 timestamp: new Date(),
                 error: String(error)
             };
@@ -327,7 +327,7 @@ export class ErrorRecoveryService {
             {
                 name: "Verify Service Configurations",
                 action: async () => {
-                    const requiredEnvVars = ["GROQ_API_KEY", "GITHUB_APP_ID", "GITHUB_APP_PRIVATE_KEY"];
+                    const requiredEnvVars = ["GEMINI_API_KEY", "GITHUB_APP_ID", "GITHUB_APP_PRIVATE_KEY"];
                     const missing = requiredEnvVars.filter(key => !process.env[key]);
                     if (missing.length > 0) {
                         throw new Error(`Missing environment variables: ${missing.join(", ")}`);
@@ -377,7 +377,7 @@ export class ErrorRecoveryService {
         lastAttempt?: Date;
         attemptCount: number;
         canAttemptRecovery: boolean;
-        } {
+    } {
         const now = new Date();
         const timeSinceLastAttempt = ErrorRecoveryService.lastRecoveryAttempt
             ? now.getTime() - ErrorRecoveryService.lastRecoveryAttempt.getTime()
