@@ -1,10 +1,9 @@
 import { prisma } from "../config/database.config";
 import { firebaseAdmin } from "../config/firebase.config";
 import { STATUS_CODES } from "../utilities/data";
-import { getFieldFromUnknownObject, responseWrapper } from "../utilities/helper";
+import { getFieldFromUnknownObject } from "../utilities/helper";
 import { Request, Response, NextFunction } from "express";
-import { AuthorizationError, ValidationError } from "../models/error.model";
-import { dataLogger } from "../config/logger.config";
+import { AuthorizationError, ErrorClass, ValidationError } from "../models/error.model";
 
 /**
  * Middleware to validate user authorization token
@@ -18,30 +17,35 @@ export const validateUser = async (req: Request, res: Response, next: NextFuncti
             // Verify token with Firebase Admin SDK
             const decodedToken = await firebaseAdmin.auth().verifyIdToken(idToken);
 
+            if (decodedToken.firebase.sign_in_provider !== "github.com") {
+                throw new AuthorizationError("Only GitHub authenticated users are allowed");
+            }
+
             // Add user data to response locals
             res.locals.user = decodedToken;
             res.locals.userId = decodedToken.uid;
 
             next();
         } catch (error) {
-            dataLogger.error("Failed to verify ID token", { error });
-            // Token verification failed 
-            return responseWrapper({
-                res,
-                status: STATUS_CODES.UNAUTHENTICATED,
-                data: {},
-                message: "Authentication failed",
-                warning: getFieldFromUnknownObject<string>(error, "message")
-            });
+            if (error instanceof AuthorizationError) {
+                return next(error);
+            }
+
+            next(new ErrorClass(
+                "AUTHENTICATION_FAILED",
+                error,
+                getFieldFromUnknownObject<string>(error, "message") || "Failed to verify ID token",
+                STATUS_CODES.UNAUTHENTICATED
+            ));
         }
     } else {
         // No token provided
-        return responseWrapper({
-            res,
-            status: STATUS_CODES.UNAUTHENTICATED,
-            data: {},
-            message: "No authorization token sent"
-        });
+        next(new ErrorClass(
+            "AUTHENTICATION_FAILED",
+            null,
+            "No authorization token sent",
+            STATUS_CODES.UNAUTHENTICATED
+        ));
     }
 };
 
@@ -86,12 +90,7 @@ export const validateAdmin = async (req: Request, res: Response, next: NextFunct
 
     // Check if user has admin privileges
     if (!currentUser?.admin && !currentUser?.custom_claims?.admin) {
-        return responseWrapper({
-            res,
-            status: STATUS_CODES.UNAUTHORIZED,
-            data: {},
-            message: "Access denied. Admin privileges required."
-        });
+        return next(new AuthorizationError("Access denied. Admin privileges required."));
     }
 
     next();

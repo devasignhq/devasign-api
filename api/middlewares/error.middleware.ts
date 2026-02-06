@@ -9,13 +9,16 @@ import { dataLogger } from "../config/logger.config";
  */
 export const errorHandler = ((error: unknown, req: Request, res: Response, _next: NextFunction) => {
     // Log the error
-    dataLogger.error("An error occured", {
-        error,
-        url: req.url,
-        method: req.method,
-        userAgent: req.get("User-Agent"),
-        ip: req.ip
-    });
+    dataLogger.error(
+        getFieldFromUnknownObject<string>(error, "message") || "An error occured",
+        {
+            error,
+            url: req.url,
+            method: req.method,
+            userAgent: req.get("User-Agent"),
+            ip: req.ip
+        }
+    );
 
     const errorName = getFieldFromUnknownObject<string>(error, "name");
     const returnError = process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test";
