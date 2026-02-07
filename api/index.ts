@@ -67,19 +67,6 @@ app.use(
 app.use(apiLimiter);
 app.use(express.json());
 
-app.get("/get-packages", validateUser as RequestHandler, async (_, res) => {
-    try {
-        const packages = await prisma.subscriptionPackage.findMany();
-
-        res.status(STATUS_CODES.SUCCESS).json(packages);
-    } catch (error) {
-        dataLogger.error("Failed to fetch subscription packages", { error });
-        res.status(STATUS_CODES.SERVER_ERROR).json({
-            message: "Failed to fetch subscription packages"
-        });
-    }
-});
-
 app.use(
     ENDPOINTS.ADMIN.PREFIX,
     dynamicRoute,
@@ -121,9 +108,9 @@ app.use(ENDPOINTS.WEBHOOK.PREFIX, webhookRoutes);
  */
 if (process.env.NODE_ENV !== "production") {
     messageLogger.warn("⚠️ Mounting internal test routes. Ensure this is not production.");
-    
+
     const internalMiddlware = [dynamicRoute, localhostOnly];
-    
+
     app.use("/stellar", internalMiddlware, stellarRoutes);
     app.use("/test", internalMiddlware, testRoutes);
     app.use("/ai-services", internalMiddlware, aiServicesRoutes);

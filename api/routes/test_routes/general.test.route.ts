@@ -7,6 +7,8 @@ import {
     decryptionSchema
 } from "./test.schema";
 import { KMSService } from "../../services/kms.service";
+import { prisma } from "../../config/database.config";
+import { STATUS_CODES } from "../../utilities/data";
 
 const router = Router();
 
@@ -87,5 +89,45 @@ router.post("/decryption",
         }
     }) as RequestHandler
 );
+
+router.post("/create-packages", async (_, res: Response, next: NextFunction) => {
+    try {
+        const packages = await prisma.subscriptionPackage.createMany({
+            data: [
+                {
+                    name: "Free",
+                    description: "Basic plan for personal use",
+                    maxTasks: 5,
+                    maxUsers: 1,
+                    paid: false,
+                    price: 0,
+                    active: true
+                },
+                {
+                    name: "Professional",
+                    description: "Standard plan for small teams",
+                    maxTasks: 50,
+                    maxUsers: 5,
+                    paid: true,
+                    price: 49,
+                    active: true
+                },
+                {
+                    name: "Enterprise",
+                    description: "Custom plan for large organizations",
+                    maxTasks: 500,
+                    maxUsers: 20,
+                    paid: true,
+                    price: 199,
+                    active: true
+                }
+            ]
+        });
+
+        res.status(STATUS_CODES.SUCCESS).json(packages);
+    } catch (error) {
+        next(createError(500, "Failed to create packages", { cause: error }));
+    }
+});
 
 export const testRoutes = router;
