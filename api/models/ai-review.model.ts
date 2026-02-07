@@ -1,4 +1,4 @@
-import { RuleType, RuleSeverity, ReviewStatus } from "../../prisma_client";
+import { ReviewStatus } from "../../prisma_client";
 import { IssueLabel, GitHubComment } from "./github.model";
 
 // ============================================================================
@@ -150,42 +150,6 @@ export interface BatchProcessingConfig { // ?
     };
 }
 
-
-// ============================================================================
-// Rule Engine Types
-// ============================================================================
-
-export interface RuleEvaluation {
-    passed: RuleResult[];
-    violated: RuleResult[];
-    score: number; // Contribution to merge score
-}
-
-export interface RuleResult {
-    ruleId: string;
-    ruleName: string;
-    severity: RuleSeverity;
-    description: string;
-    details?: string;
-    affectedFiles?: string[];
-}
-
-export interface DefaultRule {
-    id: string;
-    name: string;
-    description: string;
-    type: RuleType;
-    severity: RuleSeverity;
-    pattern?: string;
-    config: Record<string, unknown>;
-}
-
-export interface ValidationResult {
-    isValid: boolean;
-    errors: string[];
-    warnings: string[];
-}
-
 // ============================================================================
 // Review Result Types
 // ============================================================================
@@ -195,8 +159,6 @@ export interface ReviewResult {
     prNumber: number;
     repositoryName: string;
     mergeScore: number;
-    rulesViolated: RuleResult[];
-    rulesPassed: RuleResult[];
     suggestions: CodeSuggestion[];
     reviewStatus: ReviewStatus;
     summary: string;
@@ -208,7 +170,6 @@ export interface ReviewResult {
 export interface FormattedReview {
     header: string;
     mergeScoreSection: string;
-    rulesSection: string;
     suggestionsSection: string;
     footer: string;
     fullComment: string;

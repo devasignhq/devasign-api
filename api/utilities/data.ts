@@ -91,21 +91,6 @@ export const ENDPOINTS = {
             SET_BOUNTY_LABEL: "/github/:installationId/set-bounty-label",
             /** POST /github/:installationId/analyze-pr - Analyze pull request */
             ANALYZE_PR: "/github/:installationId/analyze-pr"
-        },
-        /** PR review rules management endpoints */
-        PR_REVIEW_RULES: {
-            /** GET /pr-review-rules/:installationId - Get all PR review rules */
-            GET_ALL: "/pr-review-rules/:installationId",
-            /** GET /pr-review-rules/:installationId/:ruleId - Get PR review rule by ID */
-            GET_BY_ID: "/pr-review-rules/:installationId/:ruleId",
-            /** POST /pr-review-rules/:installationId - Create PR review rule */
-            CREATE: "/pr-review-rules/:installationId",
-            /** PUT /pr-review-rules/:installationId/:ruleId - Update PR review rule */
-            UPDATE: "/pr-review-rules/:installationId/:ruleId",
-            /** DELETE /pr-review-rules/:installationId/:ruleId - Delete PR review rule */
-            DELETE: "/pr-review-rules/:installationId/:ruleId",
-            /** GET /pr-review-rules/default/rules/get - Get default PR review rules */
-            GET_DEFAULT: "/pr-review-rules/default/rules/get"
         }
     },
     /** Task management endpoints */

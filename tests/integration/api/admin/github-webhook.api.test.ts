@@ -90,7 +90,6 @@ describe("Admin GitHub Webhook API Integration Tests", () => {
                 suggestions: [
                     { type: "improvement", message: "Consider adding tests" }
                 ],
-                rulesViolated: [],
                 summary: "PR looks good overall"
             }
         });
@@ -240,7 +239,6 @@ describe("Admin GitHub Webhook API Integration Tests", () => {
                         mergeScore: 85,
                         reviewStatus: "COMPLETED",
                         suggestionsCount: 1,
-                        rulesViolatedCount: 0,
                         summary: "PR looks good overall"
                     },
                     timestamp: expect.any(String)

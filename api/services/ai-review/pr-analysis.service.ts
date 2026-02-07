@@ -11,7 +11,6 @@ import { GitHubComment, GitHubFile, IssueDto, IssueLabel } from "../../models/gi
 import { PullRequestContextAnalyzerService } from "./context-analyzer.service";
 import { GeminiAIService } from "./gemini-ai.service";
 import { getFieldFromUnknownObject } from "../../utilities/helper";
-import { RuleEngineService } from "./rule-engine.service";
 import { dataLogger, messageLogger } from "../../config/logger.config";
 
 /**
@@ -466,16 +465,11 @@ ${codeChangesPreview}`;
                         relevantFiles
                     );
 
-                    // Rule evaluation
-                    const ruleEvaluation = await RuleEngineService.evaluateRules(prData, []);
-
                     return {
                         installationId: prData.installationId,
                         prNumber: prData.prNumber,
                         repositoryName: prData.repositoryName,
                         mergeScore: aiReview.mergeScore,
-                        rulesViolated: ruleEvaluation.violated,
-                        rulesPassed: ruleEvaluation.passed,
                         suggestions: aiReview.suggestions,
                         reviewStatus: "COMPLETED",
                         summary: aiReview.summary,

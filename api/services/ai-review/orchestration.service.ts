@@ -114,8 +114,6 @@ export class AIReviewOrchestrationService {
                 },
                 data: {
                     mergeScore: result.mergeScore,
-                    rulesViolated: result.rulesViolated,
-                    rulesPassed: result.rulesPassed,
                     suggestions: result.suggestions,
                     reviewStatus: result.reviewStatus,
                     updatedAt: new Date()

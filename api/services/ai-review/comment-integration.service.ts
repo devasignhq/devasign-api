@@ -240,17 +240,6 @@ export class ReviewCommentIntegrationService {
             return false;
         }
 
-        // Validate arrays exist (even if empty)
-        if (!Array.isArray(result.rulesViolated)) {
-            messageLogger.error("rulesViolated is not an array");
-            return false;
-        }
-
-        if (!Array.isArray(result.rulesPassed)) {
-            messageLogger.error("rulesPassed is not an array");
-            return false;
-        }
-
         if (!Array.isArray(result.suggestions)) {
             messageLogger.error("suggestions is not an array");
             return false;
@@ -272,30 +261,6 @@ export class ReviewCommentIntegrationService {
             repositoryName,
             prNumber,
             mergeScore: 75,
-            rulesViolated: [
-                {
-                    ruleId: "test-rule-1",
-                    ruleName: "Code Style Violation",
-                    severity: "MEDIUM",
-                    description: "Missing semicolons detected in JavaScript files",
-                    details: "Found 3 instances of missing semicolons",
-                    affectedFiles: ["src/main.js", "src/utils.js"]
-                }
-            ],
-            rulesPassed: [
-                {
-                    ruleId: "test-rule-2",
-                    ruleName: "Security Check",
-                    severity: "HIGH",
-                    description: "No security vulnerabilities detected"
-                },
-                {
-                    ruleId: "test-rule-3",
-                    ruleName: "Documentation",
-                    severity: "LOW",
-                    description: "All public functions have documentation"
-                }
-            ],
             suggestions: [
                 {
                     file: "src/main.js",

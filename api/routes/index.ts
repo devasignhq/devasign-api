@@ -9,4 +9,3 @@ export * from "./test_routes/contract.test.route";
 export * from "./test_routes/general.test.route";
 export * from "./test_routes/stellar.test.route";
 export * from "./test_routes/octokit.test.route";
-

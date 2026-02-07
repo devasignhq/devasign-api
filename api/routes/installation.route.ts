@@ -7,17 +7,11 @@ import {
     addTeamMember,
     updateTeamMember,
     removeTeamMember,
-    createPRReviewRule,
-    deletePRReviewRule,
-    getPRReviewRule,
-    getPRReviewRules,
-    getDefaultRules,
     getInstallationRepositories,
     getOrCreateBountyLabel,
     getRepositoryIssues,
     getRepositoryResources,
-    triggerManualPRAnalysis,
-    updatePRReviewRule
+    triggerManualPRAnalysis
 } from "../controllers/installation";
 import { validateUserInstallation } from "../middlewares/auth.middleware";
 import {
@@ -32,12 +26,7 @@ import {
     getRepositoryIssuesSchema,
     getRepositoryResourcesSchema,
     getOrCreateBountyLabelSchema,
-    triggerManualPRAnalysisSchema,
-    getPRReviewRulesSchema,
-    getPRReviewRuleSchema,
-    createPRReviewRuleSchema,
-    updatePRReviewRuleSchema,
-    deletePRReviewRuleSchema
+    triggerManualPRAnalysisSchema
 } from "../schemas/installation.schema";
 import { ENDPOINTS } from "../utilities/data";
 import { validateRequestParameters } from "../middlewares/request.middleware";
@@ -140,53 +129,4 @@ installationRoutes.post(
     validateRequestParameters(triggerManualPRAnalysisSchema),
     validateUserInstallation as RequestHandler,
     triggerManualPRAnalysis as RequestHandler
-);
-
-// ============================================================================
-// ============================================================================
-
-// Get all pr review rules for an installation
-installationRoutes.get(
-    ENDPOINTS.INSTALLATION.PR_REVIEW_RULES.GET_ALL,
-    validateRequestParameters(getPRReviewRulesSchema),
-    validateUserInstallation as RequestHandler,
-    getPRReviewRules as RequestHandler
-);
-
-// Get a specific pr review rule
-installationRoutes.get(
-    ENDPOINTS.INSTALLATION.PR_REVIEW_RULES.GET_BY_ID,
-    validateRequestParameters(getPRReviewRuleSchema),
-    validateUserInstallation as RequestHandler,
-    getPRReviewRule as RequestHandler
-);
-
-// Create a new pr review rule
-installationRoutes.post(
-    ENDPOINTS.INSTALLATION.PR_REVIEW_RULES.CREATE,
-    validateRequestParameters(createPRReviewRuleSchema),
-    validateUserInstallation as RequestHandler,
-    createPRReviewRule as RequestHandler
-);
-
-// Update an existing pr review rule
-installationRoutes.put(
-    ENDPOINTS.INSTALLATION.PR_REVIEW_RULES.UPDATE,
-    validateRequestParameters(updatePRReviewRuleSchema),
-    validateUserInstallation as RequestHandler,
-    updatePRReviewRule as RequestHandler
-);
-
-// Delete a pr review rule
-installationRoutes.delete(
-    ENDPOINTS.INSTALLATION.PR_REVIEW_RULES.DELETE,
-    validateRequestParameters(deletePRReviewRuleSchema),
-    validateUserInstallation as RequestHandler,
-    deletePRReviewRule as RequestHandler
-);
-
-// Get default rules (no installation ID needed)
-installationRoutes.get(
-    ENDPOINTS.INSTALLATION.PR_REVIEW_RULES.GET_DEFAULT,
-    getDefaultRules as RequestHandler
 );

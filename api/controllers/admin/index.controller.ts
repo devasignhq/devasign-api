@@ -54,7 +54,6 @@ export const resetDatabase = async (req: Request, res: Response) => {
         await prisma.user.deleteMany();
         await prisma.wallet.deleteMany();
         await prisma.permission.deleteMany();
-        await prisma.aIReviewRule.deleteMany();
         await prisma.aIReviewResult.deleteMany();
 
         // await prisma.subscriptionPackage.deleteMany();

@@ -1,5 +1,4 @@
 import { ReviewResult, FormattedReview, CodeSuggestion } from "../../models/ai-review.model";
-import { RuleSeverity } from "../../../prisma_client";
 
 /**
  * Review Formatter Service
@@ -13,14 +12,12 @@ export class ReviewFormatterService {
     public static formatReview(result: ReviewResult): FormattedReview {
         const header = this.createHeader(result);
         const mergeScoreSection = this.createMergeScoreSection(result);
-        const rulesSection = this.createRulesSection(result);
         const suggestionsSection = this.createSuggestionsSection(result);
         const footer = this.createFooter(result);
 
         const fullComment = [
             header,
             mergeScoreSection,
-            ...(rulesSection ? [rulesSection] : []),
             suggestionsSection,
             footer
         ].join("\n\n");
@@ -28,7 +25,6 @@ export class ReviewFormatterService {
         return {
             header,
             mergeScoreSection,
-            rulesSection,
             suggestionsSection,
             footer,
             fullComment
@@ -66,91 +62,6 @@ ${scoreBar}
 
 ${result.summary}`;
     }
-
-    /**
-     * Creates the rules compliance section
-     */
-    private static createRulesSection(result: ReviewResult): string {
-        const violatedCount = result.rulesViolated.length;
-
-        let section = "";
-
-        if (result.rulesViolated.length > 0) {
-            section += `#### ❌ Rules Violated (${violatedCount})`;
-
-            result.rulesViolated.forEach((rule, index) => {
-                const severityEmoji = this.getSeverityEmoji(rule.severity);
-                const severityBadge = this.getSeverityBadge(rule.severity);
-
-                section += `${index + 1}. **${rule.ruleName}** ${severityBadge}
-   ${severityEmoji} ${rule.description}`;
-
-                if (rule.details) {
-                    section += `
-   📝 ${rule.details}`;
-                }
-
-                if (rule.affectedFiles && rule.affectedFiles.length > 0) {
-                    section += `
-   📁 Files: ${rule.affectedFiles.join(", ")}`;
-                }
-
-                section += "\n\n";
-            });
-        }
-
-        return section;
-    }
-    //     private static createRulesSection(result: ReviewResult): string {
-    //         const totalRules = result.rulesPassed.length + result.rulesViolated.length;
-    //         const passedCount = result.rulesPassed.length;
-    //         const violatedCount = result.rulesViolated.length;
-
-    //         let section = `### 📋 Rules Compliance (${passedCount}/${totalRules} passed)
-
-    // `;
-
-    //         if (result.rulesViolated.length > 0) {
-    //             section += `#### ❌ Rules Violated (${violatedCount})
-
-    // `;
-    //             result.rulesViolated.forEach((rule, index) => {
-    //                 const severityEmoji = this.getSeverityEmoji(rule.severity);
-    //                 const severityBadge = this.getSeverityBadge(rule.severity);
-
-    //                 section += `${index + 1}. **${rule.ruleName}** ${severityBadge}
-    //    ${severityEmoji} ${rule.description}`;
-
-    //                 if (rule.details) {
-    //                     section += `
-    //    📝 ${rule.details}`;
-    //                 }
-
-    //                 if (rule.affectedFiles && rule.affectedFiles.length > 0) {
-    //                     section += `
-    //    📁 Files: ${rule.affectedFiles.join(", ")}`;
-    //                 }
-
-    //                 section += "\n\n";
-    //             });
-    //         }
-
-    //         if (result.rulesPassed.length > 0) {
-    //             section += `#### ✅ Rules Passed (${passedCount})
-
-    // <details>
-    // <summary>Click to view passed rules</summary>
-
-    // `;
-    //             result.rulesPassed.forEach((rule, index) => {
-    //                 section += `${index + 1}. **${rule.ruleName}** - ${rule.description}\n`;
-    //             });
-
-    //             section += "\n</details>";
-    //         }
-
-    //         return section;
-    //     }
 
     /**
      * Creates the code suggestions section
@@ -283,32 +194,6 @@ ${suggestion.suggestedCode}
     }
 
     /**
-     * Gets emoji for rule severity
-     */
-    private static getSeverityEmoji(severity: RuleSeverity): string {
-        switch (severity) {
-        case "CRITICAL": return "🚨";
-        case "HIGH": return "🔴";
-        case "MEDIUM": return "🟡";
-        case "LOW": return "🔵";
-        default: return "⚪";
-        }
-    }
-
-    /**
-     * Gets badge for rule severity
-     */
-    private static getSeverityBadge(severity: RuleSeverity): string {
-        switch (severity) {
-        case "CRITICAL": return "![Critical](https://img.shields.io/badge/Critical-red)";
-        case "HIGH": return "![High](https://img.shields.io/badge/High-orange)";
-        case "MEDIUM": return "![Medium](https://img.shields.io/badge/Medium-yellow)";
-        case "LOW": return "![Low](https://img.shields.io/badge/Low-blue)";
-        default: return "![Unknown](https://img.shields.io/badge/Unknown-gray)";
-        }
-    }
-
-    /**
      * Gets emoji for suggestion severity
      */
     private static getSuggestionSeverityEmoji(severity: "high" | "medium" | "low"): string {
@@ -352,10 +237,9 @@ ${suggestion.suggestedCode}
      */
     public static formatCompactSummary(result: ReviewResult): string {
         const emoji = this.getMergeScoreEmoji(result.mergeScore);
-        const violatedCount = result.rulesViolated.length;
         const suggestionsCount = result.suggestions.length;
 
-        return `${emoji} Score: ${result.mergeScore}/100 | ${violatedCount} rule violations | ${suggestionsCount} suggestions`;
+        return `${emoji} Score: ${result.mergeScore}/100 | ${suggestionsCount} suggestions`;
     }
 
     /**

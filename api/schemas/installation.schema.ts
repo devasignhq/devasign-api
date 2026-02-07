@@ -1,7 +1,5 @@
 import * as z from "zod";
-import { RuleType, RuleSeverity } from "../../prisma_client";
 import {
-    cuidSchema,
     installationIdSchema,
     paginationSchema,
     userIdSchema
@@ -130,77 +128,3 @@ export const triggerManualPRAnalysisSchema = {
         prNumber: z.coerce.number().int().min(1, "PR number must be a positive integer")
     })
 };
-
-// ============================================================================
-// ============================================================================
-
-export const getPRReviewRulesSchema = {
-    params: z.object({
-        installationId: installationIdSchema
-    }),
-    query: z.object({
-        active: z.literal("true").optional(),
-        ruleType: z.enum(RuleType).optional(),
-        severity: z.enum(RuleSeverity).optional()
-    })
-};
-
-export const getPRReviewRuleSchema = {
-    params: z.object({
-        installationId: installationIdSchema,
-        ruleId: cuidSchema
-    })
-};
-
-export const createPRReviewRuleSchema = {
-    params: z.object({
-        installationId: installationIdSchema
-    }),
-    body: z.object({
-        name: z.string().min(1).max(100, "Rule name must be between 1 and 100 characters"),
-        description: z.string().min(1).max(500, "Rule description must be between 1 and 500 characters"),
-        ruleType: z.enum(RuleType),
-        severity: z.enum(RuleSeverity),
-        pattern: z.string().refine((val) => {
-            try {
-                new RegExp(val);
-                return true;
-            } catch {
-                return false;
-            }
-        }, "Pattern must be a valid regular expression").optional(),
-        config: z.record(z.string(), z.unknown()),
-        active: z.boolean().optional()
-    })
-};
-
-export const updatePRReviewRuleSchema = {
-    params: z.object({
-        installationId: installationIdSchema,
-        ruleId: cuidSchema
-    }),
-    body: z.object({
-        name: z.string().min(1).max(100, "Rule name must be between 1 and 100 characters").optional(),
-        description: z.string().min(1).max(500, "Rule description must be between 1 and 500 characters").optional(),
-        ruleType: z.enum(RuleType).optional(),
-        severity: z.enum(RuleSeverity).optional(),
-        pattern: z.string().refine((val) => {
-            try {
-                new RegExp(val);
-                return true;
-            } catch {
-                return false;
-            }
-        }, "Pattern must be a valid regular expression").optional(),
-        config: z.record(z.string(), z.unknown()).optional(),
-        active: z.boolean().optional()
-    })
-};
-
-export const deletePRReviewRuleSchema = {
-    params: z.object({
-        installationId: installationIdSchema,
-        ruleId: cuidSchema
-    })
-};
-
