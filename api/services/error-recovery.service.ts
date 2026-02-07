@@ -54,22 +54,22 @@ export class ErrorRecoveryService {
             let result: RecoveryResult;
 
             switch (failureType) {
-                case "service":
-                    result = await ErrorRecoveryService.recoverFromServiceFailure(context);
-                    break;
-                case "circuit_breaker":
-                    result = await ErrorRecoveryService.recoverFromCircuitBreakerFailure(context);
-                    break;
-                case "complete":
-                    result = await ErrorRecoveryService.performCompleteSystemRecovery(context);
-                    break;
-                default:
-                    result = {
-                        success: false,
-                        strategy: "unknown",
-                        message: `Unknown failure type: ${failureType}`,
-                        timestamp: new Date()
-                    };
+            case "service":
+                result = await ErrorRecoveryService.recoverFromServiceFailure(context);
+                break;
+            case "circuit_breaker":
+                result = await ErrorRecoveryService.recoverFromCircuitBreakerFailure(context);
+                break;
+            case "complete":
+                result = await ErrorRecoveryService.performCompleteSystemRecovery(context);
+                break;
+            default:
+                result = {
+                    success: false,
+                    strategy: "unknown",
+                    message: `Unknown failure type: ${failureType}`,
+                    timestamp: new Date()
+                };
             }
 
             dataLogger.info(
@@ -118,19 +118,19 @@ export class ErrorRecoveryService {
 
         try {
             switch (serviceName) {
-                case "gemini":
-                    return await ErrorRecoveryService.recoverGeminiService(context);
-                case "github":
-                    return await ErrorRecoveryService.recoverGitHubService(context);
-                case "database":
-                    return await ErrorRecoveryService.recoverDatabaseService(context);
-                default:
-                    return {
-                        success: false,
-                        strategy,
-                        message: `No recovery implementation for service: ${serviceName}`,
-                        timestamp: new Date()
-                    };
+            case "gemini":
+                return await ErrorRecoveryService.recoverGeminiService(context);
+            case "github":
+                return await ErrorRecoveryService.recoverGitHubService(context);
+            case "database":
+                return await ErrorRecoveryService.recoverDatabaseService(context);
+            default:
+                return {
+                    success: false,
+                    strategy,
+                    message: `No recovery implementation for service: ${serviceName}`,
+                    timestamp: new Date()
+                };
             }
         } catch (error) {
             return {
@@ -377,7 +377,7 @@ export class ErrorRecoveryService {
         lastAttempt?: Date;
         attemptCount: number;
         canAttemptRecovery: boolean;
-    } {
+        } {
         const now = new Date();
         const timeSinceLastAttempt = ErrorRecoveryService.lastRecoveryAttempt
             ? now.getTime() - ErrorRecoveryService.lastRecoveryAttempt.getTime()

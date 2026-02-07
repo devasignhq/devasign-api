@@ -201,11 +201,6 @@ export class ErrorHandlerService {
             errors.push("GCP credentials not configured - wallet encryption will fail");
         }
 
-        // AI Service Configuration (Critical)
-        if (!process.env.GEMINI_API_KEY) {
-            errors.push("GEMINI_API_KEY not configured - AI review service will be unavailable");
-        }
-
         // Sumsub Configuration (Critical)
         if (!process.env.SUMSUB_APP_TOKEN || !process.env.SUMSUB_SECRET_KEY || !process.env.SUMSUB_LEVEL_NAME) {
             errors.push("Sumsub misconfiguration");

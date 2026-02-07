@@ -1,95 +1,122 @@
 import { EventEmitter } from "events";
-import { PullRequestData, ReviewResult } from "../../models/ai-review.model";
-import { AIReviewOrchestrationService } from "./orchestration.service";
-import { getFieldFromUnknownObject } from "../../utilities/helper";
-import { dataLogger, messageLogger } from "../../config/logger.config";
+import { PullRequestData } from "../models/ai-review.model";
+import { AIReviewOrchestrationService } from "./ai-review/orchestration.service";
+import { IndexingService } from "./ai-review/indexing.service";
+import { getFieldFromUnknownObject } from "../utilities/helper";
+import { dataLogger, messageLogger } from "../config/logger.config";
 
 /**
- * Simple in-memory job queue for AI review processing
- * Provides async background processing for PR analysis
+ * Generic in-memory job queue for background processing
+ * Supports PR analysis and repository indexing
  */
 
-export interface Job {
+export type JobType = "pr-analysis" | "repository-indexing";
+
+export interface RepositoryIndexingData {
+    installationId: string;
+    repositoryName: string;
+}
+
+export interface Job<T = unknown> {
     id: string;
-    type: "pr-analysis";
-    data: PullRequestData;
+    type: JobType;
+    data: T;
     status: "pending" | "processing" | "completed" | "failed";
     createdAt: Date;
     startedAt?: Date;
     completedAt?: Date;
-    result?: ReviewResult;
+    result?: unknown;
     error?: string;
     retryCount: number;
     maxRetries: number;
 }
 
-export class JobQueueService extends EventEmitter {
-    private static instance: JobQueueService;
+export class BackgroundJobService extends EventEmitter {
+    private static instance: BackgroundJobService;
     private jobs: Map<string, Job> = new Map();
     private processing = false;
     private orchestrationService: AIReviewOrchestrationService;
+    private indexingService: IndexingService;
 
     // Configuration
     private readonly config = {
-        maxConcurrentJobs: parseInt(process.env.JOB_QUEUE_MAX_CONCURRENT || "3"),
-        maxRetries: parseInt(process.env.JOB_QUEUE_MAX_RETRIES || "0"),
-        retryDelayMs: parseInt(process.env.JOB_QUEUE_RETRY_DELAY || "30000"), // 30 seconds
-        jobTimeoutMs: parseInt(process.env.JOB_QUEUE_TIMEOUT || "600000"), // 10 minutes
+        "pr-analysis": {
+            maxConcurrentJobs: parseInt(process.env.PR_ANALYSIS_MAX_CONCURRENT || process.env.JOB_QUEUE_MAX_CONCURRENT || "3"),
+            maxRetries: parseInt(process.env.PR_ANALYSIS_MAX_RETRIES || process.env.JOB_QUEUE_MAX_RETRIES || "0"),
+            retryDelayMs: parseInt(process.env.PR_ANALYSIS_RETRY_DELAY || process.env.JOB_QUEUE_RETRY_DELAY || "30000"), // 30 seconds
+            timeoutMs: parseInt(process.env.PR_ANALYSIS_TIMEOUT || process.env.JOB_QUEUE_TIMEOUT || "600000") // 10 minutes
+        },
+        "repository-indexing": {
+            maxConcurrentJobs: parseInt(process.env.INDEXING_MAX_CONCURRENT || "1"),
+            maxRetries: parseInt(process.env.INDEXING_MAX_RETRIES || "3"),
+            retryDelayMs: parseInt(process.env.INDEXING_RETRY_DELAY || "60000"), // 1 minute
+            timeoutMs: parseInt(process.env.INDEXING_JOB_TIMEOUT || "3600000") // 1 hour
+        },
         cleanupIntervalMs: parseInt(process.env.JOB_QUEUE_CLEANUP_INTERVAL || "3600000") // 1 hour
     };
 
     private constructor() {
         super();
         this.orchestrationService = new AIReviewOrchestrationService();
+        this.indexingService = new IndexingService();
         this.startProcessing();
         this.startCleanup();
     }
 
-    public static getInstance(): JobQueueService {
-        if (!JobQueueService.instance) {
-            JobQueueService.instance = new JobQueueService();
+    public static getInstance(): BackgroundJobService {
+        if (!BackgroundJobService.instance) {
+            BackgroundJobService.instance = new BackgroundJobService();
         }
-        return JobQueueService.instance;
+        return BackgroundJobService.instance;
     }
 
     /**
      * Adds a PR analysis job to the queue
      */
     public async addPRAnalysisJob(prData: PullRequestData): Promise<string> {
-        const jobId = this.generateJobId(prData);
-
-        // Check if job already exists
-        const existingJob = this.jobs.get(jobId);
-        if (existingJob && (existingJob.status === "pending" || existingJob.status === "processing")) {
-            dataLogger.info(
-                "Job already exists and is pending/processing", 
-                {
-                    jobId,
-                    prNumber: prData.prNumber,
-                    repositoryName: prData.repositoryName
-                }
-            );
-            return jobId;
-        }
-
-        const job: Job = {
-            id: jobId,
+        return this.addJob({
             type: "pr-analysis",
             data: prData,
+            idGenerator: () => `pr-analysis-${prData.installationId}-${prData.repositoryName}-${prData.prNumber}-${Date.now()}`
+        });
+    }
+
+    /**
+     * Adds a repository indexing job to the queue
+     */
+    public async addRepositoryIndexingJob(installationId: string, repositoryName: string): Promise<string> {
+        return this.addJob({
+            type: "repository-indexing",
+            data: { installationId, repositoryName },
+            idGenerator: () => `repo-indexing-${installationId}-${repositoryName}-${Date.now()}`
+        });
+    }
+
+    private async addJob<T>(options: { type: JobType, data: T, idGenerator: () => string }): Promise<string> {
+        const jobId = options.idGenerator();
+
+        // Check if job already exists (simple check strictly by ID, but IDs include timestamp so collisions unlikely unless logic changes)
+        // For indexing, we might want to prevent duplicate pending jobs for same repo?
+        // Let's rely on the ID generation which includes timestamp for now, but maybe in future dedicate ID per repo without timestamp for deduping?
+        // The original code included timestamp, so I'll stick to that.
+
+        const job: Job<T> = {
+            id: jobId,
+            type: options.type,
+            data: options.data,
             status: "pending",
             createdAt: new Date(),
             retryCount: 0,
-            maxRetries: this.config.maxRetries
+            maxRetries: this.config[options.type].maxRetries
         };
 
         this.jobs.set(jobId, job);
 
         dataLogger.info(
-            "PR analysis job added to queue", 
+            `${options.type} job added to queue`,
             {
                 jobId,
-                prNumber: prData.prNumber,
-                repositoryName: prData.repositoryName,
+                data: options.data,
                 queueSize: this.jobs.size
             }
         );
@@ -108,30 +135,9 @@ export class JobQueueService extends EventEmitter {
     }
 
     /**
-     * Gets all jobs for a specific PR
-     */
-    public getJobsForPR(installationId: string, prNumber: number, repositoryName: string): Job[] {
-        const jobs: Job[] = [];
-        for (const job of this.jobs.values()) {
-            if (job.data.installationId === installationId &&
-                job.data.prNumber === prNumber &&
-                job.data.repositoryName === repositoryName) {
-                jobs.push(job);
-            }
-        }
-        return jobs.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-    }
-
-    /**
      * Gets queue statistics
      */
-    public getQueueStats(): {
-        total: number;
-        pending: number;
-        processing: number;
-        completed: number;
-        failed: number;
-        } {
+    public getQueueStats() {
         const stats = {
             total: this.jobs.size,
             pending: 0,
@@ -170,12 +176,27 @@ export class JobQueueService extends EventEmitter {
                 const processingJobs = Array.from(this.jobs.values())
                     .filter(job => job.status === "processing");
 
-                // Check if we can process more jobs
-                const availableSlots = this.config.maxConcurrentJobs - processingJobs.length;
+                // Group processing jobs by type
+                const processingByType = new Map<JobType, number>();
+                processingJobs.forEach(job => {
+                    processingByType.set(job.type, (processingByType.get(job.type) || 0) + 1);
+                });
 
-                if (availableSlots > 0 && pendingJobs.length > 0) {
-                    const jobsToProcess = pendingJobs.slice(0, availableSlots);
+                // Check capacity for each job type and collect jobs to process
+                const jobsToProcess: Job[] = [];
+                const jobsToProcessByType = new Map<JobType, number>(); // Track what we are about to add to processing
 
+                for (const job of pendingJobs) {
+                    const currentProcessingCount = (processingByType.get(job.type) || 0) + (jobsToProcessByType.get(job.type) || 0);
+                    const maxConcurrent = this.config[job.type]?.maxConcurrentJobs ?? 1;
+
+                    if (currentProcessingCount < maxConcurrent) {
+                        jobsToProcess.push(job);
+                        jobsToProcessByType.set(job.type, (jobsToProcessByType.get(job.type) || 0) + 1);
+                    }
+                }
+
+                if (jobsToProcess.length > 0) {
                     // Process jobs concurrently
                     const processingPromises = jobsToProcess.map(job => this.processJob(job));
 
@@ -184,7 +205,7 @@ export class JobQueueService extends EventEmitter {
                         results.forEach((result, index) => {
                             if (result.status === "rejected") {
                                 dataLogger.error(
-                                    "Job processing promise rejected", 
+                                    "Job processing promise rejected",
                                     {
                                         jobId: jobsToProcess[index].id,
                                         error: result.reason
@@ -210,6 +231,8 @@ export class JobQueueService extends EventEmitter {
      */
     private async processJob(job: Job): Promise<void> {
         const startTime = Date.now();
+        const config = this.config[job.type];
+        const timeoutMs = config.timeoutMs;
 
         try {
             // Update job status
@@ -217,11 +240,10 @@ export class JobQueueService extends EventEmitter {
             job.startedAt = new Date();
 
             dataLogger.info(
-                "Starting job processing", 
+                "Starting job processing",
                 {
                     jobId: job.id,
-                    prNumber: job.data.prNumber,
-                    repositoryName: job.data.repositoryName,
+                    type: job.type,
                     retryCount: job.retryCount
                 }
             );
@@ -229,10 +251,25 @@ export class JobQueueService extends EventEmitter {
             // Emit event for monitoring
             this.emit("jobStarted", job);
 
+            // Execute job logic based on type
+            // Create a promise for the actual work
+            const workPromise = (async () => {
+                switch (job.type) {
+                case "pr-analysis":
+                    return await this.orchestrationService.analyzePullRequest(job.data as PullRequestData);
+                case "repository-indexing":
+                    const { installationId, repositoryName } = job.data as RepositoryIndexingData;
+                    await this.indexingService.indexRepository(installationId, repositoryName);
+                    return { success: true }; // Indexing returns void, so we return a simple success object
+                default:
+                    throw new Error(`Unknown job type: ${job.type}`);
+                }
+            })();
+
             // Process with timeout
             const result = await Promise.race([
-                this.orchestrationService.analyzePullRequest(job.data),
-                this.createTimeoutPromise(job.id)
+                workPromise,
+                this.createTimeoutPromise(job.id, timeoutMs)
             ]);
 
             // Job completed successfully
@@ -243,13 +280,11 @@ export class JobQueueService extends EventEmitter {
             const processingTime = Date.now() - startTime;
 
             dataLogger.info(
-                "Job completed successfully", 
+                "Job completed successfully",
                 {
                     jobId: job.id,
-                    prNumber: job.data.prNumber,
-                    repositoryName: job.data.repositoryName,
-                    processingTime,
-                    mergeScore: result.mergeScore
+                    type: job.type,
+                    processingTime
                 }
             );
 
@@ -261,11 +296,10 @@ export class JobQueueService extends EventEmitter {
             const errorMessage = error instanceof Error ? error.message : String(error);
 
             dataLogger.error(
-                "Job processing failed", 
+                "Job processing failed",
                 {
                     jobId: job.id,
-                    prNumber: job.data.prNumber,
-                    repositoryName: job.data.repositoryName,
+                    type: job.type,
                     error: errorMessage,
                     retryCount: job.retryCount,
                     processingTime
@@ -273,13 +307,13 @@ export class JobQueueService extends EventEmitter {
             );
 
             // Check if we should retry
-            if (job.retryCount < job.maxRetries && this.shouldRetry(error)) {
+            if (job.retryCount < job.maxRetries && this.shouldRetry(error, job.type)) {
                 job.retryCount++;
                 job.status = "pending";
                 job.error = `Retry ${job.retryCount}/${job.maxRetries}: ${errorMessage}`;
 
                 dataLogger.info(
-                    "Job scheduled for retry", 
+                    "Job scheduled for retry",
                     {
                         jobId: job.id,
                         retryCount: job.retryCount,
@@ -290,7 +324,7 @@ export class JobQueueService extends EventEmitter {
                 // Schedule retry with delay
                 setTimeout(() => {
                     // Job will be picked up in next processing cycle
-                }, this.config.retryDelayMs);
+                }, this.config[job.type].retryDelayMs);
             } else {
                 // Job failed permanently
                 job.status = "failed";
@@ -298,11 +332,9 @@ export class JobQueueService extends EventEmitter {
                 job.error = errorMessage;
 
                 dataLogger.error(
-                    "Job failed permanently", 
+                    "Job failed permanently",
                     {
                         jobId: job.id,
-                        prNumber: job.data.prNumber,
-                        repositoryName: job.data.repositoryName,
                         finalError: errorMessage,
                         totalRetries: job.retryCount
                     }
@@ -316,34 +348,45 @@ export class JobQueueService extends EventEmitter {
     /**
      * Creates a timeout promise for job processing
      */
-    private createTimeoutPromise(jobId: string): Promise<never> {
+    private createTimeoutPromise(jobId: string, timeoutMs: number): Promise<never> {
         return new Promise((_, reject) => {
             setTimeout(() => {
-                reject(new Error(`Job ${jobId} timed out after ${this.config.jobTimeoutMs}ms`));
-            }, this.config.jobTimeoutMs);
+                reject(new Error(`Job ${jobId} timed out after ${timeoutMs}ms`));
+            }, timeoutMs);
         });
     }
 
     /**
      * Determines if an error is retryable
      */
-    private shouldRetry(error: unknown): boolean {
+    private shouldRetry(error: unknown, jobType: JobType): boolean {
         if (!error) return false;
 
         const errorMessage = getFieldFromUnknownObject<string>(error, "message") || String(error);
 
-        // Don't retry certain types of errors
-        const nonRetryableErrors = [
-            "PR not eligible",
-            "Invalid webhook payload",
+        // General non-retryable errors
+        const commonNonRetryableErrors = [
             "Authentication failed",
             "Repository not found",
-            "PR not found"
+            "Validation failed"
         ];
 
-        return !nonRetryableErrors.some(nonRetryable =>
-            errorMessage.toLowerCase().includes(nonRetryable.toLowerCase())
-        );
+        if (commonNonRetryableErrors.some(err => errorMessage.toLowerCase().includes(err.toLowerCase()))) {
+            return false;
+        }
+
+        if (jobType === "pr-analysis") {
+            const prNonRetryableErrors = [
+                "PR not eligible",
+                "Invalid webhook payload",
+                "PR not found"
+            ];
+            if (prNonRetryableErrors.some(err => errorMessage.toLowerCase().includes(err.toLowerCase()))) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**
@@ -372,17 +415,10 @@ export class JobQueueService extends EventEmitter {
 
         if (cleanedCount > 0) {
             dataLogger.info(
-                "Cleaned up old jobs", 
+                "Cleaned up old jobs",
                 { cleanedCount, remainingJobs: this.jobs.size }
             );
         }
-    }
-
-    /**
-     * Generates a unique job ID for a PR
-     */
-    private generateJobId(prData: PullRequestData): string {
-        return `pr-analysis-${prData.installationId}-${prData.repositoryName}-${prData.prNumber}-${Date.now()}`;
     }
 
     /**

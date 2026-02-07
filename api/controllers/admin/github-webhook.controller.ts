@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import { dataLogger } from "../../config/logger.config";
 import { responseWrapper, getFieldFromUnknownObject } from "../../utilities/helper";
 import { STATUS_CODES } from "../../utilities/data";
-import { JobQueueService } from "../../services/ai-review/job-queue.service";
+import { BackgroundJobService } from "../../services/background-job.service";
 import { WorkflowIntegrationService } from "../../services/ai-review/workflow-integration.service";
 
 /**
@@ -64,7 +64,7 @@ export const getJobData = (req: Request, res: Response) => {
         }
 
         // Fetch job data from the job queue
-        const jobQueue = JobQueueService.getInstance();
+        const jobQueue = BackgroundJobService.getInstance();
         const job = jobQueue.getJobData(jobId);
 
         if (!job) {
@@ -83,22 +83,16 @@ export const getJobData = (req: Request, res: Response) => {
             status: STATUS_CODES.SUCCESS,
             data: {
                 jobId: job.id,
+                type: job.type,
                 status: job.status,
-                prNumber: job.data.prNumber,
-                repositoryName: job.data.repositoryName,
+                data: job.data,
                 createdAt: job.createdAt,
                 startedAt: job.startedAt,
                 completedAt: job.completedAt,
                 retryCount: job.retryCount,
                 maxRetries: job.maxRetries,
                 error: job.error,
-                result: job.result ? {
-                    mergeScore: job.result.mergeScore,
-                    reviewStatus: job.result.reviewStatus,
-                    suggestionsCount: job.result.suggestions.length,
-                    rulesViolatedCount: job.result.rulesViolated.length,
-                    summary: job.result.summary
-                } : null,
+                result: job.result,
                 timestamp: new Date().toISOString()
             },
             message: "Job data retrieved successfully"
@@ -125,7 +119,7 @@ export const getJobData = (req: Request, res: Response) => {
 export const getQueueStats = (req: Request, res: Response) => {
     try {
         // Fetch queue statistics from the job queue
-        const jobQueue = JobQueueService.getInstance();
+        const jobQueue = BackgroundJobService.getInstance();
         const stats = jobQueue.getQueueStats();
 
         // Return queue statistics

@@ -128,6 +128,7 @@ export const createInstallation = async (req: Request, res: Response, next: Next
             }
 
             // Create Stellar wallets for installation
+            // TODO: Save in Redis (attach userId)
             const newWallet = await stellarService.createWallet();
             installationWalletSecret = newWallet.secretKey;
             const encryptedInstallationSecret = await KMSService.encryptWallet(newWallet.secretKey);

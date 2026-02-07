@@ -4,7 +4,7 @@ import {
     ReviewResult,
     ManualTriggerRequest
 } from "../../models/ai-review.model";
-import { JobQueueService } from "./job-queue.service";
+import { BackgroundJobService } from "../background-job.service";
 import { AIReviewOrchestrationService } from "./orchestration.service";
 import { PRAnalysisService } from "./pr-analysis.service";
 import { PRAnalysisError } from "../../models/error.model";
@@ -23,12 +23,12 @@ import { dataLogger, messageLogger } from "../../config/logger.config";
  */
 export class WorkflowIntegrationService {
     private static instance: WorkflowIntegrationService;
-    private jobQueue: JobQueueService;
+    private jobQueue: BackgroundJobService;
     private orchestrationService: AIReviewOrchestrationService;
     private initialized = false;
 
     private constructor() {
-        this.jobQueue = JobQueueService.getInstance();
+        this.jobQueue = BackgroundJobService.getInstance();
         this.orchestrationService = new AIReviewOrchestrationService();
     }
 
@@ -87,7 +87,7 @@ export class WorkflowIntegrationService {
 
         try {
             dataLogger.info(
-                "Starting webhook workflow", 
+                "Starting webhook workflow",
                 {
                     action: payload.action,
                     prNumber: payload.pull_request.number,
@@ -102,7 +102,7 @@ export class WorkflowIntegrationService {
             } catch (error) {
                 if (error instanceof PRAnalysisError && error.code === "PR_NOT_ELIGIBLE_ERROR") {
                     dataLogger.info(
-                        error.message, 
+                        error.message,
                         { prNumber: error.prNumber, repositoryName: error.repositoryName }
                     );
 
@@ -118,7 +118,7 @@ export class WorkflowIntegrationService {
             const jobId = await this.jobQueue.addPRAnalysisJob(prData);
 
             dataLogger.info(
-                "Webhook workflow completed successfully", 
+                "Webhook workflow completed successfully",
                 {
                     jobId,
                     prNumber: prData.prNumber,
@@ -138,7 +138,7 @@ export class WorkflowIntegrationService {
             const errorMessage = error instanceof Error ? error.message : String(error);
 
             dataLogger.error(
-                "Failed to process webhook", 
+                "Failed to process webhook",
                 {
                     error,
                     prNumber: payload.pull_request.number,
@@ -172,7 +172,7 @@ export class WorkflowIntegrationService {
 
         try {
             dataLogger.info(
-                "Starting manual analysis workflow", 
+                "Starting manual analysis workflow",
                 {
                     installationId: request.installationId,
                     repositoryName: request.repositoryName,
@@ -201,7 +201,7 @@ export class WorkflowIntegrationService {
 
             const processingTime = Date.now() - startTime;
             dataLogger.info(
-                "Manual analysis workflow completed", 
+                "Manual analysis workflow completed",
                 { jobId, processingTime }
             );
 
@@ -215,7 +215,7 @@ export class WorkflowIntegrationService {
             const errorMessage = error instanceof Error ? error.message : String(error);
 
             dataLogger.error(
-                "Manual analysis workflow failed", 
+                "Manual analysis workflow failed",
                 { error: errorMessage, processingTime }
             );
 
@@ -240,7 +240,7 @@ export class WorkflowIntegrationService {
 
         try {
             dataLogger.info(
-                "Starting direct analysis workflow", 
+                "Starting direct analysis workflow",
                 { prNumber: prData.prNumber, repositoryName: prData.repositoryName }
             );
 
@@ -249,7 +249,7 @@ export class WorkflowIntegrationService {
 
             // Direct analysis completed successfully
             dataLogger.info(
-                "Direct analysis workflow completed", 
+                "Direct analysis workflow completed",
                 {
                     prNumber: prData.prNumber,
                     mergeScore: result.mergeScore,
@@ -263,7 +263,7 @@ export class WorkflowIntegrationService {
             const processingTime = Date.now() - startTime;
 
             dataLogger.error(
-                "Direct analysis workflow failed", 
+                "Direct analysis workflow failed",
                 {
                     prNumber: prData.prNumber,
                     repositoryName: prData.repositoryName,
@@ -332,7 +332,7 @@ export class WorkflowIntegrationService {
 
             while (this.jobQueue.getActiveJobsCount() > 0 && (Date.now() - startTime) < shutdownTimeout) {
                 dataLogger.info(
-                    "Waiting for active jobs to complete", 
+                    "Waiting for active jobs to complete",
                     {
                         activeJobs: this.jobQueue.getActiveJobsCount(),
                         waitTime: Date.now() - startTime
@@ -360,38 +360,46 @@ export class WorkflowIntegrationService {
      */
     private setupJobQueueEventListeners(): void {
         this.jobQueue.on("jobAdded", (job) => {
-            dataLogger.info("Job added to queue", {
-                jobId: job.id,
-                prNumber: job.data.prNumber,
-                repositoryName: job.data.repositoryName
-            });
+            if (job.type === "pr-analysis") {
+                dataLogger.info("Job added to queue", {
+                    jobId: job.id,
+                    prNumber: job.data.prNumber,
+                    repositoryName: job.data.repositoryName
+                });
+            }
         });
 
         this.jobQueue.on("jobStarted", (job) => {
-            dataLogger.info("Job processing started", {
-                jobId: job.id,
-                prNumber: job.data.prNumber,
-                repositoryName: job.data.repositoryName
-            });
+            if (job.type === "pr-analysis") {
+                dataLogger.info("Job processing started", {
+                    jobId: job.id,
+                    prNumber: job.data.prNumber,
+                    repositoryName: job.data.repositoryName
+                });
+            }
         });
 
         this.jobQueue.on("jobCompleted", (job) => {
-            dataLogger.info("Job completed successfully", {
-                jobId: job.id,
-                prNumber: job.data.prNumber,
-                repositoryName: job.data.repositoryName,
-                mergeScore: job.result?.mergeScore
-            });
+            if (job.type === "pr-analysis") {
+                dataLogger.info("Job completed successfully", {
+                    jobId: job.id,
+                    prNumber: job.data.prNumber,
+                    repositoryName: job.data.repositoryName,
+                    mergeScore: job.result?.mergeScore
+                });
+            }
         });
 
         this.jobQueue.on("jobFailed", (job) => {
-            dataLogger.error("Job failed permanently", {
-                jobId: job.id,
-                prNumber: job.data.prNumber,
-                repositoryName: job.data.repositoryName,
-                error: job.error,
-                retryCount: job.retryCount
-            });
+            if (job.type === "pr-analysis") {
+                dataLogger.error("Job failed permanently", {
+                    jobId: job.id,
+                    prNumber: job.data.prNumber,
+                    repositoryName: job.data.repositoryName,
+                    error: job.error,
+                    retryCount: job.retryCount
+                });
+            }
         });
     }
 
