@@ -3,7 +3,6 @@ import express from "express";
 import { adminRoutes } from "../../../../api/routes/admin.route";
 import { errorHandler } from "../../../../api/middlewares/error.middleware";
 import { DatabaseTestHelper } from "../../../helpers/database-test-helper";
-import { TestDataFactory } from "../../../helpers/test-data-factory";
 import { ENDPOINTS, STATUS_CODES } from "../../../../api/utilities/data";
 import { getEndpointWithPrefix } from "../../../helpers/test-utils";
 
@@ -144,116 +143,6 @@ describe("Admin API Integration Tests", () => {
                     timestamp: expect.any(String)
                 }
             });
-        });
-    });
-
-    describe(`POST ${getEndpointWithPrefix(["ADMIN", "RESET_DATABASE"])} - Reset Database`, () => {
-        it("should reset database successfully", async () => {
-            // Create some test data first
-            const user = await prisma.user.create({
-                data: {
-                    userId: "test-user-reset",
-                    username: "testuser",
-                    wallet: TestDataFactory.createWalletRelation(),
-                    contributionSummary: { create: {} }
-                }
-            });
-
-            const installation = await prisma.installation.create({
-                data: {
-                    id: "reset-test-install",
-                    htmlUrl: "https://github.com/test",
-                    targetId: 123,
-                    targetType: "Organization",
-                    account: { login: "test" },
-                    wallet: TestDataFactory.createWalletRelation()
-                }
-            });
-
-            // Verify data exists
-            expect(user).toBeTruthy();
-            expect(installation).toBeTruthy();
-
-            // Reset database
-            const response = await request(app)
-                .post(getEndpointWithPrefix(["ADMIN", "RESET_DATABASE"]))
-                .expect(STATUS_CODES.SUCCESS);
-
-            expect(response.body).toMatchObject({
-                message: "Database cleared"
-            });
-
-            // Verify data was deleted
-            const userCount = await prisma.user.count();
-            const installationCount = await prisma.installation.count();
-            const taskCount = await prisma.task.count();
-            const transactionCount = await prisma.transaction.count();
-
-            expect(userCount).toBe(0);
-            expect(installationCount).toBe(0);
-            expect(taskCount).toBe(0);
-            expect(transactionCount).toBe(0);
-        });
-
-        it("should clear all tables in correct order", async () => {
-            // Create interconnected data
-            const user = await prisma.user.create({
-                data: {
-                    userId: "test-user-order",
-                    username: "ordertest",
-                    wallet: TestDataFactory.createWalletRelation(),
-                    contributionSummary: { create: {} }
-                }
-            });
-
-            const installation = await prisma.installation.create({
-                data: {
-                    id: "order-test-install",
-                    htmlUrl: "https://github.com/test",
-                    targetId: 456,
-                    targetType: "Organization",
-                    account: { login: "test" },
-                    wallet: TestDataFactory.createWalletRelation(),
-                    users: {
-                        connect: { userId: user.userId }
-                    }
-                }
-            });
-
-            const task = await prisma.task.create({
-                data: {
-                    issue: { number: 1, title: "Test" },
-                    bounty: 100,
-                    creatorId: user.userId,
-                    installationId: installation.id
-                }
-            });
-
-            await prisma.transaction.create({
-                data: {
-                    txHash: "test-hash",
-                    category: "BOUNTY",
-                    amount: 100,
-                    taskId: task.id,
-                    userId: user.userId,
-                    installationId: installation.id
-                }
-            });
-
-            // Reset database
-            await request(app)
-                .post(getEndpointWithPrefix(["ADMIN", "RESET_DATABASE"]))
-                .expect(STATUS_CODES.SUCCESS);
-
-            // Verify all data cleared
-            const counts = await Promise.all([
-                prisma.transaction.count(),
-                prisma.task.count(),
-                prisma.installation.count(),
-                prisma.user.count()
-            ]);
-
-            expect(counts.every(count => count === 0)).toBe(true);
         });
     });
 

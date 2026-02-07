@@ -4,11 +4,9 @@ import {
     getJobData,
     getQueueStats,
     getWorkflowStatus,
-    systemRecovery,
-    resetDatabase
+    systemRecovery
 } from "../controllers/admin";
 import { ENDPOINTS } from "../utilities/data";
-import { localhostOnly } from "../middlewares/request.middleware";
 
 export const adminRoutes = Router();
 
@@ -40,11 +38,4 @@ adminRoutes.get(
 adminRoutes.get(
     ENDPOINTS.ADMIN.RECOVER_SYSTEM, 
     systemRecovery as RequestHandler
-);
-
-// To be removed. Used from development only.
-adminRoutes.post(
-    ENDPOINTS.ADMIN.RESET_DATABASE, 
-    localhostOnly,
-    resetDatabase as RequestHandler
 );

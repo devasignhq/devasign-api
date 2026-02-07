@@ -9,6 +9,8 @@ import {
 import { KMSService } from "../../services/kms.service";
 import { prisma } from "../../config/database.config";
 import { STATUS_CODES } from "../../utilities/data";
+import { responseWrapper } from "../../utilities/helper";
+import { dataLogger } from "../../config/logger.config";
 
 const router = Router();
 
@@ -127,6 +129,46 @@ router.post("/create-packages", async (_, res: Response, next: NextFunction) => 
         res.status(STATUS_CODES.SUCCESS).json(packages);
     } catch (error) {
         next(createError(500, "Failed to create packages", { cause: error }));
+    }
+});
+
+
+
+// To be removed. Used from development only.
+router.post("/reset-db", async (req: Request, res: Response) => {
+    try {
+        // Delete all records from each table in correct order
+        // due to foreign key constraints
+        await prisma.transaction.deleteMany();
+        await prisma.taskSubmission.deleteMany();
+        await prisma.taskActivity.deleteMany();
+        await prisma.userInstallationPermission.deleteMany();
+        await prisma.task.deleteMany();
+        await prisma.contributionSummary.deleteMany();
+        await prisma.installation.deleteMany();
+        await prisma.user.deleteMany();
+        await prisma.wallet.deleteMany();
+        await prisma.permission.deleteMany();
+        await prisma.aIReviewResult.deleteMany();
+        await prisma.codeFile.deleteMany();
+        await prisma.codeChunk.deleteMany();
+
+        // await prisma.subscriptionPackage.deleteMany();
+
+        responseWrapper({
+            res,
+            status: STATUS_CODES.SUCCESS,
+            data: {},
+            message: "Database cleared"
+        });
+    } catch (error) {
+        dataLogger.error("Database clear operation failed", { error });
+        responseWrapper({
+            res,
+            status: STATUS_CODES.SERVER_ERROR,
+            data: {},
+            message: "Database clear operation failed"
+        });
     }
 });
 

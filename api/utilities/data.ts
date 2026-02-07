@@ -187,8 +187,6 @@ export const ENDPOINTS = {
             WORKFLOW_STATUS: "/webhook/workflow-status"
         },
         /** POST /recover-system - Recover system from failure */
-        RECOVER_SYSTEM: "/recover-system",
-        /** POST /reset-db - Reset database (To be removed) */
-        RESET_DATABASE: "/reset-db"
+        RECOVER_SYSTEM: "/recover-system"
     }
 };
