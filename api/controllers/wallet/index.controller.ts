@@ -78,6 +78,25 @@ export const withdrawAsset = async (req: Request, res: Response, next: NextFunct
 
         // Check balance before withdrawal
         const accountInfo = await stellarService.getAccountInfo(walletAddress);
+        const xlmBalanceLine = accountInfo.balances.find(
+            balance => "asset_type" in balance && balance.asset_type === "native"
+        );
+
+        if (!xlmBalanceLine) {
+            throw new ValidationError("No XLM balance found in wallet");
+        }
+
+        const feeBuffer = 0.01; // Small buffer for network fees
+        const minimumReserve = (2 + accountInfo.subentry_count) * 0.5;
+        const requiredXLMForFeesAndReserve = minimumReserve + feeBuffer;
+        const currentXLMBalance = parseFloat(xlmBalanceLine.balance);
+
+        // Ensure we always have enough for fees and reserve
+        if (currentXLMBalance < requiredXLMForFeesAndReserve) {
+            throw new ValidationError(
+                `Insufficient XLM for network fees and reserve (Minimum required: ${requiredXLMForFeesAndReserve.toFixed(4)} XLM)`
+            );
+        }
 
         if (assetType === "USDC") {
             // USDC balance check
@@ -96,22 +115,12 @@ export const withdrawAsset = async (req: Request, res: Response, next: NextFunct
                 );
             }
         } else {
-            // XLM balance check
-            const xlmBalance = accountInfo.balances.find(
-                balance => "asset_type" in balance && balance.asset_type === "native"
-            );
-
-            if (!xlmBalance) {
-                throw new ValidationError("No XLM balance found");
-            }
-
-            // Keep minimum XLM reserve
-            const minimumReserve = (2 + accountInfo.subentry_count) * 0.5;
-            const availableXLMForTransfer = parseFloat(xlmBalance.balance) - minimumReserve;
+            // XLM balance check (Amount + Fees + Reserve)
+            const availableXLMForTransfer = currentXLMBalance - requiredXLMForFeesAndReserve;
 
             if (availableXLMForTransfer < Number(amount)) {
                 throw new ValidationError(
-                    `Insufficient XLM balance (${minimumReserve} XLM reserve required)`,
+                    `Insufficient XLM balance. Available for transfer: ${availableXLMForTransfer.toFixed(4)} XLM (after ${minimumReserve} XLM reserve and fee buffer)`,
                     { available: availableXLMForTransfer.toString() }
                 );
             }
@@ -177,25 +186,34 @@ export const swapAsset = async (req: Request, res: Response, next: NextFunction)
 
         // Check balance before swap
         const accountInfo = await stellarService.getAccountInfo(walletAddress);
+        const xlmBalanceLine = accountInfo.balances.find(
+            balance => "asset_type" in balance && balance.asset_type === "native"
+        );
+
+        if (!xlmBalanceLine) {
+            throw new ValidationError("No XLM balance found in wallet");
+        }
+
+        const feeBuffer = 0.01; // Small buffer for network fees
+        const minimumReserve = (2 + accountInfo.subentry_count) * 0.5;
+        const requiredXLMForFeesAndReserve = minimumReserve + feeBuffer;
+        const currentXLMBalance = parseFloat(xlmBalanceLine.balance);
+
+        // Ensure we always have enough for fees and reserve
+        if (currentXLMBalance < requiredXLMForFeesAndReserve) {
+            throw new ValidationError(
+                `Insufficient XLM for network fees and reserve (Minimum required: ${requiredXLMForFeesAndReserve.toFixed(4)} XLM)`
+            );
+        }
 
         if (toAssetType === "USDC") {
             // Check XLM balance for swap to USDC
-            const xlmBalance = accountInfo.balances.find(
-                balance => "asset_type" in balance && balance.asset_type === "native"
-            );
+            const availableXLMForSwap = currentXLMBalance - requiredXLMForFeesAndReserve;
 
-            if (!xlmBalance) {
-                throw new ValidationError("No XLM balance found");
-            }
-
-            // Keep minimum XLM reserve
-            const minimumReserve = (2 + accountInfo.subentry_count) * 0.5;
-            const availableXLMForTransfer = parseFloat(xlmBalance.balance) - minimumReserve;
-
-            if (availableXLMForTransfer < Number(amount)) {
+            if (availableXLMForSwap < Number(amount)) {
                 throw new ValidationError(
-                    `Insufficient XLM balance (${minimumReserve} XLM reserve required). You have ${availableXLMForTransfer} XLM available for swap.`,
-                    { available: availableXLMForTransfer.toString() }
+                    `Insufficient XLM balance for swap. Available for swap: ${availableXLMForSwap.toFixed(4)} XLM (after ${minimumReserve} XLM reserve and fee buffer).`,
+                    { available: availableXLMForSwap.toString() }
                 );
             }
         } else {

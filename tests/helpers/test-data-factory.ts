@@ -8,14 +8,11 @@ import {
     Transaction,
     TaskSubmission,
     TaskActivity,
-    AIReviewRule,
     AIReviewResult,
     ContributionSummary,
     Wallet,
     TaskStatus,
     TransactionCategory,
-    RuleType,
-    RuleSeverity,
     ReviewStatus,
     InstallationStatus
 } from "../../prisma_client";
@@ -228,28 +225,7 @@ export class TestDataFactory {
             ...overrides
         };
     }
-
-    /**
-     * Create a test AI review rule
-     */
-    static aiReviewRule(overrides: Partial<AIReviewRule> = {}): Omit<AIReviewRule, "id" | "createdAt" | "updatedAt"> {
-        return {
-            installationId: `12345${Math.random().toString().slice(-3)}`,
-            name: "Test Code Quality Rule",
-            description: "A test rule for code quality checks",
-            ruleType: RuleType.CODE_QUALITY,
-            severity: RuleSeverity.MEDIUM,
-            pattern: ".*TODO.*",
-            config: {
-                enabled: true,
-                threshold: 0.8,
-                excludePatterns: ["test/**", "*.test.ts"]
-            },
-            active: true,
-            ...overrides
-        };
-    }
-
+    
     /**
      * Create a test AI review result
      */

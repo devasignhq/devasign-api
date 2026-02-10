@@ -63,8 +63,7 @@ export class DatabaseTestUtilities {
             // Create transactions
             const transactions = await this.createTransactions(users, tasks, installations);
 
-            // Create AI review rules and results
-            const aiReviewRules = await this.createAIReviewRules(installations);
+            // Create AI review results
             const aiReviewResults = await this.createAIReviewResults(installations);
 
             // Create contribution summaries
@@ -81,7 +80,6 @@ export class DatabaseTestUtilities {
                 tasks,
                 taskSubmissions,
                 transactions,
-                aiReviewRules,
                 aiReviewResults,
                 contributionSummaries
             };
@@ -432,48 +430,6 @@ export class DatabaseTestUtilities {
     }
 
     /**
-     * Create AI review rules
-     */
-    private async createAIReviewRules(installations: any[]) {
-        const aiReviewRules = [];
-
-        for (const installation of installations) {
-            const rules = [
-                TestDataFactory.aiReviewRule({
-                    installationId: installation.id,
-                    name: "Code Quality Check",
-                    ruleType: "CODE_QUALITY",
-                    severity: "MEDIUM"
-                }),
-                TestDataFactory.aiReviewRule({
-                    installationId: installation.id,
-                    name: "Security Vulnerability Check",
-                    ruleType: "SECURITY",
-                    severity: "HIGH"
-                }),
-                TestDataFactory.aiReviewRule({
-                    installationId: installation.id,
-                    name: "Performance Analysis",
-                    ruleType: "PERFORMANCE",
-                    severity: "LOW"
-                })
-            ];
-
-            for (const ruleData of rules) {
-                const rule = await this.client.aIReviewRule.create({
-                    data: {
-                        ...ruleData,
-                        config: ruleData.config as Prisma.InputJsonValue
-                    }
-                });
-                aiReviewRules.push(rule);
-            }
-        }
-
-        return aiReviewRules;
-    }
-
-    /**
      * Create AI review results
      */
     private async createAIReviewResults(installations: any[]) {
@@ -549,7 +505,6 @@ export class DatabaseTestUtilities {
             await this.client.taskSubmission.deleteMany();
             await this.client.transaction.deleteMany();
             await this.client.aIReviewResult.deleteMany();
-            await this.client.aIReviewRule.deleteMany();
             await this.client.userInstallationPermission.deleteMany();
             await this.client.task.deleteMany();
             await this.client.contributionSummary.deleteMany();
@@ -716,7 +671,6 @@ export class DatabaseTestUtilities {
                 permissions: await this.client.permission.count(),
                 transactions: await this.client.transaction.count(),
                 taskSubmissions: await this.client.taskSubmission.count(),
-                aiReviewRules: await this.client.aIReviewRule.count(),
                 aiReviewResults: await this.client.aIReviewResult.count()
             };
 
@@ -739,7 +693,6 @@ export interface SeedData {
     tasks: any[];
     taskSubmissions: any[];
     transactions: any[];
-    aiReviewRules: any[];
     aiReviewResults: any[];
     contributionSummaries: any[];
 }
@@ -761,6 +714,5 @@ export interface DatabaseStats {
     permissions: number;
     transactions: number;
     taskSubmissions: number;
-    aiReviewRules: number;
     aiReviewResults: number;
 }
