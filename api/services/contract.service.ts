@@ -16,12 +16,26 @@ import { EscrowContractError } from "../models/error.model";
  * Service for interacting with the task escrow smart contract.
  */
 export class ContractService {
+    static {
+        const requiredVars = [
+            "STELLAR_NETWORK",
+            "STELLAR_RPC_URL",
+            "TASK_ESCROW_CONTRACT_ID",
+            "USDC_CONTRACT_ID",
+            "STELLAR_MASTER_PUBLIC_KEY"
+        ];
+        const missing = requiredVars.filter(v => !process.env[v]);
+        if (missing.length > 0) {
+            throw new EscrowContractError(`Missing required environment variables for ContractService: ${missing.join(", ")}`);
+        }
+    }
+
     // Soroban network configuration loaded from environment variables
     private static CONFIG = {
         network: process.env.STELLAR_NETWORK!,
         rpcUrl: process.env.STELLAR_RPC_URL!,
-        networkPassphrase: process.env.STELLAR_NETWORK === "public" 
-            ? Networks.PUBLIC 
+        networkPassphrase: process.env.STELLAR_NETWORK === "public"
+            ? Networks.PUBLIC
             : Networks.TESTNET,
         contractId: process.env.TASK_ESCROW_CONTRACT_ID!,
         usdcContractId: process.env.USDC_CONTRACT_ID!,

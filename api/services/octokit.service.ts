@@ -14,6 +14,11 @@ import { dataLogger, messageLogger } from "../config/logger.config";
 
 const commentCTA = `${process.env.CONTRIBUTOR_APP_URL!}/application`;
 
+// Verify required environment variables are present
+if (!process.env.GITHUB_APP_ID || !process.env.GITHUB_APP_PRIVATE_KEY) {
+    throw new GitHubAPIError("Missing GitHub App credentials (GITHUB_APP_ID, GITHUB_APP_PRIVATE_KEY) in environment variables");
+}
+
 export class OctokitService {
     private static githubApp = new App({
         appId: process.env.GITHUB_APP_ID!,
@@ -643,15 +648,18 @@ ${accepted ? "**This bounty has already been assigned.**" : `**To work on this t
             throw new GitHubAPIError("No updates specified");
         }
 
-        // Build the final mutation with dynamic variable types based on what's included
+        // Build the dynamic variable definition string
+        const variableDefinitions = Object.keys(variables).map(key => {
+            if (key === "issueId") return "$issueId: ID!";
+            if (key === "body") return "$body: String!";
+            if (key === "labelIds") return "$labelIds: [ID!]!";
+            if (key === "assigneeIds") return "$assigneeIds: [String!]!";
+            return "";
+        }).filter(Boolean).join(", ");
+
+        // Build the final mutation
         const mutation = `
-        mutation UpdateIssue(${Object.keys(variables).map(key => {
-        if (key === "issueId") return "$issueId: ID!";
-        if (key === "body") return "$body: String!";
-        if (key === "labelIds") return "$labelIds: [ID!]!";
-        if (key === "assigneeIds") return "$assigneeIds: [String!]!";
-        return "";
-    }).filter(Boolean).join(", ")}) {
+            mutation UpdateIssue(${variableDefinitions}) {
                 ${mutations.join("\n")}
             }
         `;
@@ -1159,7 +1167,8 @@ ${accepted ? "**This bounty has already been assigned.**" : `**To work on this t
             const filePaths = tree.data.tree
                 .filter(item => item.type === "blob") // "blob" = file, "tree" = directory
                 .map(item => item.path!)
-                .filter(path => path); // Remove any undefined paths
+                .filter(path => path) // Remove any undefined paths
+                .sort();
 
             return filePaths;
         } catch (error) {
