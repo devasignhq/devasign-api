@@ -12,11 +12,6 @@ describe("Test Infrastructure Setup", () => {
         it("should have mock services enabled", () => {
             expect(testConfig.services.mockExternal).toBe(true);
         });
-
-        it("should have test-specific configurations", () => {
-            expect(testConfig.test.intelligentContextEnabled).toBe(false);
-            expect(testConfig.test.maxIntelligentContextTime).toBe(5000);
-        });
     });
 
     describe("Test Utilities", () => {

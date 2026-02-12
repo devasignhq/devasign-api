@@ -9,6 +9,7 @@ import { ENDPOINTS, STATUS_CODES } from "../../../../api/utilities/data";
 import { mockFirebaseAuth } from "../../../mocks/firebase.service.mock";
 import { getEndpointWithPrefix } from "../../../helpers/test-utils";
 import { dataLogger } from "../../../../api/config/logger.config";
+import { apiLimiter } from "../../../../api/middlewares/rate-limit.middleware";
 
 // Mock Firebase admin for authentication
 jest.mock("../../../../api/config/firebase.config", () => {
@@ -622,6 +623,7 @@ describe("Task API Integration Tests", () => {
             const appWithoutAuth = express();
             appWithoutAuth.use(express.json());
             appWithoutAuth.use(ENDPOINTS.TASK.PREFIX, validateUser as RequestHandler, taskRoutes);
+            appWithoutAuth.use(apiLimiter);
             appWithoutAuth.use(errorHandler);
 
             await request(appWithoutAuth)

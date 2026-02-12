@@ -8,6 +8,7 @@ import { DatabaseTestHelper } from "../../../helpers/database-test-helper";
 import { ENDPOINTS, STATUS_CODES } from "../../../../api/utilities/data";
 import { mockFirebaseAuth } from "../../../mocks/firebase.service.mock";
 import { getEndpointWithPrefix } from "../../../helpers/test-utils";
+import { apiLimiter } from "../../../../api/middlewares/rate-limit.middleware";
 
 // Mock Firebase admin for authentication
 jest.mock("../../../../api/config/firebase.config", () => {
@@ -624,6 +625,7 @@ describe("Installation API Integration Tests", () => {
                 validateUser as RequestHandler,
                 installationRoutes
             );
+            appWithoutAuth.use(apiLimiter);
             appWithoutAuth.use(errorHandler);
 
             await request(appWithoutAuth)

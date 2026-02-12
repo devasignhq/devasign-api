@@ -34,8 +34,7 @@ export const testConfig = {
         },
         ai: {
             geminiApiKey: process.env.GEMINI_API_KEY || "test-gemini-key",
-            huggingfaceApiKey: process.env.HUGGINGFACE_API_KEY || "test-hf-key",
-            openaiApiKey: process.env.OPENAI_API_KEY || "test-openai-key"
+            huggingfaceApiKey: process.env.HUGGINGFACE_API_KEY || "test-hf-key"
         },
         stellar: {
             horizonUrl: process.env.STELLAR_HORIZON_URL || "https://horizon-testnet.stellar.org",
@@ -43,14 +42,6 @@ export const testConfig = {
             masterPublicKey: process.env.STELLAR_MASTER_PUBLIC_KEY || "test-public-key",
             masterSecretKey: process.env.STELLAR_MASTER_SECRET_KEY || "test-secret-key"
         }
-    },
-
-    // Test-specific configuration
-    test: {
-        enableMetrics: process.env.ENABLE_INTELLIGENT_CONTEXT_METRICS === "true",
-        intelligentContextEnabled: process.env.INTELLIGENT_CONTEXT_ENABLED === "true",
-        maxIntelligentContextTime: parseInt(process.env.MAX_INTELLIGENT_CONTEXT_TIME || "5000", 10),
-        fallbackOnError: process.env.FALLBACK_ON_INTELLIGENT_CONTEXT_ERROR === "true"
     },
 
     // Security configuration

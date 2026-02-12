@@ -8,7 +8,8 @@ import { DatabaseTestHelper } from "../../../helpers/database-test-helper";
 import { ENDPOINTS, STATUS_CODES } from "../../../../api/utilities/data";
 import { mockFirebaseAuth } from "../../../mocks/firebase.service.mock";
 import { generateRandomString, getEndpointWithPrefix } from "../../../helpers/test-utils";
-import cuid from "cuid";
+import { createId } from "@paralleldrive/cuid2";import { apiLimiter } from "../../../../api/middlewares/rate-limit.middleware";
+;
 
 // Mock Firebase admin for authentication
 jest.mock("../../../../api/config/firebase.config", () => {
@@ -99,9 +100,9 @@ describe("Installation Team API Integration Tests", () => {
     describe(`POST ${getEndpointWithPrefix(["INSTALLATION", "TEAM", "ADD_MEMBER"])} - Add Team Member`, () => {
         let testInstallation: any;
         let testUser: any;
-        const manageTasksCode = cuid();
-        const manageTeamCode = cuid();
-        const viewAnalyticsCode = cuid();
+        const manageTasksCode = createId();
+        const manageTeamCode = createId();
+        const viewAnalyticsCode = createId();
 
         beforeEach(async () => {
             testUser = TestDataFactory.user({ userId: "team-owner" });
@@ -242,9 +243,9 @@ describe("Installation Team API Integration Tests", () => {
     describe(`PATCH ${getEndpointWithPrefix(["INSTALLATION", "TEAM", "UPDATE_MEMBER"])} - Update Team Member`, () => {
         let testInstallation: any;
         const teamMemberId = generateRandomString(28);
-        const manageTasksCode = cuid();
-        const manageTeamCode = cuid();
-        const viewAnalyticsCode = cuid();
+        const manageTasksCode = createId();
+        const manageTeamCode = createId();
+        const viewAnalyticsCode = createId();
 
         beforeEach(async () => {
             const owner = TestDataFactory.user({ userId: "team-owner" });
@@ -357,7 +358,7 @@ describe("Installation Team API Integration Tests", () => {
     describe(`DELETE ${getEndpointWithPrefix(["INSTALLATION", "TEAM", "REMOVE_MEMBER"])} - Remove Team Member`, () => {
         let testInstallation: any;
         const teamMemberId = generateRandomString(28);
-        const manageTasksCode = cuid();
+        const manageTasksCode = createId();
 
         beforeEach(async () => {
             const owner = TestDataFactory.user({ userId: "team-owner" });
@@ -464,8 +465,9 @@ describe("Installation Team API Integration Tests", () => {
                 validateUser as RequestHandler,
                 installationRoutes
             );
+            appWithoutAuth.use(apiLimiter);
             appWithoutAuth.use(errorHandler);
-            const manageTasksCode = cuid();
+            const manageTasksCode = createId();
 
             await request(appWithoutAuth)
                 .post(getEndpointWithPrefix(["INSTALLATION", "TEAM", "ADD_MEMBER"])
@@ -476,14 +478,14 @@ describe("Installation Team API Integration Tests", () => {
             await request(appWithoutAuth)
                 .patch(getEndpointWithPrefix(["INSTALLATION", "TEAM", "UPDATE_MEMBER"])
                     .replace(":installationId", "12345678")
-                    .replace(":userId", cuid()))
+                    .replace(":userId", createId()))
                 .send({ permissionCodes: [manageTasksCode] })
                 .expect(STATUS_CODES.UNAUTHENTICATED);
 
             await request(appWithoutAuth)
                 .delete(getEndpointWithPrefix(["INSTALLATION", "TEAM", "REMOVE_MEMBER"])
                     .replace(":installationId", "12345678")
-                    .replace(":userId", cuid()))
+                    .replace(":userId", createId()))
                 .expect(STATUS_CODES.UNAUTHENTICATED);
         });
     });

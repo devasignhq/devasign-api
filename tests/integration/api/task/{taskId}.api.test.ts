@@ -1,6 +1,6 @@
 import request from "supertest";
 import express from "express";
-import cuid from "cuid";
+import { createId } from "@paralleldrive/cuid2";;
 import { TestDataFactory } from "../../../helpers/test-data-factory";
 import { taskRoutes } from "../../../../api/routes/task.route";
 import { errorHandler } from "../../../../api/middlewares/error.middleware";
@@ -282,7 +282,7 @@ describe("Task {taskId} API Integration Tests", () => {
         it("should return 404 when task not found", async () => {
             await request(app)
                 .patch(getEndpointWithPrefix(["TASK", "{TASKID}", "ADD_BOUNTY_COMMENT"])
-                    .replace(":taskId", cuid()))
+                    .replace(":taskId", createId()))
                 .set("x-test-user-id", "task-creator")
                 .send({
                     installationId: "12345678",
@@ -687,7 +687,7 @@ describe("Task {taskId} API Integration Tests", () => {
         it("should return 404 when task not found", async () => {
             await request(app)
                 .post(getEndpointWithPrefix(["TASK", "{TASKID}", "APPLY"])
-                    .replace(":taskId", cuid()))
+                    .replace(":taskId", createId()))
                 .set("x-test-user-id", "applicant")
                 .expect(STATUS_CODES.NOT_FOUND);
         });
@@ -841,7 +841,7 @@ describe("Task {taskId} API Integration Tests", () => {
         });
 
         it("should return error when contributor did not apply", async () => {
-            const nonApplicantId = cuid();
+            const nonApplicantId = createId();
             const nonApplicant = TestDataFactory.user({ userId: nonApplicantId });
             await prisma.user.create({
                 data: { ...nonApplicant, contributionSummary: { create: {} } }
@@ -1352,7 +1352,7 @@ describe("Task {taskId} API Integration Tests", () => {
         it("should return 404 when task not found", async () => {
             await request(app)
                 .post(getEndpointWithPrefix(["TASK", "{TASKID}", "VALIDATE_COMPLETION"])
-                    .replace(":taskId", cuid()))
+                    .replace(":taskId", createId()))
                 .set("x-test-user-id", "task-creator")
                 .expect(STATUS_CODES.NOT_FOUND);
         });
