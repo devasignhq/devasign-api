@@ -7,6 +7,20 @@ export const messagesCollection = firestoreDB.collection("messages");
 export const tasksCollection = firestoreDB.collection("tasks");
 export const activityCollection = firestoreDB.collection("activity");
 
+type Activity = {
+    userId: string;
+} & ({
+    type: "task";
+    taskId: string;
+} | {
+    type: "contributor"
+} | {
+    type: "installation";
+    installationId: string;
+    operation: string;
+    message: string;
+})
+
 /**
  * Service for managing Firebase Firestore operations.
  */
@@ -138,19 +152,13 @@ export class FirebaseService {
     /**
      * Update the last activity timestamp for a task to trigger live updates.
      */
-    static async updateActivity(
-        userId: string,
-        type: "task" | "contributor",
-        taskId?: string
-    ) {
+    static async updateActivity(activity: Activity) {
         const taskRef = activityCollection.doc();
         const lastActivityAt = Timestamp.now();
 
-        await taskRef.set({
-            userId,
-            type,
-            lastActivityAt,
-            ...(type === "task" && { taskId })
-        }, { merge: true });
+        await taskRef.set(
+            { ...activity, lastActivityAt },
+            { merge: true }
+        );
     }
 }

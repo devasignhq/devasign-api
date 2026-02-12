@@ -425,7 +425,11 @@ export const submitTaskApplication = async (req: Request, res: Response, next: N
         });
 
         // Update task activity for live updates
-        FirebaseService.updateActivity(task.creatorId, "task", taskId).catch(
+        FirebaseService.updateActivity({
+            userId: task.creatorId,
+            type: "task",
+            taskId
+        }).catch(
             error => dataLogger.warn(
                 "Failed to update task activity for live updates",
                 { taskId, error }
@@ -589,7 +593,10 @@ export const acceptTaskApplication = async (req: Request, res: Response, next: N
         }
 
         // Update task activity for live updates
-        FirebaseService.updateActivity(contributorId, "contributor").catch(
+        FirebaseService.updateActivity({
+            userId: contributorId,
+            type: "contributor"
+        }).catch(
             error => dataLogger.warn(
                 "Failed to update contributor activity for live updates",
                 { contributorId, error }
@@ -898,7 +905,11 @@ export const markAsComplete = async (req: Request, res: Response, next: NextFunc
         });
 
         // Update task activity for live updates
-        FirebaseService.updateActivity(task.creatorId, "task", taskId).catch(
+        FirebaseService.updateActivity({
+            userId: task.creatorId,
+            type: "task",
+            taskId
+        }).catch(
             error => dataLogger.warn(
                 "Failed to update task activity for live updates",
                 { taskId, error }
@@ -1053,7 +1064,10 @@ export const validateCompletion = async (req: Request, res: Response, next: Next
         );
 
         // Update task activity for live updates
-        FirebaseService.updateActivity(task.contributor.userId, "contributor").catch(
+        FirebaseService.updateActivity({
+            userId: task.contributor.userId,
+            type: "contributor"
+        }).catch(
             error => dataLogger.warn(
                 "Failed to update contributor activity for live updates",
                 { contributorId: task.contributor?.userId, error }

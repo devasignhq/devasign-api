@@ -13,6 +13,7 @@ import {
     NotFoundError,
     ValidationError
 } from "../../models/error.model";
+import { FirebaseService } from "../../services/firebase.service";
 import { ContractService } from "../../services/contract.service";
 import { KMSService } from "../../services/kms.service";
 import { dataLogger, messageLogger } from "../../config/logger.config";
@@ -42,11 +43,21 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
         if (installation.status === "ARCHIVED") {
             throw new ValidationError("Cannot create task for an archived installation");
         }
-
-        // Check user balance
+        // Check if installation wallet exists
         if (!installation.wallet) {
             throw new ValidationError("Installation wallet not found");
         }
+
+        // Update activity: Preparing task creation
+        FirebaseService.updateActivity({
+            userId,
+            type: "installation",
+            installationId: payload.installationId,
+            operation: "creating_task",
+            message: "Recording task details..."
+        });
+
+        // Check user balance
         const accountInfo = await stellarService.getAccountInfo(installation.wallet.address);
         const usdcAsset = accountInfo.balances.find(
             (asset): asset is USDCBalance => "asset_code" in asset && asset.asset_code === "USDC"
@@ -79,6 +90,15 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
             }
         });
 
+        // Update activity: Creating escrow on smart contract
+        FirebaseService.updateActivity({
+            userId,
+            type: "installation",
+            installationId: payload.installationId,
+            operation: "escrow_stellar",
+            message: "Creating escrow on Stellar network..."
+        });
+
         // Create escrow on smart contract
         let escrowResult;
         try {
@@ -98,6 +118,15 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
             throw new EscrowContractError("Failed to create escrow on smart contract", { error });
         }
 
+        // Update activity: Posting bounty details to GitHub
+        FirebaseService.updateActivity({
+            userId,
+            type: "installation",
+            installationId: payload.installationId,
+            operation: "github_post",
+            message: "Posting bounty details to GitHub..."
+        });
+
         let bountyComment, postedComment = false;
         try {
             // Add bounty label to issue and post bounty comment on issue
@@ -112,6 +141,15 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
             // Log error and continue
             dataLogger.info("Failed to post bounty comment", { taskId: task.id, error });
         }
+
+        // Update activity: Finalizing task creation
+        FirebaseService.updateActivity({
+            userId,
+            type: "installation",
+            installationId: payload.installationId,
+            operation: "finalizing",
+            message: "Finalizing task setup..."
+        });
 
         const [updatedTask] = await prisma.$transaction([
             // Update task with bounty comment id
