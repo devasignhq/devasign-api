@@ -1,9 +1,9 @@
 import { VertexAI, GenerativeModel } from "@google-cloud/vertexai";
+import { VertexAIEmbeddings } from "@langchain/google-vertexai";
 import {
-    PullRequestData,
     AIReview,
     QualityMetrics,
-    RelevantFileRecommendation
+    ReviewContext
 } from "../../models/ai-review.model";
 import {
     GeminiServiceError,
@@ -20,6 +20,7 @@ import { dataLogger, messageLogger } from "../../config/logger.config";
 export class GeminiAIService {
     private vertexAI: VertexAI;
     private model: GenerativeModel;
+    private embeddingModel: VertexAIEmbeddings;
     private readonly config: {
         model: string;
         maxTokens: number;
@@ -31,10 +32,14 @@ export class GeminiAIService {
     };
 
     constructor() {
+        // Verify required environment variables are present
+        if (!process.env.GCP_PROJECT_ID || !process.env.GCP_LOCATION_ID) {
+            throw new GeminiServiceError("Missing GCP credentials (GCP_PROJECT_ID, GCP_LOCATION_ID) in environment variables");
+        }
+
         // Initialize Vertex AI with project and location
-        const projectId = process.env.GCP_PROJECT_ID!;
-        // const location = process.env.GCP_LOCATION_ID!;
-        const location = "us-central1";
+        const projectId = process.env.GCP_PROJECT_ID;
+        const location = process.env.GCP_LOCATION_ID;
 
         // Configuration for Gemini models
         this.config = {
@@ -60,18 +65,24 @@ export class GeminiAIService {
                 // responseMimeType: "application/json"
             }
         });
+
+        this.embeddingModel = new VertexAIEmbeddings({
+            model: "gemini-embedding-001",
+            location: this.config.location,
+            platformType: "gcp",
+            authOptions: { projectId: this.config.projectId },
+            maxConcurrency: 1,
+            maxRetries: 3
+        });
     }
 
     /**
      * Generates comprehensive AI review for a pull request
      */
-    async generateReview(
-        prData: PullRequestData,
-        relevantFiles: RelevantFileRecommendation[]
-    ): Promise<AIReview> {
+    async generateReview(context: ReviewContext): Promise<AIReview> {
         try {
             // Generate the review using Gemini
-            const reviewPrompt = this.buildReviewPrompt(prData, relevantFiles);
+            const reviewPrompt = this.buildReviewPrompt(context);
             const aiResponse = await this.callGeminiAPI(reviewPrompt);
 
             // Parse and validate the response
@@ -92,6 +103,46 @@ export class GeminiAIService {
             }
             throw new GeminiServiceError("Failed to generate AI review", error);
         }
+    }
+
+    /**
+     * Generates text embeddings for a given string array
+     */
+    async embedDocuments(documents: string[]): Promise<number[][]> {
+        return this.handleRateLimit(async () => {
+            try {
+                const embeddings = await this.embeddingModel.embedDocuments(documents);
+
+                if (!embeddings) {
+                    throw new GeminiServiceError("Failed to generate embeddings");
+                }
+
+                return embeddings;
+            } catch (error) {
+                const mainError = getFieldFromUnknownObject(error, "error");
+                throw new GeminiServiceError("Failed to generate embedding", mainError || error);
+            }
+        });
+    }
+
+    /**
+     * Generates text embeddings for a given string
+     */
+    async generateEmbedding(text: string): Promise<number[]> {
+        return this.handleRateLimit(async () => {
+            try {
+                const embeddings = await this.embeddingModel.embedQuery(text);
+
+                if (!embeddings) {
+                    throw new GeminiServiceError("Failed to generate embedding");
+                }
+
+                return embeddings;
+            } catch (error) {
+                const mainError = getFieldFromUnknownObject(error, "error");
+                throw new GeminiServiceError("Failed to generate embedding", mainError || error);
+            }
+        });
     }
 
     /**
@@ -197,71 +248,81 @@ export class GeminiAIService {
     /**
      * Builds the main review prompt for Gemini
      */
-    private buildReviewPrompt(
-        prData: PullRequestData,
-        relevantFiles: RelevantFileRecommendation[]
-    ): string {
-        const fileInfoList = relevantFiles.map((file, index) => {
-            return file.content ? `FILE ${index + 1}: ${file.filePath}\n
-                Reason for inclusion: ${file.reason || "N/A"}\n
-                ---CONTENT START---\n
-                ${file.content}\n
-                ---CONTENT END---` : "";
+    private buildReviewPrompt(context: ReviewContext): string {
+        const { prData, filesStructure, styleGuide, readme, relevantChunks } = context;
+
+        const chunksInfo = relevantChunks.map((chunk, index) => {
+            return `--- CHUNK ${index + 1} (Similarity: ${chunk.similarity.toFixed(2)}) ---\nFile: ${chunk.filePath}\n${chunk.content}\n--- END CHUNK ${index + 1} ---`;
         }).join("\n\n");
 
-        return `You are an expert code reviewer analyzing a pull request. Provide a concise review with specific, actionable feedback.
+        const styleGuideSection = styleGuide ? `\nPROJECT STYLE GUIDE (STRICTLY ADHERE TO THIS):\n${styleGuide}\n` : "";
+        const readmeSection = readme ? `\nPROJECT README (Context context):\n${readme.slice(0, 3000)}${readme.length > 3000 ? "\n... (readme truncated)" : ""}\n` : "";
+        const fileStructureSection = filesStructure.length > 0 ? `\nREPOSITORY FILE STRUCTURE:\n${filesStructure.slice(0, 500).join("\n")}${filesStructure.length > 500 ? "\n... (more files truncated)" : ""}\n` : "";
+
+        return `You are a Senior Principal Software Engineer and Security Expert reviewing a pull request.
+Your goal is to ensure code quality, security, maintainability, and alignment with the project's architecture and style guides.
+
+=== INPUT CONTEXT ===
 
 ${prData.formattedPullRequest}
 
-CONTEXTUAL FILES:
-The following files were fetched to provide context for this pull request review:
-${fileInfoList}
+${readmeSection}
+${styleGuideSection}
+${fileStructureSection}
 
-TASK:
-Analyze this pull request and provide:
-1. A merge score (0-100) based on code quality, security, performance, and best practices
-2. Quality metrics for: code style, test coverage, documentation, security, performance, maintainability (each 0-100)
-3. Specific code suggestions with file names, line numbers (if applicable), and clear descriptions
-4. A summary of your findings
-5. Your confidence level (0.0-1.0) in this analysis
+${process.env.SKIP_CODE_CHUNKS === "true" ? "" : `=== RELEVANT CODEBASE CHUNKS ===
+(Use these to check for duplication, consistency with existing patterns, and integration correctness)
+${chunksInfo || "No relevant code chunks found."}`}
 
-CRITICAL: You MUST respond with ONLY valid JSON. No additional text, explanations, or formatting outside the JSON.
+=== INSTRUCTIONS ===
+1. **Analyze the PR**: Understand the goal from the description and linked issues.
+2. **Review Changes**: Examine the code changes in \`formattedPullRequest\`.
+3. **Apply Context**:
+    - Use the **README** to understand the high-level project domain.
+    - STRICTLY follow the **STYLE GUIDE** if provided.
+    - Use **RELEVANT CODE CHUNKS** to detect inconsistencies, redundant implementations, or broken imports.
+4. **Identify Issues**: Prioritize in this order:
+    - **Critical**: Security vulnerabilities (SQLi, XSS, etc.), logic bugs, race conditions, broken interfaces.
+    - **Important**: Performance bottlenecks (~O(n^2) or worse), poor error handling, missing tests.
+    - **Maintainability**: Spaghetti code, poor naming, lack of comments, code duplication.
+    - **Style**: Violations of the provided style guide or standard language idioms.
 
-RESPONSE FORMAT (JSON ONLY):
+=== OUTPUT REQUIREMENTS ===
+- **Merge Score**: 0-100. < 70 implies "Request Changes", > 90 implies "Approve". Be rigorous.
+- **Suggestions**:
+    - **MUST** be actionable.
+    - **MUST** include specific file paths and line numbers.
+    - **MUST** provide \`suggestedCode\` for fixes and optimizations.
+    - Focus on the *changed* code, but note if changed code breaks existing patterns seen in chunks.
+- **Summary**: A concise executive summary of the PR's health.
+
+=== RESPONSE FORMAT ===
+Return ONLY a valid JSON object matching this TypeScript interface. Do not include markdown formatting (like \`\`\`json).
+
 {
-  "mergeScore": <number 0-100>,
+  "mergeScore": number, // 0-100
   "codeQuality": {
-    "codeStyle": <number 0-100>,
-    "testCoverage": <number 0-100>,
-    "documentation": <number 0-100>,
-    "security": <number 0-100>,
-    "performance": <number 0-100>,
-    "maintainability": <number 0-100>
+    "codeStyle": number, // 0-100
+    "testCoverage": number, // 0-100
+    "documentation": number, // 0-100
+    "security": number, // 0-100
+    "performance": number, // 0-100
+    "maintainability": number // 0-100
   },
   "suggestions": [
     {
-      "file": "<filename>",
-      "lineNumber": <number or null>,
-      "type": "<improvement|fix|optimization|style>",
-      "severity": "<low|medium|high>",
-      "description": "<specific actionable description>",
-      "suggestedCode": "<optional code suggestion>",
-      "reasoning": "<explanation of why this suggestion is important>"
+      "file": string, // Filename
+      "lineNumber": number | null, // Line number of the issue
+      "type": "improvement" | "fix" | "optimization" | "style",
+      "severity": "low" | "medium" | "high",
+      "description": string, // Clear explanation
+      "suggestedCode": string | null, // The fixed code block
+      "reasoning": string // Why this change is better
     }
   ],
-  "summary": "<comprehensive summary of the review>",
-  "confidence": <number 0.0-1.0>
-}
-
-Focus on:
-- Security vulnerabilities and best practices
-- Code maintainability and readability
-- Performance implications
-- Test coverage and quality
-- Documentation completeness
-- Adherence to coding standards
-
-IMPORTANT: Respond with ONLY the JSON object. Do not include any text before or after the JSON.`;
+  "summary": string,
+  "confidence": number // 0.0 to 1.0
+}`;
     }
 
     /**
@@ -368,7 +429,10 @@ IMPORTANT: Respond with ONLY the JSON object. Do not include any text before or 
     /**
      * Estimates token count for content (rough approximation)
      */
-    private estimateTokens(content: string): number {
+    /**
+     * Estimates token count for content (rough approximation)
+     */
+    public estimateTokens(content: string): number {
         // Rough estimation: ~4 characters per token
         return Math.ceil(content.length / 4);
     }
@@ -381,8 +445,12 @@ IMPORTANT: Respond with ONLY the JSON object. Do not include any text before or 
         const errorMessage = getFieldFromUnknownObject<string>(error, "message");
         return error instanceof GeminiRateLimitError ||
             (errorStatus === 429) ||
-            Boolean(errorMessage && errorMessage.includes("rate limit")) ||
-            Boolean(errorMessage && errorMessage.includes("429"));
+            Boolean(errorMessage && (
+                errorMessage.toLowerCase().includes("rate limit") ||
+                errorMessage.includes("429") ||
+                errorMessage.toLowerCase().includes("quota exceeded") ||
+                errorMessage.toLowerCase().includes("resource exhausted")
+            ));
     }
 
     /**

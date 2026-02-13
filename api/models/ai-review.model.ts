@@ -107,47 +107,19 @@ export interface TestCoverageMetrics {
 // AI Context Analysis Types
 // ============================================================================
 
-export interface RelevantFileRecommendation {
-    filePath: string;
-    reason: string;
-    priority: "high" | "medium" | "low";
-    content?: string;
+export interface ReviewContext {
+    prData: PullRequestData;
+    filesStructure: string[];
+    styleGuide: string | null;
+    readme: string | null;
+    relevantChunks: CodeChunkResult[];
 }
 
-export interface FetchedFile {
+export interface CodeChunkResult {
     filePath: string;
     content: string;
-    size: number;
-    fetchSuccess: boolean;
-    error?: string;
-}
-
-export interface ContextMetrics { // ?
-    filesAnalyzedByAI: number;
-    filesRecommended: number;
-    filesFetched: number;
-    fetchSuccessRate: number;
-    contextQualityScore?: number; // 0-100 quality assessment score
-    optimizationTime?: number; // Time spent optimizing context in ms
-    processingTime: {
-        codeExtraction: number;
-        pathRetrieval: number;
-        aiAnalysis: number;
-        fileFetching: number;
-        total: number;
-    };
-}
-
-export interface BatchProcessingConfig { // ?
-    batchSize: number;
-    maxConcurrency: number;
-    retryConfig: {
-        maxRetries: number;
-        baseDelay: number;
-        maxDelay: number;
-        backoffMultiplier: number;
-        retryableErrors: string[];
-    };
+    similarity: number;
+    chunkIndex: number;
 }
 
 // ============================================================================
@@ -237,37 +209,4 @@ export interface GitHubFile {
     changes: number;
     patch?: string;
     blob_url: string;
-}
-
-// ============================================================================
-// API Response Types
-// ============================================================================
-
-export interface APIResponse<T = unknown> {
-    success: boolean;
-    data?: T;
-    error?: string;
-    message?: string;
-    timestamp: string;
-}
-
-export interface PaginatedResponse<T> extends APIResponse<T[]> {
-    pagination: {
-        page: number;
-        limit: number;
-        total: number;
-        totalPages: number;
-    };
-}
-
-export interface AnalysisRequest {
-    installationId: string;
-    repositoryName: string;
-    prNumber: number;
-    force?: boolean; // Force re-analysis even if already analyzed
-}
-
-export interface ManualTriggerRequest extends AnalysisRequest {
-    userId: string; // Change to username
-    reason?: string;
 }

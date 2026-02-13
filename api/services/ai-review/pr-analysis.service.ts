@@ -457,13 +457,11 @@ ${codeChangesPreview}`;
             // Execute workflow with timeout
             const review = await this.executeWithTimeout(
                 async () => {
-                    const relevantFiles = await this.contextAnalyzer.analyzeContextNeeds(prData);
+                    // Build review context
+                    const reviewContext = await this.contextAnalyzer.buildReviewContext(prData);
 
                     // Generate AI review with enhanced context
-                    const aiReview = await this.geminiService.generateReview(
-                        prData,
-                        relevantFiles
-                    );
+                    const aiReview = await this.geminiService.generateReview(reviewContext);
 
                     return {
                         installationId: prData.installationId,

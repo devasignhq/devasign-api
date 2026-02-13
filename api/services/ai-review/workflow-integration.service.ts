@@ -1,10 +1,5 @@
-import {
-    PullRequestData,
-    GitHubWebhookPayload,
-    ReviewResult,
-    ManualTriggerRequest
-} from "../../models/ai-review.model";
-import { BackgroundJobService } from "../background-job.service";
+import { PullRequestData, GitHubWebhookPayload } from "../../models/ai-review.model";
+import { backgroundJobService, BackgroundJobService } from "../background-job.service";
 import { AIReviewOrchestrationService } from "./orchestration.service";
 import { PRAnalysisService } from "./pr-analysis.service";
 import { PRAnalysisError } from "../../models/error.model";
@@ -28,7 +23,7 @@ export class WorkflowIntegrationService {
     private initialized = false;
 
     private constructor() {
-        this.jobQueue = BackgroundJobService.getInstance();
+        this.jobQueue = backgroundJobService;
         this.orchestrationService = new AIReviewOrchestrationService();
     }
 
@@ -151,128 +146,6 @@ export class WorkflowIntegrationService {
                 success: false,
                 error: errorMessage
             };
-        }
-    }
-
-    /**
-     * Manual analysis workflow
-     * 
-     * Workflow:
-     * 1. Validate manual trigger request
-     * 2. Create PR data structure
-     * 3. Queue for analysis
-     * 4. Return job tracking information
-     */
-    public async processManualAnalysisWorkflow(request: ManualTriggerRequest): Promise<{
-        success: boolean;
-        jobId?: string;
-        error?: string;
-    }> {
-        const startTime = Date.now();
-
-        try {
-            dataLogger.info(
-                "Starting manual analysis workflow",
-                {
-                    installationId: request.installationId,
-                    repositoryName: request.repositoryName,
-                    prNumber: request.prNumber,
-                    reason: request.reason
-                }
-            );
-
-            // Create PR data for manual analysis
-            const prData: PullRequestData = {
-                installationId: request.installationId,
-                repositoryName: request.repositoryName,
-                prNumber: request.prNumber,
-                prUrl: `https://github.com/${request.repositoryName}/pull/${request.prNumber}`,
-                title: "Manual Analysis Request",
-                body: request.reason || "Manually triggered analysis",
-                changedFiles: [], // Would be fetched from GitHub API in full implementation
-                linkedIssues: [], // Would be extracted from PR body
-                author: request.userId,
-                isDraft: false,
-                formattedPullRequest: ""
-            };
-
-            // Queue for analysis
-            const jobId = await this.jobQueue.addPRAnalysisJob(prData);
-
-            const processingTime = Date.now() - startTime;
-            dataLogger.info(
-                "Manual analysis workflow completed",
-                { jobId, processingTime }
-            );
-
-            return {
-                success: true,
-                jobId
-            };
-
-        } catch (error) {
-            const processingTime = Date.now() - startTime;
-            const errorMessage = error instanceof Error ? error.message : String(error);
-
-            dataLogger.error(
-                "Manual analysis workflow failed",
-                { error: errorMessage, processingTime }
-            );
-
-            return {
-                success: false,
-                error: errorMessage
-            };
-        }
-    }
-
-    /**
-     * Direct analysis workflow (synchronous)
-     * For cases where immediate analysis is needed
-     * 
-     * Workflow:
-     * 1. Execute analysis directly without queueing
-     * 2. Return complete results
-     * 3. Handle errors with graceful degradation
-     */
-    public async processDirectAnalysisWorkflow(prData: PullRequestData): Promise<ReviewResult> {
-        const startTime = Date.now();
-
-        try {
-            dataLogger.info(
-                "Starting direct analysis workflow",
-                { prNumber: prData.prNumber, repositoryName: prData.repositoryName }
-            );
-
-            // Execute analysis directly
-            const result = await this.orchestrationService.analyzePullRequest(prData);
-
-            // Direct analysis completed successfully
-            dataLogger.info(
-                "Direct analysis workflow completed",
-                {
-                    prNumber: prData.prNumber,
-                    mergeScore: result.mergeScore,
-                    processingTime: Date.now() - startTime
-                }
-            );
-
-            return result;
-
-        } catch (error) {
-            const processingTime = Date.now() - startTime;
-
-            dataLogger.error(
-                "Direct analysis workflow failed",
-                {
-                    prNumber: prData.prNumber,
-                    repositoryName: prData.repositoryName,
-                    error: error instanceof Error ? error.message : String(error),
-                    processingTime
-                }
-            );
-
-            throw error;
         }
     }
 
