@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import { dataLogger } from "../../config/logger.config";
 import { responseWrapper, getFieldFromUnknownObject } from "../../utilities/helper";
 import { STATUS_CODES } from "../../utilities/data";
-import { BackgroundJobService } from "../../services/background-job.service";
+import { backgroundJobService } from "../../services/background-job.service";
 import { WorkflowIntegrationService } from "../../services/ai-review/workflow-integration.service";
 
 /**
@@ -51,6 +51,7 @@ export const webhookHealthCheck = async (req: Request, res: Response) => {
  */
 export const getJobData = (req: Request, res: Response) => {
     const { jobId } = req.params;
+    dataLogger.info("getJobData", { jobId });
 
     try {
         // Validate job ID is provided
@@ -64,8 +65,7 @@ export const getJobData = (req: Request, res: Response) => {
         }
 
         // Fetch job data from the job queue
-        const jobQueue = BackgroundJobService.getInstance();
-        const job = jobQueue.getJobData(jobId);
+        const job = backgroundJobService.getJobData(jobId);
 
         if (!job) {
             // Job not found
@@ -119,8 +119,7 @@ export const getJobData = (req: Request, res: Response) => {
 export const getQueueStats = (req: Request, res: Response) => {
     try {
         // Fetch queue statistics from the job queue
-        const jobQueue = BackgroundJobService.getInstance();
-        const stats = jobQueue.getQueueStats();
+        const stats = backgroundJobService.getQueueStats();
 
         // Return queue statistics
         responseWrapper({
@@ -128,7 +127,7 @@ export const getQueueStats = (req: Request, res: Response) => {
             status: STATUS_CODES.SUCCESS,
             data: {
                 queue: stats,
-                activeJobs: jobQueue.getActiveJobsCount(),
+                activeJobs: backgroundJobService.getActiveJobsCount(),
                 timestamp: new Date().toISOString()
             },
             message: "Queue statistics retrieved successfully"
