@@ -89,6 +89,8 @@ export const ENDPOINTS = {
             GET_RESOURCES: "/github/:installationId/resources",
             /** POST /github/:installationId/set-bounty-label - Set bounty label */
             SET_BOUNTY_LABEL: "/github/:installationId/set-bounty-label",
+            /** POST /github/:installationId/index-repositories - Index installation repositories */
+            INDEX_REPOSITORIES: "/github/:installationId/index-repositories",
             /** POST /github/:installationId/analyze-pr - Analyze pull request */
             ANALYZE_PR: "/github/:installationId/analyze-pr"
         }

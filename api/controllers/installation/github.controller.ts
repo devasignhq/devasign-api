@@ -7,6 +7,7 @@ import { PRAnalysisError, GitHubAPIError, ErrorClass } from "../../models/error.
 import { responseWrapper, getFieldFromUnknownObject } from "../../utilities/helper";
 import { STATUS_CODES } from "../../utilities/data";
 import { dataLogger, messageLogger } from "../../config/logger.config";
+import { backgroundJobService } from "../../services/background-job.service";
 
 /**
  * Retrieves repositories accessible by a specific GitHub App installation.
@@ -144,6 +145,32 @@ export const getOrCreateBountyLabel = async (req: Request, res: Response, next: 
             status: STATUS_CODES.SUCCESS,
             data: bountyLabel,
             message: "Bounty label created successfully"
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+/**
+ * Retrieves repositories accessible by a specific GitHub App installation.
+ */
+export const indexInstallationRepositories = async (req: Request, res: Response, next: NextFunction) => {
+    const { installationId } = req.params;
+
+    try {
+        // Fetch repositories from GitHub API
+        const repositories = await OctokitService.getInstallationRepositories(installationId);
+
+        // Add repository indexing jobs to background job queue
+        for (const repo of repositories) {
+            await backgroundJobService.addRepositoryIndexingJob(installationId, repo.name);
+        }
+
+        responseWrapper({
+            res,
+            status: STATUS_CODES.SUCCESS,
+            data: { installationId },
+            message: "Repository indexing triggered successfully"
         });
     } catch (error) {
         next(error);

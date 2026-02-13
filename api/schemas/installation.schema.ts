@@ -119,6 +119,12 @@ export const getOrCreateBountyLabelSchema = {
     })
 };
 
+export const indexInstallationRepositoriesSchema = {
+    params: z.object({
+        installationId: installationIdSchema
+    })
+};
+
 export const triggerManualPRAnalysisSchema = {
     params: z.object({
         installationId: installationIdSchema
