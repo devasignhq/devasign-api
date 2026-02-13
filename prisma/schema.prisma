@@ -8,51 +8,6 @@ generator client {
     output   = "../prisma_client"
 }
 
-enum TaskStatus {
-    PENDING_PAYMENT
-    OPEN
-    IN_PROGRESS
-    MARKED_AS_COMPLETED
-    COMPLETED
-    ARCHIVED
-}
-
-enum InstallationStatus {
-    ACTIVE
-    ARCHIVED
-}
-
-enum TransactionCategory {
-    BOUNTY
-    SWAP_USDC
-    SWAP_XLM
-    WITHDRAWAL
-    TOP_UP
-}
-
-enum RuleType {
-    CODE_QUALITY
-    SECURITY
-    PERFORMANCE
-    DOCUMENTATION
-    TESTING
-    CUSTOM
-}
-
-enum RuleSeverity {
-    LOW
-    MEDIUM
-    HIGH
-    CRITICAL
-}
-
-enum ReviewStatus {
-    PENDING
-    IN_PROGRESS
-    COMPLETED
-    FAILED
-}
-
 model Wallet {
     address         String        @id @unique
     encryptedDEK    String
@@ -111,6 +66,11 @@ model SubscriptionPackage {
     installations Installation[]
 }
 
+enum InstallationStatus {
+    ACTIVE
+    ARCHIVED
+}
+
 model Installation {
     id                          String                       @id
     htmlUrl                     String
@@ -128,8 +88,9 @@ model Installation {
     userInstallationPermissions UserInstallationPermission[]
     transactions                Transaction[]
     taskSubmissions             TaskSubmission[]
-    aiReviewRule                AIReviewRule[]
     aiReviewResult              AIReviewResult[]
+    codeFiles                   CodeFile[]
+    repositoryIndexingStates    RepositoryIndexingState[]
 
     @@index([createdAt])
 }
@@ -146,6 +107,15 @@ model Installation {
 //     @@index([installationId])
 //     @@index([userId])
 // }
+
+enum TaskStatus {
+    PENDING_PAYMENT
+    OPEN
+    IN_PROGRESS
+    MARKED_AS_COMPLETED
+    COMPLETED
+    ARCHIVED
+}
 
 model Task {
     id                 String           @id @default(cuid())
@@ -232,6 +202,14 @@ model UserInstallationPermission {
     @@unique([userId, installationId])
 }
 
+enum TransactionCategory {
+    BOUNTY
+    SWAP_USDC
+    SWAP_XLM
+    WITHDRAWAL
+    TOP_UP
+}
+
 model Transaction {
     id       String              @id @default(cuid())
     txHash   String              @unique
@@ -267,21 +245,11 @@ model Transaction {
     @@index([userId, category])
 }
 
-model AIReviewRule {
-    id             String       @id @default(cuid())
-    installation   Installation @relation(fields: [installationId], references: [id], onDelete: Cascade)
-    installationId String
-    name           String
-    description    String
-    ruleType       RuleType
-    severity       RuleSeverity
-    pattern        String? // For regex-based rules
-    config         Json // Flexible configuration
-    active         Boolean      @default(true)
-    createdAt      DateTime     @default(now())
-    updatedAt      DateTime     @updatedAt
-
-    @@index([installationId, active])
+enum ReviewStatus {
+    PENDING
+    IN_PROGRESS
+    COMPLETED
+    FAILED
 }
 
 model AIReviewResult {
@@ -317,4 +285,51 @@ model AIReviewResult {
 
     @@unique([installationId, prNumber, repositoryName])
     @@index([installationId, reviewStatus])
+}
+
+model CodeFile {
+    id             String       @id @default(cuid())
+    installation   Installation @relation(fields: [installationId], references: [id], onDelete: Cascade)
+    installationId String
+    repositoryName String
+    filePath       String
+    fileHash       String // To detect changes
+    lastIndexedAt  DateTime     @default(now())
+    chunks         CodeChunk[]
+
+    @@unique([installationId, repositoryName, filePath])
+    @@index([installationId, repositoryName])
+}
+
+model CodeChunk {
+    id         String                       @id @default(cuid())
+    codeFile   CodeFile                     @relation(fields: [codeFileId], references: [id], onDelete: Cascade)
+    codeFileId String
+    chunkIndex Int
+    content    String
+    embedding  Unsupported("vector(3072)")?
+
+    @@index([codeFileId])
+}
+
+enum IndexingStatus {
+    PENDING
+    IN_PROGRESS
+    COMPLETED
+    FAILED
+}
+
+model RepositoryIndexingState {
+    id             String       @id @default(cuid())
+    installation   Installation @relation(fields: [installationId], references: [id], onDelete: Cascade)
+    installationId String
+    repositoryName String
+
+    lastIndexedFilePath String?
+    status              IndexingStatus @default(PENDING)
+
+    startedAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@unique([installationId, repositoryName])
 }
