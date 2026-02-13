@@ -50,7 +50,7 @@ export class BackgroundJobService extends EventEmitter {
             maxConcurrentJobs: parseInt(process.env.INDEXING_MAX_CONCURRENT || "1"),
             maxRetries: parseInt(process.env.INDEXING_MAX_RETRIES || "3"),
             retryDelayMs: parseInt(process.env.INDEXING_RETRY_DELAY || "60000"), // 1 minute
-            timeoutMs: parseInt(process.env.INDEXING_JOB_TIMEOUT || "3600000") // 1 hour
+            timeoutMs: parseInt(process.env.INDEXING_JOB_TIMEOUT || "21600000") // 6 hours
         },
         cleanupIntervalMs: parseInt(process.env.JOB_QUEUE_CLEANUP_INTERVAL || "3600000") // 1 hour
     };
@@ -77,28 +77,30 @@ export class BackgroundJobService extends EventEmitter {
         return this.addJob({
             type: "pr-analysis",
             data: prData,
-            idGenerator: () => `pr-analysis-${prData.installationId}-${prData.repositoryName}-${prData.prNumber}-${Date.now()}`
+            idGenerator: () => `pr-analysis-${prData.installationId}-${prData.repositoryName.replace("/", "~")}-${prData.prNumber}`
         });
     }
 
-    /**
-     * Adds a repository indexing job to the queue
-     */
     public async addRepositoryIndexingJob(installationId: string, repositoryName: string): Promise<string> {
         return this.addJob({
             type: "repository-indexing",
             data: { installationId, repositoryName },
-            idGenerator: () => `repo-indexing-${installationId}-${repositoryName}-${Date.now()}`
+            idGenerator: () => `repo-indexing-${installationId}-${repositoryName.replace("/", "~")}`
         });
     }
 
     private async addJob<T>(options: { type: JobType, data: T, idGenerator: () => string }): Promise<string> {
         const jobId = options.idGenerator();
 
-        // Check if job already exists (simple check strictly by ID, but IDs include timestamp so collisions unlikely unless logic changes)
-        // For indexing, we might want to prevent duplicate pending jobs for same repo?
-        // Let's rely on the ID generation which includes timestamp for now, but maybe in future dedicate ID per repo without timestamp for deduping?
-        // The original code included timestamp, so I'll stick to that.
+        // Check if job already exists and is not finished
+        const existingJob = this.jobs.get(jobId);
+        if (existingJob && (existingJob.status === "pending" || existingJob.status === "processing")) {
+            dataLogger.info(
+                "Job already exists in queue, skipping add",
+                { jobId, type: options.type, status: existingJob.status }
+            );
+            return jobId;
+        }
 
         const job: Job<T> = {
             id: jobId,
@@ -260,7 +262,7 @@ export class BackgroundJobService extends EventEmitter {
                 case "repository-indexing":
                     const { installationId, repositoryName } = job.data as RepositoryIndexingData;
                     await this.indexingService.indexRepository(installationId, repositoryName);
-                    return { success: true }; // Indexing returns void, so we return a simple success object
+                    return { success: true }; // Indexing returns void
                 default:
                     throw new Error(`Unknown job type: ${job.type}`);
                 }
@@ -459,3 +461,5 @@ export class BackgroundJobService extends EventEmitter {
         return false;
     }
 }
+
+export const backgroundJobService = BackgroundJobService.getInstance();
