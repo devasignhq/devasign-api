@@ -152,6 +152,7 @@ router.post("/reset-db", async (req: Request, res: Response) => {
         await prisma.aIReviewResult.deleteMany();
         await prisma.codeFile.deleteMany();
         await prisma.codeChunk.deleteMany();
+        await prisma.repositoryIndexingState.deleteMany();
 
         // await prisma.subscriptionPackage.deleteMany();
 

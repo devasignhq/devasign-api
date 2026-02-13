@@ -3,7 +3,7 @@ import createError from "http-errors";
 import { GeminiAIService } from "../../services/ai-review/gemini-ai.service";
 import { dataLogger } from "../../config/logger.config";
 import { STATUS_CODES } from "../../utilities/data";
-import { GitHubPullRequest, GitHubInstallation, APIResponse } from "../../models/ai-review.model";
+import { GitHubPullRequest, GitHubInstallation } from "../../models/ai-review.model";
 import { OctokitService } from "../../services/octokit.service";
 import { WorkflowIntegrationService } from "../../services/ai-review/workflow-integration.service";
 import { validateRequestParameters } from "../../middlewares/request.middleware";
@@ -14,9 +14,13 @@ import {
     geminiTestJsonSchema,
     manualAnalysisSchema
 } from "./test.schema";
+import { ValidationError } from "../../models/error.model";
+import { VectorStoreService } from "../../services/vector-store.service";
+import { backgroundJobService } from "../../services/background-job.service";
 
 const router = Router();
 const geminiService = new GeminiAIService();
+const vectorStoreService = new VectorStoreService();
 
 // Simple chat with Gemini AI
 router.post("/gemini/chat",
@@ -279,7 +283,7 @@ router.post("/github/manual-analysis",
                     success: false,
                     error: result.error,
                     timestamp: new Date().toISOString()
-                } as APIResponse);
+                });
             }
 
             // Return success response
@@ -295,7 +299,7 @@ router.post("/github/manual-analysis",
                     reason: reason || "Manual trigger"
                 },
                 timestamp: new Date().toISOString()
-            } as APIResponse);
+            });
 
         } catch (error) {
             // Log and pass error to middleware
@@ -303,5 +307,71 @@ router.post("/github/manual-analysis",
             next(error);
         }
     }) as RequestHandler);
+
+/**
+ * Trigger repository indexing
+ * POST /api/ai/index-repo
+ * Body: { installationId: string, repositoryName: string }
+ */
+router.post(
+    "/index-repo",
+    async (req: Request, res: Response, next: NextFunction) => {
+        try {
+            const { installationId, repositoryName } = req.body;
+
+            if (!installationId || !repositoryName) {
+                throw new ValidationError("Missing required parameters");
+            }
+            
+            const jobId = await backgroundJobService.addRepositoryIndexingJob(
+                installationId,
+                repositoryName
+            );
+
+            res.status(200).json({
+                message: "Repository indexing queued successfully",
+                data: { jobId }
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+);
+
+/**
+ * Retrieve context for a query
+ * POST /api/ai/retrieve-context
+ * Body: { installationId: string, repositoryName: string, query: string }
+ */
+router.post(
+    "/retrieve-context",
+    async (req: Request, res: Response, next: NextFunction) => {
+        try {
+            const { installationId, repositoryName, query } = req.body;
+
+            if (!installationId || !repositoryName || !query) {
+                throw new ValidationError("Missing required parameters");
+            }
+
+            // 1. Generate embedding for query
+            const embedding = await geminiService.generateEmbedding(query);
+
+            // 2. Search vector store
+            const results = await vectorStoreService.findSimilarChunks(
+                embedding,
+                installationId,
+                repositoryName,
+                5 // limit
+            );
+
+            res.status(200).json({
+                message: "Context retrieved successfully",
+                data: results
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+);
 
 export const aiServicesRoutes = router;
