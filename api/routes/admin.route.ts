@@ -3,8 +3,7 @@ import {
     webhookHealthCheck,
     getJobData,
     getQueueStats,
-    getWorkflowStatus,
-    systemRecovery
+    getWorkflowStatus
 } from "../controllers/admin";
 import { ENDPOINTS } from "../utilities/data";
 
@@ -32,10 +31,4 @@ adminRoutes.get(
 adminRoutes.get(
     ENDPOINTS.ADMIN.WEBHOOK.WORKFLOW_STATUS, 
     getWorkflowStatus as RequestHandler
-);
-
-// Recover failed systems
-adminRoutes.get(
-    ENDPOINTS.ADMIN.RECOVER_SYSTEM, 
-    systemRecovery as RequestHandler
 );

@@ -3,7 +3,6 @@ import { backgroundJobService, BackgroundJobService } from "../background-job.se
 import { AIReviewOrchestrationService } from "./orchestration.service";
 import { PRAnalysisService } from "./pr-analysis.service";
 import { PRAnalysisError } from "../../models/error.model";
-import { ErrorHandlerService } from "../error-handler.service";
 import { dataLogger, messageLogger } from "../../config/logger.config";
 
 /**
@@ -46,9 +45,6 @@ export class WorkflowIntegrationService {
 
             // Set up job queue event listeners for monitoring
             this.setupJobQueueEventListeners();
-
-            // Initialize error handling integration
-            ErrorHandlerService.initializeCircuitBreakers();
 
             this.initialized = true;
 

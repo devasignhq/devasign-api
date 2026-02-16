@@ -1,4 +1,3 @@
-import { CircuitBreakerService } from "./circuit-breaker.service";
 import { dataLogger, messageLogger } from "../config/logger.config";
 
 /**
@@ -25,9 +24,6 @@ export class ErrorHandlerService {
         try {
             messageLogger.info("Starting error handling initialization");
 
-            // Initialize circuit breakers
-            this.initializeCircuitBreakers();
-
             // Set up process event handlers
             this.setupProcessEventHandlers();
 
@@ -39,7 +35,6 @@ export class ErrorHandlerService {
             dataLogger.info(
                 "Error handling initialization completed successfully",
                 {
-                    circuitBreakers: Object.keys(CircuitBreakerService.getCircuitStatus()),
                     monitoringActive: true,
                     healthCheckEnabled: true
                 }
@@ -71,32 +66,12 @@ export class ErrorHandlerService {
                 }
             }
 
-            // Reset circuit breakers
-            CircuitBreakerService.resetAll();
-
             this.initialized = false;
 
             messageLogger.info("Error handling shutdown completed");
         } catch (error) {
             dataLogger.error("Error handling shutdown failed", { error });
         }
-    }
-
-    /**
-     * Initializes circuit breakers with appropriate configurations
-     */
-    static initializeCircuitBreakers(): void {
-        // Initialize circuit breakers for each service
-        Object.entries(this.CIRCUIT_BREAKER_CONFIG).forEach(
-            ([serviceName, config]) => {
-                CircuitBreakerService.getCircuit(serviceName, config);
-            }
-        );
-
-        dataLogger.info(
-            "Circuit breakers initialized for all services",
-            { services: Object.keys(this.CIRCUIT_BREAKER_CONFIG) }
-        );
     }
 
     /**
@@ -252,10 +227,7 @@ export class ErrorHandlerService {
      * Gets initialization status
      */
     static getInitializationStatus() {
-        return {
-            initialized: this.initialized,
-            circuitBreakers: CircuitBreakerService.getCircuitStatus()
-        };
+        return { initialized: this.initialized };
     }
 
     /**

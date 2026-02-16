@@ -187,8 +187,6 @@ export const ENDPOINTS = {
             QUEUE_STATS: "/webhook/queue-stats",
             /** GET /webhook/workflow-status - Get workflow status */
             WORKFLOW_STATUS: "/webhook/workflow-status"
-        },
-        /** POST /recover-system - Recover system from failure */
-        RECOVER_SYSTEM: "/recover-system"
+        }
     }
 };
