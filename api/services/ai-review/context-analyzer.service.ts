@@ -23,23 +23,19 @@ export class PullRequestContextAnalyzerService {
         messageLogger.info(`Starting context analysis for PR #${prData.prNumber} in ${prData.repositoryName}`);
 
         try {
-            // 1. Fetch File Structure
-            const filesStructure = await this.getFileStructure(prData.installationId, prData.repositoryName);
-
-            // 2. Fetch Style Guide (CONTRIBUTING.md)
+            // Fetch Style Guide (CONTRIBUTING.md)
             const styleGuide = await this.getStyleGuide(prData.installationId, prData.repositoryName);
 
-            // 3. Fetch Readme (README.md)
+            // Fetch Readme (README.md)
             const readme = await this.getReadme(prData.installationId, prData.repositoryName);
 
-            // 4. Find Relevant Code Chunks using Vector Search
+            // Find Relevant Code Chunks using Vector Search
             const relevantChunks = await this.getRelevantCodeChunks(prData);
 
             messageLogger.info("Context analysis completed.");
 
             return {
                 prData,
-                filesStructure,
                 styleGuide,
                 readme,
                 relevantChunks
@@ -109,10 +105,14 @@ export class PullRequestContextAnalyzerService {
 
         try {
             // Construct a query from PR title, description, and git diff
-            // TODO: Add linked issues
+            const linkedIssuesInfo = prData.linkedIssues.map(issue =>
+                `Issue #${issue.number}: ${issue.title}\n${issue.body}`
+            ).join("\n\n");
+
             const query = `
                 PR Title: ${prData.title}
                 PR Description: ${prData.body}
+                Linked Issues: ${linkedIssuesInfo}
                 Changed Files (Git Diff): ${prData.changedFiles.map(f => f.filename).join(", ")}
             `;
 

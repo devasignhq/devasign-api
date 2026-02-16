@@ -103,7 +103,7 @@ ${typeEmoji} ${suggestion.description}
                         section += `
 
 **Suggested Code:**
-\`\`\`
+\`\`\`${suggestion.language}
 ${suggestion.suggestedCode}
 \`\`\``;
                     }
@@ -198,10 +198,10 @@ ${suggestion.suggestedCode}
      */
     private static getSuggestionSeverityEmoji(severity: "high" | "medium" | "low"): string {
         switch (severity) {
-        case "high": return "🔴";
-        case "medium": return "🟡";
-        case "low": return "🔵";
-        default: return "⚪";
+            case "high": return "🔴";
+            case "medium": return "🟡";
+            case "low": return "🔵";
+            default: return "⚪";
         }
     }
 
@@ -210,11 +210,11 @@ ${suggestion.suggestedCode}
      */
     private static getSuggestionTypeEmoji(type: string): string {
         switch (type) {
-        case "fix": return "🔧";
-        case "improvement": return "✨";
-        case "optimization": return "⚡";
-        case "style": return "🎨";
-        default: return "💡";
+            case "fix": return "🔧";
+            case "improvement": return "✨";
+            case "optimization": return "⚡";
+            case "style": return "🎨";
+            default: return "💡";
         }
     }
 

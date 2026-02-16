@@ -249,7 +249,8 @@ export class GeminiAIService {
      * Builds the main review prompt for Gemini
      */
     private buildReviewPrompt(context: ReviewContext): string {
-        const { prData, filesStructure, styleGuide, readme, relevantChunks } = context;
+        dataLogger.info("Building review prompt", { context });
+        const { prData, styleGuide, readme, relevantChunks } = context;
 
         const chunksInfo = relevantChunks.map((chunk, index) => {
             return `--- CHUNK ${index + 1} (Similarity: ${chunk.similarity.toFixed(2)}) ---\nFile: ${chunk.filePath}\n${chunk.content}\n--- END CHUNK ${index + 1} ---`;
@@ -257,7 +258,6 @@ export class GeminiAIService {
 
         const styleGuideSection = styleGuide ? `\nPROJECT STYLE GUIDE (STRICTLY ADHERE TO THIS):\n${styleGuide}\n` : "";
         const readmeSection = readme ? `\nPROJECT README (Context context):\n${readme.slice(0, 3000)}${readme.length > 3000 ? "\n... (readme truncated)" : ""}\n` : "";
-        const fileStructureSection = filesStructure.length > 0 ? `\nREPOSITORY FILE STRUCTURE:\n${filesStructure.slice(0, 500).join("\n")}${filesStructure.length > 500 ? "\n... (more files truncated)" : ""}\n` : "";
 
         return `You are a Senior Principal Software Engineer and Security Expert reviewing a pull request.
 Your goal is to ensure code quality, security, maintainability, and alignment with the project's architecture and style guides.
@@ -268,7 +268,6 @@ ${prData.formattedPullRequest}
 
 ${readmeSection}
 ${styleGuideSection}
-${fileStructureSection}
 
 ${process.env.SKIP_CODE_CHUNKS === "true" ? "" : `=== RELEVANT CODEBASE CHUNKS ===
 (Use these to check for duplication, consistency with existing patterns, and integration correctness)
@@ -282,6 +281,7 @@ ${chunksInfo || "No relevant code chunks found."}`}
     - STRICTLY follow the **STYLE GUIDE** if provided.
     - Use **RELEVANT CODE CHUNKS** to detect inconsistencies, redundant implementations, or broken imports.
 4. **Identify Issues**: Prioritize in this order:
+    - **Core**: Verify that the PR actually solves the linked issue(s).
     - **Critical**: Security vulnerabilities (SQLi, XSS, etc.), logic bugs, race conditions, broken interfaces.
     - **Important**: Performance bottlenecks (~O(n^2) or worse), poor error handling, missing tests.
     - **Maintainability**: Spaghetti code, poor naming, lack of comments, code duplication.
@@ -294,7 +294,7 @@ ${chunksInfo || "No relevant code chunks found."}`}
     - **MUST** include specific file paths and line numbers.
     - **MUST** provide \`suggestedCode\` for fixes and optimizations.
     - Focus on the *changed* code, but note if changed code breaks existing patterns seen in chunks.
-- **Summary**: A concise executive summary of the PR's health.
+- **Summary**: Very short and concise summary of the review.
 
 === RESPONSE FORMAT ===
 Return ONLY a valid JSON object matching this TypeScript interface. Do not include markdown formatting (like \`\`\`json).
@@ -317,6 +317,7 @@ Return ONLY a valid JSON object matching this TypeScript interface. Do not inclu
       "severity": "low" | "medium" | "high",
       "description": string, // Clear explanation
       "suggestedCode": string | null, // The fixed code block
+      "language": string | null, // The language of the fixed code block
       "reasoning": string // Why this change is better
     }
   ],

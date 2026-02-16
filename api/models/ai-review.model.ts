@@ -67,6 +67,7 @@ export interface CodeSuggestion {
     severity: "low" | "medium" | "high";
     description: string;
     suggestedCode?: string;
+    language: string;
     reasoning: string;
 }
 
@@ -109,7 +110,6 @@ export interface TestCoverageMetrics {
 
 export interface ReviewContext {
     prData: PullRequestData;
-    filesStructure: string[];
     styleGuide: string | null;
     readme: string | null;
     relevantChunks: CodeChunkResult[];
