@@ -18,6 +18,7 @@ type Activity = {
     type: "installation";
     installationId: string;
     operation: string;
+    issueUrl: string;
     message: string;
 })
 
@@ -152,13 +153,45 @@ export class FirebaseService {
     /**
      * Update the last activity timestamp for a task to trigger live updates.
      */
-    static async updateActivity(activity: Activity) {
-        const taskRef = activityCollection.doc();
+    static async updateAppActivity(activity: Activity) {
+        let taskRef;
+        switch (activity.type) {
+            case "task":
+                taskRef = tasksCollection.doc(activity.taskId);
+                break;
+            case "installation":
+                taskRef = activityCollection.doc(activity.installationId);
+                break;
+            case "contributor":
+                taskRef = activityCollection.doc(activity.userId);
+                break;
+            default:
+                throw new Error("Invalid activity type");
+        };
         const lastActivityAt = Timestamp.now();
 
         await taskRef.set(
             { ...activity, lastActivityAt },
             { merge: true }
         );
+    }
+
+    /**
+     * Delete an activity from the Firestore collection.
+     */
+    static deleteAppActivity(activity: Partial<Activity>) {
+        let taskRef;
+        switch (activity.type) {
+            case "task":
+                taskRef = tasksCollection.doc(activity.taskId!);
+                break;
+            case "installation":
+                taskRef = activityCollection.doc(activity.installationId!);
+                break;
+            case "contributor":
+                taskRef = activityCollection.doc(activity.userId!);
+                break;
+        };
+        return taskRef!.delete();
     }
 }

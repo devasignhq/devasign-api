@@ -27,6 +27,14 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
     const { userId } = res.locals;
     const { payload: data } = req.body;
     const payload = data as CreateTask;
+    const activityData = (message: string) => ({
+        userId: userId as string,
+        type: "installation" as const,
+        installationId: payload.installationId,
+        issueUrl: payload.issue.url,
+        operation: "task_creation",
+        message
+    });
 
     try {
         // Get installation and verify it exists
@@ -49,13 +57,13 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
         }
 
         // Update activity: Preparing task creation
-        FirebaseService.updateActivity({
-            userId,
-            type: "installation",
-            installationId: payload.installationId,
-            operation: "creating_task",
-            message: "Recording task details..."
-        });
+        FirebaseService.updateAppActivity(activityData("Recording task details..."))
+            .catch((error) => {
+                dataLogger.error(
+                    "Failed to update app activity (Recording task details...)",
+                    { error }
+                );
+            });
 
         // Check user balance
         const accountInfo = await stellarService.getAccountInfo(installation.wallet.address);
@@ -91,13 +99,13 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
         });
 
         // Update activity: Creating escrow on smart contract
-        FirebaseService.updateActivity({
-            userId,
-            type: "installation",
-            installationId: payload.installationId,
-            operation: "escrow_stellar",
-            message: "Creating escrow on Stellar network..."
-        });
+        FirebaseService.updateAppActivity(activityData("Creating escrow on Stellar network..."))
+            .catch((error) => {
+                dataLogger.error(
+                    "Failed to update app activity (Creating escrow on Stellar network...)",
+                    { taskId: task.id, error }
+                );
+            });
 
         // Create escrow on smart contract
         let escrowResult;
@@ -119,13 +127,13 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
         }
 
         // Update activity: Posting bounty details to GitHub
-        FirebaseService.updateActivity({
-            userId,
-            type: "installation",
-            installationId: payload.installationId,
-            operation: "github_post",
-            message: "Posting bounty details to GitHub..."
-        });
+        FirebaseService.updateAppActivity(activityData("Posting bounty details to GitHub..."))
+            .catch((error) => {
+                dataLogger.error(
+                    "Failed to update app activity (Posting bounty details to GitHub...)",
+                    { taskId: task.id, error }
+                );
+            });
 
         let bountyComment, postedComment = false;
         try {
@@ -143,13 +151,13 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
         }
 
         // Update activity: Finalizing task creation
-        FirebaseService.updateActivity({
-            userId,
-            type: "installation",
-            installationId: payload.installationId,
-            operation: "finalizing",
-            message: "Finalizing task setup..."
-        });
+        FirebaseService.updateAppActivity(activityData("Finalizing task setup..."))
+            .catch((error) => {
+                dataLogger.error(
+                    "Failed to update app activity (Finalizing task setup...)",
+                    { taskId: task.id, error }
+                );
+            });
 
         const [updatedTask] = await prisma.$transaction([
             // Update task with bounty comment id
@@ -199,6 +207,15 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
             data: { ...task, ...updatedTask },
             message: "Task created successfully"
         });
+
+        // Delete app activity
+        FirebaseService.deleteAppActivity(activityData(""))
+            .catch((error) => {
+                dataLogger.error(
+                    "Failed to delete app activity",
+                    { taskId: task.id, error }
+                );
+            });
     } catch (error) {
         next(error);
     }
