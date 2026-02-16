@@ -410,7 +410,7 @@ export const submitTaskApplication = async (req: Request, res: Response, next: N
                     connect: { userId }
                 }
             },
-            select: { 
+            select: {
                 id: true,
                 user: { select: { techStack: true, username: true } }
             }
@@ -425,7 +425,7 @@ export const submitTaskApplication = async (req: Request, res: Response, next: N
         });
 
         // Update task activity for live updates
-        FirebaseService.updateActivity({
+        FirebaseService.updateAppActivity({
             userId: task.creatorId,
             type: "task",
             taskId
@@ -593,7 +593,7 @@ export const acceptTaskApplication = async (req: Request, res: Response, next: N
         }
 
         // Update task activity for live updates
-        FirebaseService.updateActivity({
+        FirebaseService.updateAppActivity({
             userId: contributorId,
             type: "contributor"
         }).catch(
@@ -905,7 +905,7 @@ export const markAsComplete = async (req: Request, res: Response, next: NextFunc
         });
 
         // Update task activity for live updates
-        FirebaseService.updateActivity({
+        FirebaseService.updateAppActivity({
             userId: task.creatorId,
             type: "task",
             taskId
@@ -1064,7 +1064,7 @@ export const validateCompletion = async (req: Request, res: Response, next: Next
         );
 
         // Update task activity for live updates
-        FirebaseService.updateActivity({
+        FirebaseService.updateAppActivity({
             userId: task.contributor.userId,
             type: "contributor"
         }).catch(

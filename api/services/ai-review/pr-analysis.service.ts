@@ -356,17 +356,17 @@ ${codeChangesPreview}`;
      */
     private static normalizeFileStatus(status: string): "added" | "modified" | "removed" {
         switch (status) {
-        case "added":
-            return "added";
-        case "removed":
-            return "removed";
-        case "modified":
-        case "renamed":
-        case "copied":
-        case "changed":
-        case "unchanged":
-        default:
-            return "modified";
+            case "added":
+                return "added";
+            case "removed":
+                return "removed";
+            case "modified":
+            case "renamed":
+            case "copied":
+            case "changed":
+            case "unchanged":
+            default:
+                return "modified";
         }
     }
 

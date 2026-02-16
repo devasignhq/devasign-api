@@ -26,55 +26,55 @@ export const handleSumsubWebhook = async (req: Request, res: Response, next: Nex
         }
 
         switch (type) {
-        case "applicantReviewed":
+            case "applicantReviewed":
             // Check if review was successful (GREEN)
-            if (reviewResult?.reviewAnswer === "GREEN") {
-                await prisma.user.update({
-                    where: { userId: externalUserId },
-                    data: { verified: true }
-                });
-                dataLogger.info(`User verified via Sumsub: ${externalUserId}`);
-            }
-            // Check if review requires retry (RED with RETRY type)
-            else if (reviewResult?.reviewAnswer === "RED" && reviewRejectType === "RETRY") {
+                if (reviewResult?.reviewAnswer === "GREEN") {
+                    await prisma.user.update({
+                        where: { userId: externalUserId },
+                        data: { verified: true }
+                    });
+                    dataLogger.info(`User verified via Sumsub: ${externalUserId}`);
+                }
+                // Check if review requires retry (RED with RETRY type)
+                else if (reviewResult?.reviewAnswer === "RED" && reviewRejectType === "RETRY") {
                 // Log warning, client SDK should handle retry guidance automatically
-                dataLogger.info(`User verification retry needed: ${externalUserId}`);
-            }
-            // Check if review was rejected (RED without RETRY)
-            else if (reviewResult?.reviewAnswer === "RED") {
+                    dataLogger.info(`User verification retry needed: ${externalUserId}`);
+                }
+                // Check if review was rejected (RED without RETRY)
+                else if (reviewResult?.reviewAnswer === "RED") {
+                    await prisma.user.update({
+                        where: { userId: externalUserId },
+                        data: { verified: false }
+                    });
+                    dataLogger.info(`User verification rejected via Sumsub: ${externalUserId}`);
+                }
+                break;
+
+            case "applicantActivated":
+            // Check if review was successful (GREEN)
+                if (reviewResult?.reviewAnswer === "GREEN") {
+                    await prisma.user.update({
+                        where: { userId: externalUserId },
+                        data: { verified: true }
+                    });
+                    dataLogger.info(`User verification activated via Sumsub: ${externalUserId}`);
+                }
+                break;
+
+            case "applicantReset":
+            case "applicantDeactivated":
+            case "applicantDeleted":
+            // For these states, the user is not currently verified (reset or invalid)
                 await prisma.user.update({
                     where: { userId: externalUserId },
                     data: { verified: false }
                 });
-                dataLogger.info(`User verification rejected via Sumsub: ${externalUserId}`);
-            }
-            break;
+                dataLogger.info(`User verification status updated via Sumsub event: ${type}`, { externalUserId });
+                break;
 
-        case "applicantActivated":
-            // Check if review was successful (GREEN)
-            if (reviewResult?.reviewAnswer === "GREEN") {
-                await prisma.user.update({
-                    where: { userId: externalUserId },
-                    data: { verified: true }
-                });
-                dataLogger.info(`User verification activated via Sumsub: ${externalUserId}`);
-            }
-            break;
-
-        case "applicantReset":
-        case "applicantDeactivated":
-        case "applicantDeleted":
-            // For these states, the user is not currently verified (reset or invalid)
-            await prisma.user.update({
-                where: { userId: externalUserId },
-                data: { verified: false }
-            });
-            dataLogger.info(`User verification status updated via Sumsub event: ${type}`, { externalUserId });
-            break;
-
-        default:
-            dataLogger.info(`Sumsub webhook event type not handled: ${type}`, { externalUserId });
-            break;
+            default:
+                dataLogger.info(`Sumsub webhook event type not handled: ${type}`, { externalUserId });
+                break;
         }
 
         responseWrapper({

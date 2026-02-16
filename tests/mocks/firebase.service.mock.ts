@@ -219,21 +219,21 @@ export const createFirebaseServiceMock = () => {
 export const mockFirestoreDB = {
     collection: jest.fn((collectionName: string) => {
         switch (collectionName) {
-        case "messages":
-            return mockMessagesCollection;
-        case "tasks":
-            return mockTasksCollection;
-        default:
-            return {
-                doc: jest.fn(() => ({
-                    get: jest.fn().mockResolvedValue({ exists: false }),
-                    set: jest.fn().mockResolvedValue(undefined),
-                    update: jest.fn().mockResolvedValue(undefined)
-                })),
-                where: jest.fn().mockReturnThis(),
-                orderBy: jest.fn().mockReturnThis(),
-                get: jest.fn().mockResolvedValue({ docs: [] })
-            };
+            case "messages":
+                return mockMessagesCollection;
+            case "tasks":
+                return mockTasksCollection;
+            default:
+                return {
+                    doc: jest.fn(() => ({
+                        get: jest.fn().mockResolvedValue({ exists: false }),
+                        set: jest.fn().mockResolvedValue(undefined),
+                        update: jest.fn().mockResolvedValue(undefined)
+                    })),
+                    where: jest.fn().mockReturnThis(),
+                    orderBy: jest.fn().mockReturnThis(),
+                    get: jest.fn().mockResolvedValue({ docs: [] })
+                };
         }
     })
 };

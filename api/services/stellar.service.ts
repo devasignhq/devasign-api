@@ -596,14 +596,12 @@ export class StellarService {
         // Filter payments to incoming funds only
         const incomingFunds = allPayments.records.filter(payment => {
             switch (payment.type as HorizonApi.OperationResponseType) {
-            case "payment":
-                return (payment as HorizonApi.PaymentOperationResponse).to === publicKey;
-
-            case "path_payment_strict_receive":
-                return (payment as HorizonApi.PathPaymentOperationResponse).to === publicKey;
-
-            default:
-                return false;
+                case "payment":
+                    return (payment as HorizonApi.PaymentOperationResponse).to === publicKey;
+                case "path_payment_strict_receive":
+                    return (payment as HorizonApi.PathPaymentOperationResponse).to === publicKey;
+                default:
+                    return false;
             }
         });
 

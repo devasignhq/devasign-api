@@ -444,7 +444,7 @@ export const handleBountyPayout = async (req: Request, res: Response, next: Next
             );
 
             // Update task activity for live updates
-            FirebaseService.updateActivity({
+            FirebaseService.updateAppActivity({
                 userId: relatedTask.contributor.userId,
                 type: "contributor"
             }).catch(

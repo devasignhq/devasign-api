@@ -257,14 +257,14 @@ export class BackgroundJobService extends EventEmitter {
             // Create a promise for the actual work
             const workPromise = (async () => {
                 switch (job.type) {
-                case "pr-analysis":
-                    return await this.orchestrationService.analyzePullRequest(job.data as PullRequestData);
-                case "repository-indexing":
-                    const { installationId, repositoryName } = job.data as RepositoryIndexingData;
-                    await this.indexingService.indexRepository(installationId, repositoryName);
-                    return { success: true }; // Indexing returns void
-                default:
-                    throw new Error(`Unknown job type: ${job.type}`);
+                    case "pr-analysis":
+                        return await this.orchestrationService.analyzePullRequest(job.data as PullRequestData);
+                    case "repository-indexing":
+                        const { installationId, repositoryName } = job.data as RepositoryIndexingData;
+                        await this.indexingService.indexRepository(installationId, repositoryName);
+                        return { success: true }; // Indexing returns void
+                    default:
+                        throw new Error(`Unknown job type: ${job.type}`);
                 }
             })();
 

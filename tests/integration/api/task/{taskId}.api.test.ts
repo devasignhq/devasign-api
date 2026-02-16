@@ -43,7 +43,7 @@ jest.mock("../../../../api/services/firebase.service", () => ({
         createMessage: jest.fn(),
         createTask: jest.fn(),
         updateTaskStatus: jest.fn(),
-        updateActivity: jest.fn()
+        updateAppActivity: jest.fn()
     }
 }));
 
@@ -155,7 +155,7 @@ describe("Task {taskId} API Integration Tests", () => {
         });
 
         mockFirebaseService.updateTaskStatus.mockResolvedValue(true);
-        mockFirebaseService.updateActivity.mockResolvedValue(true);
+        mockFirebaseService.updateAppActivity.mockResolvedValue(true);
 
         mockOctokitService.updateIssueComment.mockResolvedValue(true);
         mockOctokitService.customBountyMessage.mockReturnValue("Updated bounty message");

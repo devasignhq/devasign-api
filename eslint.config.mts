@@ -26,7 +26,7 @@ export default defineConfig([
             "quotes": ["error", "double", { avoidEscape: true }],
             "semi": ["error", "always"],
             "comma-dangle": ["error", "never"],
-            "indent": ["error", 4],
+            "indent": ["error", 4, { SwitchCase: 1 }],
             "max-len": ["warn", { code: 300, ignoreUrls: true }],
             "eol-last": ["error", "always"],
 
