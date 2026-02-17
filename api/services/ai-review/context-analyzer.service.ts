@@ -48,18 +48,6 @@ export class PullRequestContextAnalyzerService {
     }
 
     /**
-     * Fetches the file structure of the repository
-     */
-    private async getFileStructure(installationId: string, repositoryName: string): Promise<string[]> {
-        try {
-            return await OctokitService.getAllFilePathsFromTree(installationId, repositoryName);
-        } catch (error) {
-            dataLogger.warn("Failed to fetch file structure", { error });
-            return [];
-        }
-    }
-
-    /**
      * Fetches CONTRIBUTING.md or similar style guide if it exists
      */
     private async getStyleGuide(installationId: string, repositoryName: string): Promise<string | null> {

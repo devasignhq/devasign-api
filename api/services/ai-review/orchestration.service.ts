@@ -1,6 +1,6 @@
 import { PullRequestData, ReviewResult } from "../../models/ai-review.model";
 import { PRAnalysisError } from "../../models/error.model";
-import { ReviewCommentIntegrationService } from "./comment-integration.service";
+import { AIReviewCommentService } from "./comment.service";
 import { ReviewStatus } from "../../../prisma_client";
 import { prisma } from "../../config/database.config";
 import { PRAnalysisService } from "./pr-analysis.service";
@@ -130,7 +130,7 @@ export class AIReviewOrchestrationService {
      */
     private async postReviewComment(result: ReviewResult): Promise<void> {
         try {
-            const commentResult = await ReviewCommentIntegrationService.postReviewWithRetry(result, 3);
+            const commentResult = await AIReviewCommentService.postReviewResult(result, 3);
 
             if (commentResult.success) {
                 messageLogger.info(`Successfully posted review comment ${commentResult.commentId} for PR #${result.prNumber}`);
@@ -139,7 +139,7 @@ export class AIReviewOrchestrationService {
 
                 // Try to post a simple error comment instead
                 try {
-                    await ReviewCommentIntegrationService.postAnalysisErrorComment(
+                    await AIReviewCommentService.postErrorComment(
                         result.installationId,
                         result.repositoryName,
                         result.prNumber,
@@ -184,7 +184,7 @@ export class AIReviewOrchestrationService {
         } catch (error) {
             dataLogger.error(
                 `Analysis failed for PR #${prData.prNumber} in ${prData.repositoryName}`,
-                { 
+                {
                     error,
                     processingTime: Date.now() - startTime
                 }
@@ -198,7 +198,7 @@ export class AIReviewOrchestrationService {
 
             // Try to post error comment
             try {
-                await ReviewCommentIntegrationService.postAnalysisErrorComment(
+                await AIReviewCommentService.postErrorComment(
                     prData.installationId,
                     prData.repositoryName,
                     prData.prNumber,
