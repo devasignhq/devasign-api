@@ -85,18 +85,23 @@ export class GeminiAIService {
             const reviewPrompt = this.buildReviewPrompt(context);
             const aiResponse = await this.callGeminiAPI(reviewPrompt);
 
-            // Parse and validate the response
+            // Parse the response
             const parsedReview = this.parseAIResponse<AIReview>(aiResponse);
             if (!parsedReview) {
-                throw new GeminiServiceError("AI response validation failed", { response: aiResponse });
+                throw new GeminiServiceError("Failed to parse AI response into JSON", { response: aiResponse });
             }
 
-            // Validate the review quality
-            if (!this.validateAIResponse(parsedReview)) {
-                throw new GeminiServiceError("AI response validation failed", { response: aiResponse });
+            // Sanitize the response to handle nullable fields and edge cases
+            // before strict validation, so a single bad suggestion doesn't
+            // discard an otherwise valid review.
+            const sanitized = this.sanitizeAIResponse(parsedReview);
+
+            // Validate the sanitized review
+            if (!this.validateAIResponse(sanitized)) {
+                throw new GeminiServiceError("AI response validation failed after sanitization", { response: aiResponse });
             }
 
-            return parsedReview;
+            return sanitized;
         } catch (error) {
             if (error instanceof GeminiServiceError) {
                 throw error;
@@ -194,7 +199,9 @@ export class GeminiAIService {
                     dataLogger.warn("Invalid suggestion object", { suggestion });
                     return false;
                 }
-                if (!suggestion.file || !suggestion.description || !suggestion.type || !suggestion.severity) {
+                // `file`, `lineNumber`, `suggestedCode`, and `language` are nullable
+                // per the prompt schema — only description, type, and severity are required.
+                if (!suggestion.description || !suggestion.type || !suggestion.severity) {
                     dataLogger.warn("Missing required suggestion fields", { suggestion });
                     return false;
                 }
@@ -205,6 +212,51 @@ export class GeminiAIService {
             dataLogger.error("Error validating AI response", { error });
             return false;
         }
+    }
+
+    /**
+     * Sanitizes a raw parsed AI response to handle nullable fields, clamp
+     * out-of-range numbers, and filter out malformed suggestions.
+     * This runs before strict validation so minor model quirks don't discard
+     * an otherwise valid review.
+     */
+    private sanitizeAIResponse(review: AIReview): AIReview {
+        // Clamp scores to valid range
+        review.mergeScore = Math.max(0, Math.min(100, review.mergeScore ?? 0));
+        review.confidence = Math.max(0, Math.min(1, review.confidence ?? 0));
+
+        // Clamp quality metrics
+        if (review.codeQuality && typeof review.codeQuality === "object") {
+            const metrics = review.codeQuality;
+            for (const key of Object.keys(metrics) as (keyof typeof metrics)[]) {
+                const val = metrics[key];
+                if (typeof val === "number") {
+                    (metrics[key] as number) = Math.max(0, Math.min(100, val));
+                }
+            }
+        }
+
+        // Filter out suggestions that are missing the truly required fields
+        if (Array.isArray(review.suggestions)) {
+            review.suggestions = review.suggestions.filter((s) => {
+                if (!s || typeof s !== "object") return false;
+                if (!s.description || !s.type || !s.severity) {
+                    dataLogger.warn("Dropping malformed suggestion during sanitization", { suggestion: s });
+                    return false;
+                }
+                // Normalise nullable/optional fields so downstream code is safe.
+                // file is string | null per the interface; the rest are optional (undefined).
+                s.file = s.file ?? null;
+                s.lineNumber = s.lineNumber ?? undefined;
+                s.suggestedCode = s.suggestedCode ?? undefined;
+                s.language = s.language ?? undefined;
+                return true;
+            });
+        } else {
+            review.suggestions = [];
+        }
+
+        return review;
     }
 
     /**
