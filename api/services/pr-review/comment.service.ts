@@ -106,7 +106,6 @@ export class AIReviewCommentService {
             const errorComment = this.formatErrorComment(
                 installationId,
                 prNumber,
-                repositoryName,
                 error
             );
 
@@ -135,144 +134,45 @@ export class AIReviewCommentService {
     }
 
     /**
-     * Gets a preview of how the review comment will look.
+     * Posts an initial "review in progress" comment at the start of PR analysis.
      */
-    public static previewComment(result: ReviewResult): {
-        success: boolean;
-        preview?: string;
-        compactSummary?: string;
-        error?: string;
-    } {
-        try {
-            if (!this.validateReviewResult(result)) {
-                return {
-                    success: false,
-                    error: "Invalid review result data"
-                };
-            }
-
-            const formattedReview = this.formatReview(result);
-            const compactSummary = this.formatCompactSummary(result);
-
-            return {
-                success: true,
-                preview: formattedReview.fullComment,
-                compactSummary
-            };
-
-        } catch (error) {
-            dataLogger.error("Error generating review preview", { error });
-
-            return {
-                success: false,
-                error: error instanceof Error ? error.message : "Unknown error occurred"
-            };
-        }
-    }
-
-    /**
-     * Deletes an AI review comment.
-     */
-    public static async deleteComment(
-        installationId: string,
-        repositoryName: string,
-        commentId: string
-    ): Promise<{
-        success: boolean;
-        error?: string;
-    }> {
-        try {
-            await this.deleteReviewCommentInternal(
-                installationId,
-                repositoryName,
-                commentId
-            );
-
-            return {
-                success: true
-            };
-
-        } catch (error) {
-            dataLogger.error("Error deleting review comment", { error });
-
-            return {
-                success: false,
-                error: error instanceof Error ? error.message : "Unknown error occurred"
-            };
-        }
-    }
-
-    /**
-     * Gets all AI review comments for a PR.
-     */
-    public static async getComments(
+    public static async postInProgressComment(
         installationId: string,
         repositoryName: string,
         prNumber: number
     ): Promise<{
         success: boolean;
-        comments?: Array<{ id: string; body: string; createdAt: string; updatedAt: string }>;
+        commentId?: string;
         error?: string;
     }> {
         try {
-            const comments = await this.getAIReviewCommentsInternal(
+            const inProgressComment = this.formatInProgressComment(
                 installationId,
-                repositoryName,
                 prNumber
             );
 
+            const commentId = await this.createCommentInternal(
+                installationId,
+                repositoryName,
+                prNumber,
+                inProgressComment
+            );
+
+            messageLogger.info(`Posted in-progress comment ${commentId} on PR #${prNumber}`);
+
             return {
                 success: true,
-                comments
+                commentId
             };
 
-        } catch (error) {
-            dataLogger.error("Error getting review comments", { error });
+        } catch (postError) {
+            dataLogger.error("Error posting in-progress comment", { postError });
 
             return {
                 success: false,
-                error: error instanceof Error ? error.message : "Unknown error occurred"
+                error: postError instanceof Error ? postError.message : "Unknown error occurred"
             };
         }
-    }
-
-    /**
-     * Creates a test review result for testing the comment formatting.
-     */
-    public static createTestReviewResult(
-        installationId: string,
-        repositoryName: string,
-        prNumber: number
-    ): ReviewResult {
-        return {
-            installationId,
-            repositoryName,
-            prNumber,
-            mergeScore: 75,
-            suggestions: [
-                {
-                    file: "src/main.js",
-                    lineNumber: 42,
-                    type: "fix",
-                    severity: "medium",
-                    description: "Add semicolon at end of statement",
-                    suggestedCode: "const result = calculateValue();",
-                    reasoning: "Consistent code style improves readability and prevents potential issues"
-                },
-                {
-                    file: "src/utils.js",
-                    type: "improvement",
-                    severity: "low",
-                    description: "Consider using const instead of let for immutable variables",
-                    reasoning: "Using const makes the code more predictable and prevents accidental reassignment"
-                }
-            ],
-            reviewStatus: "COMPLETED",
-            summary: "This PR shows good overall quality with minor style issues that should be addressed.",
-            confidence: 0.85,
-            processingTime: 15000,
-            createdAt: new Date()
-        };
     }
 
     // =========================================================================
@@ -331,7 +231,6 @@ export class AIReviewCommentService {
                 const errorComment = this.formatErrorComment(
                     result.installationId,
                     result.prNumber,
-                    result.repositoryName,
                     error instanceof Error ? error.message : "Unknown error occurred"
                 );
 
@@ -796,9 +695,12 @@ ${result.summary}`;
 
                 suggestions.forEach((suggestion, index) => {
                     const typeEmoji = this.getSuggestionTypeEmoji(suggestion.type);
+                    const fileLabel = suggestion.file
+                        ? `**${suggestion.file}**${suggestion.lineNumber ? ` (Line ${suggestion.lineNumber})` : ""}`
+                        : "**General**";
 
                     section += `
-${index + 1}. **${suggestion.file}**${suggestion.lineNumber ? ` (Line ${suggestion.lineNumber})` : ""}
+${index + 1}. ${fileLabel}
 ${typeEmoji} ${suggestion.description}
 
 💭 **Reasoning:** ${suggestion.reasoning}`;
@@ -807,7 +709,7 @@ ${typeEmoji} ${suggestion.description}
                         section += `
 
 **Suggested Code:**
-\`\`\`${suggestion.language}
+\`\`\`${suggestion.language ?? ""}
 ${suggestion.suggestedCode}
 \`\`\``;
                     }
@@ -912,13 +814,6 @@ ${suggestion.suggestedCode}
         }, { high: [] as CodeSuggestion[], medium: [] as CodeSuggestion[], low: [] as CodeSuggestion[] });
     }
 
-    private static formatCompactSummary(result: ReviewResult): string {
-        const emoji = this.getMergeScoreEmoji(result.mergeScore);
-        const suggestionsCount = result.suggestions.length;
-
-        return `${emoji} Score: ${result.mergeScore}/100 | ${suggestionsCount} suggestions`;
-    }
-
     private static extractReviewMarker(commentBody: string): {
         installationId: string;
         prNumber: number;
@@ -940,32 +835,52 @@ ${suggestion.suggestedCode}
 
     private static isAIReviewComment(commentBody: string): boolean {
         return commentBody.includes("<!-- AI-REVIEW-MARKER:") &&
-            (commentBody.includes("## 🤖 AI Code Review Results") ||
-                commentBody.includes("## 🟢 AI Code Review Results") ||
-                commentBody.includes("## 🟡 AI Code Review Results") ||
-                commentBody.includes("## 🟠 AI Code Review Results") ||
-                commentBody.includes("## 🔴 AI Code Review Results"));
+            (commentBody.includes("## 🔍 PR Review In Progress") ||
+                commentBody.includes("## 🤖 PR Review Results") ||
+                commentBody.includes("## 🟢 PR Review Results") ||
+                commentBody.includes("## 🟡 PR Review Results") ||
+                commentBody.includes("## 🟠 PR Review Results") ||
+                commentBody.includes("## 🔴 PR Review Results"));
+    }
+
+    private static formatInProgressComment(
+        installationId: string,
+        prNumber: number
+    ): string {
+        const timestamp = new Date().toISOString();
+
+        return `## 🔍 PR Review In Progress
+
+---
+
+A review of this pull request has been triggered and is currently running.
+This comment will be updated automatically once the analysis is complete.
+
+### What's happening?
+
+- 🔎 Analysing the diff and changed files
+- 🧠 Evaluating code quality, patterns, and potential issues
+- 📝 Generating actionable suggestions
+
+> ⏳ This usually takes a minute or two. Please hang tight!
+
+<!-- AI-REVIEW-MARKER:${installationId}:${prNumber}:${timestamp} -->`;
     }
 
     public static formatErrorComment(
         installationId: string,
         prNumber: number,
-        repositoryName: string,
         error: string
     ): string {
         const timestamp = new Date().toISOString();
 
-        return `## ❌ AI Code Review Failed
-
-**Pull Request:** #${prNumber}  
-**Repository:** ${repositoryName}  
-**Status:** Analysis Failed
+        return `## ❌ PR Review Failed
 
 ---
 
 ### Error Details
 
-The AI review system encountered an error while analyzing this pull request:
+The PR review system encountered an error while analyzing this pull request:
 
 \`\`\`
 ${error}
@@ -979,7 +894,7 @@ ${error}
 
 ---
 
-> 🤖 This is an automated error message from the AI review system.
+> 🤖 This is an automated error message from the PR review system.
 > 
 > 💬 Need help? [Open an issue](https://github.com/devasign/issues) or contact support.
 

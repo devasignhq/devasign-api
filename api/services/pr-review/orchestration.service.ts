@@ -163,7 +163,24 @@ export class AIReviewOrchestrationService {
 
         try {
             // Create initial review result record
-            await this.createInitialReviewResult(prData);
+            const initialResult = await this.createInitialReviewResult(prData);
+
+            // Post an "in progress" comment so contributors know a review is underway
+            try {
+                const commentResult = await AIReviewCommentService.postInProgressComment(
+                    prData.installationId,
+                    prData.repositoryName,
+                    prData.prNumber
+                );
+
+                await prisma.aIReviewResult.update({
+                    where: { id: initialResult.id },
+                    data: { commentId: commentResult.commentId }
+                });
+            } catch (inProgressError) {
+                // Non-fatal — log and continue with analysis
+                dataLogger.error("Failed to post in-progress comment", { inProgressError });
+            }
 
             // Execute analysis
             const reviewResult = await PRAnalysisService.analyzePullRequest(prData);

@@ -61,7 +61,7 @@ export interface QualityMetrics {
 }
 
 export interface CodeSuggestion {
-    file: string;
+    file: string | null;
     lineNumber?: number;
     type: "improvement" | "fix" | "optimization" | "style";
     severity: "low" | "medium" | "high";
