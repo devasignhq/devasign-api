@@ -1,6 +1,6 @@
 import { OctokitService } from "../octokit.service";
 import { GeminiAIService } from "./gemini-ai.service";
-import { VectorStoreService } from "../vector-store.service";
+import { VectorStoreService } from "./vector-store.service";
 import { dataLogger, messageLogger } from "../../config/logger.config";
 import { prisma } from "../../config/database.config";
 import { IndexingStatus } from "../../../prisma_client";

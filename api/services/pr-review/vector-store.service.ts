@@ -1,7 +1,7 @@
 import { createId } from "@paralleldrive/cuid2";;
-import { CodeFile, CodeChunk, Prisma } from "../../prisma_client";
-import { prisma } from "../config/database.config";
-import { dataLogger } from "../config/logger.config";
+import { CodeFile, CodeChunk, Prisma } from "../../../prisma_client";
+import { prisma } from "../../config/database.config";
+import { dataLogger } from "../../config/logger.config";
 
 /**
  * Service for managing vector store operations using pgvector

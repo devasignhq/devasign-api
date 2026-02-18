@@ -93,7 +93,7 @@ describe("Webhook API Integration Tests", () => {
         app.use(errorHandler);
 
         // Setup mocks
-        const { WorkflowIntegrationService } = await import("../../../../api/services/ai-review/workflow-integration.service");
+        const { WorkflowIntegrationService } = await import("../../../../api/services/pr-review/workflow-integration.service");
         const { OctokitService } = await import("../../../../api/services/octokit.service");
 
         mockWorkflowService = {
@@ -113,7 +113,7 @@ describe("Webhook API Integration Tests", () => {
         const { ContractService } = await import("../../../../api/services/contract.service");
         mockContractService = ContractService;
 
-        const { PRAnalysisService } = await import("../../../../api/services/ai-review/pr-analysis.service");
+        const { PRAnalysisService } = await import("../../../../api/services/pr-review/pr-analysis.service");
         mockPRAnalysisService = PRAnalysisService;
     });
 

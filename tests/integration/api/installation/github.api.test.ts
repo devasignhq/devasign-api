@@ -96,7 +96,7 @@ describe("Installation GitHub API Integration Tests", () => {
         const { OctokitService } = await import("../../../../api/services/octokit.service");
         mockOctokitService = OctokitService;
 
-        const { PRAnalysisService } = await import("../../../../api/services/ai-review/pr-analysis.service");
+        const { PRAnalysisService } = await import("../../../../api/services/pr-review/pr-analysis.service");
         mockPRAnalysisService = PRAnalysisService;
     });
 

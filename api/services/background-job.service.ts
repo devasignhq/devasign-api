@@ -1,7 +1,7 @@
 import { EventEmitter } from "events";
 import { PullRequestData } from "../models/ai-review.model";
-import { AIReviewOrchestrationService } from "./ai-review/orchestration.service";
-import { IndexingService } from "./ai-review/indexing.service";
+import { AIReviewOrchestrationService } from "./pr-review/orchestration.service";
+import { IndexingService } from "./pr-review/indexing.service";
 import { getFieldFromUnknownObject } from "../utilities/helper";
 import { dataLogger, messageLogger } from "../config/logger.config";
 

@@ -1,11 +1,11 @@
 import { Router, Request, Response, NextFunction, RequestHandler } from "express";
 import createError from "http-errors";
-import { GeminiAIService } from "../../services/ai-review/gemini-ai.service";
+import { GeminiAIService } from "../../services/pr-review/gemini-ai.service";
 import { dataLogger } from "../../config/logger.config";
 import { STATUS_CODES } from "../../utilities/data";
 import { GitHubPullRequest, GitHubInstallation } from "../../models/ai-review.model";
 import { OctokitService } from "../../services/octokit.service";
-import { WorkflowIntegrationService } from "../../services/ai-review/workflow-integration.service";
+import { WorkflowIntegrationService } from "../../services/pr-review/workflow-integration.service";
 import { validateRequestParameters } from "../../middlewares/request.middleware";
 import {
     geminiChatSchema,
@@ -15,7 +15,7 @@ import {
     manualAnalysisSchema
 } from "./test.schema";
 import { ValidationError } from "../../models/error.model";
-import { VectorStoreService } from "../../services/vector-store.service";
+import { VectorStoreService } from "../../services/pr-review/vector-store.service";
 import { backgroundJobService } from "../../services/background-job.service";
 
 const router = Router();
@@ -322,7 +322,7 @@ router.post(
             if (!installationId || !repositoryName) {
                 throw new ValidationError("Missing required parameters");
             }
-            
+
             const jobId = await backgroundJobService.addRepositoryIndexingJob(
                 installationId,
                 repositoryName

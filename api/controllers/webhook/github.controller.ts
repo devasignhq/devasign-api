@@ -1,11 +1,11 @@
 import { Request, Response, NextFunction } from "express";
 import { GitHubWebhookPayload } from "../../models/ai-review.model";
-import { WorkflowIntegrationService } from "../../services/ai-review/workflow-integration.service";
+import { WorkflowIntegrationService } from "../../services/pr-review/workflow-integration.service";
 import { responseWrapper, stellarTimestampToDate } from "../../utilities/helper";
 import { STATUS_CODES } from "../../utilities/data";
 import { prisma } from "../../config/database.config";
 import { dataLogger } from "../../config/logger.config";
-import { PRAnalysisService } from "../../services/ai-review/pr-analysis.service";
+import { PRAnalysisService } from "../../services/pr-review/pr-analysis.service";
 import { Task, TaskStatus } from "../../../prisma_client";
 import { ContractService } from "../../services/contract.service";
 import { KMSService } from "../../services/kms.service";

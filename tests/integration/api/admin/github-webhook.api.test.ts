@@ -28,7 +28,7 @@ describe("Admin GitHub Webhook API Integration Tests", () => {
         app.use(errorHandler);
 
         // Setup mocks
-        const { WorkflowIntegrationService } = await import("../../../../api/services/ai-review/workflow-integration.service");
+        const { WorkflowIntegrationService } = await import("../../../../api/services/pr-review/workflow-integration.service");
         const { BackgroundJobService } = await import("../../../../api/services/background-job.service");
 
         mockWorkflowService = {
@@ -540,7 +540,7 @@ describe("Admin GitHub Webhook API Integration Tests", () => {
 
     describe("Error Handling and Edge Cases", () => {
         it("should handle service initialization failures", async () => {
-            const { WorkflowIntegrationService } = await import("../../../../api/services/ai-review/workflow-integration.service");
+            const { WorkflowIntegrationService } = await import("../../../../api/services/pr-review/workflow-integration.service");
             WorkflowIntegrationService.getInstance = jest.fn(() => {
                 throw new Error("Service initialization failed");
             });

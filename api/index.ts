@@ -131,7 +131,7 @@ ErrorHandlerService.initialize().catch(error => {
 // Initialize workflow integration service
 (async () => {
     try {
-        const { WorkflowIntegrationService } = await import("./services/ai-review/workflow-integration.service");
+        const { WorkflowIntegrationService } = await import("./services/pr-review/workflow-integration.service");
         const workflowService = WorkflowIntegrationService.getInstance();
         await workflowService.initialize();
     } catch (error) {
@@ -155,7 +155,7 @@ const gracefulShutdown = async (signal: string) => {
         });
 
         // Shutdown workflow integration service
-        const { WorkflowIntegrationService } = await import("./services/ai-review/workflow-integration.service");
+        const { WorkflowIntegrationService } = await import("./services/pr-review/workflow-integration.service");
         const workflowService = WorkflowIntegrationService.getInstance();
         await workflowService.shutdown();
 

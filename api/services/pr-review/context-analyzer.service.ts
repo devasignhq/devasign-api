@@ -1,7 +1,7 @@
 import { GeminiAIService } from "./gemini-ai.service";
 import { GeminiServiceError } from "../../models/error.model";
 import { PullRequestData, ReviewContext, CodeChunkResult } from "../../models/ai-review.model";
-import { VectorStoreService } from "../vector-store.service";
+import { VectorStoreService } from "./vector-store.service";
 import { OctokitService } from "../octokit.service";
 import { dataLogger, messageLogger } from "../../config/logger.config";
 

@@ -3,7 +3,7 @@ import { dataLogger } from "../../config/logger.config";
 import { responseWrapper, getFieldFromUnknownObject } from "../../utilities/helper";
 import { STATUS_CODES } from "../../utilities/data";
 import { backgroundJobService } from "../../services/background-job.service";
-import { WorkflowIntegrationService } from "../../services/ai-review/workflow-integration.service";
+import { WorkflowIntegrationService } from "../../services/pr-review/workflow-integration.service";
 
 /**
  * Health check endpoint for webhook service

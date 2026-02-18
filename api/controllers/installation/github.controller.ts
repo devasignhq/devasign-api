@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { OctokitService } from "../../services/octokit.service";
 import { IssueFilters } from "../../models/github.model";
-import { PRAnalysisService } from "../../services/ai-review/pr-analysis.service";
+import { PRAnalysisService } from "../../services/pr-review/pr-analysis.service";
 import { PullRequestData } from "../../models/ai-review.model";
 import { PRAnalysisError, GitHubAPIError, ErrorClass } from "../../models/error.model";
 import { responseWrapper, getFieldFromUnknownObject } from "../../utilities/helper";
