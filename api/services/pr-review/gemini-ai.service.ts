@@ -321,8 +321,19 @@ ${prData.formattedPullRequest}
 ${readmeSection}
 ${styleGuideSection}
 
-${process.env.SKIP_CODE_CHUNKS === "true" ? "" : `=== RELEVANT CODEBASE CHUNKS ===
-(Use these to check for duplication, consistency with existing patterns, and integration correctness)
+${(process.env.SKIP_CODE_CHUNKS === "true" || !chunksInfo) ? "" : `=== RELEVANT CODEBASE CHUNKS ===
+(These code chunks were retrieved from the indexed codebase using a vector similarity search, e.g.:
+prisma.$queryRaw\`
+    SELECT cc."id", cc."codeFileId", cc."chunkIndex", cc."content", cf."filePath",
+           1 - (cc."embedding" <=> \${embeddingVector}::vector) AS similarity
+    FROM "CodeChunk" cc
+    JOIN "CodeFile" cf ON cc."codeFileId" = cf."id"
+    WHERE cf."installationId" = \${installationId}
+      AND cf."repositoryName" = \${repositoryName}
+      AND (cc."embedding" <=> \${embeddingVector}::vector) < \${distanceThreshold}
+    ORDER BY cc."embedding" <=> \${embeddingVector}::vector ASC
+    LIMIT \${limit};
+\`)
 ${chunksInfo || "No relevant code chunks found."}`}
 
 === INSTRUCTIONS ===
