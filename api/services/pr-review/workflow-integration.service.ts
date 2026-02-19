@@ -105,8 +105,32 @@ export class WorkflowIntegrationService {
             // Log analysis decision
             PRAnalysisService.logAnalysisDecision(prData, true);
 
-            // Queue for background analysis
-            const jobId = await this.jobQueue.addPRAnalysisJob(prData);
+            // Determine whether this is a follow-up (synchronize) or initial review
+            const isFollowUp = payload.action === "synchronize";
+
+            let jobId: string;
+            if (isFollowUp) {
+                // Check whether a completed initial review already exists for this PR
+                const hasPreviousReview = await this.orchestrationService.hasCompletedReview(
+                    prData.installationId,
+                    prData.prNumber,
+                    prData.repositoryName
+                );
+
+                if (hasPreviousReview) {
+                    // Queue as a follow-up job
+                    jobId = await this.jobQueue.addPRAnalysisJob(prData, true);
+                    dataLogger.info("Queued follow-up review job", { jobId, prNumber: prData.prNumber });
+                } else {
+                    // No prior review exists yet — treat this like an initial review
+                    jobId = await this.jobQueue.addPRAnalysisJob(prData, false);
+                    dataLogger.info("No prior review found; queued as initial review", { jobId, prNumber: prData.prNumber });
+                }
+            } else {
+                // Initial review (opened / ready_for_review)
+                jobId = await this.jobQueue.addPRAnalysisJob(prData, false);
+                dataLogger.info("Queued initial review job", { jobId, prNumber: prData.prNumber });
+            }
 
             dataLogger.info(
                 "Webhook workflow completed successfully",

@@ -17,6 +17,12 @@ export interface RepositoryIndexingData {
     repositoryName: string;
 }
 
+export interface PRAnalysisJobData {
+    prData: PullRequestData;
+    /** When true, the job will call updateExistingReview (follow-up path) instead of analyzePullRequest. */
+    isFollowUp: boolean;
+}
+
 export interface Job<T = unknown> {
     id: string;
     type: JobType;
@@ -71,13 +77,16 @@ export class BackgroundJobService extends EventEmitter {
     }
 
     /**
-     * Adds a PR analysis job to the queue
+     * Adds a PR analysis job to the queue.
+     * @param isFollowUp When true, the job will run via updateExistingReview (incremental follow-up).
      */
-    public async addPRAnalysisJob(prData: PullRequestData): Promise<string> {
+    public async addPRAnalysisJob(prData: PullRequestData, isFollowUp = false): Promise<string> {
+        const jobPayload: PRAnalysisJobData = { prData, isFollowUp };
+        const suffix = isFollowUp ? "-followup" : "";
         return this.addJob({
             type: "pr-analysis",
-            data: prData,
-            idGenerator: () => `pr-analysis-${prData.installationId}-${prData.repositoryName.replace("/", "~")}-${prData.prNumber}`
+            data: jobPayload,
+            idGenerator: () => `pr-analysis-${prData.installationId}-${prData.repositoryName.replace("/", "~")}-${prData.prNumber}${suffix}`
         });
     }
 
@@ -257,12 +266,18 @@ export class BackgroundJobService extends EventEmitter {
             // Create a promise for the actual work
             const workPromise = (async () => {
                 switch (job.type) {
-                    case "pr-analysis":
-                        return await this.orchestrationService.analyzePullRequest(job.data as PullRequestData);
-                    case "repository-indexing":
+                    case "pr-analysis": {
+                        const { prData, isFollowUp } = job.data as PRAnalysisJobData;
+                        if (isFollowUp) {
+                            return await this.orchestrationService.updateExistingReview(prData);
+                        }
+                        return await this.orchestrationService.analyzePullRequest(prData);
+                    }
+                    case "repository-indexing": {
                         const { installationId, repositoryName } = job.data as RepositoryIndexingData;
                         await this.indexingService.indexRepository(installationId, repositoryName);
                         return { success: true }; // Indexing returns void
+                    }
                     default:
                         throw new Error(`Unknown job type: ${job.type}`);
                 }

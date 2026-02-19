@@ -265,25 +265,11 @@ model AIReviewResult {
     suggestions    Json // Array of code suggestions
     reviewStatus   ReviewStatus
     commentId      String? // GitHub comment ID
+    contextMetrics Json? // ContextMetrics object
+    createdAt      DateTime     @default(now())
+    updatedAt      DateTime     @updatedAt
 
-    // New fields for pull request context tracking
-    contextAnalysisUsed  Boolean @default(false)
-    totalFilesInRepo     Int?
-    filesRecommendedByAI Int?
-    filesFetched         Int?
-    fetchSuccessRate     Float?
-    contextQualityScore  Int? // 0-100
-    processingTimeMs     Int?
-
-    // JSON fields for detailed context metrics
-    contextMetrics    Json? // ContextMetrics object
-    aiRecommendations Json? // RelevantFileRecommendation object
-    fetchedFilePaths  Json? // Array of successfully fetched file paths
-
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
-
-    @@unique([installationId, prNumber, repositoryName])
+    @@index([installationId, prNumber, repositoryName])
     @@index([installationId, reviewStatus])
 }
 

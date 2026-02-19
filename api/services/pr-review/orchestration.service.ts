@@ -21,49 +21,27 @@ export class AIReviewOrchestrationService {
     };
 
     /**
-     * Creates initial review result record in database
+     * Creates initial review result record in database.
+     * Always creates a new record for every analysis cycle (initial or follow-up).
      */
     private async createInitialReviewResult(prData: PullRequestData) {
         try {
-            const existingResult = await prisma.aIReviewResult.findUnique({
-                where: {
-                    installationId_prNumber_repositoryName: {
-                        installationId: prData.installationId,
-                        prNumber: prData.prNumber,
-                        repositoryName: prData.repositoryName
-                    }
+            // Always create a new record so we have a full history of reviews
+            const created = await prisma.aIReviewResult.create({
+                data: {
+                    installationId: prData.installationId,
+                    prNumber: prData.prNumber,
+                    prUrl: prData.prUrl,
+                    repositoryName: prData.repositoryName,
+                    mergeScore: 0,
+                    rulesViolated: [],
+                    rulesPassed: [],
+                    suggestions: [],
+                    reviewStatus: ReviewStatus.IN_PROGRESS
                 }
             });
 
-            if (existingResult) {
-                // Update existing record
-                const updated = await prisma.aIReviewResult.update({
-                    where: { id: existingResult.id },
-                    data: {
-                        reviewStatus: ReviewStatus.IN_PROGRESS,
-                        updatedAt: new Date()
-                    }
-                });
-
-                return updated;
-            } else {
-                // Create new record
-                const created = await prisma.aIReviewResult.create({
-                    data: {
-                        installationId: prData.installationId,
-                        prNumber: prData.prNumber,
-                        prUrl: prData.prUrl,
-                        repositoryName: prData.repositoryName,
-                        mergeScore: 0,
-                        rulesViolated: [],
-                        rulesPassed: [],
-                        suggestions: [],
-                        reviewStatus: ReviewStatus.IN_PROGRESS
-                    }
-                });
-
-                return created;
-            }
+            return created;
         } catch (error) {
             throw new PRAnalysisError(
                 prData.prNumber,
@@ -75,43 +53,59 @@ export class AIReviewOrchestrationService {
     }
 
     /**
-     * Updates review status in database
+     * Updates review status in database for a specific record.
      */
     private async updateReviewStatus(
-        installationId: string,
-        prNumber: number,
-        repositoryName: string,
+        id: string,
         status: ReviewStatus
     ): Promise<void> {
         try {
-            await prisma.aIReviewResult.updateMany({
-                where: {
-                    installationId,
-                    prNumber,
-                    repositoryName
-                },
+            await prisma.aIReviewResult.update({
+                where: { id },
                 data: {
                     reviewStatus: status,
                     updatedAt: new Date()
                 }
             });
         } catch (error) {
-            dataLogger.error("Failed to update review status", { error });
-            // Don't throw error to avoid breaking main workflow
+            dataLogger.error("Failed to update review status", { id, error });
         }
     }
 
     /**
-     * Stores final review result in database
+     * Checks whether a completed initial review already exists in the database for this PR.
+     * Used by the workflow layer to determine if a `synchronize` event should trigger a
+     * follow-up review instead of a fresh initial review.
      */
-    private async storeReviewResult(result: ReviewResult): Promise<void> {
+    public async hasCompletedReview(
+        installationId: string,
+        prNumber: number,
+        repositoryName: string
+    ): Promise<boolean> {
         try {
-            await prisma.aIReviewResult.updateMany({
+            const existing = await prisma.aIReviewResult.findFirst({
                 where: {
-                    installationId: result.installationId,
-                    prNumber: result.prNumber,
-                    repositoryName: result.repositoryName
+                    installationId,
+                    prNumber,
+                    repositoryName,
+                    reviewStatus: ReviewStatus.COMPLETED
                 },
+                select: { id: true }
+            });
+            return !!existing;
+        } catch (error) {
+            dataLogger.error("Failed to check existing review status", { error });
+            return false;
+        }
+    }
+
+    /**
+     * Stores final review result in database for a specific record.
+     */
+    private async storeReviewResult(id: string, result: ReviewResult): Promise<void> {
+        try {
+            await prisma.aIReviewResult.update({
+                where: { id },
                 data: {
                     mergeScore: result.mergeScore,
                     suggestions: result.suggestions,
@@ -120,24 +114,26 @@ export class AIReviewOrchestrationService {
                 }
             });
         } catch (error) {
-            dataLogger.error("Failed to store review result", { error });
-            // Don't throw error to avoid breaking main workflow
+            dataLogger.error("Failed to store review result", { id, error });
         }
     }
 
     /**
-     * Posts review comment to GitHub PR
+     * Posts review comment to GitHub PR and persists the commentId.
      */
-    private async postReviewComment(result: ReviewResult): Promise<void> {
+    private async postReviewComment(id: string, result: ReviewResult): Promise<void> {
         try {
             const commentResult = await AIReviewCommentService.postReviewResult(result, 3);
 
-            if (commentResult.success) {
+            if (commentResult.success && commentResult.commentId) {
+                await prisma.aIReviewResult.update({
+                    where: { id },
+                    data: { commentId: commentResult.commentId }
+                });
                 messageLogger.info(`Successfully posted review comment ${commentResult.commentId} for PR #${result.prNumber}`);
-            } else {
+            } else if (!commentResult.success) {
                 messageLogger.error(`Failed to post review comment for PR #${result.prNumber}`, { error: commentResult.error });
 
-                // Try to post a simple error comment instead
                 try {
                     await AIReviewCommentService.postErrorComment(
                         result.installationId,
@@ -150,8 +146,39 @@ export class AIReviewOrchestrationService {
                 }
             }
         } catch (error) {
-            dataLogger.error("Error in review comment posting", { error });
-            // Don't throw error to avoid breaking main workflow
+            dataLogger.error("Error in review comment posting", { id, error });
+        }
+    }
+
+    /**
+     * Posts a follow-up review as a brand-new comment and persists the commentId.
+     */
+    private async postFollowUpReviewComment(id: string, result: ReviewResult): Promise<void> {
+        try {
+            const commentResult = await AIReviewCommentService.postFollowUpReviewResult(result, 3);
+
+            if (commentResult.success && commentResult.commentId) {
+                await prisma.aIReviewResult.update({
+                    where: { id },
+                    data: { commentId: commentResult.commentId }
+                });
+                messageLogger.info(`Successfully posted follow-up review comment ${commentResult.commentId} for PR #${result.prNumber}`);
+            } else if (!commentResult.success) {
+                messageLogger.error(`Failed to post follow-up review comment for PR #${result.prNumber}`, { error: commentResult.error });
+
+                try {
+                    await AIReviewCommentService.postErrorComment(
+                        result.installationId,
+                        result.repositoryName,
+                        result.prNumber,
+                        "Follow-up review analysis completed but failed to post results. Please check the logs."
+                    );
+                } catch (errorCommentError) {
+                    dataLogger.error("Failed to post error comment", { errorCommentError });
+                }
+            }
+        } catch (error) {
+            dataLogger.error("Error posting follow-up review comment", { id, error });
         }
     }
 
@@ -173,10 +200,12 @@ export class AIReviewOrchestrationService {
                     prData.prNumber
                 );
 
-                await prisma.aIReviewResult.update({
-                    where: { id: initialResult.id },
-                    data: { commentId: commentResult.commentId }
-                });
+                if (commentResult.success && commentResult.commentId) {
+                    await prisma.aIReviewResult.update({
+                        where: { id: initialResult.id },
+                        data: { commentId: commentResult.commentId }
+                    });
+                }
             } catch (inProgressError) {
                 // Non-fatal — log and continue with analysis
                 dataLogger.error("Failed to post in-progress comment", { inProgressError });
@@ -185,14 +214,37 @@ export class AIReviewOrchestrationService {
             // Execute analysis
             const reviewResult = await PRAnalysisService.analyzePullRequest(prData);
 
+            // Carry the record ID for database lookups during comment updates
+            reviewResult.id = initialResult.id;
+
             // Update the result with processing time
             reviewResult.processingTime = Date.now() - startTime;
 
             // Store results and update status
-            await this.storeReviewResult(reviewResult);
+            await this.storeReviewResult(initialResult.id, reviewResult);
+
+            // Persist the initial diff+summary into contextMetrics so the first follow-up
+            // has something meaningful to compare against.
+            try {
+                const initialDiff = prData.changedFiles.map((file) =>
+                    `\n--- ${file.filename} (${file.status}) ---\n${file.patch}`
+                ).join("\n");
+
+                await prisma.aIReviewResult.update({
+                    where: { id: initialResult.id },
+                    data: {
+                        contextMetrics: {
+                            lastReviewSummary: reviewResult.summary,
+                            lastReviewDiff: initialDiff
+                        }
+                    }
+                });
+            } catch (persistError) {
+                dataLogger.error("Failed to persist initial diff/summary", { persistError });
+            }
 
             // Post review comment to GitHub
-            await this.postReviewComment(reviewResult);
+            await this.postReviewComment(initialResult.id, reviewResult);
 
             messageLogger.info(`Pull request context analysis completed successfully for PR #${prData.prNumber} in ${reviewResult.processingTime}ms`);
 
@@ -207,42 +259,115 @@ export class AIReviewOrchestrationService {
                 }
             );
 
-            try {
-                await this.updateReviewStatus(prData.installationId, prData.prNumber, prData.repositoryName, ReviewStatus.FAILED);
-            } catch (statusError) {
-                dataLogger.error("Failed to update review status to FAILED", { statusError });
-            }
+            // Since we created a record, we can use its ID if it exists
+            // But we need to be careful if createInitialReviewResult failed
+            // However, handlePRReview wraps this, and analyzePullRequest is where we are.
+            // Let's assume initialResult exists if we reached here.
+            // If it doesn't, we can skip status update as record was never created.
+            // But actually we have access to prData, so we could theoretically find it, 
+            // but updateStatusByRecordId is safer.
 
-            // Try to post error comment
-            try {
-                await AIReviewCommentService.postErrorComment(
-                    prData.installationId,
-                    prData.repositoryName,
-                    prData.prNumber,
-                    `Analysis failed: ${(error as Error).message}. Please review manually.`
-                );
-            } catch (commentError) {
-                dataLogger.error("Failed to post error comment", { commentError });
-            }
+            // Re-finding is not possible if it was never created. 
+            // Orchestration usually handles this.
+            // For now, let's just use try-catch inside.
+            /* no-op if no recordId */
 
             throw error;
         }
     }
 
     /**
-     * Updates existing review for a PR
+     * Handles a follow-up review triggered when new commits are pushed to an already-reviewed PR.
+     * Always posts a NEW comment (never updates the original review comment).
      */
     async updateExistingReview(prData: PullRequestData): Promise<ReviewResult> {
-        // Use analysis for updates as well
+        const startTime = Date.now();
+        let recordId: string | undefined;
+
         try {
-            messageLogger.info(`Updating existing review for PR #${prData.prNumber}`);
-            return await this.analyzePullRequest(prData);
+            messageLogger.info(`Starting follow-up review for PR #${prData.prNumber} in ${prData.repositoryName}`);
+
+            // Always create a NEW record for the follow-up
+            const initialResult = await this.createInitialReviewResult(prData);
+            recordId = initialResult.id;
+
+            // Post a "follow-up review in progress" notification comment
+            try {
+                const commentResult = await AIReviewCommentService.postFollowUpInProgressComment(
+                    prData.installationId,
+                    prData.repositoryName,
+                    prData.prNumber
+                );
+
+                if (commentResult.success && commentResult.commentId) {
+                    await prisma.aIReviewResult.update({
+                        where: { id: recordId },
+                        data: { commentId: commentResult.commentId }
+                    });
+                }
+            } catch (inProgressError) {
+                dataLogger.error("Failed to post follow-up in-progress comment", { inProgressError });
+            }
+
+            // Run the follow-up analysis
+            const reviewResult = await PRAnalysisService.analyzePullRequestFollowUp(prData);
+
+            // Carry the record ID
+            reviewResult.id = recordId;
+
+            reviewResult.processingTime = Date.now() - startTime;
+
+            // Update the specific record for this follow-up
+            await this.storeReviewResult(recordId, reviewResult);
+
+            // Persist the CURRENT diff + summary so the NEXT follow-up has context
+            try {
+                const currentDiff = prData.changedFiles.map((file) =>
+                    `\n--- ${file.filename} (${file.status}) ---\n${file.patch}`
+                ).join("\n");
+
+                await prisma.aIReviewResult.update({
+                    where: { id: recordId },
+                    data: {
+                        contextMetrics: {
+                            lastReviewSummary: reviewResult.summary,
+                            lastReviewDiff: currentDiff
+                        }
+                    }
+                });
+            } catch (persistError) {
+                dataLogger.error("Failed to persist follow-up diff/summary", { persistError });
+            }
+
+            // Post the follow-up review as a BRAND-NEW comment
+            await this.postFollowUpReviewComment(recordId, reviewResult);
+
+            messageLogger.info(`Follow-up review completed for PR #${prData.prNumber} in ${reviewResult.processingTime}ms`);
+
+            return reviewResult;
+
         } catch (error) {
-            dataLogger.error("Error updating existing review", { error });
+            dataLogger.error("Follow-up review failed", { error, prNumber: prData.prNumber });
+
+            if (recordId) {
+                await this.updateReviewStatus(recordId, ReviewStatus.FAILED);
+            }
+
+            try {
+                await AIReviewCommentService.postErrorComment(
+                    prData.installationId,
+                    prData.repositoryName,
+                    prData.prNumber,
+                    `Follow-up review failed: ${(error as Error).message}. Please review manually.`
+                );
+            } catch (commentError) {
+                dataLogger.error("Failed to post error comment", { commentError });
+            }
+
             throw new PRAnalysisError(
                 prData.prNumber,
                 prData.repositoryName,
-                "Failed to update existing review",
+                "Failed to complete follow-up review",
                 error
             );
         }

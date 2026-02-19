@@ -459,9 +459,7 @@ export class DatabaseTestUtilities {
                         rulesViolated: resultData.rulesViolated as Prisma.InputJsonValue,
                         rulesPassed: resultData.rulesPassed as Prisma.InputJsonValue,
                         suggestions: resultData.suggestions as Prisma.InputJsonValue,
-                        contextMetrics: resultData.contextMetrics as Prisma.InputJsonValue,
-                        aiRecommendations: resultData.aiRecommendations as Prisma.InputJsonValue,
-                        fetchedFilePaths: resultData.fetchedFilePaths as Prisma.InputJsonValue
+                        contextMetrics: resultData.contextMetrics as Prisma.InputJsonValue
                     }
                 });
                 aiReviewResults.push(result);

@@ -17,6 +17,8 @@ export interface PullRequestData {
     author: string;
     isDraft: boolean;
     formattedPullRequest: string;
+    /** Raw concatenated git diff from the *previous* review cycle, used for follow-up prompts. */
+    previousDiff?: string;
 }
 
 export interface ChangedFile {
@@ -115,6 +117,20 @@ export interface ReviewContext {
     relevantChunks: CodeChunkResult[];
 }
 
+/**
+ * Context used specifically for follow-up reviews (triggered by a `synchronize` event).
+ * Carries the previous cycle's git diff and the AI review summary so that
+ * the model can compare before/after and give a meaningful incremental review.
+ */
+export interface FollowUpReviewContext extends ReviewContext {
+    /** Raw git diff that was reviewed in the *previous* cycle. */
+    previousDiff: string;
+    /** Human-readable summary produced by the previous AI review. */
+    previousReviewSummary: string;
+    /** The merge score from the previous AI review (0-100). */
+    previousMergeScore: number;
+}
+
 export interface CodeChunkResult {
     filePath: string;
     content: string;
@@ -127,6 +143,7 @@ export interface CodeChunkResult {
 // ============================================================================
 
 export interface ReviewResult {
+    id?: string; // Database record ID
     installationId: string;
     prNumber: number;
     repositoryName: string;
@@ -137,6 +154,10 @@ export interface ReviewResult {
     confidence: number;
     processingTime: number;
     createdAt: Date;
+    /** True when this is a follow-up review triggered by a new push to the PR. */
+    isFollowUp?: boolean;
+    /** The summary from the previous review, included for follow-up context in comments. */
+    previousSummary?: string;
 }
 
 export interface FormattedReview {

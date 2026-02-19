@@ -3,7 +3,8 @@ import {
     LinkedIssue,
     ChangedFile,
     GitHubWebhookPayload,
-    ReviewResult
+    ReviewResult,
+    FollowUpReviewContext
 } from "../../models/ai-review.model";
 import { PRAnalysisError, GitHubAPIError, ErrorClass } from "../../models/error.model";
 import { OctokitService } from "../octokit.service";
@@ -12,6 +13,7 @@ import { PullRequestContextAnalyzerService } from "./context-analyzer.service";
 import { GeminiAIService } from "./gemini-ai.service";
 import { getFieldFromUnknownObject } from "../../utilities/helper";
 import { dataLogger, messageLogger } from "../../config/logger.config";
+import { prisma } from "../../config/database.config";
 
 /**
  * Service for analyzing PR events and determining eligibility for AI review
@@ -488,6 +490,87 @@ ${codeChangesPreview}`;
         } catch (error) {
             dataLogger.error("Pull request context analysis failed", { error });
 
+            throw error;
+        }
+    }
+
+    /**
+     * Performs a follow-up review for a PR that already has a completed initial review.
+     * Retrieves the previous diff + review summary from the database, then asks
+     * Gemini to incrementally evaluate only the new changes.
+     */
+    public static async analyzePullRequestFollowUp(prData: PullRequestData): Promise<ReviewResult> {
+        const startTime = Date.now();
+        messageLogger.info(`Starting follow-up analysis for PR #${prData.prNumber} in ${prData.repositoryName}`);
+
+        // Fetch the stored previous review from the database.
+        // We look for the most recent COMPLETED review for this PR.
+        const existingResult = await prisma.aIReviewResult.findFirst({
+            where: {
+                installationId: prData.installationId,
+                prNumber: prData.prNumber,
+                repositoryName: prData.repositoryName,
+                reviewStatus: "COMPLETED"
+            },
+            orderBy: { createdAt: "desc" },
+            select: {
+                mergeScore: true,
+                suggestions: true,
+                contextMetrics: true
+            }
+        });
+
+        // Extract what we need from the stored result
+        const previousMergeScore = existingResult?.mergeScore ?? 0;
+        const previousReviewSummary = (() => {
+            const meta = existingResult?.contextMetrics as Record<string, unknown> | null;
+            return (typeof meta?.lastReviewSummary === "string" ? meta.lastReviewSummary : "");
+        })();
+        const previousDiff = (() => {
+            const meta = existingResult?.contextMetrics as Record<string, unknown> | null;
+            return (typeof meta?.lastReviewDiff === "string" ? meta.lastReviewDiff : "");
+        })();
+
+        try {
+            const review = await this.executeWithTimeout(
+                async () => {
+                    const reviewContext = await this.contextAnalyzer.buildReviewContext(prData);
+
+                    const followUpContext: FollowUpReviewContext = {
+                        ...reviewContext,
+                        previousDiff,
+                        previousReviewSummary,
+                        previousMergeScore
+                    };
+
+                    const aiReview = await this.geminiService.generateFollowUpReview(followUpContext);
+
+                    return {
+                        installationId: prData.installationId,
+                        prNumber: prData.prNumber,
+                        repositoryName: prData.repositoryName,
+                        mergeScore: aiReview.mergeScore,
+                        suggestions: aiReview.suggestions,
+                        reviewStatus: "COMPLETED",
+                        summary: aiReview.summary,
+                        confidence: aiReview.confidence,
+                        processingTime: 0,
+                        createdAt: new Date(),
+                        isFollowUp: true,
+                        previousSummary: previousReviewSummary
+                    } as ReviewResult;
+                },
+                300000, // 5 minutes
+                "Pull request follow-up analysis"
+            );
+
+            const processingTime = Date.now() - startTime;
+            messageLogger.info(`Follow-up analysis completed in ${processingTime}ms for PR #${prData.prNumber}`);
+
+            return review;
+
+        } catch (error) {
+            dataLogger.error("Pull request follow-up analysis failed", { error });
             throw error;
         }
     }
