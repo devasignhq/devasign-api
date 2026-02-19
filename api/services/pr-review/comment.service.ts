@@ -175,6 +175,144 @@ export class AIReviewCommentService {
         }
     }
 
+    /**
+     * Always creates a brand-new review comment for a follow-up review (triggered by
+     * a new push to an already-reviewed PR). It never updates an existing comment so
+     * contributors can see the full history of reviews.
+     */
+    public static async postFollowUpReviewResult(
+        result: ReviewResult,
+        maxRetries: number = 3
+    ): Promise<{
+        success: boolean;
+        commentId?: string;
+        error?: string;
+        attempts: number;
+    }> {
+        try {
+            if (!this.validateReviewResult(result)) {
+                return {
+                    success: false,
+                    error: "Invalid review result data",
+                    attempts: 0
+                };
+            }
+
+            let lastError: Error | null = null;
+            let attempts = 0;
+
+            for (let attempt = 0; attempt < maxRetries; attempt++) {
+                attempts++;
+
+                try {
+                    // Check if there's already an in-progress comment for this specific follow-up cycle
+                    const existingCommentId = await this.findExistingReviewComment(
+                        result.installationId,
+                        result.repositoryName,
+                        result.prNumber,
+                        result.id
+                    );
+
+                    const formattedReview = this.formatFollowUpReview(result);
+                    let commentId: string;
+
+                    if (existingCommentId) {
+                        // Update the in-progress comment for this record
+                        await this.updateCommentInternal(
+                            result.installationId,
+                            result.repositoryName,
+                            existingCommentId,
+                            formattedReview.fullComment
+                        );
+                        commentId = existingCommentId;
+                        messageLogger.info(`Updated follow-up review comment ${commentId} on PR #${result.prNumber}`);
+                    } else {
+                        // Create a brand-new comment
+                        commentId = await this.createCommentInternal(
+                            result.installationId,
+                            result.repositoryName,
+                            result.prNumber,
+                            formattedReview.fullComment
+                        );
+                        messageLogger.info(`Created new follow-up review comment ${commentId} on PR #${result.prNumber}`);
+                    }
+
+                    return {
+                        success: true,
+                        commentId,
+                        attempts
+                    };
+
+                } catch (error) {
+                    lastError = error as Error;
+
+                    if (error instanceof GitHubAPIError) {
+                        if (error.statusCode === 403 || error.statusCode === 404) {
+                            break;
+                        }
+                    }
+
+                    if (attempt < maxRetries - 1) {
+                        const delay = Math.pow(2, attempt) * 1000;
+                        messageLogger.info(`Follow-up comment posting failed (attempt ${attempt + 1}/${maxRetries}), retrying in ${delay}ms`);
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                    }
+                }
+            }
+
+            return {
+                success: false,
+                error: lastError?.message || "Unknown error occurred",
+                attempts
+            };
+
+        } catch (error) {
+            dataLogger.error("Error posting follow-up review comment", { error });
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : "Unknown error occurred",
+                attempts: 0
+            };
+        }
+    }
+
+    /**
+     * Posts a "follow-up review in progress" comment when new commits are detected on a PR
+     * that has already been reviewed.
+     */
+    public static async postFollowUpInProgressComment(
+        installationId: string,
+        repositoryName: string,
+        prNumber: number
+    ): Promise<{
+        success: boolean;
+        commentId?: string;
+        error?: string;
+    }> {
+        try {
+            const comment = this.formatFollowUpInProgressComment(installationId, prNumber);
+
+            const commentId = await this.createCommentInternal(
+                installationId,
+                repositoryName,
+                prNumber,
+                comment
+            );
+
+            messageLogger.info(`Posted follow-up in-progress comment ${commentId} on PR #${prNumber}`);
+
+            return { success: true, commentId };
+
+        } catch (postError) {
+            dataLogger.error("Error posting follow-up in-progress comment", { postError });
+
+            return {
+                success: false,
+                error: postError instanceof Error ? postError.message : "Unknown error occurred"
+            };
+        }
+    }
+
     // =========================================================================
     // Private Core Logic (Comment Service)
     // =========================================================================
@@ -184,15 +322,17 @@ export class AIReviewCommentService {
      */
     private static async postOrUpdateReviewInternal(result: ReviewResult): Promise<string> {
         try {
-            // Format the review into a structured comment
-            const formattedReview = this.formatReview(result);
-
-            // Check if there's already an AI review comment on this PR
+            // Try to find an existing AI review comment to update
+            // We pass result.id to ensure we find the comment linked to this specific record
             const existingCommentId = await this.findExistingReviewComment(
                 result.installationId,
                 result.repositoryName,
-                result.prNumber
+                result.prNumber,
+                result.id
             );
+
+            // Format the review into a structured comment
+            const formattedReview = this.formatReview(result);
 
             let commentId: string;
 
@@ -328,31 +468,28 @@ export class AIReviewCommentService {
     private static async findExistingReviewComment(
         installationId: string,
         repositoryName: string,
-        prNumber: number
+        prNumber: number,
+        recordId?: string
     ): Promise<string | null> {
         try {
-            // First, check if we have a stored comment ID in the database
-            const storedResult = await prisma.aIReviewResult.findUnique({
-                where: {
-                    installationId_prNumber_repositoryName: {
+            // First, check if we have a specific record ID to look up
+            if (recordId) {
+                const storedResult = await prisma.aIReviewResult.findUnique({
+                    where: { id: recordId },
+                    select: { commentId: true }
+                });
+
+                if (storedResult?.commentId) {
+                    // Verify the comment still exists
+                    const commentExists = await this.verifyCommentExists(
                         installationId,
-                        prNumber,
-                        repositoryName
+                        repositoryName,
+                        storedResult.commentId
+                    );
+
+                    if (commentExists) {
+                        return storedResult.commentId;
                     }
-                },
-                select: { commentId: true }
-            });
-
-            if (storedResult?.commentId) {
-                // Verify the comment still exists
-                const commentExists = await this.verifyCommentExists(
-                    installationId,
-                    repositoryName,
-                    storedResult.commentId
-                );
-
-                if (commentExists) {
-                    return storedResult.commentId;
                 }
             }
 
@@ -643,6 +780,35 @@ export class AIReviewCommentService {
         };
     }
 
+    /**
+     * Formats a follow-up review comment. Visually distinct from initial reviews — includes
+     * a "follow-up" badge and a previous summary block if available.
+     */
+    private static formatFollowUpReview(result: ReviewResult): FormattedReview {
+        const emoji = this.getMergeScoreEmoji(result.mergeScore);
+        const status = this.getMergeScoreStatus(result.mergeScore);
+        const scoreBar = this.createScoreBar(result.mergeScore);
+        const recommendation = this.getMergeRecommendation(result.mergeScore);
+        const processingTime = result.processingTime ? `${Math.round(result.processingTime / 1000)}s` : "N/A";
+        const timestamp = result.createdAt.toISOString();
+
+        const previousSummaryBlock = result.previousSummary
+            ? `<details>\n<summary>📋 Previous Review Summary</summary>\n\n${result.previousSummary}\n\n</details>\n\n`
+            : "";
+
+        const header = `## 🔄 Follow-Up AI Code Review\n\n**Status:** ${status}  \n**Confidence:** ${Math.round(result.confidence * 100)}%\n\n---`;
+
+        const mergeScoreSection = `### ${emoji} Updated Merge Score: ${result.mergeScore}/100\n\n${scoreBar}\n\n**Recommendation:** ${recommendation}\n\n${previousSummaryBlock}${result.summary}`;
+
+        const suggestionsSection = this.createSuggestionsSection(result);
+
+        const footer = `\n\n<details>\n<summary>📊 Review Metadata</summary>\n\n- **Processing Time:** ${processingTime}\n- **Analysis Date:** ${new Date(result.createdAt).toLocaleString()}\n- **Review Type:** Follow-Up (triggered by new push)\n\n</details>\n\n> 🤖 This is a follow-up review generated after new commits were pushed to the PR.\n> \n> 💬 Questions? [Open an issue](https://github.com/devasignhq/devasign-api/issues) or contact support.\n\n<!-- AI-REVIEW-MARKER:${result.installationId}:${result.prNumber}:${timestamp} -->`;
+
+        const fullComment = [header, mergeScoreSection, suggestionsSection, footer].join("\n\n");
+
+        return { header, mergeScoreSection, suggestionsSection, footer, fullComment };
+    }
+
     private static createHeader(result: ReviewResult): string {
         const emoji = this.getMergeScoreEmoji(result.mergeScore);
         const status = this.getMergeScoreStatus(result.mergeScore);
@@ -861,6 +1027,34 @@ This comment will be updated automatically once the analysis is complete.
 - 🔎 Analysing the diff and changed files
 - 🧠 Evaluating code quality, patterns, and potential issues
 - 📝 Generating actionable suggestions
+
+> ⏳ This usually takes a minute or two. Please hang tight!
+
+<!-- AI-REVIEW-MARKER:${installationId}:${prNumber}:${timestamp} -->`;
+    }
+
+    /**
+     * Formats a "follow-up review in progress" notification comment, shown when new
+     * commits are detected on an already-reviewed PR.
+     */
+    private static formatFollowUpInProgressComment(
+        installationId: string,
+        prNumber: number
+    ): string {
+        const timestamp = new Date().toISOString();
+
+        return `## 🔄 Follow-Up Review In Progress
+
+---
+
+New commits have been pushed to this pull request since the last review.
+A follow-up review has been triggered and is currently running.
+
+### What's happening?
+
+- 🔎 Comparing new changes against the previous review
+- 🧠 Checking whether earlier concerns were addressed
+- 📝 Identifying any new issues introduced by the latest push
 
 > ⏳ This usually takes a minute or two. Please hang tight!
 

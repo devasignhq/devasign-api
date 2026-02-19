@@ -262,16 +262,7 @@ export class TestDataFactory {
             ],
             reviewStatus: ReviewStatus.COMPLETED,
             commentId: null,
-            contextAnalysisUsed: false,
-            totalFilesInRepo: null,
-            filesRecommendedByAI: null,
-            filesFetched: null,
-            fetchSuccessRate: null,
-            contextQualityScore: null,
-            processingTimeMs: null,
             contextMetrics: null,
-            aiRecommendations: null,
-            fetchedFilePaths: null,
             ...overrides
         };
     }

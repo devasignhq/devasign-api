@@ -3,7 +3,8 @@ import { VertexAIEmbeddings } from "@langchain/google-vertexai";
 import {
     AIReview,
     QualityMetrics,
-    ReviewContext
+    ReviewContext,
+    FollowUpReviewContext
 } from "../../models/ai-review.model";
 import {
     GeminiServiceError,
@@ -107,6 +108,36 @@ export class GeminiAIService {
                 throw error;
             }
             throw new GeminiServiceError("Failed to generate AI review", error);
+        }
+    }
+
+    /**
+     * Generates a follow-up AI review when new commits are pushed to an already-reviewed PR.
+     * The prompt includes the previous diff, previous review summary, and the new diff so the
+     * model can reason step-by-step about what changed and whether earlier concerns were addressed.
+     */
+    async generateFollowUpReview(context: FollowUpReviewContext): Promise<AIReview> {
+        try {
+            const prompt = this.buildFollowUpReviewPrompt(context);
+            const aiResponse = await this.callGeminiAPI(prompt);
+
+            const parsedReview = this.parseAIResponse<AIReview>(aiResponse);
+            if (!parsedReview) {
+                throw new GeminiServiceError("Failed to parse follow-up AI response into JSON", { response: aiResponse });
+            }
+
+            const sanitized = this.sanitizeAIResponse(parsedReview);
+
+            if (!this.validateAIResponse(sanitized)) {
+                throw new GeminiServiceError("Follow-up AI response validation failed after sanitization", { response: aiResponse });
+            }
+
+            return sanitized;
+        } catch (error) {
+            if (error instanceof GeminiServiceError) {
+                throw error;
+            }
+            throw new GeminiServiceError("Failed to generate follow-up AI review", error);
         }
     }
 
@@ -334,7 +365,7 @@ prisma.$queryRaw\`
     ORDER BY cc."embedding" <=> \${embeddingVector}::vector ASC
     LIMIT \${limit};
 \`)
-${chunksInfo || "No relevant code chunks found."}`}
+${chunksInfo || "No relevant code chunks found."}}`}
 
 === INSTRUCTIONS ===
 1. **Analyze the PR**: Understand the goal from the description and linked issues.
@@ -358,6 +389,134 @@ ${chunksInfo || "No relevant code chunks found."}`}
     - **MUST** provide \`suggestedCode\` for fixes and optimizations.
     - Focus on the *changed* code, but note if changed code breaks existing patterns seen in chunks.
 - **Summary**: Very short and concise summary of the review.
+
+=== RESPONSE FORMAT ===
+Return ONLY a valid JSON object matching this TypeScript interface. Do not include markdown formatting (like \`\`\`json).
+
+{
+  "mergeScore": number, // 0-100
+  "codeQuality": {
+    "codeStyle": number, // 0-100
+    "testCoverage": number, // 0-100
+    "documentation": number, // 0-100
+    "security": number, // 0-100
+    "performance": number, // 0-100
+    "maintainability": number // 0-100
+  },
+  "suggestions": [
+    {
+      "file": string, // Filename
+      "lineNumber": number | null, // Line number of the issue
+      "type": "improvement" | "fix" | "optimization" | "style",
+      "severity": "low" | "medium" | "high",
+      "description": string, // Clear explanation
+      "suggestedCode": string | null, // The fixed code block
+      "language": string | null, // The language of the fixed code block
+      "reasoning": string // Why this change is better
+    }
+  ],
+  "summary": string,
+  "confidence": number // 0.0 to 1.0
+}`;
+    }
+
+    /**
+     * Builds the follow-up review prompt for Gemini.
+     * Instructs the model to think step-by-step, comparing the new diff against
+     * the previous diff and the earlier review's feedback.
+     */
+    private buildFollowUpReviewPrompt(context: FollowUpReviewContext): string {
+        dataLogger.info("Building follow-up review prompt", {
+            prNumber: context.prData.prNumber,
+            repositoryName: context.prData.repositoryName
+        });
+
+        const { prData, styleGuide, readme, relevantChunks, previousDiff, previousReviewSummary, previousMergeScore } = context;
+
+        const chunksInfo = relevantChunks.map((chunk, index) => {
+            return `--- CHUNK ${index + 1} (Similarity: ${chunk.similarity.toFixed(2)}) ---\nFile: ${chunk.filePath}\n${chunk.content}\n--- END CHUNK ${index + 1} ---`;
+        }).join("\n\n");
+
+        const styleGuideSection = styleGuide ? `\nPROJECT STYLE GUIDE (STRICTLY ADHERE TO THIS):\n${styleGuide}\n` : "";
+        const readmeSection = readme ? `\nPROJECT README:\n${readme.slice(0, 3000)}${readme.length > 3000 ? "\n... (readme truncated)" : ""}\n` : "";
+
+        const chunksSection = (process.env.SKIP_CODE_CHUNKS === "true" || !chunksInfo)
+            ? ""
+            : `=== RELEVANT CODEBASE CHUNKS ===
+${chunksInfo}`;
+
+        return `You are a Senior Principal Software Engineer and Security Expert performing an **incremental follow-up review** of a pull request.
+New commits have been pushed to this PR since the last review. Your task is to evaluate ONLY the new changes in the context of the previous review, determining:
+1. Whether the author addressed the concerns raised in the previous review.
+2. What new issues (if any) were introduced by the new commits.
+3. An updated overall assessment.
+
+=== CHAIN OF THOUGHT — THINK STEP BY STEP ===
+Before producing your final JSON output, reason through the following steps internally:
+
+Step 1 — Understand the PR goal:
+  Examine the PR title, description, and linked issues to clarify what the PR aims to achieve.
+
+Step 2 — Recall the previous review:
+  Read the PREVIOUS DIFF and the PREVIOUS REVIEW SUMMARY.
+  Identify the key concerns / suggestions made in the previous review.
+
+Step 3 — Analyse the new changes:
+  Read the NEW DIFF carefully.
+  For each file changed, determine what the author did.
+
+Step 4 — Cross-reference:
+  For each concern from the previous review, determine:
+  - Was it addressed? (fully / partially / not at all)
+  - Did the fix introduce new problems?
+
+Step 5 — Identify new issues:
+  Look for issues in the new diff that were NOT present before and were NOT covered by the previous review.
+
+Step 6 — Score and summarise:
+  Produce an updated merge score, code quality metrics, and a concise summary that explicitly calls out:
+  - Which previous concerns were resolved.
+  - Which previous concerns remain open.
+  - Any brand-new issues.
+
+(Do NOT output the chain-of-thought — output ONLY the JSON below.)
+
+=== INPUT CONTEXT ===
+
+${prData.formattedPullRequest}
+
+${readmeSection}
+${styleGuideSection}
+${chunksSection}
+
+=== PREVIOUS REVIEW ===
+Previous Merge Score: ${previousMergeScore}/100
+
+Previous Review Summary:
+${previousReviewSummary}
+
+=== PREVIOUS DIFF (changes from the first review cycle) ===
+${previousDiff || "(not available)"}
+
+=== NEW DIFF (changes introduced by the latest push) ===
+${prData.formattedPullRequest}
+
+=== INSTRUCTIONS ===
+1. Focus primarily on the **NEW DIFF**.
+2. Explicitly note whether each concern from the **PREVIOUS REVIEW SUMMARY** was addressed.
+3. Do NOT re-report issues that were fully fixed; DO report issues that are still present or worsened.
+4. Identify any **new** issues introduced by the latest commits.
+5. Prioritise in this order:
+    - **Core**: Does the new diff still make progress towards solving the linked issue(s)?
+    - **Critical**: Security vulnerabilities, logic bugs, race conditions.
+    - **Important**: Performance, error handling, missing tests.
+    - **Maintainability**: Code clarity, duplication, naming.
+    - **Style**: Style guide violations.
+
+=== OUTPUT REQUIREMENTS ===
+- **Merge Score**: Updated 0-100 score reflecting the PR state after the new push.
+- **Suggestions**: Only actionable suggestions on the NEW code or STILL-OPEN previous concerns.
+- **Summary**: Concise summary that covers (a) what was fixed since the last review, (b) remaining issues, (c) new issues.
 
 === RESPONSE FORMAT ===
 Return ONLY a valid JSON object matching this TypeScript interface. Do not include markdown formatting (like \`\`\`json).
