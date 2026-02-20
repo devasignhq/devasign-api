@@ -26,11 +26,6 @@ export class PRAnalysisService {
      * Determines if a PR should be analyzed
      */
     public static shouldAnalyzePR(prData: PullRequestData): boolean {
-        // Skip draft PRs
-        if (prData.isDraft) {
-            return false;
-        }
-
         // Must link to at least one issue
         if (prData.linkedIssues.length === 0) {
             return false;
@@ -276,25 +271,16 @@ export class PRAnalysisService {
     public static async createCompletePRData(payload: GitHubWebhookPayload): Promise<PullRequestData> {
         const prData = await this.extractPRDataFromWebhook(payload);
 
-        // Check if PR should be analyzed
-        if (!this.shouldAnalyzePR(prData)) {
-            if (prData.isDraft) {
-                throw new PRAnalysisError(
-                    prData.prNumber,
-                    prData.repositoryName,
-                    `PR #${prData.prNumber} is not eligible for analysis: PR is in draft status`,
-                    null,
-                    "PR_NOT_ELIGIBLE_ERROR"
-                );
-            } else {
-                throw new PRAnalysisError(
-                    prData.prNumber,
-                    prData.repositoryName,
-                    `PR #${prData.prNumber} is not eligible for analysis: PR does not link to any issues`,
-                    null,
-                    "PR_NOT_ELIGIBLE_ERROR"
-                );
-            }
+        // When this review was triggered manually via a "review" comment, skip the
+        // linked-issues requirement so any PR can be reviewed on demand.
+        if (!payload.manualTrigger && !this.shouldAnalyzePR(prData)) {
+            throw new PRAnalysisError(
+                prData.prNumber,
+                prData.repositoryName,
+                `PR #${prData.prNumber} is not eligible for analysis: PR does not link to any issues`,
+                null,
+                "PR_NOT_ELIGIBLE_ERROR"
+            );
         }
 
         // Fetch additional data

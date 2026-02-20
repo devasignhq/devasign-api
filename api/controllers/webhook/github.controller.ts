@@ -35,6 +35,11 @@ export const handleGitHubWebhook = async (req: Request, res: Response, next: Nex
         return;
     }
 
+    if (eventType === "issue_comment") {
+        await handleReviewCommentTrigger(req, res, next);
+        return;
+    }
+
     responseWrapper({
         res,
         status: STATUS_CODES.SUCCESS,
@@ -68,6 +73,105 @@ const handlePREvent = async (req: Request, res: Response, next: NextFunction) =>
         data: { action },
         message: "PR action not processed"
     });
+};
+
+/**
+ * Handles issue_comment events.
+ * When the comment body is exactly "review" (case-insensitive) and the comment
+ * is posted on a pull request, it triggers a PR review regardless of whether
+ * the PR has any linked issues.
+ */
+const handleReviewCommentTrigger = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { comment, issue, repository, installation } = req.body;
+
+        // Only act on PR comments (GitHub issues that are pull requests have a pull_request key)
+        if (!issue.pull_request) {
+            return responseWrapper({
+                res,
+                status: STATUS_CODES.SUCCESS,
+                data: {},
+                message: "Comment is not on a pull request - skipping"
+            });
+        }
+
+        // Only trigger when the comment body is exactly "review" (case-insensitive, trimmed)
+        const commentBody: string = (comment.body ?? "").trim();
+        if (commentBody.toLowerCase() !== "review") {
+            return responseWrapper({
+                res,
+                status: STATUS_CODES.SUCCESS,
+                data: {},
+                message: "Comment body is not 'review' - skipping"
+            });
+        }
+
+        const installationId = installation.id.toString();
+
+        // Check if user is part of the installation
+        const userInstallation = await prisma.installation.findUnique({
+            where: {
+                id: installationId,
+                users: { some: { username: comment.user?.login } }
+            },
+            select: { id: true }
+        });
+
+        // Return success if user is not part of the installation
+        if (!userInstallation) {
+            return responseWrapper({
+                res,
+                status: STATUS_CODES.SUCCESS,
+                data: {},
+                message: "User is not part of this installation - skipping"
+            });
+        }
+
+        dataLogger.info(
+            "'review' comment detected on PR - triggering manual review",
+            {
+                prNumber: issue.number,
+                repository: repository.full_name,
+                commenter: comment.user?.login
+            }
+        );
+
+        // Reconstruct a pull_request-like payload so handlePRReview can be reused.
+        // We need to fetch the real PR data from the GitHub API.
+        const repositoryName = repository.full_name;
+        const prNumber: number = issue.number;
+
+        const octokit = await OctokitService.getOctokit(installationId);
+        const [owner, repo] = OctokitService.getOwnerAndRepo(repositoryName);
+        const { data: pull_request } = await octokit.rest.pulls.get({
+            owner,
+            repo,
+            pull_number: prNumber
+        });
+
+        // Check for draft PRs
+        if (pull_request?.draft) {
+            return responseWrapper({
+                res,
+                status: STATUS_CODES.SUCCESS,
+                data: {},
+                message: "Skipping draft PR"
+            });
+        }
+
+        // Inject into req.body so handlePRReview can pick it up via the standard payload shape
+        req.body = {
+            ...req.body,
+            action: "opened", // treat as initial review
+            pull_request,
+            manualTrigger: true // flag to bypass the linked-issues check
+        };
+
+        await handlePRReview(req, res, next);
+
+    } catch (error) {
+        next(error);
+    }
 };
 
 /**

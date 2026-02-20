@@ -105,8 +105,9 @@ export class WorkflowIntegrationService {
             // Log analysis decision
             PRAnalysisService.logAnalysisDecision(prData, true);
 
-            // Determine whether this is a follow-up (synchronize) or initial review
-            const isFollowUp = payload.action === "synchronize";
+            // Determine whether this is a follow-up (synchronize) or initial review.
+            // Manual triggers ("review" comment) always queue as an initial review.
+            const isFollowUp = !payload.manualTrigger && payload.action === "synchronize";
 
             let jobId: string;
             if (isFollowUp) {
