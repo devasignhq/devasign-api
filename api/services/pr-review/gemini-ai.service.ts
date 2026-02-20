@@ -391,7 +391,7 @@ ${chunksInfo || "No relevant code chunks found."}}`}
 - **Summary**: Very short and concise summary of the review.
 
 === RESPONSE FORMAT ===
-Return ONLY a valid JSON object matching this TypeScript interface. Do not include markdown formatting (like \`\`\`json).
+Return ONLY a valid JSON object matching this TypeScript interface. Do not include markdown formatting (ie \`\`\`json or \`\`\`).
 
 {
   "mergeScore": number, // 0-100
@@ -593,58 +593,70 @@ Return ONLY a valid JSON object matching this TypeScript interface. Do not inclu
         try {
             dataLogger.debug("ai-response", { response });
 
-            // Clean the response - remove any markdown formatting or extra text
-            let cleanResponse = response.trim();
+            const raw = response.trim();
 
-            // Remove markdown code blocks if present
-            cleanResponse = cleanResponse.replace(/```json\s*/g, "").replace(/```\s*/g, "");
+            // ----------------------------------------------------------------
+            // Strategy 1: Gemini wrapped the JSON in a markdown fence.
+            // Extract ONLY the text between the opening ```(json)? and the
+            // very last ``` so that backtick sequences *inside* field values
+            // (e.g. suggestedCode blocks) are left untouched.
+            // ----------------------------------------------------------------
+            const fenceMatch = raw.match(/^```(?:json)?\s*\n?([\s\S]*?)\n?```\s*$/);
+            if (fenceMatch) {
+                try {
+                    return JSON.parse(fenceMatch[1]) as T;
+                } catch {
+                    // Fell through — try brute-force extraction below
+                }
+            }
 
-            // Try multiple JSON extraction strategies
-            let jsonString = "";
-
-            // Strategy 1: Try to parse the entire response as JSON
+            // ----------------------------------------------------------------
+            // Strategy 2: The response is already valid JSON (no fence).
+            // ----------------------------------------------------------------
             try {
-                JSON.parse(cleanResponse);
-                jsonString = cleanResponse;
+                return JSON.parse(raw) as T;
             } catch {
-                // Strategy 2: Extract JSON object using regex
-                const jsonMatch = cleanResponse.match(/\{[\s\S]*\}/);
-                if (jsonMatch) {
-                    jsonString = jsonMatch[0];
-                } else {
-                    // Strategy 3: Look for JSON between specific markers or at the end
-                    const lines = cleanResponse.split("\n");
-                    const jsonLines = [];
-                    let inJson = false;
+                // Not clean JSON — continue
+            }
 
-                    for (const line of lines) {
-                        if (line.trim().startsWith("{")) {
-                            inJson = true;
-                        }
-                        if (inJson) {
-                            jsonLines.push(line);
-                        }
-                        if (line.trim().endsWith("}") && inJson) {
-                            break;
-                        }
+            // ----------------------------------------------------------------
+            // Strategy 3: Find the outermost { … } block using brace counting
+            // so we don't accidentally grab a truncated partial object.
+            // ----------------------------------------------------------------
+            const start = raw.indexOf("{");
+            if (start !== -1) {
+                let depth = 0;
+                let end = -1;
+                let inString = false;
+                let escape = false;
+
+                for (let i = start; i < raw.length; i++) {
+                    const ch = raw[i];
+
+                    if (escape) { escape = false; continue; }
+                    if (ch === "\\" && inString) { escape = true; continue; }
+                    if (ch === "\"") { inString = !inString; continue; }
+                    if (inString) continue;
+
+                    if (ch === "{") depth++;
+                    else if (ch === "}") {
+                        depth--;
+                        if (depth === 0) { end = i; break; }
                     }
+                }
 
-                    if (jsonLines.length > 0) {
-                        jsonString = jsonLines.join("\n");
+                if (end !== -1) {
+                    try {
+                        return JSON.parse(raw.slice(start, end + 1)) as T;
+                    } catch {
+                        // Still invalid — fall through to null
                     }
                 }
             }
 
-            if (!jsonString) {
-                throw new Error("No JSON found in response");
-            }
-
-            const parsed = JSON.parse(jsonString);
-
-            return parsed as T;
+            throw new Error("No valid JSON found in response");
         } catch (error) {
             dataLogger.error("Error parsing AI response", { error, rawResponse: response });
-
             return null;
         }
     }
