@@ -159,6 +159,47 @@ const handleReviewCommentTrigger = async (req: Request, res: Response, next: Nex
             });
         }
 
+        // Validate that the PR is targeting the default branch
+        const targetBranch = pull_request.base.ref;
+        let defaultBranch = pull_request.base.repo?.default_branch;
+
+        // Fetch the default branch from the API if not available on the payload
+        if (!defaultBranch) {
+            try {
+                defaultBranch = await OctokitService.getDefaultBranch(installationId, repositoryName);
+            } catch (error) {
+                // Non-fatal — log and continue
+                dataLogger.warn(
+                    "Failed to validate default branch for 'review' trigger, continuing with processing",
+                    {
+                        repositoryName,
+                        targetBranch,
+                        error: error instanceof Error ? error.message : String(error)
+                    }
+                );
+            }
+        }
+
+        if (defaultBranch && targetBranch !== defaultBranch) {
+            dataLogger.info(
+                "PR skipped - not targeting default branch",
+                {
+                    prNumber,
+                    repositoryName,
+                    targetBranch,
+                    defaultBranch,
+                    reason: "not_default_branch"
+                }
+            );
+            return responseWrapper({
+                res,
+                status: STATUS_CODES.SUCCESS,
+                data: {},
+                message: "PR not targeting default branch - skipping review",
+                meta: { prNumber, repositoryName, targetBranch, defaultBranch, reason: "not_default_branch" }
+            });
+        }
+
         // Inject into req.body so handlePRReview can pick it up via the standard payload shape
         req.body = {
             ...req.body,
