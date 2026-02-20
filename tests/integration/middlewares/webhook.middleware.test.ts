@@ -637,7 +637,114 @@ describe("Webhook Middleware", () => {
                 expect(mockNext).not.toHaveBeenCalled();
             });
         });
+
+        // =====================================================================
+        // issue_comment middleware handling
+        // =====================================================================
+        describe("Issue Comment Events", () => {
+            const createIssueCommentBody = (overrides: any = {}) => ({
+                action: "created",
+                comment: { id: 1, body: "review", user: { login: "testuser" } },
+                issue: { number: 42, title: "My PR", pull_request: { url: "..." } },
+                repository: { full_name: "owner/repo" },
+                installation: { id: 12345678 },
+                ...overrides
+            });
+
+            it("should pass through 'created' issue_comment events", async () => {
+                const payload = createIssueCommentBody({ action: "created" });
+
+                (mockRequest.get as jest.Mock).mockImplementation((header: string) => {
+                    if (header === "X-GitHub-Event") return "issue_comment";
+                    if (header === "X-GitHub-Delivery") return "delivery-ic-1";
+                    return undefined;
+                });
+                mockRequest.body = payload;
+
+                await validateGitHubWebhookEvent(mockRequest as Request, mockResponse as Response, mockNext);
+
+                expect(mockNext).toHaveBeenCalled();
+                expect(mockRequest.body.webhookMeta).toMatchObject({
+                    eventType: "issue_comment",
+                    action: "created",
+                    deliveryId: "delivery-ic-1"
+                });
+            });
+
+            it("should pass through 'edited' issue_comment events", async () => {
+                const payload = createIssueCommentBody({ action: "edited" });
+
+                (mockRequest.get as jest.Mock).mockImplementation((header: string) => {
+                    if (header === "X-GitHub-Event") return "issue_comment";
+                    return undefined;
+                });
+                mockRequest.body = payload;
+
+                await validateGitHubWebhookEvent(mockRequest as Request, mockResponse as Response, mockNext);
+
+                expect(mockNext).toHaveBeenCalled();
+                expect(mockRequest.body.webhookMeta.action).toBe("edited");
+            });
+
+            it("should reject 'deleted' issue_comment events (non-created/edited action)", async () => {
+                const payload = createIssueCommentBody({ action: "deleted" });
+
+                (mockRequest.get as jest.Mock).mockImplementation((header: string) => {
+                    if (header === "X-GitHub-Event") return "issue_comment";
+                    return undefined;
+                });
+                mockRequest.body = payload;
+
+                await validateGitHubWebhookEvent(mockRequest as Request, mockResponse as Response, mockNext);
+
+                expect(mockNext).not.toHaveBeenCalled();
+                expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.SUCCESS);
+                expect(mockResponse.json).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        message: "Issue comment action not processed",
+                        meta: { action: "deleted" }
+                    })
+                );
+            });
+
+            it("should reject issue_comment when comment payload is missing", async () => {
+                const payload = createIssueCommentBody({ comment: undefined });
+
+                (mockRequest.get as jest.Mock).mockImplementation((header: string) => {
+                    if (header === "X-GitHub-Event") return "issue_comment";
+                    return undefined;
+                });
+                mockRequest.body = payload;
+
+                await validateGitHubWebhookEvent(mockRequest as Request, mockResponse as Response, mockNext);
+
+                expect(mockNext).not.toHaveBeenCalled();
+                expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.BAD_PAYLOAD);
+                expect(mockResponse.json).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        message: "Missing required webhook data",
+                        meta: expect.objectContaining({ comment: false })
+                    })
+                );
+            });
+
+            it("should reject issue_comment when issue payload is missing", async () => {
+                const payload = createIssueCommentBody({ issue: undefined });
+
+                (mockRequest.get as jest.Mock).mockImplementation((header: string) => {
+                    if (header === "X-GitHub-Event") return "issue_comment";
+                    return undefined;
+                });
+                mockRequest.body = payload;
+
+                await validateGitHubWebhookEvent(mockRequest as Request, mockResponse as Response, mockNext);
+
+                expect(mockNext).not.toHaveBeenCalled();
+                expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.BAD_PAYLOAD);
+            });
+        });
     });
+    
     describe("validateSumsubWebhook", () => {
         const SUMSUB_SECRET = "test-sumsub-secret";
         let originalSumsubSecret: string | undefined;

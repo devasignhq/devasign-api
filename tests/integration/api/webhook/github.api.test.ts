@@ -1095,4 +1095,286 @@ describe("Webhook API Integration Tests", () => {
             expect(mockWorkflowService.processWebhookWorkflow).toHaveBeenCalledTimes(5);
         });
     });
+
+    // =========================================================================
+    // issue_comment — "review" comment trigger
+    // =========================================================================
+    describe(`POST ${getEndpointWithPrefix(["WEBHOOK", "GITHUB"])} - issue_comment "review" trigger`, () => {
+        const COMMENTER = "test-member";
+        const PR_NUMBER = 42;
+
+        // Baseline full PR object returned by octokit.rest.pulls.get
+        const mockPRData = TestDataFactory.githubPullRequest({
+            number: PR_NUMBER,
+            title: "My Feature PR",
+            draft: false,
+            base: {
+                ref: "main",
+                sha: "def456",
+                repo: {
+                    name: "repo",
+                    full_name: VALID_REPO_NAME,
+                    html_url: "https://github.com/test/repo",
+                    default_branch: "main"
+                }
+            }
+        });
+
+        /** Helper to build a valid issue_comment payload */
+        const createIssueCommentPayload = (overrides: any = {}) => ({
+            action: "created",
+            issue: {
+                number: PR_NUMBER,
+                title: "My Feature PR",
+                pull_request: { url: `https://api.github.com/repos/test/repo/pulls/${PR_NUMBER}` },
+                ...overrides.issue
+            },
+            comment: {
+                id: 99,
+                body: "review",
+                user: { login: COMMENTER },
+                ...overrides.comment
+            },
+            repository: {
+                id: 123456,
+                name: "repo",
+                full_name: VALID_REPO_NAME,
+                private: false,
+                html_url: "https://github.com/test/repo",
+                owner: { id: 12345, login: "test" },
+                default_branch: "main",
+                ...overrides.repository
+            },
+            installation: {
+                id: parseInt(VALID_INSTALLATION_ID),
+                account: { id: 12345, login: "test" },
+                ...overrides.installation
+            },
+            ...overrides
+        });
+
+        let mockOctokit: any;
+
+        beforeEach(async () => {
+            // Seed a member user so the installation membership check passes
+            await prisma.user.create({
+                data: {
+                    userId: "member-user-id",
+                    username: COMMENTER,
+                    addressBook: [],
+                    verified: false,
+                    techStack: [],
+                    contributionSummary: { create: {} }
+                }
+            });
+
+            await prisma.installation.create({
+                data: {
+                    ...TestDataFactory.installation({ id: VALID_INSTALLATION_ID }),
+                    users: { connect: [{ userId: "member-user-id" }] }
+                }
+            });
+
+            // Mock octokit pulls.get to return our test PR
+            mockOctokit = {
+                rest: {
+                    pulls: {
+                        get: jest.fn().mockResolvedValue({ data: mockPRData })
+                    }
+                }
+            };
+            mockOctokitService.getOctokit.mockResolvedValue(mockOctokit);
+            mockOctokitService.getOwnerAndRepo.mockReturnValue(["test", "repo"]);
+            mockOctokitService.getDefaultBranch.mockResolvedValue("main");
+        });
+
+        it("should queue a review when a member comments 'review' on a PR", async () => {
+            const payload = createIssueCommentPayload();
+            const payloadString = JSON.stringify(payload);
+            const signature = createWebhookSignature(payloadString);
+
+            const response = await request(app)
+                .post(getEndpointWithPrefix(["WEBHOOK", "GITHUB"]))
+                .set("X-GitHub-Event", "issue_comment")
+                .set("X-Hub-Signature-256", signature)
+                .set("X-GitHub-Delivery", "ic-delivery-1")
+                .set("Content-Type", "application/json")
+                .send(payloadString)
+                .expect(STATUS_CODES.BACKGROUND_JOB);
+
+            expect(response.body.message).toBe("PR webhook processed successfully - analysis queued");
+            expect(response.body.data).toMatchObject({
+                jobId: "test-job-123",
+                eligibleForAnalysis: true,
+                status: "queued"
+            });
+
+            // workflowService must be called with manualTrigger: true
+            expect(mockWorkflowService.processWebhookWorkflow).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    action: "opened",
+                    number: PR_NUMBER,
+                    manualTrigger: true
+                })
+            );
+        });
+
+        it("should be case-insensitive and trim whitespace in 'review' comment", async () => {
+            const payload = createIssueCommentPayload({ comment: { id: 101, body: "  REVIEW  ", user: { login: COMMENTER } } });
+            const payloadString = JSON.stringify(payload);
+            const signature = createWebhookSignature(payloadString);
+
+            const response = await request(app)
+                .post(getEndpointWithPrefix(["WEBHOOK", "GITHUB"]))
+                .set("X-GitHub-Event", "issue_comment")
+                .set("X-Hub-Signature-256", signature)
+                .set("Content-Type", "application/json")
+                .send(payloadString)
+                .expect(STATUS_CODES.BACKGROUND_JOB);
+
+            expect(response.body.message).toBe("PR webhook processed successfully - analysis queued");
+        });
+
+        it("should skip when the comment is not on a pull request", async () => {
+            const payload = createIssueCommentPayload({
+                issue: { number: PR_NUMBER, title: "A plain issue" }  // no pull_request key
+            });
+            const payloadString = JSON.stringify(payload);
+            const signature = createWebhookSignature(payloadString);
+
+            const response = await request(app)
+                .post(getEndpointWithPrefix(["WEBHOOK", "GITHUB"]))
+                .set("X-GitHub-Event", "issue_comment")
+                .set("X-Hub-Signature-256", signature)
+                .set("Content-Type", "application/json")
+                .send(payloadString)
+                .expect(STATUS_CODES.SUCCESS);
+
+            expect(response.body.message).toBe("Comment is not on a pull request - skipping");
+            expect(mockWorkflowService.processWebhookWorkflow).not.toHaveBeenCalled();
+        });
+
+        it("should skip when comment body is not exactly 'review'", async () => {
+            const payload = createIssueCommentPayload({ comment: { id: 102, body: "lgtm", user: { login: COMMENTER } } });
+            const payloadString = JSON.stringify(payload);
+            const signature = createWebhookSignature(payloadString);
+
+            const response = await request(app)
+                .post(getEndpointWithPrefix(["WEBHOOK", "GITHUB"]))
+                .set("X-GitHub-Event", "issue_comment")
+                .set("X-Hub-Signature-256", signature)
+                .set("Content-Type", "application/json")
+                .send(payloadString)
+                .expect(STATUS_CODES.SUCCESS);
+
+            expect(response.body.message).toBe("Comment body is not 'review' - skipping");
+            expect(mockWorkflowService.processWebhookWorkflow).not.toHaveBeenCalled();
+        });
+
+        it("should skip when the commenter is not a member of the installation", async () => {
+            const payload = createIssueCommentPayload({
+                comment: { id: 103, body: "review", user: { login: "outside-contributor" } }
+            });
+            const payloadString = JSON.stringify(payload);
+            const signature = createWebhookSignature(payloadString);
+
+            const response = await request(app)
+                .post(getEndpointWithPrefix(["WEBHOOK", "GITHUB"]))
+                .set("X-GitHub-Event", "issue_comment")
+                .set("X-Hub-Signature-256", signature)
+                .set("Content-Type", "application/json")
+                .send(payloadString)
+                .expect(STATUS_CODES.SUCCESS);
+
+            expect(response.body.message).toBe("User is not part of this installation - skipping");
+            expect(mockWorkflowService.processWebhookWorkflow).not.toHaveBeenCalled();
+        });
+
+        it("should skip draft PRs", async () => {
+            const draftPR = { ...mockPRData, draft: true };
+            mockOctokit.rest.pulls.get.mockResolvedValue({ data: draftPR });
+
+            const payload = createIssueCommentPayload();
+            const payloadString = JSON.stringify(payload);
+            const signature = createWebhookSignature(payloadString);
+
+            const response = await request(app)
+                .post(getEndpointWithPrefix(["WEBHOOK", "GITHUB"]))
+                .set("X-GitHub-Event", "issue_comment")
+                .set("X-Hub-Signature-256", signature)
+                .set("Content-Type", "application/json")
+                .send(payloadString)
+                .expect(STATUS_CODES.SUCCESS);
+
+            expect(response.body.message).toBe("Skipping draft PR");
+            expect(mockWorkflowService.processWebhookWorkflow).not.toHaveBeenCalled();
+        });
+
+        it("should skip PRs not targeting the default branch", async () => {
+            const featurePR = {
+                ...mockPRData,
+                base: { ...mockPRData.base, ref: "develop", repo: { ...mockPRData.base.repo, default_branch: "main" } }
+            };
+            mockOctokit.rest.pulls.get.mockResolvedValue({ data: featurePR });
+
+            const payload = createIssueCommentPayload();
+            const payloadString = JSON.stringify(payload);
+            const signature = createWebhookSignature(payloadString);
+
+            const response = await request(app)
+                .post(getEndpointWithPrefix(["WEBHOOK", "GITHUB"]))
+                .set("X-GitHub-Event", "issue_comment")
+                .set("X-Hub-Signature-256", signature)
+                .set("Content-Type", "application/json")
+                .send(payloadString)
+                .expect(STATUS_CODES.SUCCESS);
+
+            expect(response.body.message).toBe("PR not targeting default branch - skipping review");
+            expect(response.body.meta).toMatchObject({
+                targetBranch: "develop",
+                defaultBranch: "main",
+                reason: "not_default_branch"
+            });
+            expect(mockWorkflowService.processWebhookWorkflow).not.toHaveBeenCalled();
+        });
+
+        it("should return server error when workflow processing fails", async () => {
+            mockWorkflowService.processWebhookWorkflow.mockResolvedValue({
+                success: false,
+                error: "GitHub API rate limit exceeded"
+            });
+
+            const payload = createIssueCommentPayload();
+            const payloadString = JSON.stringify(payload);
+            const signature = createWebhookSignature(payloadString);
+
+            const response = await request(app)
+                .post(getEndpointWithPrefix(["WEBHOOK", "GITHUB"]))
+                .set("X-GitHub-Event", "issue_comment")
+                .set("X-Hub-Signature-256", signature)
+                .set("Content-Type", "application/json")
+                .send(payloadString)
+                .expect(STATUS_CODES.SERVER_ERROR);
+
+            expect(response.body.message).toBe("GitHub API rate limit exceeded");
+        });
+
+        it("should skip non-created/edited comment actions (e.g. deleted)", async () => {
+            // The middleware should reject 'deleted' before it reaches the controller
+            const payload = createIssueCommentPayload({ action: "deleted" });
+            const payloadString = JSON.stringify(payload);
+            const signature = createWebhookSignature(payloadString);
+
+            const response = await request(app)
+                .post(getEndpointWithPrefix(["WEBHOOK", "GITHUB"]))
+                .set("X-GitHub-Event", "issue_comment")
+                .set("X-Hub-Signature-256", signature)
+                .set("Content-Type", "application/json")
+                .send(payloadString)
+                .expect(STATUS_CODES.SUCCESS);
+
+            expect(response.body.message).toBe("Issue comment action not processed");
+            expect(mockWorkflowService.processWebhookWorkflow).not.toHaveBeenCalled();
+        });
+    });
 });

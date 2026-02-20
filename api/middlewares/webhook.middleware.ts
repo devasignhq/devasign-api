@@ -210,6 +210,51 @@ export const validateGitHubWebhookEvent = async (req: Request, res: Response, ne
         return;
     }
 
+    // Handle issue_comment events
+    if (eventType === "issue_comment") {
+        // Only handle newly created or edited comments
+        if (action !== "created" && action !== "edited") {
+            responseWrapper({
+                res,
+                status: STATUS_CODES.SUCCESS,
+                data: {},
+                message: "Issue comment action not processed",
+                meta: { action }
+            });
+            return;
+        }
+
+        const { comment, issue } = req.body;
+
+        // Validate required data
+        if (!comment || !issue || !repository || !installation) {
+            responseWrapper({
+                res,
+                status: STATUS_CODES.BAD_PAYLOAD,
+                data: {},
+                message: "Missing required webhook data",
+                meta: {
+                    comment: Boolean(comment),
+                    issue: Boolean(issue),
+                    repository: Boolean(repository),
+                    installation: Boolean(installation)
+                }
+            });
+            return;
+        }
+
+        // Add event metadata to request for use in controller
+        req.body.webhookMeta = {
+            eventType,
+            action,
+            deliveryId: req.get("X-GitHub-Delivery"),
+            timestamp: new Date().toISOString()
+        };
+
+        next();
+        return;
+    }
+
     // Event type not processed
     responseWrapper({
         res,

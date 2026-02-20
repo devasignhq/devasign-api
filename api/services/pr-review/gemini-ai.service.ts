@@ -155,6 +155,9 @@ export class GeminiAIService {
 
                 return embeddings;
             } catch (error) {
+                if (typeof error === "object" && error !== null && "stack" in error) {
+                    error.stack = undefined;
+                }
                 const mainError = getFieldFromUnknownObject(error, "error");
                 throw new GeminiServiceError("Failed to generate embedding", mainError || error);
             }
@@ -175,6 +178,9 @@ export class GeminiAIService {
 
                 return embeddings;
             } catch (error) {
+                if (typeof error === "object" && error !== null && "stack" in error) {
+                    error.stack = undefined;
+                }
                 const mainError = getFieldFromUnknownObject(error, "error");
                 throw new GeminiServiceError("Failed to generate embedding", mainError || error);
             }
