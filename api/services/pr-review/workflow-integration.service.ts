@@ -1,6 +1,7 @@
 import { PullRequestData, GitHubWebhookPayload } from "../../models/ai-review.model";
 import { backgroundJobService, BackgroundJobService } from "../background-job.service";
 import { AIReviewOrchestrationService } from "./orchestration.service";
+import { AIReviewCommentService } from "./comment.service";
 import { PRAnalysisService } from "./pr-analysis.service";
 import { PRAnalysisError } from "../../models/error.model";
 import { dataLogger, messageLogger } from "../../config/logger.config";
@@ -75,6 +76,7 @@ export class WorkflowIntegrationService {
         reason?: string;
     }> {
         const startTime = Date.now();
+        let prData: PullRequestData = {} as PullRequestData;
 
         try {
             dataLogger.info(
@@ -86,10 +88,47 @@ export class WorkflowIntegrationService {
                 }
             );
 
-            // Extract and validate PR data
-            let prData: PullRequestData;
+            // Determine whether this is a follow-up (synchronize) or initial review.
+            // Manual triggers ("review" comment) always queue as an initial review.
+            const isFollowUp = !payload.manualTrigger && payload.action === "synchronize";
+            const { pull_request, repository, installation } = payload;
+
+            let isActualFollowUp = false;
+            if (isFollowUp) {
+                // Check whether a completed initial review already exists for this PR
+                isActualFollowUp = await this.orchestrationService.hasCompletedReview(
+                    installation.id.toString(),
+                    pull_request.number,
+                    repository.full_name
+                );
+            }
+
+            // Post an "in progress" comment so contributors know a review is underway
             try {
+                const commentResult = isActualFollowUp
+                    ? await AIReviewCommentService.postFollowUpInProgressComment(
+                        installation.id.toString(),
+                        repository.full_name,
+                        pull_request.number
+                    )
+                    : await AIReviewCommentService.postInProgressComment(
+                        installation.id.toString(),
+                        repository.full_name,
+                        pull_request.number
+                    );
+
+                if (commentResult.success && commentResult.commentId) {
+                    prData.pendingCommentId = commentResult.commentId;
+                }
+            } catch (inProgressError) {
+                dataLogger.error("Failed to post in-progress comment", { inProgressError });
+            }
+
+            // Extract and validate PR data
+            try {
+                const pendingCommentId = prData.pendingCommentId;
                 prData = await PRAnalysisService.createCompletePRData(payload);
+                prData.pendingCommentId = pendingCommentId;
             } catch (error) {
                 if (error instanceof PRAnalysisError && error.code === "PR_NOT_ELIGIBLE_ERROR") {
                     dataLogger.info(
@@ -105,32 +144,19 @@ export class WorkflowIntegrationService {
             // Log analysis decision
             PRAnalysisService.logAnalysisDecision(prData, true);
 
-            // Determine whether this is a follow-up (synchronize) or initial review.
-            // Manual triggers ("review" comment) always queue as an initial review.
-            const isFollowUp = !payload.manualTrigger && payload.action === "synchronize";
-
             let jobId: string;
-            if (isFollowUp) {
-                // Check whether a completed initial review already exists for this PR
-                const hasPreviousReview = await this.orchestrationService.hasCompletedReview(
-                    prData.installationId,
-                    prData.prNumber,
-                    prData.repositoryName
-                );
-
-                if (hasPreviousReview) {
-                    // Queue as a follow-up job
-                    jobId = await this.jobQueue.addPRAnalysisJob(prData, true);
-                    dataLogger.info("Queued follow-up review job", { jobId, prNumber: prData.prNumber });
-                } else {
-                    // No prior review exists yet — treat this like an initial review
-                    jobId = await this.jobQueue.addPRAnalysisJob(prData, false);
-                    dataLogger.info("No prior review found; queued as initial review", { jobId, prNumber: prData.prNumber });
-                }
+            if (isActualFollowUp) {
+                // Queue as a follow-up job
+                jobId = await this.jobQueue.addPRAnalysisJob(prData, true);
+                dataLogger.info("Queued follow-up review job", { jobId, prNumber: prData.prNumber });
             } else {
-                // Initial review (opened / ready_for_review)
+                // No prior review exists yet, or it's an opened/ready_for_review event — treat this like an initial review
                 jobId = await this.jobQueue.addPRAnalysisJob(prData, false);
-                dataLogger.info("Queued initial review job", { jobId, prNumber: prData.prNumber });
+                if (isFollowUp) {
+                    dataLogger.info("No prior review found; queued as initial review", { jobId, prNumber: prData.prNumber });
+                } else {
+                    dataLogger.info("Queued initial review job", { jobId, prNumber: prData.prNumber });
+                }
             }
 
             dataLogger.info(
