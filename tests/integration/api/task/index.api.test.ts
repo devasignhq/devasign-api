@@ -622,8 +622,12 @@ describe("Task API Integration Tests", () => {
         it("should require authentication for all endpoints", async () => {
             const appWithoutAuth = express();
             appWithoutAuth.use(express.json());
-            appWithoutAuth.use(ENDPOINTS.TASK.PREFIX, validateUser as RequestHandler, taskRoutes);
-            appWithoutAuth.use(apiLimiter);
+            appWithoutAuth.use(
+                ENDPOINTS.TASK.PREFIX,
+                apiLimiter,
+                validateUser as RequestHandler,
+                taskRoutes
+            );
             appWithoutAuth.use(errorHandler);
 
             await request(appWithoutAuth)

@@ -622,10 +622,10 @@ describe("Installation API Integration Tests", () => {
             appWithoutAuth.use(express.json());
             appWithoutAuth.use(
                 ENDPOINTS.INSTALLATION.PREFIX,
+                apiLimiter,
                 validateUser as RequestHandler,
                 installationRoutes
             );
-            appWithoutAuth.use(apiLimiter);
             appWithoutAuth.use(errorHandler);
 
             await request(appWithoutAuth)

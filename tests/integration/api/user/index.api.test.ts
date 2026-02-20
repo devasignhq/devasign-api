@@ -451,8 +451,12 @@ describe("User API Integration Tests", () => {
             // Test without authentication headers
             const appWithoutAuth = express();
             appWithoutAuth.use(express.json());
-            appWithoutAuth.use("/users", validateUser as RequestHandler, userRoutes);
-            appWithoutAuth.use(apiLimiter);
+            appWithoutAuth.use(
+                "/users",
+                apiLimiter,
+                validateUser as RequestHandler,
+                userRoutes
+            );
             appWithoutAuth.use(errorHandler);
 
             await request(appWithoutAuth)
