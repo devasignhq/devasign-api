@@ -427,7 +427,9 @@ Return ONLY a valid JSON object matching this TypeScript interface. Do not inclu
   ],
   "summary": string,
   "confidence": number // 0.0 to 1.0
-}`;
+}
+  
+IMPORTANT: As specified, respond with only the JSON object, no markdown formatting or extra text.`;
     }
 
     /**
@@ -555,7 +557,9 @@ Return ONLY a valid JSON object matching this TypeScript interface. Do not inclu
   ],
   "summary": string,
   "confidence": number // 0.0 to 1.0
-}`;
+}
+  
+IMPORTANT: As specified, respond with only the JSON object, no markdown formatting or extra text.`;
     }
 
     /**
