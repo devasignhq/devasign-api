@@ -213,7 +213,7 @@ export const validateGitHubWebhookEvent = async (req: Request, res: Response, ne
     // Handle issue_comment events
     if (eventType === "issue_comment") {
         // Only handle newly created or edited comments
-        if (action !== "created" || action !== "edited") {
+        if (action !== "created" && action !== "edited") {
             responseWrapper({
                 res,
                 status: STATUS_CODES.SUCCESS,

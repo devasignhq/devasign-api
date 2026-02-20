@@ -136,8 +136,7 @@ const handleReviewCommentTrigger = async (req: Request, res: Response, next: Nex
             }
         );
 
-        // Reconstruct a pull_request-like payload so handlePRReview can be reused.
-        // We need to fetch the real PR data from the GitHub API.
+        // Fetch the full PR object from the GitHub API
         const repositoryName = repository.full_name;
         const prNumber: number = issue.number;
 
@@ -200,15 +199,60 @@ const handleReviewCommentTrigger = async (req: Request, res: Response, next: Nex
             });
         }
 
-        // Inject into req.body so handlePRReview can pick it up via the standard payload shape
-        req.body = {
-            ...req.body,
-            action: "opened", // treat as initial review
-            pull_request,
-            manualTrigger: true // flag to bypass the linked-issues check
+        // Build an explicit GitHubWebhookPayload — no req.body mutation needed.
+        // manualTrigger: true signals downstream services to bypass the linked-issues check.
+        const payload: GitHubWebhookPayload = {
+            action: "opened",
+            number: prNumber,
+            pull_request: pull_request as unknown as GitHubWebhookPayload["pull_request"],
+            repository,
+            installation,
+            manualTrigger: true
         };
 
-        await handlePRReview(req, res, next);
+        const workflowService = WorkflowIntegrationService.getInstance();
+        const result = await workflowService.processWebhookWorkflow(payload);
+
+        if (!result.success) {
+            dataLogger.error("Failed to process 'review' comment trigger", { payload, result });
+            return responseWrapper({
+                res,
+                status: STATUS_CODES.SERVER_ERROR,
+                data: { timestamp: new Date().toISOString() },
+                message: result.error || "Failed to process review trigger"
+            });
+        }
+
+        if (result.reason && !result.jobId) {
+            return responseWrapper({
+                res,
+                status: STATUS_CODES.SUCCESS,
+                data: {
+                    prNumber,
+                    repositoryName,
+                    timestamp: new Date().toISOString()
+                },
+                message: result.reason
+            });
+        }
+
+        responseWrapper({
+            res,
+            status: STATUS_CODES.BACKGROUND_JOB,
+            data: {
+                jobId: result.jobId,
+                installationId: result.prData?.installationId,
+                repositoryName: result.prData?.repositoryName,
+                prNumber: result.prData?.prNumber,
+                prUrl: result.prData?.prUrl,
+                linkedIssuesCount: result.prData?.linkedIssues.length || 0,
+                changedFilesCount: result.prData?.changedFiles.length || 0,
+                eligibleForAnalysis: true,
+                status: "queued",
+                timestamp: new Date().toISOString()
+            },
+            message: "PR webhook processed successfully - analysis queued"
+        });
 
     } catch (error) {
         next(error);
