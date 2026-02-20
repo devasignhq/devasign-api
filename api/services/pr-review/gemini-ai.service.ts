@@ -72,6 +72,7 @@ export class GeminiAIService {
             location: this.config.location,
             platformType: "gcp",
             authOptions: { projectId: this.config.projectId },
+            // @ts-expect-error - maxConcurrency might not be in the typings of newer langchain versions
             maxConcurrency: 1,
             maxRetries: 3
         });
@@ -338,7 +339,11 @@ export class GeminiAIService {
      * Builds the main review prompt for Gemini
      */
     private buildReviewPrompt(context: ReviewContext): string {
-        dataLogger.info("Building review prompt", { context });
+        dataLogger.info("Building review prompt", {
+            prNumber: context.prData.prNumber,
+            repositoryName: context.prData.repositoryName
+        });
+
         const { prData, styleGuide, readme, relevantChunks } = context;
 
         const chunksInfo = relevantChunks.map((chunk, index) => {
