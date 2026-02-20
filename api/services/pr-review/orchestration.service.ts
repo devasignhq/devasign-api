@@ -33,6 +33,7 @@ export class AIReviewOrchestrationService {
                     prNumber: prData.prNumber,
                     prUrl: prData.prUrl,
                     repositoryName: prData.repositoryName,
+                    commentId: prData.pendingCommentId,
                     mergeScore: 0,
                     rulesViolated: [],
                     rulesPassed: [],
@@ -192,25 +193,6 @@ export class AIReviewOrchestrationService {
             // Create initial review result record
             const initialResult = await this.createInitialReviewResult(prData);
 
-            // Post an "in progress" comment so contributors know a review is underway
-            try {
-                const commentResult = await AIReviewCommentService.postInProgressComment(
-                    prData.installationId,
-                    prData.repositoryName,
-                    prData.prNumber
-                );
-
-                if (commentResult.success && commentResult.commentId) {
-                    await prisma.aIReviewResult.update({
-                        where: { id: initialResult.id },
-                        data: { commentId: commentResult.commentId }
-                    });
-                }
-            } catch (inProgressError) {
-                // Non-fatal — log and continue with analysis
-                dataLogger.error("Failed to post in-progress comment", { inProgressError });
-            }
-
             // Execute analysis
             const reviewResult = await PRAnalysisService.analyzePullRequest(prData);
 
@@ -290,24 +272,6 @@ export class AIReviewOrchestrationService {
             // Always create a NEW record for the follow-up
             const initialResult = await this.createInitialReviewResult(prData);
             recordId = initialResult.id;
-
-            // Post a "follow-up review in progress" notification comment
-            try {
-                const commentResult = await AIReviewCommentService.postFollowUpInProgressComment(
-                    prData.installationId,
-                    prData.repositoryName,
-                    prData.prNumber
-                );
-
-                if (commentResult.success && commentResult.commentId) {
-                    await prisma.aIReviewResult.update({
-                        where: { id: recordId },
-                        data: { commentId: commentResult.commentId }
-                    });
-                }
-            } catch (inProgressError) {
-                dataLogger.error("Failed to post follow-up in-progress comment", { inProgressError });
-            }
 
             // Run the follow-up analysis
             const reviewResult = await PRAnalysisService.analyzePullRequestFollowUp(prData);

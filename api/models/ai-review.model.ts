@@ -19,6 +19,8 @@ export interface PullRequestData {
     formattedPullRequest: string;
     /** Raw concatenated git diff from the *previous* review cycle, used for follow-up prompts. */
     previousDiff?: string;
+    /** ID of the in-progress comment already posted before queueing the job */
+    pendingCommentId?: string;
 }
 
 export interface ChangedFile {
