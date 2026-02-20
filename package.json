@@ -27,6 +27,7 @@
   "dependencies": {
     "@google-cloud/kms": "^5.2.1",
     "@google-cloud/vertexai": "^1.10.0",
+    "@langchain/core": "^1.1.19",
     "@langchain/google-vertexai": "^2.1.15",
     "@langchain/textsplitters": "^1.0.1",
     "@octokit/rest": "^22.0.0",

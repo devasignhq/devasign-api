@@ -71,7 +71,9 @@ export class GeminiAIService {
             model: "gemini-embedding-001",
             location: this.config.location,
             platformType: "gcp",
-            authOptions: { projectId: this.config.projectId }
+            authOptions: { projectId: this.config.projectId },
+            maxConcurrency: 1,
+            maxRetries: 3
         });
     }
 
