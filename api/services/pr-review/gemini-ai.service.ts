@@ -71,10 +71,7 @@ export class GeminiAIService {
             model: "gemini-embedding-001",
             location: this.config.location,
             platformType: "gcp",
-            authOptions: { projectId: this.config.projectId },
-            // @ts-expect-error - maxConcurrency might not be in the typings of newer langchain versions
-            maxConcurrency: 1,
-            maxRetries: 3
+            authOptions: { projectId: this.config.projectId }
         });
     }
 
