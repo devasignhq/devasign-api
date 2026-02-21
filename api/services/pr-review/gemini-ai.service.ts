@@ -1,4 +1,4 @@
-import { VertexAI, GenerativeModel } from "@google-cloud/vertexai";
+import { VertexAI, GenerativeModel, SchemaType, ResponseSchema } from "@google-cloud/vertexai";
 import { VertexAIEmbeddings } from "@langchain/google-vertexai";
 import {
     AIReview,
@@ -62,8 +62,9 @@ export class GeminiAIService {
             model: this.config.model,
             generationConfig: {
                 maxOutputTokens: this.config.maxTokens,
-                temperature: this.config.temperature
-                // responseMimeType: "application/json"
+                temperature: this.config.temperature,
+                responseMimeType: "application/json",
+                responseSchema: this.getResponseSchema()
             }
         });
 
@@ -400,36 +401,8 @@ ${chunksInfo || "No relevant code chunks found."}}`}
     - Focus on the *changed* code, but note if changed code breaks existing patterns seen in chunks.
 - **Summary**: Very short and concise summary of the review.
 
-=== RESPONSE FORMAT ===
-Return ONLY a valid JSON object matching this TypeScript interface. Do not include markdown formatting (ie \`\`\`json or \`\`\`).
-
-{
-  "mergeScore": number, // 0-100
-  "codeQuality": {
-    "codeStyle": number, // 0-100
-    "testCoverage": number, // 0-100
-    "documentation": number, // 0-100
-    "security": number, // 0-100
-    "performance": number, // 0-100
-    "maintainability": number // 0-100
-  },
-  "suggestions": [
-    {
-      "file": string, // Filename
-      "lineNumber": number | null, // Line number of the issue
-      "type": "improvement" | "fix" | "optimization" | "style",
-      "severity": "low" | "medium" | "high",
-      "description": string, // Clear explanation
-      "suggestedCode": string | null, // The fixed code block
-      "language": string | null, // The language of the fixed code block
-      "reasoning": string // Why this change is better
-    }
-  ],
-  "summary": string,
-  "confidence": number // 0.0 to 1.0
-}
-  
-IMPORTANT: As specified, respond with only the JSON object, no markdown formatting or extra text.`;
+=== REASONING ===
+For 'suggestions', include specific file paths, line numbers, and 'suggestedCode'. Do NOT return any markdown formatting outside the JSON block.`;
     }
 
     /**
@@ -530,36 +503,8 @@ ${prData.formattedPullRequest}
 - **Suggestions**: Only actionable suggestions on the NEW code or STILL-OPEN previous concerns.
 - **Summary**: Concise summary that covers (a) what was fixed since the last review, (b) remaining issues, (c) new issues.
 
-=== RESPONSE FORMAT ===
-Return ONLY a valid JSON object matching this TypeScript interface. Do not include markdown formatting (like \`\`\`json).
-
-{
-  "mergeScore": number, // 0-100
-  "codeQuality": {
-    "codeStyle": number, // 0-100
-    "testCoverage": number, // 0-100
-    "documentation": number, // 0-100
-    "security": number, // 0-100
-    "performance": number, // 0-100
-    "maintainability": number // 0-100
-  },
-  "suggestions": [
-    {
-      "file": string, // Filename
-      "lineNumber": number | null, // Line number of the issue
-      "type": "improvement" | "fix" | "optimization" | "style",
-      "severity": "low" | "medium" | "high",
-      "description": string, // Clear explanation
-      "suggestedCode": string | null, // The fixed code block
-      "language": string | null, // The language of the fixed code block
-      "reasoning": string // Why this change is better
-    }
-  ],
-  "summary": string,
-  "confidence": number // 0.0 to 1.0
-}
-  
-IMPORTANT: As specified, respond with only the JSON object, no markdown formatting or extra text.`;
+=== REASONING ===
+For 'suggestions', include specific file paths, line numbers, and 'suggestedCode'. Do NOT return any markdown formatting outside the JSON block.`;
     }
 
     /**
@@ -707,5 +652,56 @@ IMPORTANT: As specified, respond with only the JSON object, no markdown formatti
      */
     private sleep(ms: number): Promise<void> {
         return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    /**
+     * Define the schema for structured JSON output
+     */
+    private getResponseSchema(): ResponseSchema {
+        return {
+            type: SchemaType.OBJECT,
+            properties: {
+                mergeScore: { type: SchemaType.NUMBER, description: "0-100 score" },
+                codeQuality: {
+                    type: SchemaType.OBJECT,
+                    properties: {
+                        codeStyle: { type: SchemaType.NUMBER, description: "0-100 score" },
+                        testCoverage: { type: SchemaType.NUMBER, description: "0-100 score" },
+                        documentation: { type: SchemaType.NUMBER, description: "0-100 score" },
+                        security: { type: SchemaType.NUMBER, description: "0-100 score" },
+                        performance: { type: SchemaType.NUMBER, description: "0-100 score" },
+                        maintainability: { type: SchemaType.NUMBER, description: "0-100 score" }
+                    },
+                    required: ["codeStyle", "testCoverage", "documentation", "security", "performance", "maintainability"]
+                },
+                suggestions: {
+                    type: SchemaType.ARRAY,
+                    items: {
+                        type: SchemaType.OBJECT,
+                        properties: {
+                            file: { type: SchemaType.STRING, description: "Filename", nullable: true },
+                            lineNumber: { type: SchemaType.NUMBER, description: "Line number of the issue", nullable: true },
+                            type: {
+                                type: SchemaType.STRING,
+                                description: "Must be 'improvement', 'fix', 'optimization', or 'style'"
+                            },
+                            severity: {
+                                type: SchemaType.STRING,
+                                description: "Must be 'low', 'medium', or 'high'"
+                            },
+                            description: { type: SchemaType.STRING, description: "Clear explanation" },
+                            suggestedCode: { type: SchemaType.STRING, description: "The fixed code block", nullable: true },
+                            language: { type: SchemaType.STRING, description: "The language of the fixed code block", nullable: true },
+                            reasoning: { type: SchemaType.STRING, description: "Why this change is better" }
+                        },
+                        required: ["type", "severity", "description", "reasoning"]
+                    },
+                    description: "List of actionable suggestions"
+                },
+                summary: { type: SchemaType.STRING, description: "Concise review summary" },
+                confidence: { type: SchemaType.NUMBER, description: "0.0 to 1.0 confidence level" }
+            },
+            required: ["mergeScore", "codeQuality", "suggestions", "summary", "confidence"]
+        };
     }
 }
