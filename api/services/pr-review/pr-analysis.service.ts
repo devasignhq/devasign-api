@@ -8,7 +8,7 @@ import {
 } from "../../models/ai-review.model";
 import { PRAnalysisError, GitHubAPIError, ErrorClass } from "../../models/error.model";
 import { OctokitService } from "../octokit.service";
-import { GitHubComment, GitHubFile, IssueDto, IssueLabel } from "../../models/github.model";
+import { GitHubFile } from "../../models/github.model";
 import { PullRequestContextAnalyzerService } from "./context-analyzer.service";
 import { GeminiAIService } from "./gemini-ai.service";
 import { getFieldFromUnknownObject } from "../../utilities/helper";
