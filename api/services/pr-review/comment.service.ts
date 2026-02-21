@@ -96,7 +96,8 @@ export class AIReviewCommentService {
         installationId: string,
         repositoryName: string,
         prNumber: number,
-        error: string
+        error: string,
+        commentId?: string
     ): Promise<{
         success: boolean;
         commentId?: string;
@@ -109,20 +110,30 @@ export class AIReviewCommentService {
                 error
             );
 
-            const commentId = await this.createCommentInternal(
-                installationId,
-                repositoryName,
-                prNumber,
-                errorComment
-            );
-
-            messageLogger.info(`Posted error comment ${commentId} on PR #${prNumber}`);
+            let postedCommentId: string;
+            if (commentId) {
+                await this.updateCommentInternal(
+                    installationId,
+                    repositoryName,
+                    commentId,
+                    errorComment
+                );
+                postedCommentId = commentId;
+                messageLogger.info(`Updated error comment ${postedCommentId} on PR #${prNumber}`);
+            } else {
+                postedCommentId = await this.createCommentInternal(
+                    installationId,
+                    repositoryName,
+                    prNumber,
+                    errorComment
+                );
+                messageLogger.info(`Posted error comment ${postedCommentId} on PR #${prNumber}`);
+            }
 
             return {
                 success: true,
-                commentId
+                commentId: postedCommentId
             };
-
         } catch (postError) {
             dataLogger.error("Error posting analysis error comment", { postError });
 

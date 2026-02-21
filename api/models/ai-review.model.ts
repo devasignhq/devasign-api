@@ -160,6 +160,8 @@ export interface ReviewResult {
     isFollowUp?: boolean;
     /** The summary from the previous review, included for follow-up context in comments. */
     previousSummary?: string;
+    /** ID of the comment posted to Github */
+    commentId?: string;
 }
 
 export interface FormattedReview {

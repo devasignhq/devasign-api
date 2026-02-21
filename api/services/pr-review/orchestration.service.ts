@@ -140,7 +140,8 @@ export class AIReviewOrchestrationService {
                         result.installationId,
                         result.repositoryName,
                         result.prNumber,
-                        "Review analysis completed but failed to post detailed results. Please check the logs."
+                        "Review analysis completed but failed to post detailed results. Please check the logs.",
+                        result.commentId
                     );
                 } catch (errorCommentError) {
                     dataLogger.error("Failed to post error comment", { errorCommentError });
@@ -172,7 +173,8 @@ export class AIReviewOrchestrationService {
                         result.installationId,
                         result.repositoryName,
                         result.prNumber,
-                        "Follow-up review analysis completed but failed to post results. Please check the logs."
+                        "Follow-up review analysis completed but failed to post results. Please check the logs.",
+                        result.commentId
                     );
                 } catch (errorCommentError) {
                     dataLogger.error("Failed to post error comment", { errorCommentError });
@@ -188,10 +190,12 @@ export class AIReviewOrchestrationService {
      */
     async analyzePullRequest(prData: PullRequestData): Promise<ReviewResult> {
         const startTime = Date.now();
+        let initialResultId: string | undefined;
 
         try {
             // Create initial review result record
             const initialResult = await this.createInitialReviewResult(prData);
+            initialResultId = initialResult.id;
 
             // Execute analysis
             const reviewResult = await PRAnalysisService.analyzePullRequest(prData);
@@ -241,20 +245,28 @@ export class AIReviewOrchestrationService {
                 }
             );
 
-            // Since we created a record, we can use its ID if it exists
-            // But we need to be careful if createInitialReviewResult failed
-            // However, handlePRReview wraps this, and analyzePullRequest is where we are.
-            // Let's assume initialResult exists if we reached here.
-            // If it doesn't, we can skip status update as record was never created.
-            // But actually we have access to prData, so we could theoretically find it, 
-            // but updateStatusByRecordId is safer.
+            if (initialResultId) {
+                await this.updateReviewStatus(initialResultId, ReviewStatus.FAILED);
+            }
 
-            // Re-finding is not possible if it was never created. 
-            // Orchestration usually handles this.
-            // For now, let's just use try-catch inside.
-            /* no-op if no recordId */
+            try {
+                await AIReviewCommentService.postErrorComment(
+                    prData.installationId,
+                    prData.repositoryName,
+                    prData.prNumber,
+                    `Review failed: ${(error as Error).message}. Please review manually.`,
+                    prData.pendingCommentId
+                );
+            } catch (commentError) {
+                dataLogger.error("Failed to post error comment", { commentError });
+            }
 
-            throw error;
+            throw new PRAnalysisError(
+                prData.prNumber,
+                prData.repositoryName,
+                "Failed to complete initial review",
+                error
+            );
         }
     }
 
@@ -322,7 +334,8 @@ export class AIReviewOrchestrationService {
                     prData.installationId,
                     prData.repositoryName,
                     prData.prNumber,
-                    `Follow-up review failed: ${(error as Error).message}. Please review manually.`
+                    `Follow-up review failed: ${(error as Error).message}. Please review manually.`,
+                    prData.pendingCommentId
                 );
             } catch (commentError) {
                 dataLogger.error("Failed to post error comment", { commentError });
