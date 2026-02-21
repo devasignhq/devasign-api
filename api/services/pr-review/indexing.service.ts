@@ -22,8 +22,9 @@ export class IndexingService {
 
     /**
      * Index a repository by fetching all files, chunking them, and storing embeddings
-     * @param installationId Installation ID
-     * @param repositoryName Repository name
+     * @param installationId - The ID of the installation
+     * @param repositoryName - The name of the repository
+     * @returns A promise that resolves when the indexing is complete
      */
     async indexRepository(installationId: string, repositoryName: string): Promise<void> {
         dataLogger.info("Starting repository indexing", { installationId, repositoryName });
@@ -73,13 +74,14 @@ export class IndexingService {
                         dataLogger.info(`Last indexed file not found. Resuming from closest next file: ${relevantFiles[resumeIndex]}`);
                         relevantFiles = relevantFiles.slice(resumeIndex);
                     } else if (indexingState.lastIndexedFilePath < relevantFiles[relevantFiles.length - 1]) {
-                        // All files are greater than last indexed
+                        // All files are greater than last indexed file path
                         dataLogger.info("All files appear to be already indexed.");
                         relevantFiles = [];
                     }
                 }
             }
 
+            // If no relevant files, return
             if (relevantFiles.length === 0) {
                 dataLogger.info("No relevant files to index");
                 return;
@@ -102,14 +104,17 @@ export class IndexingService {
                 // Process each file in the batch
                 for (const filePath of batchPaths) {
                     const fileData = fileContents[filePath];
+                    // Skip binary files
                     if (!fileData || fileData.isBinary) continue;
 
                     const trimmedContent = fileData.text.trim();
+                    // Skip empty or whitespace-only files
                     if (!trimmedContent) {
                         dataLogger.info(`Skipping empty or whitespace-only file: ${filePath}`);
                         continue;
                     }
 
+                    // Process file
                     await this.processFile(
                         installationId,
                         repositoryName,
@@ -123,6 +128,7 @@ export class IndexingService {
                 const lastFileInBatch = batchPaths[batchPaths.length - 1];
                 await this.updateIndexingProgress(installationId, repositoryName, lastFileInBatch);
 
+                // Update processed files count
                 processedFiles += batchPaths.length;
                 dataLogger.info(`Indexed ${processedFiles}/${totalFiles} files`);
             }
@@ -167,9 +173,10 @@ export class IndexingService {
 
     /**
      * Update the indexing progress
-     * @param installationId Installation ID
-     * @param repositoryName Repository name
-     * @param lastIndexedFilePath Last indexed file path
+     * @param installationId - The ID of the installation
+     * @param repositoryName - The name of the repository
+     * @param lastIndexedFilePath - The last indexed file path
+     * @returns A promise that resolves when the progress is updated
      */
     private async updateIndexingProgress(installationId: string, repositoryName: string, lastIndexedFilePath: string) {
         await prisma.repositoryIndexingState.update({
@@ -189,11 +196,12 @@ export class IndexingService {
 
     /**
      * Process a single file: chunk, embed, and store
-     * @param installationId Installation ID
-     * @param repositoryName Repository name
-     * @param filePath File path
-     * @param content File content
-     * @param fileHash File hash
+     * @param installationId - The ID of the installation
+     * @param repositoryName - The name of the repository
+     * @param filePath - The file path
+     * @param content - The file content
+     * @param fileHash - The file hash
+     * @returns A promise that resolves when the file is processed
      */
     private async processFile(
         installationId: string,
@@ -221,6 +229,7 @@ export class IndexingService {
         const chunksWithEmbeddings: { index: number; content: string; embedding: number[] }[] = [];
         const failedChunks: { index: number; content: string }[] = [];
 
+        // Estimate tokens for all chunks
         const estimatedTokens = this.geminiService.estimateTokens(allChunkTexts.join("\n"));
         messageLogger.info(`Estimated tokens: ${estimatedTokens}`);
         if (!this.countingTokens) {
@@ -233,6 +242,7 @@ export class IndexingService {
             const chunkText = allChunkTexts[i].trim();
             if (!chunkText) continue;
 
+            // Estimate tokens for each chunk
             const estimatedTokens = this.geminiService.estimateTokens(chunkText);
             this.tokenPerMinuteCount += estimatedTokens;
 
@@ -240,6 +250,7 @@ export class IndexingService {
                 // Generate embedding
                 const embedding = await this.geminiService.generateEmbedding(chunkText);
 
+                // Add chunk to list
                 chunksWithEmbeddings.push({
                     index: i,
                     content: chunkText,
@@ -258,11 +269,15 @@ export class IndexingService {
             for (const failedChunk of failedChunks) {
                 const { index, content } = failedChunk;
 
+                // Estimate tokens for each chunk
                 const estimatedTokens = this.geminiService.estimateTokens(content);
                 this.tokenPerMinuteCount += estimatedTokens;
 
                 try {
+                    // Generate embedding
                     const embedding = await this.geminiService.generateEmbedding(content);
+
+                    // Add chunk to list
                     chunksWithEmbeddings.push({
                         index,
                         content,
@@ -288,6 +303,11 @@ export class IndexingService {
         });
     }
 
+
+    /**
+     * Check the token limit 
+     * @returns A promise that resolves when the token limit is checked
+     */
     private async checkTokenLimit() {
         await new Promise(resolve => setInterval(() => {
             messageLogger.warn(`Token count for minute: ${this.tokenPerMinuteCount}`);
@@ -298,14 +318,15 @@ export class IndexingService {
 
     /**
      * Chunk content based on file extension
-     * @param content Content to chunk
-     * @param filePath File path
-     * @returns Array of chunks
+     * @param content - The content to chunk
+     * @param filePath - The file path
+     * @returns A promise that resolves to an array of chunks
      */
     private async chunkContent(content: string, filePath: string): Promise<string[]> {
         // Determine language based on file extension for better splitting
         const extension = filePath.split(".").pop()?.toLowerCase();
 
+        // Chunk content
         const splitter = RecursiveCharacterTextSplitter.fromLanguage(
             this.getLanguageFromExtension(extension),
             {
@@ -314,14 +335,15 @@ export class IndexingService {
             }
         );
 
+        // Split content
         const documents = await splitter.createDocuments([content]);
         return documents.map(doc => doc.pageContent);
     }
 
     /**
      * Get language from extension
-     * @param ext Extension
-     * @returns Language
+     * @param ext - The file extension
+     * @returns The corresponding text splitter language
      */
     private getLanguageFromExtension(ext?: string): SupportedTextSplitterLanguage {
         if (!ext) return "markdown";
@@ -353,9 +375,9 @@ export class IndexingService {
 
     /**
      * Preprocess content based on file type
-     * @param content Content to preprocess
-     * @param filePath File path
-     * @returns Preprocessed content
+     * @param content - The content to preprocess
+     * @param filePath - The file path
+     * @returns The preprocessed content
      */
     private preprocessContent(content: string, filePath: string): string {
         // Check if the file is a Jupyter Notebook
@@ -391,8 +413,8 @@ export class IndexingService {
 
     /**
      * Check if file is relevant for indexing
-     * @param filePath File path
-     * @returns True if file is relevant, false otherwise
+     * @param filePath - The file path
+     * @returns True if the file is relevant, false otherwise
      */
     private isRelevantFile(filePath: string): boolean {
         const isIgnoredExt = this.ignoredExtensions.some(ext => filePath.toLowerCase().endsWith(ext));

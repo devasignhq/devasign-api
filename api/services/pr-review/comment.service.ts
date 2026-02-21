@@ -20,6 +20,9 @@ export class AIReviewCommentService {
     /**
      * Posts or updates a complete AI review comment on a PR with retry logic and validation.
      * This is the main entry point for posting review results.
+     * @param result - The AI review result
+     * @param maxRetries - The maximum number of retries
+     * @returns A promise that resolves to an object with success status and optional comment ID/error
      */
     public static async postReviewResult(
         result: ReviewResult,
@@ -43,10 +46,12 @@ export class AIReviewCommentService {
             let lastError: Error | null = null;
             let attempts = 0;
 
+            // Retry logic with exponential backoff
             for (let attempt = 0; attempt < maxRetries; attempt++) {
                 attempts++;
 
                 try {
+                    // Post or update the review comment
                     const commentId = await this.postOrUpdateReviewInternal(result);
                     return {
                         success: true,
@@ -73,6 +78,7 @@ export class AIReviewCommentService {
                 }
             }
 
+            // Return the error if all retries failed
             return {
                 success: false,
                 error: lastError?.message || "Unknown error occurred",
@@ -91,6 +97,12 @@ export class AIReviewCommentService {
 
     /**
      * Posts an error message when review analysis fails.
+     * @param installationId - The ID of the installation
+     * @param repositoryName - The name of the repository
+     * @param prNumber - The PR number
+     * @param error - The error message to post
+     * @param commentId - The optional ID of an existing comment to update
+     * @returns A promise that resolves to an object with success status and optional comment ID/error
      */
     public static async postErrorComment(
         installationId: string,
@@ -104,6 +116,7 @@ export class AIReviewCommentService {
         error?: string;
     }> {
         try {
+            // Format the error comment
             const errorComment = this.formatErrorComment(
                 installationId,
                 prNumber,
@@ -112,6 +125,7 @@ export class AIReviewCommentService {
 
             let postedCommentId: string;
             if (commentId) {
+                // If a comment ID is provided, update the existing 'review in progress' comment
                 await this.updateCommentInternal(
                     installationId,
                     repositoryName,
@@ -121,6 +135,7 @@ export class AIReviewCommentService {
                 postedCommentId = commentId;
                 messageLogger.info(`Updated error comment ${postedCommentId} on PR #${prNumber}`);
             } else {
+                // Else create a new error comment
                 postedCommentId = await this.createCommentInternal(
                     installationId,
                     repositoryName,
@@ -146,6 +161,10 @@ export class AIReviewCommentService {
 
     /**
      * Posts an initial "review in progress" comment at the start of PR analysis.
+     * @param installationId - The ID of the installation
+     * @param repositoryName - The name of the repository
+     * @param prNumber - The PR number
+     * @returns A promise that resolves to an object with success status and optional comment ID/error
      */
     public static async postInProgressComment(
         installationId: string,
@@ -157,11 +176,13 @@ export class AIReviewCommentService {
         error?: string;
     }> {
         try {
+            // Format the in-progress comment
             const inProgressComment = this.formatInProgressComment(
                 installationId,
                 prNumber
             );
 
+            // Create the in-progress comment
             const commentId = await this.createCommentInternal(
                 installationId,
                 repositoryName,
@@ -190,6 +211,9 @@ export class AIReviewCommentService {
      * Always creates a brand-new review comment for a follow-up review (triggered by
      * a new push to an already-reviewed PR). It never updates an existing comment so
      * contributors can see the full history of reviews.
+     * @param result - The follow-up AI review result
+     * @param maxRetries - The maximum number of retries
+     * @returns A promise that resolves to an object with success status and optional comment ID/error
      */
     public static async postFollowUpReviewResult(
         result: ReviewResult,
@@ -201,6 +225,7 @@ export class AIReviewCommentService {
         attempts: number;
     }> {
         try {
+            // Validate the review result
             if (!this.validateReviewResult(result)) {
                 return {
                     success: false,
@@ -212,6 +237,7 @@ export class AIReviewCommentService {
             let lastError: Error | null = null;
             let attempts = 0;
 
+            // Retry logic with exponential backoff
             for (let attempt = 0; attempt < maxRetries; attempt++) {
                 attempts++;
 
@@ -224,11 +250,12 @@ export class AIReviewCommentService {
                         result.id
                     );
 
+                    // Format the follow-up review
                     const formattedReview = this.formatFollowUpReview(result);
                     let commentId: string;
 
                     if (existingCommentId) {
-                        // Update the in-progress comment for this record
+                        // If an existing comment is found, update it
                         await this.updateCommentInternal(
                             result.installationId,
                             result.repositoryName,
@@ -238,7 +265,7 @@ export class AIReviewCommentService {
                         commentId = existingCommentId;
                         messageLogger.info(`Updated follow-up review comment ${commentId} on PR #${result.prNumber}`);
                     } else {
-                        // Create a brand-new comment
+                        // Else create a brand-new comment
                         commentId = await this.createCommentInternal(
                             result.installationId,
                             result.repositoryName,
@@ -271,6 +298,7 @@ export class AIReviewCommentService {
                 }
             }
 
+            // Return the error if all retries failed
             return {
                 success: false,
                 error: lastError?.message || "Unknown error occurred",
@@ -290,6 +318,10 @@ export class AIReviewCommentService {
     /**
      * Posts a "follow-up review in progress" comment when new commits are detected on a PR
      * that has already been reviewed.
+     * @param installationId - The ID of the installation
+     * @param repositoryName - The name of the repository
+     * @param prNumber - The PR number
+     * @returns A promise that resolves to an object with success status and optional comment ID/error
      */
     public static async postFollowUpInProgressComment(
         installationId: string,
@@ -301,8 +333,10 @@ export class AIReviewCommentService {
         error?: string;
     }> {
         try {
+            // Format the follow-up in-progress comment
             const comment = this.formatFollowUpInProgressComment(installationId, prNumber);
 
+            // Create the follow-up in-progress comment
             const commentId = await this.createCommentInternal(
                 installationId,
                 repositoryName,
@@ -377,14 +411,15 @@ export class AIReviewCommentService {
             dataLogger.error("Error posting/updating review comment (Internal)", { error });
 
             // Try to post an error comment instead if the main comment failed
-            // Note: This matches the original service logic which tried to recover by posting an error
             try {
+                // Format the error comment
                 const errorComment = this.formatErrorComment(
                     result.installationId,
                     result.prNumber,
                     error instanceof Error ? error.message : "Unknown error occurred"
                 );
 
+                // Create the error comment
                 const errorCommentId = await this.createCommentInternal(
                     result.installationId,
                     result.repositoryName,
@@ -410,8 +445,10 @@ export class AIReviewCommentService {
     ): Promise<string> {
         try {
             const comment = await this.callGitHubAPI(installationId, async (octokit) => {
-                const [owner, repo] = repositoryName.split("/");
+                // Get the owner and repo from the repository name
+                const [owner, repo] = OctokitService.getOwnerAndRepo(repositoryName);
 
+                // Create the comment
                 const response = await octokit.rest.issues.createComment({
                     owner,
                     repo,
@@ -449,8 +486,10 @@ export class AIReviewCommentService {
     ): Promise<void> {
         try {
             await this.callGitHubAPI(installationId, async (octokit) => {
-                const [owner, repo] = repositoryName.split("/");
+                // Get the owner and repo from the repository name
+                const [owner, repo] = OctokitService.getOwnerAndRepo(repositoryName);
 
+                // Update the comment
                 await octokit.rest.issues.updateComment({
                     owner,
                     repo,
@@ -498,6 +537,7 @@ export class AIReviewCommentService {
                         storedResult.commentId
                     );
 
+                    // If the comment exists, return it
                     if (commentExists) {
                         return storedResult.commentId;
                     }
@@ -506,7 +546,7 @@ export class AIReviewCommentService {
 
             // If no stored comment ID or comment doesn't exist, search through PR comments
             const comments = await this.callGitHubAPI(installationId, async (octokit) => {
-                const [owner, repo] = repositoryName.split("/");
+                const [owner, repo] = OctokitService.getOwnerAndRepo(repositoryName);
 
                 const response = await octokit.rest.issues.listComments({
                     owner,
@@ -528,6 +568,7 @@ export class AIReviewCommentService {
                 }
             }
 
+            // If no comment found, return null
             return null;
 
         } catch (error) {
@@ -543,8 +584,10 @@ export class AIReviewCommentService {
     ): Promise<boolean> {
         try {
             await this.callGitHubAPI(installationId, async (octokit) => {
-                const [owner, repo] = repositoryName.split("/");
+                // Get the owner and repo from the repository name
+                const [owner, repo] = OctokitService.getOwnerAndRepo(repositoryName);
 
+                // Get the comment
                 await octokit.rest.issues.getComment({
                     owner,
                     repo,
@@ -579,91 +622,6 @@ export class AIReviewCommentService {
         } catch (error) {
             dataLogger.error("Failed to store comment ID", { error });
             // Don't throw error to avoid breaking the main workflow
-        }
-    }
-
-    private static async deleteReviewCommentInternal(
-        installationId: string,
-        repositoryName: string,
-        commentId: string
-    ): Promise<void> {
-        try {
-            await this.callGitHubAPI(installationId, async (octokit) => {
-                const [owner, repo] = repositoryName.split("/");
-
-                await octokit.rest.issues.deleteComment({
-                    owner,
-                    repo,
-                    comment_id: parseInt(commentId)
-                });
-            });
-
-            messageLogger.info(`Deleted AI review comment ${commentId} from ${repositoryName}`);
-
-        } catch (error) {
-            const errorStatus = getFieldFromUnknownObject<number>(error, "status");
-            if (errorStatus === 404) {
-                messageLogger.info(`Comment ${commentId} already deleted or doesn't exist`);
-                return; // Comment already deleted, no error
-            }
-
-            throw new GitHubAPIError(
-                `Failed to delete comment ${commentId} in ${repositoryName}`,
-                {
-                    installationId,
-                    repositoryName,
-                    commentId,
-                    originalError: getFieldFromUnknownObject<string>(error, "message"),
-                    operation: "deleteComment"
-                },
-                errorStatus || 500,
-                getFieldFromUnknownObject<number>(error, "rateLimitRemaining") || 0
-            );
-        }
-    }
-
-    private static async getAIReviewCommentsInternal(
-        installationId: string,
-        repositoryName: string,
-        prNumber: number
-    ): Promise<Array<{ id: string; body: string; createdAt: string; updatedAt: string }>> {
-        try {
-            const comments = await this.callGitHubAPI(installationId, async (octokit) => {
-                const [owner, repo] = repositoryName.split("/");
-
-                const response = await octokit.rest.issues.listComments({
-                    owner,
-                    repo,
-                    issue_number: prNumber,
-                    per_page: 100
-                });
-
-                return response.data;
-            });
-
-            // Filter for AI review comments
-            return comments
-                .filter((comment) => this.isAIReviewComment(comment.body || ""))
-                .map((comment) => ({
-                    id: comment.id.toString(),
-                    body: comment.body || "",
-                    createdAt: comment.created_at,
-                    updatedAt: comment.updated_at
-                }));
-
-        } catch (error) {
-            throw new GitHubAPIError(
-                `Failed to get AI review comments for PR #${prNumber} in ${repositoryName}`,
-                {
-                    installationId,
-                    repositoryName,
-                    prNumber,
-                    originalError: getFieldFromUnknownObject<string>(error, "message"),
-                    operation: "getAIReviewComments"
-                },
-                getFieldFromUnknownObject<number>(error, "status") || 500,
-                getFieldFromUnknownObject<number>(error, "rateLimitRemaining") || 0
-            );
         }
     }
 
@@ -744,6 +702,7 @@ export class AIReviewCommentService {
             "mergeScore"
         ];
 
+        // Check if all required fields are present
         for (const field of requiredFields) {
             if (!(field in result) || result[field as keyof ReviewResult] === undefined) {
                 messageLogger.error(`Review result missing required field: ${field}`);
@@ -757,6 +716,7 @@ export class AIReviewCommentService {
             return false;
         }
 
+        // Validate suggestions is an array
         if (!Array.isArray(result.suggestions)) {
             messageLogger.error("suggestions is not an array");
             return false;

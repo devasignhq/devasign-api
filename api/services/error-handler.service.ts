@@ -14,6 +14,7 @@ export class ErrorHandlerService {
 
     /**
      * Initializes all error handling components
+     * @returns A promise that resolves when initialization is complete
      */
     static async initialize(): Promise<void> {
         if (this.initialized) {
@@ -47,6 +48,7 @@ export class ErrorHandlerService {
 
     /**
      * Shuts down error handling components gracefully
+     * @returns A promise that resolves when shutdown is complete
      */
     static async shutdown(): Promise<void> {
         if (!this.initialized) {
@@ -225,6 +227,7 @@ export class ErrorHandlerService {
 
     /**
      * Gets initialization status
+     * @returns An object containing the initialization status
      */
     static getInitializationStatus() {
         return { initialized: this.initialized };
@@ -232,6 +235,7 @@ export class ErrorHandlerService {
 
     /**
      * Adds a shutdown handler
+     * @param handler - The shutdown handler to add
      */
     static addShutdownHandler(handler: () => Promise<void> | void): void {
         this.shutdownHandlers.push(handler);
@@ -239,6 +243,7 @@ export class ErrorHandlerService {
 
     /**
      * Forces reinitialization (for testing or recovery)
+     * @returns A promise that resolves when reinitialization is complete
      */
     static async forceReinitialize(): Promise<void> {
         messageLogger.warn("Forcing reinitialization of error handling components");

@@ -18,6 +18,8 @@ export class PullRequestContextAnalyzerService {
 
     /**
      * Builds the comprehensive context for the PR review
+     * @param prData - The pull request data
+     * @returns A promise that resolves to the review context
      */
     async buildReviewContext(prData: PullRequestData): Promise<ReviewContext> {
         messageLogger.info(`Starting context analysis for PR #${prData.prNumber} in ${prData.repositoryName}`);
@@ -49,10 +51,14 @@ export class PullRequestContextAnalyzerService {
 
     /**
      * Fetches CONTRIBUTING.md or similar style guide if it exists
+     * @param installationId - The ID of the installation
+     * @param repositoryName - The name of the repository
+     * @returns A promise that resolves to the style guide content or null
      */
     private async getStyleGuide(installationId: string, repositoryName: string): Promise<string | null> {
         const potentialPaths = ["CONTRIBUTING.md", "docs/CONTRIBUTING.md", ".github/CONTRIBUTING.md"];
 
+        // Iterate through potential paths and fetch the style guide
         for (const path of potentialPaths) {
             try {
                 const content = await OctokitService.getFileContent(installationId, repositoryName, path);
@@ -66,10 +72,14 @@ export class PullRequestContextAnalyzerService {
 
     /**
      * Fetches README.md if it exists
+     * @param installationId - The ID of the installation
+     * @param repositoryName - The name of the repository
+     * @returns A promise that resolves to the README content or null
      */
     private async getReadme(installationId: string, repositoryName: string): Promise<string | null> {
         const potentialPaths = ["README.md", "docs/README.md"];
 
+        // Iterate through potential paths and fetch the README
         for (const path of potentialPaths) {
             try {
                 const content = await OctokitService.getFileContent(installationId, repositoryName, path);
@@ -83,6 +93,8 @@ export class PullRequestContextAnalyzerService {
 
     /**
      * Finds relevant code chunks using vector search based on PR content
+     * @param prData - The pull request data
+     * @returns A promise that resolves to an array of relevant code chunks
      */
     private async getRelevantCodeChunks(prData: PullRequestData): Promise<CodeChunkResult[]> {
         // Skips retrieval
@@ -97,6 +109,7 @@ export class PullRequestContextAnalyzerService {
                 `Issue #${issue.number}: ${issue.title}\n${issue.body}`
             ).join("\n\n");
 
+            // Build the query
             const query = `
                 PR Title: ${prData.title}
                 PR Description: ${prData.body}

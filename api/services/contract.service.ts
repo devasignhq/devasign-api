@@ -90,6 +90,9 @@ export class ContractService {
 
     /**
      * Helper to parse contract errors from simulation or transaction results.
+     * @param details - The error details string or object
+     * @param defaultMessage - The default message to return if parsing fails
+     * @returns The parsed error message or the default message
      */
     private static parseContractError(details: unknown, defaultMessage: string): string {
         try {
@@ -113,6 +116,8 @@ export class ContractService {
 
     /**
      * Helper method to convert an amount to stroops.
+     * @param amount - The amount to convert
+     * @returns The amount in stroops as a BigInt
      */
     private static convertToStroops(amount: number) {
         return BigInt(amount * 10_000_000);
@@ -120,6 +125,10 @@ export class ContractService {
 
     /**
      * Helper method to build, simulate, sign, and submit a Soroban transaction.
+     * @param operation - The operation to include in the transaction
+     * @param signerKeypair - The keypair to sign the transaction with
+     * @param functionCaller - The name of the calling function for logging purposes
+     * @returns The result of the submitted transaction
      */
     private static async submitTransaction(
         operation: xdr.Operation,
@@ -183,6 +192,9 @@ export class ContractService {
 
     /**
      * Approve USDC spending by the escrow contract.
+     * @param userSecretKey - The secret key of the user granting approval
+     * @param amount - The amount of USDC to approve in stroops
+     * @returns An object containing success status and transaction hash
      */
     public static async approveUsdcSpending(
         userSecretKey: string,
@@ -218,6 +230,11 @@ export class ContractService {
 
     /**
      * Create a new escrow for a task on the smart contract.
+     * @param creatorSecretKey - The secret key of the task creator
+     * @param taskId - The ID of the task
+     * @param issueUrl - The URL of the GitHub issue
+     * @param bountyAmount - The bounty amount in USDC
+     * @returns An object containing success status, result, and transaction hashes
      */
     public static async createEscrow(
         creatorSecretKey: string,
@@ -268,6 +285,8 @@ export class ContractService {
 
     /**
      * Retrieve escrow details for a specific task from the smart contract.
+     * @param taskId - The ID of the task to retrieve
+     * @returns The escrow details
      */
     public static async getEscrow(taskId: string) {
         // Build the contract call operation
@@ -311,6 +330,10 @@ export class ContractService {
     /**
      * Assign a contributor to a task in the escrow contract.
      * Only the task creator can assign a contributor.
+     * @param creatorSecretKey - The secret key of the task creator
+     * @param taskId - The ID of the task
+     * @param contributorPublicKey - The public key of the assigned contributor
+     * @returns An object containing success status, result, and transaction hash
      */
     public static async assignContributor(
         creatorSecretKey: string,
@@ -339,6 +362,10 @@ export class ContractService {
     /**
      * Increase the bounty amount for a task.
      * Called by the task creator.
+     * @param creatorSecretKey - The secret key of the task creator
+     * @param taskId - The ID of the task
+     * @param amount - The amount to increase the bounty by
+     * @returns An object containing success status, result, and transaction hashes
      */
     public static async increaseBounty(
         creatorSecretKey: string,
@@ -388,6 +415,10 @@ export class ContractService {
     /**
      * Decrease the bounty amount for a task.
      * Called by the task creator.
+     * @param creatorSecretKey - The secret key of the task creator
+     * @param taskId - The ID of the task
+     * @param amount - The amount to decrease the bounty by
+     * @returns An object containing success status, result, and transaction hash
      */
     public static async decreaseBounty(
         creatorSecretKey: string,
@@ -418,6 +449,9 @@ export class ContractService {
     /**
      * Approve task completion and release escrowed funds to the contributor.
      * Called by the task creator after verifying the work is satisfactory.
+     * @param creatorSecretKey - The secret key of the task creator
+     * @param taskId - The ID of the completed task
+     * @returns An object containing success status, result, and transaction hash
      */
     public static async approveCompletion(creatorSecretKey: string, taskId: string) {
         // Create keypair from creator's secret key
@@ -438,6 +472,10 @@ export class ContractService {
     /**
      * Initiate a dispute for a task.
      * Can be called by either the creator or contributor when there's a disagreement.
+     * @param disputingPartySecretKey - The secret key of the disputing party
+     * @param taskId - The ID of the disputed task
+     * @param reason - The reason for the dispute
+     * @returns An object containing success status, result, and transaction hash
      */
     public static async disputeTask(
         disputingPartySecretKey: string,
@@ -465,6 +503,10 @@ export class ContractService {
     /**
      * Resolve a dispute for a task (admin only).
      * Determines how the escrowed funds should be distributed after a dispute.
+     * @param adminSecretKey - The secret key of the admin resolving the dispute
+     * @param taskId - The ID of the task
+     * @param resolution - The resolution decision
+     * @returns An object containing success status, result, and transaction hash
      */
     public static async resolveDispute(
         adminSecretKey: string,
@@ -510,6 +552,9 @@ export class ContractService {
     /**
      * Request a refund from the escrow.
      * Called by the creator when no contributor has been assigned to the task.
+     * @param creatorSecretKey - The secret key of the task creator
+     * @param taskId - The ID of the task
+     * @returns An object containing success status, result, and transaction hash
      */
     public static async refund(creatorSecretKey: string, taskId: string) {
         // Create keypair from creator's secret key

@@ -51,6 +51,9 @@ export class StellarService {
     /**
      * Helper method to check if two Stellar assets are identical.
      * Compares both native (XLM) and issued assets (like USDC).
+     * @param asset1 - The first Stellar asset to compare
+     * @param asset2 - The second Stellar asset to compare
+     * @returns True if the assets are identical, false otherwise
      */
     private isSameAsset(asset1: StellarAssetId, asset2: StellarAssetId): boolean {
         // Both assets are native XLM
@@ -70,6 +73,7 @@ export class StellarService {
     /**
      * Create a new Stellar wallet funded by the master account.
      * The master account pays for the account creation and initial funding.
+     * @returns The new wallet credentials and transaction hash
      */
     async createWallet() {
         try {
@@ -119,6 +123,8 @@ export class StellarService {
     /**
      * Create a new Stellar wallet with sponsored reserves.
      * The sponsor account pays for the account creation, allowing fee-less wallet creation.
+     * @param sponsorSecret - The secret key of the sponsor account
+     * @returns The new wallet credentials
      */
     async createWalletViaSponsor(sponsorSecret: string) {
         try {
@@ -174,6 +180,8 @@ export class StellarService {
     /**
      * Fund a wallet on the Stellar testnet using Friendbot.
      * Only works on testnet - provides free XLM for testing purposes.
+     * @param accountAddress - The address of the wallet to fund
+     * @returns A success message
      */
     async fundWallet(accountAddress: string) {
         if (this.isMainnet) {
@@ -584,6 +592,8 @@ export class StellarService {
     /**
      * Retrieve all incoming payment transactions for a wallet.
      * Filters payment history to show only funds received by the account.
+     * @param publicKey - The public key of the wallet to retrieve transactions for
+     * @returns An array of incoming payment transactions
      */
     async getTopUpTransactions(publicKey: string) {
         // Get all payments for the account

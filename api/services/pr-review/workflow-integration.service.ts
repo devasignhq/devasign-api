@@ -37,6 +37,7 @@ export class WorkflowIntegrationService {
     /**
      * Initializes the workflow integration service
      * Sets up event listeners and monitoring
+     * @returns A promise that resolves when initialization is complete
      */
     public async initialize(): Promise<void> {
         if (this.initialized) return;
@@ -67,6 +68,9 @@ export class WorkflowIntegrationService {
      * 4. Return immediate response
      * 5. Background: Execute full AI analysis
      * 6. Background: Post results to GitHub
+     * 
+     * @param payload - The GitHub webhook payload
+     * @returns An object containing success status, job ID, PR data, and potential errors
      */
     public async processWebhookWorkflow(payload: GitHubWebhookPayload): Promise<{
         success: boolean;
@@ -197,8 +201,8 @@ export class WorkflowIntegrationService {
     }
 
     /**
-     * Status monitoring workflow
-     * Provides comprehensive status information
+     * Gets the current status of the workflow integration
+     * @returns Complete workflow integration status object
      */
     public getWorkflowStatus() {
         try {
@@ -220,6 +224,7 @@ export class WorkflowIntegrationService {
 
         } catch (error) {
             dataLogger.error("Error getting workflow status", { error });
+            // Return default status if error
             return {
                 initialized: this.initialized,
                 jobQueue: {
@@ -238,6 +243,7 @@ export class WorkflowIntegrationService {
     /**
      * Graceful shutdown workflow
      * Ensures all processing completes before shutdown
+     * @returns A promise that resolves when shutdown is complete
      */
     public async shutdown(): Promise<void> {
         try {
@@ -250,6 +256,7 @@ export class WorkflowIntegrationService {
             const shutdownTimeout = 30000; // 30 seconds
             const startTime = Date.now();
 
+            // Wait for active jobs to complete
             while (this.jobQueue.getActiveJobsCount() > 0 && (Date.now() - startTime) < shutdownTimeout) {
                 dataLogger.info(
                     "Waiting for active jobs to complete",
@@ -262,11 +269,13 @@ export class WorkflowIntegrationService {
                 await this.sleep(1000); // Wait 1 second
             }
 
+            // Check for remaining active jobs
             const remainingJobs = this.jobQueue.getActiveJobsCount();
             if (remainingJobs > 0) {
                 dataLogger.info("Shutdown timeout reached with active jobs remaining", { remainingJobs });
             }
 
+            // Reset initialized flag
             this.initialized = false;
             messageLogger.info("Workflow shutdown completed");
 
@@ -325,6 +334,8 @@ export class WorkflowIntegrationService {
 
     /**
      * Sleep utility
+     * @param ms - The duration to sleep in milliseconds
+     * @returns A promise that resolves after the specified duration
      */
     private sleep(ms: number): Promise<void> {
         return new Promise(resolve => setTimeout(resolve, ms));
@@ -332,9 +343,11 @@ export class WorkflowIntegrationService {
 
     /**
      * Health check for the workflow integration
+     * @returns An object containing health status and service details
      */
     public async healthCheck() {
         try {
+            // Check service availability
             const services = {
                 initialized: this.initialized,
                 jobQueue: !!this.jobQueue,
@@ -342,8 +355,10 @@ export class WorkflowIntegrationService {
                 errorHandling: true // Error handling is always available
             };
 
+            // Check if all services are healthy
             const allHealthy = Object.values(services).every(status => status);
 
+            // Return health check result
             return {
                 healthy: allHealthy,
                 services,
@@ -355,6 +370,7 @@ export class WorkflowIntegrationService {
 
         } catch (error) {
             dataLogger.error("Workflow health check failed", { error });
+            // Return error details
             return {
                 healthy: false,
                 services: {

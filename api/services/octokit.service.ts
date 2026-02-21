@@ -47,6 +47,8 @@ ${accepted ? "**This bounty has already been assigned.**" : `**To work on this t
 
     /**
      * Get Octokit instance for a specific installation
+     * @param installationId - The ID of the installation
+     * @returns The Octokit instance for the specific installation
      */
     public static async getOctokit(installationId: string): Promise<InstallationOctokit> {
         // Get authenticated Octokit instance for the specific installation
@@ -62,6 +64,8 @@ ${accepted ? "**This bounty has already been assigned.**" : `**To work on this t
      * - Direct format: "owner/repo"
      * - PR URL: "https://github.com/owner/repo/pull/123"
      * - Issue URL: "https://github.com/owner/repo/issues/456"
+     * @param repoUrl - The URL of the repository
+     * @returns An array containing the owner and repository name
      */
     public static getOwnerAndRepo(repoUrl: string): [string, string] {
         // Split the URL/string by forward slashes to parse the structure
@@ -89,6 +93,8 @@ ${accepted ? "**This bounty has already been assigned.**" : `**To work on this t
 
     /**
      * Get repositories for an installation
+     * @param installationId - The ID of the installation
+     * @returns An array of repositories for the installation
      */
     static async getInstallationRepositories(installationId: string) {
         // Get authenticated Octokit instance for this installation
@@ -135,6 +141,9 @@ ${accepted ? "**This bounty has already been assigned.**" : `**To work on this t
 
     /**
      * Get installation details from GitHub with user verification
+     * @param installationId - The ID of the installation
+     * @param githubUsername - The username of the user to verify
+     * @returns The installation details
      */
     static async getInstallationDetails(installationId: string, githubUsername: string) {
         // Get authenticated Octokit instance for this installation
@@ -201,6 +210,9 @@ ${accepted ? "**This bounty has already been assigned.**" : `**To work on this t
 
     /**
      * Check if GitHub user exists
+     * @param username - The username of the user to check
+     * @param installationId - The ID of the installation
+     * @returns True if the user exists, false otherwise
      */
     static async checkGithubUser(username: string, installationId: string): Promise<boolean> {
         // Get authenticated Octokit instance
@@ -221,10 +233,13 @@ ${accepted ? "**This bounty has already been assigned.**" : `**To work on this t
 
     /**
      * Get user's top languages from GitHub
+     * @param username - The username of the user to get top languages for
+     * @returns An array of the user's top languages
      */
     public static async getUserTopLanguages(username: string): Promise<string[]> {
         const octokit = this.systemOctokit;
 
+        // Build GraphQL query to fetch user's top languages from GitHub
         const query = `
             query($username: String!, $cursor: String) {
                 user(login: $username) {
@@ -254,13 +269,16 @@ ${accepted ? "**This bounty has already been assigned.**" : `**To work on this t
         `;
 
         try {
+            // Initialize variables to store language data
             const languageBytes: Record<string, number> = {};
             let hasNextPage = true;
             let cursor: string | null = null;
             let repoCount = 0;
             const maxRepos = 100; // Limit to avoid excessive API calls
 
+            // Loop through user's repositories to collect language data
             while (hasNextPage && repoCount < maxRepos) {
+                // Fetch user repositories using GraphQL
                 const response = await octokit.graphql(query, { username, cursor }) as {
                     user: {
                         repositories: {
@@ -282,9 +300,11 @@ ${accepted ? "**This bounty has already been assigned.**" : `**To work on this t
                     } | null;
                 };
 
+                // Extract repositories from response
                 const repos = response.user?.repositories?.nodes || [];
                 repoCount += repos.length;
 
+                // Process each repository to aggregate language data
                 repos.forEach((repo) => {
                     repo.languages?.edges?.forEach((edge) => {
                         const langName = edge.node.name;
@@ -292,11 +312,12 @@ ${accepted ? "**This bounty has already been assigned.**" : `**To work on this t
                     });
                 });
 
+                // Update pagination info
                 hasNextPage = response.user?.repositories?.pageInfo.hasNextPage ?? false;
                 cursor = response.user?.repositories?.pageInfo.endCursor ?? null;
             }
 
-            // Sort by total bytes and return top 10
+            // Sort languages by total bytes in descending order and return top 10
             return Object.entries(languageBytes)
                 .sort(([, a], [, b]) => b - a)
                 .map(([name]) => name)
@@ -309,6 +330,9 @@ ${accepted ? "**This bounty has already been assigned.**" : `**To work on this t
 
     /**
      * Get repository details
+     * @param repoUrl - The URL of the repository
+     * @param installationId - The ID of the installation
+     * @returns The repository details
      */
     static async getRepoDetails(repoUrl: string, installationId: string) {
         // Get authenticated Octokit instance
@@ -376,6 +400,12 @@ ${accepted ? "**This bounty has already been assigned.**" : `**To work on this t
 
     /**
      * Get repository issues with search functionality
+     * @param repoUrl - The URL of the repository
+     * @param installationId - The ID of the installation
+     * @param filters - Filters to apply to the search
+     * @param page - The page number to fetch
+     * @param perPage - The number of items per page
+     * @returns An array of issues for the repository
      */
     static async getRepoIssuesWithSearch(
         repoUrl: string,
@@ -481,6 +511,10 @@ ${accepted ? "**This bounty has already been assigned.**" : `**To work on this t
 
     /**
      * Get single repository issue
+     * @param repoUrl - The URL of the repository
+     * @param installationId - The ID of the installation
+     * @param issueNumber - The number of the issue to fetch
+     * @returns The issue details
      */
     static async getRepoIssue(
         repoUrl: string,
@@ -534,7 +568,96 @@ ${accepted ? "**This bounty has already been assigned.**" : `**To work on this t
     }
 
     /**
+     * Fetch issue details including labels and comments
+     * @param installationId - The ID of the installation
+     * @param repositoryName - The name of the repository
+     * @param issueNumber - The number of the issue to fetch
+     * @returns The issue details or false if not found
+     */
+    public static async fetchIssueDetails(installationId: string, repositoryName: string, issueNumber: number) {
+        const octokit = await this.getOctokit(installationId);
+        const [owner, repo] = this.getOwnerAndRepo(repositoryName);
+
+        // Build GraphQL query to fetch issue details
+        const query = `
+            query($owner: String!, $repo: String!, $issueNumber: Int!) {
+                repository(owner: $owner, name: $repo) {
+                    issue(number: $issueNumber) {
+                        title
+                        body
+                        url
+                        author {
+                            login
+                        }
+                        labels(first: 100) {
+                            nodes {
+                                name
+                                description
+                            }
+                        }
+                        comments(first: 100) {
+                            nodes {
+                                author {
+                                    login
+                                    ... on Bot {
+                                        __typename
+                                    }
+                                }
+                                body
+                                updatedAt
+                            }
+                        }
+                    }
+                }
+            }
+        `;
+
+        // Build variables for GraphQL query
+        const variables = {
+            owner,
+            repo,
+            issueNumber
+        };
+
+        try {
+            // Fetch issue details from GitHub
+            const response = await octokit.graphql(query, variables);
+            const issue = (response as {
+                repository: {
+                    issue: IssueDto & {
+                        labels: { nodes: IssueLabel[] };
+                        comments: { nodes: GitHubComment[] };
+                    }
+                }
+            }).repository.issue;
+
+            // Filter out bot comments
+            const nonBotComments = issue.comments.nodes.filter(
+                comment => comment.author?.__typename !== "Bot"
+            );
+
+            return {
+                title: issue.title,
+                body: issue.body,
+                url: issue.url,
+                labels: issue.labels.nodes,
+                comments: nonBotComments
+            };
+        } catch {
+            return false;
+        }
+    }
+
+    /**
      * Update repository issue
+     * @param installationId - The ID of the installation
+     * @param repoUrl - The URL of the repository
+     * @param issueId - The ID of the issue to update
+     * @param body - The new body for the issue
+     * @param labels - The new labels for the issue
+     * @param assignees - The new assignees for the issue
+     * @param state - The new state for the issue
+     * @returns The updated issue
      */
     static async updateRepoIssue(
         installationId: string,
@@ -672,6 +795,9 @@ ${accepted ? "**This bounty has already been assigned.**" : `**To work on this t
 
     /**
      * Get repository labels and milestones
+     * @param repoUrl - The URL of the repository
+     * @param installationId - The ID of the installation
+     * @returns An object containing labels and milestones for the repository
      */
     static async getRepoLabelsAndMilestones(repoUrl: string, installationId: string) {
         // Get authenticated Octokit instance
@@ -734,6 +860,12 @@ ${accepted ? "**This bounty has already been assigned.**" : `**To work on this t
 
     /**
      * Create a label in the repository
+     * @param repositoryId - The ID of the repository
+     * @param installationId - The ID of the installation
+     * @param name - The name of the label
+     * @param color - The color of the label
+     * @param description - The description of the label
+     * @returns The created label
      */
     static async createLabel(
         repositoryId: string,
@@ -771,9 +903,16 @@ ${accepted ? "**This bounty has already been assigned.**" : `**To work on this t
         return response.createLabel.label;
     }
 
+    /**
+     * Create bounty-related labels in the repository
+     * @param repositoryId - The ID of the repository
+     * @param installationId - The ID of the installation
+     * @returns An array of created labels
+     */
     static async createBountyLabels(repositoryId: string, installationId: string) {
         const octokit = await this.getOctokit(installationId);
 
+        // Define the bounty-related labels to create
         const labels = [
             {
                 name: "💵 Bounty",
@@ -799,6 +938,7 @@ ${accepted ? "**This bounty has already been assigned.**" : `**To work on this t
             }
         `).join("\n");
 
+        // Build the mutation with aliases for each label creation
         const mutation = `
             mutation CreateMultipleLabels(${labels.map((_, index) => `$input${index}: CreateLabelInput!`).join(", ")}) {
                 ${mutationFields}
@@ -825,6 +965,10 @@ ${accepted ? "**This bounty has already been assigned.**" : `**To work on this t
 
     /**
      * Get a label from the repository by name
+     * @param repositoryId - The ID of the repository
+     * @param installationId - The ID of the installation
+     * @param name - The name of the label to fetch
+     * @returns The label details
      */
     static async getLabel(
         repositoryId: string,
@@ -849,6 +993,7 @@ ${accepted ? "**This bounty has already been assigned.**" : `**To work on this t
             }
         `;
 
+        // Execute request
         const response = await octokit.graphql(query, {
             repositoryId,
             name
@@ -865,6 +1010,9 @@ ${accepted ? "**This bounty has already been assigned.**" : `**To work on this t
 
     /**
      * Get bounty label
+     * @param repositoryId - The ID of the repository
+     * @param installationId - The ID of the installation
+     * @returns The bounty label
      */
     static async getBountyLabel(repositoryId: string, installationId: string) {
         return this.getLabel(repositoryId, installationId, "💵 Bounty");
@@ -872,6 +1020,9 @@ ${accepted ? "**This bounty has already been assigned.**" : `**To work on this t
 
     /**
      * Get bounty paid label
+     * @param repositoryId - The ID of the repository
+     * @param installationId - The ID of the installation
+     * @returns The bounty paid label
      */
     static async getBountyPaidLabel(repositoryId: string, installationId: string) {
         return this.getLabel(repositoryId, installationId, "Bounty Paid ✅");
@@ -879,6 +1030,11 @@ ${accepted ? "**This bounty has already been assigned.**" : `**To work on this t
 
     /**
      * Add bounty label and create bounty comment
+     * @param installationId - The ID of the installation
+     * @param issueId - The ID of the issue
+     * @param bountyLabelId - The ID of the bounty label
+     * @param body - The body of the comment
+     * @returns The created comment
      */
     static async addBountyLabelAndCreateBountyComment(
         installationId: string,
@@ -923,6 +1079,9 @@ ${accepted ? "**This bounty has already been assigned.**" : `**To work on this t
 
     /**
      * Add bounty paid label to the issue
+     * @param installationId - The ID of the installation
+     * @param issueId - The ID of the issue
+     * @returns The created label
      */
     static async addBountyPaidLabel(installationId: string, issueId: string) {
         const octokit = await this.getOctokit(installationId);
@@ -930,6 +1089,7 @@ ${accepted ? "**This bounty has already been assigned.**" : `**To work on this t
         // Get the specific label ID
         const bountyPaidLabel = await this.getBountyPaidLabel(issueId, installationId);
 
+        // Build GraphQL mutation to add label in a single request
         const mutation = `
             mutation AddLabel($issueId: ID!, $labelIds: [ID!]!) {
                 addLabelsToLabelable(input: {labelableId: $issueId, labelIds: $labelIds}) {
@@ -946,6 +1106,10 @@ ${accepted ? "**This bounty has already been assigned.**" : `**To work on this t
 
     /**
      * Update issue comment 
+     * @param installationId - The ID of the installation
+     * @param commentId - The ID of the comment
+     * @param body - The body of the comment
+     * @returns The updated comment
      */
     static async updateIssueComment(
         installationId: string,
@@ -984,6 +1148,11 @@ ${accepted ? "**This bounty has already been assigned.**" : `**To work on this t
 
     /**
      * Remove bounty label and delete bounty comment
+     * @param installationId - The ID of the installation
+     * @param issueId - The ID of the issue
+     * @param commentId - The ID of the comment
+     * @param bountyLabelId - The ID of the bounty label
+     * @returns Success message
      */
     static async removeBountyLabelAndDeleteBountyComment(
         installationId: string,
@@ -1018,6 +1187,10 @@ ${accepted ? "**This bounty has already been assigned.**" : `**To work on this t
 
     /**
      * Get pull request files for AI review analysis
+     * @param installationId - The ID of the installation
+     * @param repoUrl - The URL of the repository
+     * @param prNumber - The number of the pull request
+     * @returns The files changed in the pull request
      */
     static async getPRFiles(
         installationId: string,
@@ -1043,6 +1216,10 @@ ${accepted ? "**This bounty has already been assigned.**" : `**To work on this t
 
     /**
      * Get pull request details for AI review analysis
+     * @param installationId - The ID of the installation
+     * @param repoUrl - The URL of the repository
+     * @param prNumber - The number of the pull request
+     * @returns The pull request details
      */
     static async getPRDetails(
         installationId: string,
@@ -1079,6 +1256,11 @@ ${accepted ? "**This bounty has already been assigned.**" : `**To work on this t
 
     /**
      * Get file content from repository
+     * @param installationId - The ID of the installation
+     * @param repoUrl - The URL of the repository
+     * @param filePath - The path of the file
+     * @param ref - The reference of the file
+     * @returns The file content
      */
     static async getFileContent(
         installationId: string,
@@ -1131,7 +1313,10 @@ ${accepted ? "**This bounty has already been assigned.**" : `**To work on this t
 
     /**
      * Get all file paths from repository tree
-     * Enhanced version of your getAllFilePathsFromTree function
+     * @param installationId - The ID of the installation
+     * @param repoUrl - The URL of the repository
+     * @param branch - The branch of the repository
+     * @returns The file paths from the repository tree
      */
     static async getAllFilePathsFromTree(
         installationId: string,
@@ -1172,6 +1357,7 @@ ${accepted ? "**This bounty has already been assigned.**" : `**To work on this t
 
             return filePaths;
         } catch (error) {
+            // If the repository is empty, return an empty array
             if (getFieldFromUnknownObject<number>(error, "status") === 409) {
                 messageLogger.info(`Repository ${owner}/${repo} is empty`);
                 return [];
@@ -1185,6 +1371,9 @@ ${accepted ? "**This bounty has already been assigned.**" : `**To work on this t
 
     /**
      * Get the default branch of a repository
+     * @param installationId - The ID of the installation
+     * @param repoUrl - The URL of the repository
+     * @returns The default branch of the repository
      */
     static async getDefaultBranch(installationId: string, repoUrl: string): Promise<string> {
         // Get authenticated Octokit instance
@@ -1218,6 +1407,10 @@ ${accepted ? "**This bounty has already been assigned.**" : `**To work on this t
 
     /**
      * Find valid branch from candidates
+     * @param installationId - The ID of the installation
+     * @param repoUrl - The URL of the repository
+     * @param branchCandidates - The candidates for the branch
+     * @returns The valid branch
      */
     static async findValidBranch(
         installationId: string,
@@ -1265,7 +1458,11 @@ ${accepted ? "**This bounty has already been assigned.**" : `**To work on this t
 
     /**
      * Get multiple files with fragments for efficient fetching
-     * Enhanced version of your getMultipleFilesWithFragments function
+     * @param installationId - The ID of the installation
+     * @param repoUrl - The URL of the repository
+     * @param filePaths - The paths of the files
+     * @param branch - The branch of the repository
+     * @returns The files with fragments
      */
     static async getMultipleFilesWithFragments(
         installationId: string,

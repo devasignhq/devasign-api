@@ -78,7 +78,9 @@ export class BackgroundJobService extends EventEmitter {
 
     /**
      * Adds a PR analysis job to the queue.
-     * @param isFollowUp When true, the job will run via updateExistingReview (incremental follow-up).
+     * @param prData - The pull request data to analyze
+     * @param isFollowUp - When true, the job will run via updateExistingReview (incremental follow-up).
+     * @returns The generated job ID
      */
     public async addPRAnalysisJob(prData: PullRequestData, isFollowUp = false): Promise<string> {
         const jobPayload: PRAnalysisJobData = { prData, isFollowUp };
@@ -90,6 +92,12 @@ export class BackgroundJobService extends EventEmitter {
         });
     }
 
+    /**
+     * Adds a repository indexing job to the queue.
+     * @param installationId - The ID of the installation
+     * @param repositoryName - The name of the repository
+     * @returns The generated job ID
+     */
     public async addRepositoryIndexingJob(installationId: string, repositoryName: string): Promise<string> {
         return this.addJob({
             type: "repository-indexing",
@@ -98,6 +106,11 @@ export class BackgroundJobService extends EventEmitter {
         });
     }
 
+    /**
+     * Adds a generic job to the queue.
+     * @param options - The job options including type, data, and idGenerator
+     * @returns The generated job ID
+     */
     private async addJob<T>(options: { type: JobType, data: T, idGenerator: () => string }): Promise<string> {
         const jobId = options.idGenerator();
 
@@ -140,6 +153,8 @@ export class BackgroundJobService extends EventEmitter {
 
     /**
      * Gets job data by ID
+     * @param jobId - The ID of the job to retrieve
+     * @returns The job data or null if not found
      */
     public getJobData(jobId: string): Job | null {
         return this.jobs.get(jobId) || null;
@@ -147,6 +162,7 @@ export class BackgroundJobService extends EventEmitter {
 
     /**
      * Gets queue statistics
+     * @returns An object containing queue statistics
      */
     public getQueueStats() {
         const stats = {
@@ -239,6 +255,7 @@ export class BackgroundJobService extends EventEmitter {
 
     /**
      * Processes a single job
+     * @param job - The job to process
      */
     private async processJob(job: Job): Promise<void> {
         const startTime = Date.now();
@@ -364,6 +381,9 @@ export class BackgroundJobService extends EventEmitter {
 
     /**
      * Creates a timeout promise for job processing
+     * @param jobId - The ID of the job
+     * @param timeoutMs - The timeout duration in milliseconds
+     * @returns A promise that rejects after the specified timeout
      */
     private createTimeoutPromise(jobId: string, timeoutMs: number): Promise<never> {
         return new Promise((_, reject) => {
@@ -375,6 +395,9 @@ export class BackgroundJobService extends EventEmitter {
 
     /**
      * Determines if an error is retryable
+     * @param error - The error to check
+     * @param jobType - The type of the job
+     * @returns True if the error is retryable, false otherwise
      */
     private shouldRetry(error: unknown, jobType: JobType): boolean {
         if (!error) return false;
@@ -440,6 +463,8 @@ export class BackgroundJobService extends EventEmitter {
 
     /**
      * Sleep utility
+     * @param ms - The duration to sleep in milliseconds
+     * @returns A promise that resolves after the specified duration
      */
     private sleep(ms: number): Promise<void> {
         return new Promise(resolve => setTimeout(resolve, ms));
@@ -455,6 +480,7 @@ export class BackgroundJobService extends EventEmitter {
 
     /**
      * Gets active processing jobs count
+     * @returns The number of active processing jobs
      */
     public getActiveJobsCount(): number {
         return Array.from(this.jobs.values()).filter(job => job.status === "processing").length;
@@ -462,6 +488,8 @@ export class BackgroundJobService extends EventEmitter {
 
     /**
      * Cancels a pending job
+     * @param jobId - The ID of the job to cancel
+     * @returns True if the job was successfully cancelled, false otherwise
      */
     public cancelJob(jobId: string): boolean {
         const job = this.jobs.get(jobId);

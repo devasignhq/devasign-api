@@ -24,6 +24,8 @@ export class PRAnalysisService {
 
     /**
      * Determines if a PR should be analyzed
+     * @param prData - The PR data to check
+     * @returns True if the PR should be analyzed, false otherwise
      */
     public static shouldAnalyzePR(prData: PullRequestData): boolean {
         // Must link to at least one issue
@@ -36,10 +38,13 @@ export class PRAnalysisService {
 
     /**
      * Extracts PR data from GitHub webhook payload
+     * @param payload - The GitHub webhook payload
+     * @returns A promise that resolves to the extracted PR data
      */
     public static async extractPRDataFromWebhook(payload: GitHubWebhookPayload): Promise<PullRequestData> {
         const { pull_request, repository, installation } = payload;
 
+        // Validate required fields
         if (!pull_request || !repository || !installation) {
             throw new PRAnalysisError(
                 pull_request?.number || 0,
@@ -49,6 +54,7 @@ export class PRAnalysisService {
             );
         }
 
+        // Extract linked issues from PR body
         const linkedIssues = await this.extractLinkedIssues(
             pull_request.body || "",
             installation.id.toString(),
@@ -80,6 +86,10 @@ export class PRAnalysisService {
 
     /**
      * Extracts linked issues from PR body using keywords
+     * @param prBody - The body of the PR
+     * @param installationId - The ID of the installation
+     * @param repositoryName - The name of the repository
+     * @returns A promise that resolves to an array of linked issues
      */
     public static async extractLinkedIssues(
         prBody: string,
@@ -87,77 +97,6 @@ export class PRAnalysisService {
         repositoryName: string
     ): Promise<LinkedIssue[]> {
         const linkedIssues: LinkedIssue[] = [];
-
-        const fetchIssueDetails = async (issueNumber: number) => {
-            const octokit = await OctokitService.getOctokit(installationId);
-            const [owner, repo] = OctokitService.getOwnerAndRepo(repositoryName);
-
-            const query = `
-                query($owner: String!, $repo: String!, $issueNumber: Int!) {
-                    repository(owner: $owner, name: $repo) {
-                        issue(number: $issueNumber) {
-                            title
-                            body
-                            url
-                            author {
-                                login
-                            }
-                            labels(first: 100) {
-                                nodes {
-                                    name
-                                    description
-                                }
-                            }
-                            comments(first: 100) {
-                                nodes {
-                                    author {
-                                        login
-                                        ... on Bot {
-                                            __typename
-                                        }
-                                    }
-                                    body
-                                    updatedAt
-                                }
-                            }
-                        }
-                    }
-                }
-            `;
-
-            const variables = {
-                owner,
-                repo,
-                issueNumber
-            };
-
-            try {
-                const response = await octokit.graphql(query, variables);
-                const issue = (response as {
-                    repository: {
-                        issue: IssueDto & {
-                            labels: { nodes: IssueLabel[] };
-                            comments: { nodes: GitHubComment[] };
-                        }
-                    }
-                }).repository.issue;
-
-                // Filter out bot comments
-                const nonBotComments = issue.comments.nodes.filter(
-                    comment => comment.author?.__typename !== "Bot"
-                );
-
-                return {
-                    title: issue.title,
-                    body: issue.body,
-                    url: issue.url,
-                    labels: issue.labels.nodes,
-                    comments: nonBotComments
-                };
-            } catch {
-                return false;
-            }
-        };
 
         // Regex patterns to match issue references
         const patterns = [
@@ -167,6 +106,7 @@ export class PRAnalysisService {
             /(?:closes|resolves|fixes|close|resolve|fix)\s+https:\/\/github\.com\/([^\/]+)\/([^\/]+)\/issues\/(\d+)/gi
         ];
 
+        // Find all matches in PR body
         for (const pattern of patterns) {
             let match;
             while ((match = pattern.exec(prBody)) !== null) {
@@ -203,8 +143,14 @@ export class PRAnalysisService {
 
                 // Avoid duplicates
                 if (!linkedIssues.some(issue => issue.number === issueNumber && issue.url === issueUrl)) {
-                    const issueDetails = await fetchIssueDetails(issueNumber);
+                    // Fetch issue details from GitHub
+                    const issueDetails = await OctokitService.fetchIssueDetails(
+                        installationId,
+                        repositoryName,
+                        issueNumber
+                    );
 
+                    // Add issue to linked issues
                     if (!issueDetails) {
                         linkedIssues.push({
                             number: issueNumber,
@@ -235,6 +181,10 @@ export class PRAnalysisService {
 
     /**
      * Fetches changed files from GitHub API
+     * @param installationId - The ID of the installation
+     * @param repositoryName - The name of the repository
+     * @param prNumber - The PR number
+     * @returns A promise that resolves to an array of changed files
      */
     public static async fetchChangedFiles(
         installationId: string,
@@ -242,7 +192,7 @@ export class PRAnalysisService {
         prNumber: number
     ): Promise<ChangedFile[]> {
         try {
-            // Use OctokitService to get PR files
+            // Get changed files from GitHub API
             const files = await OctokitService.getPRFiles(installationId, repositoryName, prNumber);
 
             return files.map((file: GitHubFile) => ({
@@ -267,8 +217,11 @@ export class PRAnalysisService {
     /**
      * Creates a complete PR data object with all required information
      * Combines webhook data with additional API calls
+     * @param payload - The GitHub webhook payload
+     * @returns A promise that resolves to the complete PR data
      */
     public static async createCompletePRData(payload: GitHubWebhookPayload): Promise<PullRequestData> {
+        // Extract PR data from webhook payload
         const prData = await this.extractPRDataFromWebhook(payload);
 
         // When this review was triggered manually via a "review" comment, skip the
@@ -291,10 +244,12 @@ export class PRAnalysisService {
                 prData.prNumber
             );
 
+            // Format changed files
             const changedFilesInfo = prData.changedFiles.map(file =>
                 `${file.filename} (${file.status}, +${file.additions}/-${file.deletions})${file.previousFilename ? ` (renamed from ${file.previousFilename})` : ""}`
             ).join("\n");
 
+            // Format code changes preview
             const codeChangesPreview = prData.changedFiles.map((file) => {
                 return `\n--- ${file.filename} (${file.status}) ---\n${file.patch}`;
             }).join("\n");
@@ -341,6 +296,8 @@ ${codeChangesPreview}`;
 
     /**
      * Normalizes GitHub file status to our expected format
+     * @param status - The original file status from GitHub
+     * @returns The normalized file status
      */
     private static normalizeFileStatus(status: string): "added" | "modified" | "removed" {
         switch (status) {
@@ -360,10 +317,13 @@ ${codeChangesPreview}`;
 
     /**
      * Extracts file extensions from changed files for analysis
+     * @param changedFiles - The array of changed files
+     * @returns An array of unique file extensions
      */
     public static getFileExtensions(changedFiles: ChangedFile[]): string[] {
         const extensions = new Set<string>();
 
+        // Get file extensions from changed files
         changedFiles.forEach(file => {
             const extension = file.filename.split(".").pop()?.toLowerCase();
             if (extension) {
@@ -376,6 +336,9 @@ ${codeChangesPreview}`;
 
     /**
      * Logs PR analysis decision for monitoring
+     * @param prData - The PR data
+     * @param shouldAnalyze - Whether the PR should be analyzed
+     * @param reason - The reason for the decision
      */
     public static logAnalysisDecision(
         prData: PullRequestData,
@@ -405,6 +368,10 @@ ${codeChangesPreview}`;
 
     /**
      * Logs PR data extraction results for monitoring and debugging
+     * @param prData - The PR data
+     * @param extractionTime - The time taken for extraction in milliseconds
+     * @param success - Whether the extraction was successful
+     * @param error - The error if extraction failed
      */
     public static logExtractionResult(
         prData: PullRequestData,
@@ -436,6 +403,8 @@ ${codeChangesPreview}`;
 
     /**
      * Analyzes PR with context fetching workflow
+     * @param prData - The PR data to analyze
+     * @returns A promise that resolves to the review result
      */
     public static async analyzePullRequest(prData: PullRequestData): Promise<ReviewResult> {
         const startTime = Date.now();
@@ -484,6 +453,8 @@ ${codeChangesPreview}`;
      * Performs a follow-up review for a PR that already has a completed initial review.
      * Retrieves the previous diff + review summary from the database, then asks
      * Gemini to incrementally evaluate only the new changes.
+     * @param prData - The PR data to analyze
+     * @returns A promise that resolves to the review result
      */
     public static async analyzePullRequestFollowUp(prData: PullRequestData): Promise<ReviewResult> {
         const startTime = Date.now();
@@ -518,10 +489,13 @@ ${codeChangesPreview}`;
         })();
 
         try {
+            // Execute review with timeout
             const review = await this.executeWithTimeout(
                 async () => {
+                    // Build review context
                     const reviewContext = await this.contextAnalyzer.buildReviewContext(prData);
 
+                    // Build follow-up review context
                     const followUpContext: FollowUpReviewContext = {
                         ...reviewContext,
                         previousDiff,
@@ -529,6 +503,7 @@ ${codeChangesPreview}`;
                         previousMergeScore
                     };
 
+                    // Generate follow-up review
                     const aiReview = await this.geminiService.generateFollowUpReview(followUpContext);
 
                     return {
@@ -563,6 +538,10 @@ ${codeChangesPreview}`;
 
     /**
      * Executes operation with timeout
+     * @param operation - The operation to execute
+     * @param timeoutMs - The timeout duration in milliseconds
+     * @param operationName - The name of the operation
+     * @returns A promise that resolves to the operation result
      */
     private static async executeWithTimeout<T>(
         operation: () => Promise<T>,
@@ -572,7 +551,6 @@ ${codeChangesPreview}`;
         return Promise.race([
             operation(),
             new Promise<never>((_, reject) => {
-
                 setTimeout(() => {
                     reject(new Error(`${operationName} timed out after ${timeoutMs}ms`));
                 }, timeoutMs);
