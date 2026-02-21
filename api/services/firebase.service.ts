@@ -7,6 +7,9 @@ export const messagesCollection = firestoreDB.collection("messages");
 export const tasksCollection = firestoreDB.collection("tasks");
 export const activityCollection = firestoreDB.collection("activity");
 
+/** 
+ * Activity type for tracking user actions and system events.
+ */
 type Activity = {
     userId: string;
 } & ({
@@ -28,6 +31,13 @@ type Activity = {
 export class FirebaseService {
     /**
      * Create a new message in the Firestore messages collection.
+     * @param userId - The ID of the user
+     * @param taskId - The ID of the task
+     * @param type - The type of the message
+     * @param body - The body of the message
+     * @param metadata - The metadata of the message
+     * @param attachments - The attachments of the message
+     * @returns The created message
      */
     static async createMessage({
         userId,
@@ -61,6 +71,9 @@ export class FirebaseService {
 
     /**
      * Update an existing message in Firestore.
+     * @param messageId - The ID of the message
+     * @param data - The data to update
+     * @returns The updated message
      */
     static async updateMessage(messageId: string, data: Partial<Message>) {
         // Verify the message exists
@@ -89,6 +102,8 @@ export class FirebaseService {
 
     /**
      * Retrieve all messages for a specific task, ordered by creation time.
+     * @param taskId - The ID of the task
+     * @returns The messages for the task
      */
     static async getTaskMessages(taskId: string) {
         // Query messages for the task, ordered by creation time
@@ -103,6 +118,10 @@ export class FirebaseService {
 
     /**
      * Create a task document in Firestore to enable chat functionality.
+     * @param taskId - The ID of the task
+     * @param creatorId - The ID of the creator
+     * @param contributorId - The ID of the contributor
+     * @returns The created task
      */
     static async createTask(
         taskId: string,
@@ -129,6 +148,8 @@ export class FirebaseService {
 
     /**
      * Update the conversation status of a task to closed.
+     * @param taskId - The ID of the task
+     * @returns The updated task
      */
     static async updateTaskStatus(taskId: string) {
         const taskRef = tasksCollection.doc(taskId);
@@ -152,8 +173,11 @@ export class FirebaseService {
 
     /**
      * Update the last activity timestamp for a task to trigger live updates.
+     * @param activity - The activity to update
+     * @returns The updated activity
      */
     static async updateAppActivity(activity: Activity) {
+        // Get the reference to the task document
         let taskRef;
         switch (activity.type) {
             case "task":
@@ -170,6 +194,7 @@ export class FirebaseService {
         };
         const lastActivityAt = Timestamp.now();
 
+        // Update the activity document
         await taskRef.set(
             { ...activity, lastActivityAt },
             { merge: true }
@@ -178,8 +203,11 @@ export class FirebaseService {
 
     /**
      * Delete an activity from the Firestore collection.
+     * @param activity - The activity to delete
+     * @returns The deleted activity
      */
     static deleteAppActivity(activity: Partial<Activity>) {
+        // Get the reference to the task document
         let taskRef;
         switch (activity.type) {
             case "task":
@@ -192,6 +220,7 @@ export class FirebaseService {
                 taskRef = activityCollection.doc(activity.userId!);
                 break;
         };
+        // Delete the activity document
         return taskRef!.delete();
     }
 }

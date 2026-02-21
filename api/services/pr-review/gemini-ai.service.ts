@@ -53,11 +53,13 @@ export class GeminiAIService {
             location
         };
 
+        // Initialize Vertex AI
         this.vertexAI = new VertexAI({
             project: this.config.projectId,
             location: this.config.location
         });
 
+        // Initialize Gemini model
         this.model = this.vertexAI.getGenerativeModel({
             model: this.config.model,
             generationConfig: {
@@ -68,6 +70,7 @@ export class GeminiAIService {
             }
         });
 
+        // Initialize embedding model
         this.embeddingModel = new VertexAIEmbeddings({
             model: "gemini-embedding-001",
             location: this.config.location,
@@ -80,6 +83,8 @@ export class GeminiAIService {
 
     /**
      * Generates comprehensive AI review for a pull request
+     * @param context - The PR review context
+     * @returns A promise that resolves to the generated AIReview
      */
     async generateReview(context: ReviewContext): Promise<AIReview> {
         try {
@@ -94,8 +99,6 @@ export class GeminiAIService {
             }
 
             // Sanitize the response to handle nullable fields and edge cases
-            // before strict validation, so a single bad suggestion doesn't
-            // discard an otherwise valid review.
             const sanitized = this.sanitizeAIResponse(parsedReview);
 
             // Validate the sanitized review
@@ -116,19 +119,25 @@ export class GeminiAIService {
      * Generates a follow-up AI review when new commits are pushed to an already-reviewed PR.
      * The prompt includes the previous diff, previous review summary, and the new diff so the
      * model can reason step-by-step about what changed and whether earlier concerns were addressed.
+     * @param context - The follow-up review context
+     * @returns A promise that resolves to the generated follow-up AIReview
      */
     async generateFollowUpReview(context: FollowUpReviewContext): Promise<AIReview> {
         try {
+            // Generate the follow-up review prompt
             const prompt = this.buildFollowUpReviewPrompt(context);
             const aiResponse = await this.callGeminiAPI(prompt);
 
+            // Parse the response
             const parsedReview = this.parseAIResponse<AIReview>(aiResponse);
             if (!parsedReview) {
                 throw new GeminiServiceError("Failed to parse follow-up AI response into JSON", { response: aiResponse });
             }
 
+            // Sanitize the response to handle nullable fields and edge cases
             const sanitized = this.sanitizeAIResponse(parsedReview);
 
+            // Validate the sanitized review
             if (!this.validateAIResponse(sanitized)) {
                 throw new GeminiServiceError("Follow-up AI response validation failed after sanitization", { response: aiResponse });
             }
@@ -144,6 +153,8 @@ export class GeminiAIService {
 
     /**
      * Generates text embeddings for a given string array
+     * @param documents - The array of strings to embed
+     * @returns A promise that resolves to an array of embeddings
      */
     async embedDocuments(documents: string[]): Promise<number[][]> {
         return this.handleRateLimit(async () => {
@@ -167,6 +178,8 @@ export class GeminiAIService {
 
     /**
      * Generates text embeddings for a given string
+     * @param text - The text to embed
+     * @returns A promise that resolves to the generated embedding
      */
     async generateEmbedding(text: string): Promise<number[]> {
         return this.handleRateLimit(async () => {
@@ -190,6 +203,8 @@ export class GeminiAIService {
 
     /**
      * Validates AI response quality
+     * @param review - The AI review to validate
+     * @returns True if the AI response is valid, false otherwise
      */
     validateAIResponse(review: AIReview): boolean {
         try {
@@ -257,6 +272,8 @@ export class GeminiAIService {
      * out-of-range numbers, and filter out malformed suggestions.
      * This runs before strict validation so minor model quirks don't discard
      * an otherwise valid review.
+     * @param review - The raw AI review response to sanitize
+     * @returns The sanitized AI review
      */
     private sanitizeAIResponse(review: AIReview): AIReview {
         // Clamp scores to valid range
@@ -299,12 +316,16 @@ export class GeminiAIService {
 
     /**
      * Handles rate limiting with exponential backoff
+     * @param operation - The operation to execute
+     * @param maxRetries - The maximum number of retries
+     * @returns A promise that resolves to the operation result
      */
     async handleRateLimit<T>(operation: () => Promise<T>, maxRetries: number = this.config.maxRetries): Promise<T> {
         let lastError: Error;
 
         for (let attempt = 0; attempt < maxRetries; attempt++) {
             try {
+                // Execute the operation
                 return await operation();
             } catch (error) {
                 lastError = error as Error;
@@ -346,13 +367,16 @@ export class GeminiAIService {
 
         const { prData, styleGuide, readme, relevantChunks } = context;
 
+        // Build the chunks info string
         const chunksInfo = relevantChunks.map((chunk, index) => {
             return `--- CHUNK ${index + 1} (Similarity: ${chunk.similarity.toFixed(2)}) ---\nFile: ${chunk.filePath}\n${chunk.content}\n--- END CHUNK ${index + 1} ---`;
         }).join("\n\n");
 
+        // Build the style guide section
         const styleGuideSection = styleGuide ? `\nPROJECT STYLE GUIDE (STRICTLY ADHERE TO THIS):\n${styleGuide}\n` : "";
         const readmeSection = readme ? `\nPROJECT README (Context context):\n${readme.slice(0, 3000)}${readme.length > 3000 ? "\n... (readme truncated)" : ""}\n` : "";
 
+        // Build the final prompt
         return `You are a Senior Principal Software Engineer and Security Expert reviewing a pull request.
 Your goal is to ensure code quality, security, maintainability, and alignment with the project's architecture and style guides.
 
@@ -418,18 +442,22 @@ For 'suggestions', include specific file paths, line numbers, and 'suggestedCode
 
         const { prData, styleGuide, readme, relevantChunks, previousDiff, previousReviewSummary, previousMergeScore } = context;
 
+        // Build the chunks info string
         const chunksInfo = relevantChunks.map((chunk, index) => {
             return `--- CHUNK ${index + 1} (Similarity: ${chunk.similarity.toFixed(2)}) ---\nFile: ${chunk.filePath}\n${chunk.content}\n--- END CHUNK ${index + 1} ---`;
         }).join("\n\n");
 
+        // Build the style guide section
         const styleGuideSection = styleGuide ? `\nPROJECT STYLE GUIDE (STRICTLY ADHERE TO THIS):\n${styleGuide}\n` : "";
         const readmeSection = readme ? `\nPROJECT README:\n${readme.slice(0, 3000)}${readme.length > 3000 ? "\n... (readme truncated)" : ""}\n` : "";
 
+        // Build the chunks section
         const chunksSection = (process.env.SKIP_CODE_CHUNKS === "true" || !chunksInfo)
             ? ""
             : `=== RELEVANT CODEBASE CHUNKS ===
 ${chunksInfo}`;
 
+        // Build the final prompt
         return `You are a Senior Principal Software Engineer and Security Expert performing an **incremental follow-up review** of a pull request.
 New commits have been pushed to this PR since the last review. Your task is to evaluate ONLY the new changes in the context of the previous review, determining:
 1. Whether the author addressed the concerns raised in the previous review.
@@ -513,9 +541,11 @@ For 'suggestions', include specific file paths, line numbers, and 'suggestedCode
     async callGeminiAPI(prompt: string): Promise<string> {
         return this.handleRateLimit(async () => {
             try {
+                // Call Gemini API
                 const result = await this.model.generateContent(prompt);
                 const response = await result.response;
 
+                // Extract the response text
                 const text = response.candidates?.[0]?.content?.parts?.[0]?.text;
 
                 if (!text) {
@@ -589,14 +619,17 @@ For 'suggestions', include specific file paths, line numbers, and 'suggestedCode
                 let inString = false;
                 let escape = false;
 
+                // Parse the JSON
                 for (let i = start; i < raw.length; i++) {
                     const ch = raw[i];
 
+                    // Handle escape sequences
                     if (escape) { escape = false; continue; }
                     if (ch === "\\" && inString) { escape = true; continue; }
                     if (ch === "\"") { inString = !inString; continue; }
                     if (inString) continue;
 
+                    // Handle brace counting
                     if (ch === "{") depth++;
                     else if (ch === "}") {
                         depth--;

@@ -23,6 +23,8 @@ export class AIReviewOrchestrationService {
     /**
      * Creates initial review result record in database.
      * Always creates a new record for every analysis cycle (initial or follow-up).
+     * @param prData - The pull request data
+     * @returns A promise that resolves to the created AIReviewResult
      */
     private async createInitialReviewResult(prData: PullRequestData) {
         try {
@@ -55,6 +57,9 @@ export class AIReviewOrchestrationService {
 
     /**
      * Updates review status in database for a specific record.
+     * @param id - The ID of the review result record
+     * @param status - The new review status
+     * @returns A promise that resolves when the update is complete
      */
     private async updateReviewStatus(
         id: string,
@@ -77,6 +82,10 @@ export class AIReviewOrchestrationService {
      * Checks whether a completed initial review already exists in the database for this PR.
      * Used by the workflow layer to determine if a `synchronize` event should trigger a
      * follow-up review instead of a fresh initial review.
+     * @param installationId - The ID of the installation
+     * @param prNumber - The PR number
+     * @param repositoryName - The name of the repository
+     * @returns A promise that resolves to a boolean indicating if a completed review exists
      */
     public async hasCompletedReview(
         installationId: string,
@@ -102,6 +111,9 @@ export class AIReviewOrchestrationService {
 
     /**
      * Stores final review result in database for a specific record.
+     * @param id - The ID of the review result record
+     * @param result - The final review result
+     * @returns A promise that resolves when the storage is complete
      */
     private async storeReviewResult(id: string, result: ReviewResult): Promise<void> {
         try {
@@ -121,12 +133,17 @@ export class AIReviewOrchestrationService {
 
     /**
      * Posts review comment to GitHub PR and persists the commentId.
+     * @param id - The ID of the review result record
+     * @param result - The review result to post
+     * @returns A promise that resolves when the posting is complete
      */
     private async postReviewComment(id: string, result: ReviewResult): Promise<void> {
         try {
+            // Post review comment to GitHub PR
             const commentResult = await AIReviewCommentService.postReviewResult(result, 3);
 
             if (commentResult.success && commentResult.commentId) {
+                // Update review result with comment ID
                 await prisma.aIReviewResult.update({
                     where: { id },
                     data: { commentId: commentResult.commentId }
@@ -136,6 +153,7 @@ export class AIReviewOrchestrationService {
                 messageLogger.error(`Failed to post review comment for PR #${result.prNumber}`, { error: commentResult.error });
 
                 try {
+                    // Post error comment to GitHub PR
                     await AIReviewCommentService.postErrorComment(
                         result.installationId,
                         result.repositoryName,
@@ -154,12 +172,17 @@ export class AIReviewOrchestrationService {
 
     /**
      * Posts a follow-up review as a brand-new comment and persists the commentId.
+     * @param id - The ID of the review result record
+     * @param result - The review result to post
+     * @returns A promise that resolves when the posting is complete
      */
     private async postFollowUpReviewComment(id: string, result: ReviewResult): Promise<void> {
         try {
+            // Post follow-up review comment to GitHub PR
             const commentResult = await AIReviewCommentService.postFollowUpReviewResult(result, 3);
 
             if (commentResult.success && commentResult.commentId) {
+                // Update review result with comment ID
                 await prisma.aIReviewResult.update({
                     where: { id },
                     data: { commentId: commentResult.commentId }
@@ -169,6 +192,7 @@ export class AIReviewOrchestrationService {
                 messageLogger.error(`Failed to post follow-up review comment for PR #${result.prNumber}`, { error: commentResult.error });
 
                 try {
+                    // Post error comment to GitHub PR
                     await AIReviewCommentService.postErrorComment(
                         result.installationId,
                         result.repositoryName,
@@ -187,6 +211,8 @@ export class AIReviewOrchestrationService {
 
     /**
      * Analyzes PR
+     * @param prData - The pull request data
+     * @returns A promise that resolves to the review result
      */
     async analyzePullRequest(prData: PullRequestData): Promise<ReviewResult> {
         const startTime = Date.now();
@@ -245,11 +271,13 @@ export class AIReviewOrchestrationService {
                 }
             );
 
+            // Update review status to failed
             if (initialResultId) {
                 await this.updateReviewStatus(initialResultId, ReviewStatus.FAILED);
             }
 
             try {
+                // Post error comment to GitHub PR
                 await AIReviewCommentService.postErrorComment(
                     prData.installationId,
                     prData.repositoryName,
@@ -273,6 +301,8 @@ export class AIReviewOrchestrationService {
     /**
      * Handles a follow-up review triggered when new commits are pushed to an already-reviewed PR.
      * Always posts a NEW comment (never updates the original review comment).
+     * @param prData - The pull request data
+     * @returns A promise that resolves to the review result
      */
     async updateExistingReview(prData: PullRequestData): Promise<ReviewResult> {
         const startTime = Date.now();
@@ -325,11 +355,13 @@ export class AIReviewOrchestrationService {
         } catch (error) {
             dataLogger.error("Follow-up review failed", { error, prNumber: prData.prNumber });
 
+            // Update review status to failed
             if (recordId) {
                 await this.updateReviewStatus(recordId, ReviewStatus.FAILED);
             }
 
             try {
+                // Post error comment to GitHub PR
                 await AIReviewCommentService.postErrorComment(
                     prData.installationId,
                     prData.repositoryName,

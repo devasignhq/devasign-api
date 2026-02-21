@@ -9,11 +9,11 @@ import { dataLogger } from "../../config/logger.config";
 export class VectorStoreService {
     /**
      * Upserts a code file record
-     * @param installationId ID of the installation
-     * @param repositoryName Name of the repository
-     * @param filePath Path to the file
-     * @param fileHash Hash of the file
-     * @returns Promise<CodeFile>
+     * @param installationId - The ID of the installation
+     * @param repositoryName - The name of the repository
+     * @param filePath - The path to the file
+     * @param fileHash - The hash of the file
+     * @returns A promise that resolves to the upserted CodeFile
      */
     async upsertCodeFile(
         installationId: string,
@@ -44,6 +44,8 @@ export class VectorStoreService {
 
     /**
      * Deletes existing chunks for a file
+     * @param codeFileId - The ID of the code file
+     * @returns A promise that resolves when chunks are deleted
      */
     async deleteFileChunks(codeFileId: string): Promise<void> {
         await prisma.codeChunk.deleteMany({
@@ -53,9 +55,9 @@ export class VectorStoreService {
 
     /**
      * Upserts code chunks with embeddings
-     * @param codeFileId ID of the code file
-     * @param chunks Array of code chunks to upsert
-     * @returns Promise<void>
+     * @param codeFileId - The ID of the code file
+     * @param chunks - The array of code chunks to upsert
+     * @returns A promise that resolves when the chunks are upserted
      */
     async upsertCodeChunks(
         codeFileId: string,
@@ -85,12 +87,12 @@ export class VectorStoreService {
 
     /**
      * Finds similar code chunks using cosine distance
-     * @param embedding Embedding of the query
-     * @param installationId ID of the installation
-     * @param repositoryName Name of the repository
-     * @param limit Maximum number of chunks to return
-     * @param similarityThreshold Minimum similarity threshold
-     * @returns Promise<CodeChunk & { similarity: number; filePath: string }[]>
+     * @param embedding - The embedding of the query
+     * @param installationId - The ID of the installation
+     * @param repositoryName - The name of the repository
+     * @param limit - The maximum number of chunks to return
+     * @param similarityThreshold - The minimum similarity threshold
+     * @returns A promise that resolves to an array of similar code chunks
      */
     async findSimilarChunks(
         embedding: number[],
@@ -99,6 +101,7 @@ export class VectorStoreService {
         limit: number = 5,
         similarityThreshold: number = 0.7
     ): Promise<(CodeChunk & { similarity: number; filePath: string })[]> {
+        // Format embedding array as string for SQL vector syntax
         const embeddingString = `[${embedding.join(",")}]`;
 
         // Cosine distance operator is <=>
@@ -107,6 +110,7 @@ export class VectorStoreService {
         const distanceThreshold = 1 - similarityThreshold;
 
         try {
+            // Execute raw SQL query to find similar chunks
             const result = await prisma.$queryRaw<{
                 id: string;
                 codeFileId: string;
@@ -131,6 +135,7 @@ export class VectorStoreService {
                 LIMIT ${limit};
             `;
 
+            // Map result to CodeChunk with similarity
             return result.map(row => ({
                 id: row.id,
                 codeFileId: row.codeFileId,

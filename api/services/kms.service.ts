@@ -26,6 +26,9 @@ export class KMSService {
      * 
      * Generates a random Data Encryption Key (DEK), encrypts the wallet secret with it,
      * and then encrypts the DEK using Google Cloud KMS.
+     * 
+     * @param stellarSecret - The Stellar wallet secret to encrypt
+     * @returns The encrypted wallet object
      */
     static async encryptWallet(stellarSecret: string) {
         // Generate a random 32-byte Data Encryption Key (DEK)
@@ -70,6 +73,9 @@ export class KMSService {
      * 
      * Decrypts the Data Encryption Key (DEK) using Google Cloud KMS,
      * and then uses the decrypted DEK to decrypt the wallet secret.
+     * 
+     * @param wallet - The wallet object to decrypt
+     * @returns The decrypted wallet secret
      */
     static async decryptWallet(wallet: Wallet) {
         const { encryptedDEK, encryptedSecret, iv, authTag } = wallet;
