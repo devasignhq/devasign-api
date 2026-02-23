@@ -84,7 +84,6 @@
   },
   "overrides": {
     "fast-xml-parser": "^5.5.0",
-    "ajv": "^8.18.0",
     "minimatch": "^10.2.1",
     "glob": "^11.0.1"
   }
