@@ -106,7 +106,8 @@ export class StellarService {
                 if (errorData?.extras?.result_codes) {
                     throw new StellarServiceError(
                         `Creation failed: ${JSON.stringify(errorData.extras.result_codes)}`,
-                        errorData
+                        errorData,
+                        false
                     );
                 }
             }
@@ -164,7 +165,8 @@ export class StellarService {
                 if (errorData?.extras?.result_codes) {
                     throw new StellarServiceError(
                         `Creation failed: ${JSON.stringify(errorData.extras.result_codes)}`,
-                        errorData
+                        errorData,
+                        false
                     );
                 }
             }
@@ -229,7 +231,8 @@ export class StellarService {
                 if (errorData?.extras?.result_codes) {
                     throw new StellarServiceError(
                         `Adding trustline failed: ${JSON.stringify(errorData.extras.result_codes)}`,
-                        errorData
+                        errorData,
+                        false
                     );
                 }
             }
@@ -290,7 +293,8 @@ export class StellarService {
                 if (errorData?.extras?.result_codes) {
                     throw new StellarServiceError(
                         `Adding trustline failed: ${JSON.stringify(errorData.extras.result_codes)}`,
-                        errorData
+                        errorData,
+                        false
                     );
                 }
             }
@@ -370,7 +374,8 @@ export class StellarService {
                 if (errorData?.extras?.result_codes) {
                     throw new StellarServiceError(
                         `Transaction failed: ${JSON.stringify(errorData.extras.result_codes)}`,
-                        errorData
+                        errorData,
+                        false
                     );
                 }
             }
@@ -466,7 +471,8 @@ export class StellarService {
                 if (errorData?.extras?.result_codes) {
                     throw new StellarServiceError(
                         `Transaction failed: ${JSON.stringify(errorData.extras.result_codes)}`,
-                        errorData
+                        errorData,
+                        false
                     );
                 }
             }
@@ -547,7 +553,8 @@ export class StellarService {
                 if (errorData?.extras?.result_codes) {
                     throw new StellarServiceError(
                         `Swap transaction failed: ${JSON.stringify(errorData.extras.result_codes)}`,
-                        errorData
+                        errorData,
+                        false
                     );
                 }
             }
@@ -576,7 +583,8 @@ export class StellarService {
                 if (errorData?.extras?.result_codes) {
                     throw new StellarServiceError(
                         `Get account failed: ${JSON.stringify(errorData.extras.result_codes)}`,
-                        errorData
+                        errorData,
+                        false
                     );
                 }
             }

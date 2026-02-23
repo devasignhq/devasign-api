@@ -125,10 +125,10 @@ export class KmsServiceError extends ErrorClass {
  * Stellar service related errors
  */
 export class StellarServiceError extends ErrorClass {
-    constructor(message: string, details: unknown = null) {
+    constructor(message: string, details: unknown = null, wrapError: boolean = true) {
         super(
             "STELLAR_SERVICE_ERROR",
-            details,
+            wrapError ? ErrorUtils.extractAxiosErrorData(details) : details,
             message,
             STATUS_CODES.SERVER_ERROR
         );
@@ -142,7 +142,7 @@ export class EscrowContractError extends ErrorClass {
     constructor(message: string, details: unknown = null) {
         super(
             "ESCROW_CONTRACT_ERROR",
-            details,
+            ErrorUtils.extractAxiosErrorData(details),
             message,
             STATUS_CODES.SERVER_ERROR
         );
@@ -298,6 +298,44 @@ export class TimeoutError extends AIReviewError {
  * Utility functions for error handling
  */
 export class ErrorUtils {
+    /**
+     * Extracts meaningful details from an Axios error
+     */
+    static extractAxiosErrorData(details: unknown): unknown {
+        if (details && typeof details === "object") {
+            // Handle wrapped errors ({ error: AxiosError })
+            const detailObj = details as Record<string, unknown>;
+            const errorObj = "error" in detailObj ? detailObj.error : detailObj;
+
+            if (
+                errorObj &&
+                typeof errorObj === "object" &&
+                "isAxiosError" in errorObj &&
+                (errorObj as { isAxiosError: boolean }).isAxiosError
+            ) {
+                const axiosError = errorObj as unknown as {
+                    code: string;
+                    message: string;
+                    cause: unknown;
+                    config: unknown;
+                    response?: {
+                        status?: number;
+                        data?: unknown;
+                    };
+                };
+                return {
+                    code: axiosError.code,
+                    status: axiosError.response?.status,
+                    message: axiosError.message,
+                    cause: axiosError.cause,
+                    config: axiosError.config,
+                    data: axiosError.response?.data
+                };
+            }
+        }
+        return details;
+    }
+
     /**
      * Determines if an error is retryable
      */

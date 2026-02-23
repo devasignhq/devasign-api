@@ -63,17 +63,17 @@ export class DatabaseTestHelper {
             this.isDockerRunning = true;
         } catch (error) {
             console.log("Error starting test container:", error);
-            
+
             try {
                 // Start new PostgreSQL container
                 console.log("🐳 Starting Docker PostgreSQL container...");
-                execSync("docker run --name test-postgres -e POSTGRES_USER=test_user -e POSTGRES_PASSWORD=test_password -e POSTGRES_DB=test_db -p 5433:5432 -d postgres");
-                
+                execSync("docker run --name test-postgres -e POSTGRES_USER=test_user -e POSTGRES_PASSWORD=test_password -e POSTGRES_DB=test_db -p 5433:5432 -d pgvector/pgvector:pg16");
+
                 // Wait for container to start
                 await new Promise(resolve => setTimeout(resolve, 5000));
 
                 execSync("npx prisma migrate deploy");
-                
+
                 // Wait for migration to be completed
                 await new Promise(resolve => setTimeout(resolve, 5000));
 
