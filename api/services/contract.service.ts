@@ -44,7 +44,8 @@ export class ContractService {
 
     // Soroban RPC server instance for network communication
     private static server = new SorobanRpc.Server(this.CONFIG.rpcUrl, {
-        timeout: 10000 // 10 seconds
+        timeout: 10000, // 10 seconds,
+        allowHttp: true
     });
 
     // Task escrow contract instance

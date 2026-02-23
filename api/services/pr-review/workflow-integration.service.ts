@@ -134,6 +134,7 @@ export class WorkflowIntegrationService {
                 prData = await PRAnalysisService.createCompletePRData(payload);
                 prData.pendingCommentId = pendingCommentId;
             } catch (error) {
+                // If the PR is not eligible for analysis, post an error comment and return
                 if (error instanceof PRAnalysisError && error.code === "PR_NOT_ELIGIBLE_ERROR") {
                     dataLogger.info(
                         error.message,
