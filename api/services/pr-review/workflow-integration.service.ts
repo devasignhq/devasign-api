@@ -140,6 +140,16 @@ export class WorkflowIntegrationService {
                         { prNumber: error.prNumber, repositoryName: error.repositoryName }
                     );
 
+                    if (prData.pendingCommentId) {
+                        await AIReviewCommentService.postErrorComment(
+                            installation.id.toString(),
+                            repository.full_name,
+                            pull_request.number,
+                            error.message,
+                            prData.pendingCommentId
+                        );
+                    }
+
                     return { success: true, reason: error.message };
                 }
                 throw error;

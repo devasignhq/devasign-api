@@ -1054,7 +1054,7 @@ ${error}
 ### What to do next
 
 1. **Manual Review:** Please proceed with manual code review
-2. **Retry:** You can manually trigger a new analysis if the issue was temporary
+2. **Retry:** A review can be triggered by the repo maintainer commenting 'review'
 3. **Support:** If this error persists, please contact support
 
 ---
