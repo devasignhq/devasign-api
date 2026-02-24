@@ -5,7 +5,7 @@ import { responseWrapper, stellarTimestampToDate } from "../../utilities/helper"
 import { STATUS_CODES } from "../../utilities/data";
 import { CreateTask, TaskIssue, FilterTasks } from "../../models/task.model";
 import { HorizonApi } from "../../models/horizonapi.model";
-import { Prisma, TaskStatus } from "../../../prisma_client";
+import { Prisma, TaskStatus, TransactionCategory } from "../../../prisma_client";
 import { OctokitService } from "../../services/octokit.service";
 import {
     AuthorizationError,
@@ -434,12 +434,26 @@ export const deleteTask = async (req: Request, res: Response, next: NextFunction
         const decryptedWalletSecret = await KMSService.decryptWallet(task.installation.wallet);
 
         // Refund bounty to installation wallet
-        await ContractService.refund(decryptedWalletSecret, taskId);
+        const escrowResult = await ContractService.refund(decryptedWalletSecret, taskId);
 
-        // Delete task
-        await prisma.task.delete({
-            where: { id: taskId }
-        });
+        await prisma.$transaction([
+            // Delete task
+            prisma.task.delete({
+                where: { id: taskId }
+            }),
+            // Record refund transaction
+            prisma.transaction.create({
+                data: {
+                    txHash: escrowResult.txHash,
+                    category: TransactionCategory.TOP_UP,
+                    amount: parseFloat(task.bounty.toString()),
+                    asset: "USDC",
+                    sourceAddress: "Escrow Refunds",
+                    doneAt: stellarTimestampToDate(escrowResult.result.createdAt),
+                    installation: { connect: { id: task.installation.id } }
+                }
+            })
+        ]);
 
         try {
             // Remove bounty label from issue and delete bounty comment
