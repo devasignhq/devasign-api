@@ -316,8 +316,6 @@ export class ErrorUtils {
                 const axiosError = errorObj as unknown as {
                     code: string;
                     message: string;
-                    cause: unknown;
-                    config: unknown;
                     response?: {
                         status?: number;
                         data?: unknown;
@@ -327,8 +325,6 @@ export class ErrorUtils {
                     code: axiosError.code,
                     status: axiosError.response?.status,
                     message: axiosError.message,
-                    cause: axiosError.cause,
-                    config: axiosError.config,
                     data: axiosError.response?.data
                 };
             }

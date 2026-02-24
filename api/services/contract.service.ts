@@ -44,8 +44,7 @@ export class ContractService {
 
     // Soroban RPC server instance for network communication
     private static server = new SorobanRpc.Server(this.CONFIG.rpcUrl, {
-        timeout: 10000, // 10 seconds,
-        allowHttp: true
+        timeout: 10000 // 10 seconds
     });
 
     // Task escrow contract instance
@@ -175,11 +174,19 @@ export class ContractService {
             throw new EscrowContractError(errorMessage, response.errorResult);
         }
 
-        // Poll for transaction confirmation
+        // Poll for transaction confirmation with a timeout
         let result = await this.server.getTransaction(response.hash);
-        while (result.status === "NOT_FOUND") {
+        let attempts = 0;
+        const maxAttempts = 30; // 30 seconds total
+
+        while (result.status === "NOT_FOUND" && attempts < maxAttempts) {
             await new Promise((resolve) => setTimeout(resolve, 1000));
             result = await this.server.getTransaction(response.hash);
+            attempts++;
+        }
+
+        if (result.status === "NOT_FOUND") {
+            throw new EscrowContractError("Transaction polling timed out. The transaction might still succeed on-chain.");
         }
 
         // Verify transaction succeeded
