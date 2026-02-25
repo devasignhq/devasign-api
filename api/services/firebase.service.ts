@@ -12,6 +12,7 @@ export const activityCollection = firestoreDB.collection("activity");
  */
 type Activity = {
     userId: string;
+    metadata?: unknown;
 } & ({
     type: "task";
     taskId: string;
@@ -21,8 +22,8 @@ type Activity = {
     type: "installation";
     installationId: string;
     operation: string;
-    issueUrl: string;
-    message: string;
+    issueUrl?: string;
+    message?: string;
 })
 
 /**

@@ -147,7 +147,10 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
             postedComment = true;
         } catch (error) {
             // Log error and continue
-            dataLogger.info("Failed to post bounty comment", { taskId: task.id, error });
+            dataLogger.info(
+                "Failed to either post bounty comment or add bounty label",
+                { taskId: task.id, error }
+            );
         }
 
         // Update activity: Finalizing task creation

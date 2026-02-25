@@ -525,6 +525,7 @@ export const handleBountyPayout = async (req: Request, res: Response, next: Next
                 bounty: true,
                 status: true,
                 issue: true,
+                creatorId: true,
                 contributor: {
                     select: {
                         userId: true,
@@ -632,7 +633,7 @@ export const handleBountyPayout = async (req: Request, res: Response, next: Next
                 error => dataLogger.warn("Failed to disable chat", { taskId: relatedTask.id, error })
             );
 
-            // Update task activity for live updates
+            // Update contributor activity for live updates
             FirebaseService.updateAppActivity({
                 userId: relatedTask.contributor.userId,
                 type: "contributor"
@@ -640,6 +641,20 @@ export const handleBountyPayout = async (req: Request, res: Response, next: Next
                 error => dataLogger.warn(
                     "Failed to update contributor activity for live updates",
                     { contributorId: relatedTask.contributor?.userId, error }
+                )
+            );
+            // Update installation activity for live updates
+            FirebaseService.updateAppActivity({
+                userId: relatedTask.creatorId,
+                type: "installation",
+                installationId: relatedTask.installation.id,
+                operation: "task_completed",
+                issueUrl: prUrl,
+                message: "PR merged - Payment processed successfully"
+            }).catch(
+                error => dataLogger.warn(
+                    "Failed to update installation activity for live updates",
+                    { installationId: installation.id, error }
                 )
             );
         } catch (error) {

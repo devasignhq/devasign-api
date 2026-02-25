@@ -908,7 +908,10 @@ export const markAsComplete = async (req: Request, res: Response, next: NextFunc
         FirebaseService.updateAppActivity({
             userId: task.creatorId,
             type: "task",
-            taskId
+            taskId,
+            metadata: {
+                status: TaskStatus.MARKED_AS_COMPLETED
+            }
         }).catch(
             error => dataLogger.warn(
                 "Failed to update task activity for live updates",
