@@ -7,7 +7,7 @@ prisma/migrations
 prisma_client
 
 no_git
-requirements.txt
+notes.txt
 test.js
 
 .kiro
