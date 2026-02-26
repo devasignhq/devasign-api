@@ -160,8 +160,10 @@ export const ENDPOINTS = {
         SWAP: "/swap/:installationId",
         /** Transaction management endpoints */
         TRANSACTIONS: {
-            /** GET /transactions - Get all transactions */
-            GET_ALL: "/transactions",
+            /** GET /transactions/user - Get all transactions for user */
+            GET_ALL_USER: "/transactions/user",
+            /** GET /transactions/installation/:installationId - Get all transactions for installation */
+            GET_ALL_INSTALLATION: "/transactions/installation/:installationId",
             /** POST /transactions/record-topups - Record wallet top-ups */
             RECORD_TOPUPS: "/transactions/record-topups"
         }

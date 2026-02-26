@@ -2,15 +2,17 @@ import { RequestHandler, Router } from "express";
 import { 
     withdrawAsset, 
     swapAsset, 
-    getWalletInfo, 
-    getTransactions,
-    recordWalletTopups
+    getWalletInfo,
+    recordWalletTopups,
+    getInstallationTransactions,
+    getUserTransactions
 } from "../controllers/wallet";
 import {
     withdrawAssetSchema,
     swapAssetSchema,
     walletInstallationIdSchema,
-    getTransactionsSchema
+    getInstallationTransactionsSchema,
+    getUserTransactionsSchema
 } from "../schemas/wallet.schema";
 import { ENDPOINTS } from "../utilities/data";
 import { validateRequestParameters } from "../middlewares/request.middleware";
@@ -41,11 +43,18 @@ walletRoutes.post(
 // ============================================================================
 // ============================================================================
 
-// Get transactions
+// Get user transactions
 walletRoutes.get(
-    ENDPOINTS.WALLET.TRANSACTIONS.GET_ALL, 
-    validateRequestParameters(getTransactionsSchema), 
-    getTransactions as RequestHandler
+    ENDPOINTS.WALLET.TRANSACTIONS.GET_ALL_USER, 
+    validateRequestParameters(getUserTransactionsSchema), 
+    getUserTransactions as RequestHandler
+);
+
+// Get installation transactions
+walletRoutes.get(
+    ENDPOINTS.WALLET.TRANSACTIONS.GET_ALL_INSTALLATION, 
+    validateRequestParameters(getInstallationTransactionsSchema), 
+    getInstallationTransactions as RequestHandler
 );
 
 // Record wallet topups

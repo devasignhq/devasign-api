@@ -31,9 +31,15 @@ export const swapAssetSchema = {
     })
 };
 
-export const getTransactionsSchema = {
+export const getUserTransactionsSchema = {
+    query: paginationSchema
+};
+
+export const getInstallationTransactionsSchema = {
+    params: z.object({
+        installationId: installationIdSchema
+    }),
     query: z.object({
-        ...walletInstallationIdSchema.query.shape,
         ...paginationSchema.shape,
         categories: z.string().optional().refine((val) => {
             if (!val) return true;

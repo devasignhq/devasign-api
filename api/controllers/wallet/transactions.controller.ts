@@ -8,9 +8,62 @@ import { stellarService } from "../../services/stellar.service";
 import { AuthorizationError, NotFoundError } from "../../models/error.model";
 
 /**
- * Get wallet transactions.
+ * Get user transactions.
  */
-export const getTransactions = async (req: Request, res: Response, next: NextFunction) => {
+export const getUserTransactions = async (req: Request, res: Response, next: NextFunction) => {
+    const { userId } = res.locals;
+    const { page = 1, limit, sort } = req.query;
+
+    try {
+        // Fetch user and verify user exists
+        const user = await prisma.user.findUnique({
+            where: { userId },
+            select: { username: true }
+        });
+
+        if (!user) {
+            throw new NotFoundError("User not found");
+        }
+
+        // Parse limit
+        const take = Math.min(Number(limit) || 20, 50);
+
+        // Fetch transactions
+        const transactions = await prisma.transaction.findMany({
+            where: { userId },
+            orderBy: { doneAt: (sort as "asc" | "desc") || "desc" },
+            skip: ((Number(page) - 1) * take) || 0,
+            take: take + 1, // Request one extra record beyond the limit
+            include: {
+                task: {
+                    select: {
+                        id: true,
+                        issue: true,
+                        bounty: true
+                    }
+                }
+            }
+        });
+
+        // Determine if more results exist and trim the array
+        const hasMore = transactions.length > take;
+        const results = hasMore ? transactions.slice(0, take) : transactions;
+
+        responseWrapper({
+            res,
+            status: STATUS_CODES.SUCCESS,
+            data: results,
+            pagination: { hasMore }
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+/**
+ * Get installation transactions.
+ */
+export const getInstallationTransactions = async (req: Request, res: Response, next: NextFunction) => {
     const { userId } = res.locals;
     const {
         categories,
@@ -18,43 +71,30 @@ export const getTransactions = async (req: Request, res: Response, next: NextFun
         limit,
         sort
     } = req.query;
-    const installationId = req.query.installationId as string;
+    const { installationId } = req.params;
 
     try {
         // Parse categories if provided
         const categoryList = (categories as string)?.split(",") as TransactionCategory[];
 
-        // Get transactions based on installation or user
-        if (installationId) {
-            // Check if user is part of the installation
-            const userInstallation = await prisma.installation.findFirst({
-                where: {
-                    id: installationId,
-                    users: { some: { userId } }
-                },
-                select: { id: true }
-            });
+        // Check if user is part of the installation
+        const userInstallation = await prisma.installation.findFirst({
+            where: {
+                id: installationId,
+                users: { some: { userId } }
+            },
+            select: { id: true }
+        });
 
-            if (!userInstallation) {
-                throw new AuthorizationError("User is not part of this installation.");
-            }
-        } else {
-            // Fetch user and verify user exists
-            const user = await prisma.user.findUnique({
-                where: { userId },
-                select: { username: true }
-            });
-
-            if (!user) {
-                throw new NotFoundError("User not found");
-            }
+        if (!userInstallation) {
+            throw new AuthorizationError("User is not part of this installation.");
         }
 
         // Parse limit
         const take = Math.min(Number(limit) || 20, 50);
 
         // Build filter for categories
-        const whereClause: Prisma.TransactionWhereInput = installationId ? { installationId } : { userId };
+        const whereClause: Prisma.TransactionWhereInput = { installationId };
         if (categoryList && categoryList.length > 0) {
             whereClause.category = { in: categoryList };
         }

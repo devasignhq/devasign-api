@@ -72,7 +72,7 @@ describe("Wallet API Integration Tests", () => {
         await prisma.$disconnect();
     });
 
-    describe(`GET ${getEndpointWithPrefix(["WALLET", "TRANSACTIONS", "GET_ALL"])} - Get Transactions`, () => {
+    describe(`GET ${getEndpointWithPrefix(["WALLET", "TRANSACTIONS", "GET_ALL_USER"])} - Get User Transactions`, () => {
         let testUser: any;
 
         beforeEach(async () => {
@@ -84,7 +84,7 @@ describe("Wallet API Integration Tests", () => {
                 }
             });
 
-            // Create test transactions
+            // Create test transactions for the user
             const now = Date.now();
             const transactions = [
                 {
@@ -122,7 +122,105 @@ describe("Wallet API Integration Tests", () => {
 
         it("should get all transactions for user", async () => {
             const response = await request(app)
-                .get(getEndpointWithPrefix(["WALLET", "TRANSACTIONS", "GET_ALL"]))
+                .get(getEndpointWithPrefix(["WALLET", "TRANSACTIONS", "GET_ALL_USER"]))
+                .set("x-test-user-id", "test-user-1")
+                .expect(STATUS_CODES.SUCCESS);
+
+            expect(response.body.data).toHaveLength(3);
+            expect(response.body.pagination.hasMore).toBe(false);
+        });
+
+        it("should paginate user transactions", async () => {
+            const response = await request(app)
+                .get(`${getEndpointWithPrefix(["WALLET", "TRANSACTIONS", "GET_ALL_USER"])}?page=1&limit=2`)
+                .set("x-test-user-id", "test-user-1")
+                .expect(STATUS_CODES.SUCCESS);
+
+            expect(response.body.data).toHaveLength(2);
+            expect(response.body.pagination.hasMore).toBe(true);
+        });
+
+        it("should sort user transactions", async () => {
+            const response = await request(app)
+                .get(`${getEndpointWithPrefix(["WALLET", "TRANSACTIONS", "GET_ALL_USER"])}?sort=asc`)
+                .set("x-test-user-id", "test-user-1")
+                .expect(STATUS_CODES.SUCCESS);
+
+            expect(response.body.data).toHaveLength(3);
+        });
+
+        it("should return error when user not found", async () => {
+            await request(app)
+                .get(getEndpointWithPrefix(["WALLET", "TRANSACTIONS", "GET_ALL_USER"]))
+                .set("x-test-user-id", "nonexistent-user")
+                .expect(STATUS_CODES.NOT_FOUND);
+        });
+    });
+
+    describe(`GET ${getEndpointWithPrefix(["WALLET", "TRANSACTIONS", "GET_ALL_INSTALLATION"])} - Get Installation Transactions`, () => {
+        let testUser: any;
+        const installationId = "12345678";
+
+        beforeEach(async () => {
+            testUser = TestDataFactory.user({ userId: "test-user-1" });
+            await prisma.user.create({
+                data: {
+                    ...testUser,
+                    contributionSummary: { create: {} }
+                }
+            });
+
+            const installation = TestDataFactory.installation({ id: installationId });
+            await prisma.installation.create({
+                data: {
+                    ...installation,
+                    users: { connect: { userId: "test-user-1" } },
+                    wallet: TestDataFactory.createWalletRelation()
+                }
+            });
+
+            // Create test transactions for the installation
+            const now = Date.now();
+            const transactions = [
+                {
+                    txHash: `test-tx-hash-${now}-1`,
+                    category: TransactionCategory.TOP_UP,
+                    amount: 20,
+                    asset: "XLM",
+                    sourceAddress: "GDEST1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12",
+                    doneAt: new Date(),
+                    installation: { connect: { id: installationId } }
+                },
+                {
+                    txHash: `test-tx-hash-${now}-2`,
+                    category: TransactionCategory.TOP_UP,
+                    amount: 45,
+                    asset: "USDC",
+                    sourceAddress: "GDEST1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12",
+                    doneAt: new Date(),
+                    installation: { connect: { id: installationId } }
+                },
+                {
+                    txHash: `test-tx-hash-${now}-3`,
+                    category: TransactionCategory.WITHDRAWAL,
+                    amount: 67,
+                    asset: "USDC",
+                    destinationAddress: "GDEST1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12",
+                    installation: { connect: { id: installationId } }
+                }
+            ];
+
+            for (const transaction of transactions) {
+                await prisma.transaction.create({ data: transaction });
+            }
+        });
+
+        it("should get all transactions for installation", async () => {
+            const response = await request(app)
+                .get(
+                    getEndpointWithPrefix(["WALLET", "TRANSACTIONS", "GET_ALL_INSTALLATION"])
+                        .replace(":installationId", installationId)
+                )
                 .set("x-test-user-id", "test-user-1")
                 .expect(STATUS_CODES.SUCCESS);
 
@@ -132,7 +230,9 @@ describe("Wallet API Integration Tests", () => {
 
         it("should filter transactions by category", async () => {
             const response = await request(app)
-                .get(`${getEndpointWithPrefix(["WALLET", "TRANSACTIONS", "GET_ALL"])}?categories=TOP_UP`)
+                .get(
+                    `${getEndpointWithPrefix(["WALLET", "TRANSACTIONS", "GET_ALL_INSTALLATION"]).replace(":installationId", installationId)}?categories=TOP_UP`
+                )
                 .set("x-test-user-id", "test-user-1")
                 .expect(STATUS_CODES.SUCCESS);
 
@@ -142,9 +242,11 @@ describe("Wallet API Integration Tests", () => {
             )).toBe(true);
         });
 
-        it("should paginate transactions", async () => {
+        it("should paginate installation transactions", async () => {
             const response = await request(app)
-                .get(`${getEndpointWithPrefix(["WALLET", "TRANSACTIONS", "GET_ALL"])}?page=1&limit=2`)
+                .get(
+                    `${getEndpointWithPrefix(["WALLET", "TRANSACTIONS", "GET_ALL_INSTALLATION"]).replace(":installationId", installationId)}?page=1&limit=2`
+                )
                 .set("x-test-user-id", "test-user-1")
                 .expect(STATUS_CODES.SUCCESS);
 
@@ -152,46 +254,34 @@ describe("Wallet API Integration Tests", () => {
             expect(response.body.pagination.hasMore).toBe(true);
         });
 
-        it("should sort transactions", async () => {
+        it("should sort installation transactions", async () => {
             const response = await request(app)
-                .get(`${getEndpointWithPrefix(["WALLET", "TRANSACTIONS", "GET_ALL"])}?sort=asc`)
+                .get(
+                    `${getEndpointWithPrefix(["WALLET", "TRANSACTIONS", "GET_ALL_INSTALLATION"]).replace(":installationId", installationId)}?sort=asc`
+                )
                 .set("x-test-user-id", "test-user-1")
                 .expect(STATUS_CODES.SUCCESS);
 
-            const transactions = response.body.data;
-            expect(transactions).toHaveLength(3);
+            expect(response.body.data).toHaveLength(3);
         });
 
-        it("should get transactions for installation", async () => {
-            const installation = TestDataFactory.installation({ id: "12345678" });
+        it("should return error when user is not part of installation", async () => {
+            const otherInstallation = TestDataFactory.installation({ id: "11111111" });
             await prisma.installation.create({
                 data: {
-                    ...installation,
-                    users: {
-                        connect: { userId: "test-user-1" }
-                    },
+                    ...otherInstallation,
                     wallet: TestDataFactory.createWalletRelation()
+                    // no users connected
                 }
             });
 
-            const installationTx = {
-                txHash: `test-tx-hash-${Date.now()}-inst`,
-                category: TransactionCategory.TOP_UP,
-                amount: 20,
-                asset: "XLM",
-                sourceAddress: "GDEST1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12",
-                doneAt: new Date(),
-                installation: { connect: { id: "12345678" } }
-            };
-            await prisma.transaction.create({ data: installationTx });
-
-            const response = await request(app)
-                .get(`${getEndpointWithPrefix(["WALLET", "TRANSACTIONS", "GET_ALL"])}?installationId=12345678`)
+            await request(app)
+                .get(
+                    getEndpointWithPrefix(["WALLET", "TRANSACTIONS", "GET_ALL_INSTALLATION"])
+                        .replace(":installationId", "11111111")
+                )
                 .set("x-test-user-id", "test-user-1")
-                .expect(STATUS_CODES.SUCCESS);
-
-            expect(response.body.data).toHaveLength(1);
-            expect(response.body.data[0].category).toBe(TransactionCategory.TOP_UP);
+                .expect(STATUS_CODES.UNAUTHORIZED);
         });
     });
 

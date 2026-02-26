@@ -845,21 +845,21 @@ export const markAsComplete = async (req: Request, res: Response, next: NextFunc
             throw new ValidationError("Task is not active");
         }
 
-        const updatedTask = await prisma.$transaction(async (tx) => {
-            // Create task submission
-            const submission = await tx.taskSubmission.create({
-                data: {
-                    user: { connect: { userId } },
-                    task: { connect: { id: taskId } },
-                    installation: { connect: { id: task.installationId } },
-                    pullRequest,
-                    attachmentUrl
-                },
-                select: { id: true }
-            });
+        // Create task submission
+        const submission = await prisma.taskSubmission.create({
+            data: {
+                user: { connect: { userId } },
+                task: { connect: { id: taskId } },
+                installation: { connect: { id: task.installationId } },
+                pullRequest,
+                attachmentUrl
+            },
+            select: { id: true }
+        });
 
+        const [updatedTask] = await prisma.$transaction([
             // Update task status
-            const updatedTask = await tx.task.update({
+            prisma.task.update({
                 where: { id: taskId },
                 data: {
                     status: TaskStatus.MARKED_AS_COMPLETED
@@ -876,10 +876,9 @@ export const markAsComplete = async (req: Request, res: Response, next: NextFunc
                         }
                     }
                 }
-            });
-
+            }),
             // Create submision activity
-            await tx.taskActivity.create({
+            prisma.taskActivity.create({
                 data: {
                     task: {
                         connect: { id: taskId }
@@ -891,10 +890,8 @@ export const markAsComplete = async (req: Request, res: Response, next: NextFunc
                         connect: { userId }
                     }
                 }
-            });
-
-            return updatedTask;
-        });
+            })
+        ]);
 
         // Return updated task
         responseWrapper({
