@@ -18,7 +18,7 @@ export class DatabaseTestHelper {
         }
 
         // Start Docker PostgreSQL container if not running
-        await this.startDockerPostgres();
+        // await this.startDockerPostgres();
 
         // Configure PostgreSQL database URL for unit tests
         const unitTestDbUrl = process.env.DATABASE_URL ||
@@ -165,6 +165,10 @@ export class DatabaseTestHelper {
             await client.wallet.deleteMany();
             await client.permission.deleteMany();
             await client.subscriptionPackage.deleteMany();
+            await client.aIReviewResult.deleteMany();
+            await client.codeFile.deleteMany();
+            await client.codeChunk.deleteMany();
+            await client.repositoryIndexingState.deleteMany();
 
             console.log("✅ Database reset completed");
         } catch (error) {

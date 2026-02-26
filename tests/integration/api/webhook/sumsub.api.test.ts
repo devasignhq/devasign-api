@@ -35,13 +35,13 @@ jest.mock("../../../../api/services/octokit.service", () => ({
 }));
 
 // Mock external services that might be imported by webhook routes
-jest.mock("../../../../api/services/ai-review/workflow-integration.service", () => ({
+jest.mock("../../../../api/services/pr-review/workflow-integration.service", () => ({
     WorkflowIntegrationService: {
         getInstance: jest.fn()
     }
 }));
 
-jest.mock("../../../../api/services/ai-review/pr-analysis.service", () => ({
+jest.mock("../../../../api/services/pr-review/pr-analysis.service", () => ({
     PRAnalysisService: {
         extractLinkedIssues: jest.fn()
     }

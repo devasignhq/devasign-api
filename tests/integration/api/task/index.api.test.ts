@@ -41,7 +41,8 @@ jest.mock("../../../../api/services/contract.service", () => ({
 jest.mock("../../../../api/services/firebase.service", () => ({
     FirebaseService: {
         createTask: jest.fn(),
-        updateTaskStatus: jest.fn()
+        updateTaskStatus: jest.fn(),
+        updateAppActivity: jest.fn()
     }
 }));
 
@@ -140,6 +141,7 @@ describe("Task API Integration Tests", () => {
         });
 
         mockFirebaseService.updateTaskStatus.mockResolvedValue(true);
+        mockFirebaseService.updateAppActivity.mockResolvedValue(true);
 
         mockOctokitService.addBountyLabelAndCreateBountyComment.mockResolvedValue({
             id: 123456789
@@ -219,6 +221,14 @@ describe("Task API Integration Tests", () => {
                 where: { id: response.body.data.id }
             });
             expect(createdTask).toBeTruthy();
+
+            // Verify transaction was recorded for bounty
+            const bountyTransaction = await prisma.transaction.findFirst({
+                where: { taskId: response.body.data.id, category: "BOUNTY" }
+            });
+            expect(bountyTransaction).toBeTruthy();
+            expect(bountyTransaction.txHash).toBe("test-contract-tx-hash");
+            expect(bountyTransaction.amount).toBe(100);
 
             // Verify Contract service was called for escrow creation
             expect(mockContractService.createEscrow).toHaveBeenCalledTimes(1);
@@ -535,6 +545,18 @@ describe("Task API Integration Tests", () => {
 
             // Verify bounty was refunded via contract
             expect(mockContractService.refund).toHaveBeenCalledTimes(1);
+
+            // Verify refund transaction was recorded
+            const refundDbTx = await prisma.transaction.findFirst({
+                where: {
+                    installationId: testInstallation.id,
+                    category: "TOP_UP",
+                    txHash: "test-refund-tx-hash"
+                }
+            });
+            expect(refundDbTx).toBeTruthy();
+            expect(refundDbTx.amount).toBe(100);
+            expect(refundDbTx.sourceAddress).toBe("Escrow Refunds");
         });
 
         it("should return error when user is not the creator", async () => {

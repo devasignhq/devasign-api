@@ -32,7 +32,7 @@ jest.mock("../../../../api/services/octokit.service", () => ({
 }));
 
 // Mock PR Analysis Service
-jest.mock("../../../../api/services/ai-review/pr-analysis.service", () => ({
+jest.mock("../../../../api/services/pr-review/pr-analysis.service", () => ({
     PRAnalysisService: {
         extractLinkedIssues: jest.fn(),
         fetchChangedFiles: jest.fn(),
@@ -62,12 +62,20 @@ jest.mock("../../../../api/services/kms.service", () => ({
     }
 }));
 
+// Mock Background Job Service
+jest.mock("../../../../api/services/background-job.service", () => ({
+    backgroundJobService: {
+        addRepositoryIndexingJob: jest.fn()
+    }
+}));
+
 describe("Installation GitHub API Integration Tests", () => {
     let app: express.Application;
     let prisma: any;
     let mockFirebaseAuth: jest.Mock;
     let mockOctokitService: any;
     let mockPRAnalysisService: any;
+    let mockBackgroundJobService: any;
 
     beforeAll(async () => {
         prisma = await DatabaseTestHelper.setupTestDatabase();
@@ -98,6 +106,9 @@ describe("Installation GitHub API Integration Tests", () => {
 
         const { PRAnalysisService } = await import("../../../../api/services/pr-review/pr-analysis.service");
         mockPRAnalysisService = PRAnalysisService;
+
+        const { backgroundJobService } = await import("../../../../api/services/background-job.service");
+        mockBackgroundJobService = backgroundJobService;
     });
 
     beforeEach(async () => {
@@ -183,6 +194,8 @@ describe("Installation GitHub API Integration Tests", () => {
         mockPRAnalysisService.shouldAnalyzePR.mockReturnValue(true);
         mockPRAnalysisService.logExtractionResult.mockImplementation(() => { });
         mockPRAnalysisService.logAnalysisDecision.mockImplementation(() => { });
+
+        mockBackgroundJobService.addRepositoryIndexingJob.mockResolvedValue(undefined);
 
         TestDataFactory.resetCounters();
     });
@@ -545,6 +558,56 @@ describe("Installation GitHub API Integration Tests", () => {
         });
     });
 
+    describe(`GET ${getEndpointWithPrefix(["INSTALLATION", "GITHUB", "INDEX_REPOSITORIES"])} - Index Installation Repositories`, () => {
+        let testInstallation: any;
+
+        beforeEach(async () => {
+            const user = TestDataFactory.user({ userId: "user-1" });
+            await prisma.user.create({
+                data: { ...user, contributionSummary: { create: {} } }
+            });
+
+            testInstallation = TestDataFactory.installation({ id: "12345678" });
+            await prisma.installation.create({
+                data: {
+                    ...testInstallation,
+                    users: {
+                        connect: { userId: "user-1" }
+                    },
+                    wallet: TestDataFactory.createWalletRelation()
+                }
+            });
+        });
+
+        it("should trigger repository indexing successfully", async () => {
+            const response = await request(app)
+                .get(getEndpointWithPrefix(["INSTALLATION", "GITHUB", "INDEX_REPOSITORIES"])
+                    .replace(":installationId", "12345678"))
+                .set("x-test-user-id", "user-1")
+                .expect(STATUS_CODES.SUCCESS);
+
+            expect(response.body).toMatchObject({
+                message: "Repository indexing triggered successfully",
+                data: {
+                    installationId: "12345678"
+                }
+            });
+
+            expect(mockOctokitService.getInstallationRepositories).toHaveBeenCalledWith("12345678");
+            expect(mockBackgroundJobService.addRepositoryIndexingJob).toHaveBeenCalledWith("12345678", "test-repo");
+        });
+
+        it("should handle GitHub API errors gracefully", async () => {
+            mockOctokitService.getInstallationRepositories.mockRejectedValue(new Error("API Error"));
+
+            await request(app)
+                .get(getEndpointWithPrefix(["INSTALLATION", "GITHUB", "INDEX_REPOSITORIES"])
+                    .replace(":installationId", "12345678"))
+                .set("x-test-user-id", "user-1")
+                .expect(STATUS_CODES.UNKNOWN);
+        });
+    });
+
     describe("Authentication and Authorization", () => {
         it("should require authentication for all GitHub endpoints", async () => {
             const appWithoutAuth = express();
@@ -581,6 +644,11 @@ describe("Installation GitHub API Integration Tests", () => {
                 .post(getEndpointWithPrefix(["INSTALLATION", "GITHUB", "ANALYZE_PR"])
                     .replace(":installationId", "12345678"))
                 .send({ repositoryName: "test/repo", prNumber: 1 })
+                .expect(STATUS_CODES.UNAUTHENTICATED);
+
+            await request(appWithoutAuth)
+                .get(getEndpointWithPrefix(["INSTALLATION", "GITHUB", "INDEX_REPOSITORIES"])
+                    .replace(":installationId", "12345678"))
                 .expect(STATUS_CODES.UNAUTHENTICATED);
         });
     });

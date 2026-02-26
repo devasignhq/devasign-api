@@ -19,13 +19,13 @@ jest.mock("../../../../api/config/firebase.config", () => {
 });
 
 // Mock external services
-jest.mock("../../../../api/services/ai-review/workflow-integration.service", () => ({
+jest.mock("../../../../api/services/pr-review/workflow-integration.service", () => ({
     WorkflowIntegrationService: {
         getInstance: jest.fn()
     }
 }));
 
-jest.mock("../../../../api/services/ai-review/pr-analysis.service", () => ({
+jest.mock("../../../../api/services/pr-review/pr-analysis.service", () => ({
     PRAnalysisService: {
         extractLinkedIssues: jest.fn()
     }
@@ -34,7 +34,8 @@ jest.mock("../../../../api/services/ai-review/pr-analysis.service", () => ({
 // Mock Firebase service for task messaging
 jest.mock("../../../../api/services/firebase.service", () => ({
     FirebaseService: {
-        updateTaskStatus: jest.fn().mockResolvedValue(true)
+        updateTaskStatus: jest.fn().mockResolvedValue(true),
+        updateAppActivity: jest.fn().mockResolvedValue(true)
     }
 }));
 
@@ -69,6 +70,7 @@ describe("Webhook API Integration Tests", () => {
 
     let mockPRAnalysisService: any;
     let mockContractService: any;
+    let mockFirebaseService: any;
 
     const WEBHOOK_SECRET = "test-webhook-secret";
     const VALID_INSTALLATION_ID = "12345678";
@@ -112,6 +114,9 @@ describe("Webhook API Integration Tests", () => {
 
         const { ContractService } = await import("../../../../api/services/contract.service");
         mockContractService = ContractService;
+
+        const { FirebaseService } = await import("../../../../api/services/firebase.service");
+        mockFirebaseService = FirebaseService;
 
         const { PRAnalysisService } = await import("../../../../api/services/pr-review/pr-analysis.service");
         mockPRAnalysisService = PRAnalysisService;
@@ -713,6 +718,8 @@ describe("Webhook API Integration Tests", () => {
 
             // Verify Contract service was called
             expect(mockContractService.approveCompletion).toHaveBeenCalledTimes(1);
+            expect(mockFirebaseService.updateTaskStatus).toHaveBeenCalledTimes(1);
+            expect(mockFirebaseService.updateAppActivity).toHaveBeenCalledTimes(2);
 
             // Verify task was updated
             const updatedTask = await prisma.task.findUnique({

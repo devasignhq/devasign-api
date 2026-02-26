@@ -6,8 +6,11 @@ import { DatabaseTestHelper } from "../../../helpers/database-test-helper";
 import { ENDPOINTS, STATUS_CODES } from "../../../../api/utilities/data";
 import { getEndpointWithPrefix } from "../../../helpers/test-utils";
 
+import { WorkflowIntegrationService } from "../../../../api/services/pr-review/workflow-integration.service";
+import { backgroundJobService } from "../../../../api/services/background-job.service";
+
 // Mock Workflow Integration Service
-jest.mock("../../../../api/services/ai-review/workflow-integration.service");
+jest.mock("../../../../api/services/pr-review/workflow-integration.service");
 
 // Mock Job Queue Service
 jest.mock("../../../../api/services/background-job.service");
@@ -15,8 +18,6 @@ jest.mock("../../../../api/services/background-job.service");
 describe("Admin GitHub Webhook API Integration Tests", () => {
     let app: express.Application;
     let prisma: any;
-    let mockWorkflowService: any;
-    let mockBackgroundJobService: any;
 
     beforeAll(async () => {
         prisma = await DatabaseTestHelper.setupTestDatabase();
@@ -26,25 +27,6 @@ describe("Admin GitHub Webhook API Integration Tests", () => {
         app.use(express.json());
         app.use(ENDPOINTS.ADMIN.PREFIX, adminRoutes);
         app.use(errorHandler);
-
-        // Setup mocks
-        const { WorkflowIntegrationService } = await import("../../../../api/services/pr-review/workflow-integration.service");
-        const { BackgroundJobService } = await import("../../../../api/services/background-job.service");
-
-        mockWorkflowService = {
-            getInstance: jest.fn().mockReturnThis(),
-            healthCheck: jest.fn(),
-            getWorkflowStatus: jest.fn()
-        };
-        WorkflowIntegrationService.getInstance = jest.fn(() => mockWorkflowService);
-
-        mockBackgroundJobService = {
-            getInstance: jest.fn().mockReturnThis(),
-            getJobData: jest.fn(),
-            getQueueStats: jest.fn(),
-            getActiveJobsCount: jest.fn()
-        };
-        BackgroundJobService.getInstance = jest.fn(() => mockBackgroundJobService);
     });
 
     beforeEach(async () => {
@@ -53,25 +35,28 @@ describe("Admin GitHub Webhook API Integration Tests", () => {
         jest.clearAllMocks();
 
         // Setup default mock implementations
-        mockWorkflowService.healthCheck.mockResolvedValue({
-            healthy: true,
-            components: {
-                BackgroundJob: { status: "healthy", activeJobs: 2 },
-                orchestration: { status: "healthy" },
-                database: { status: "healthy" }
-            },
-            timestamp: new Date().toISOString()
-        });
+        // Note: WorkflowIntegrationService.getInstance() returns an instance containing healthCheck and getWorkflowStatus
+        const mockWorkflowInstance = {
+            healthCheck: jest.fn().mockResolvedValue({
+                healthy: true,
+                components: {
+                    BackgroundJob: { status: "healthy", activeJobs: 2 },
+                    orchestration: { status: "healthy" },
+                    database: { status: "healthy" }
+                },
+                timestamp: new Date().toISOString()
+            }),
+            getWorkflowStatus: jest.fn().mockReturnValue({
+                initialized: true,
+                activeJobs: 2,
+                queueSize: 5,
+                processingRate: 10,
+                uptime: 3600000
+            })
+        };
+        (WorkflowIntegrationService.getInstance as jest.Mock).mockReturnValue(mockWorkflowInstance);
 
-        mockWorkflowService.getWorkflowStatus.mockReturnValue({
-            initialized: true,
-            activeJobs: 2,
-            queueSize: 5,
-            processingRate: 10,
-            uptime: 3600000
-        });
-
-        mockBackgroundJobService.getJobData.mockReturnValue({
+        (backgroundJobService.getJobData as jest.Mock).mockReturnValue({
             id: "test-job-123",
             status: "completed",
             data: {
@@ -94,7 +79,7 @@ describe("Admin GitHub Webhook API Integration Tests", () => {
             }
         });
 
-        mockBackgroundJobService.getQueueStats.mockReturnValue({
+        (backgroundJobService.getQueueStats as jest.Mock).mockReturnValue({
             pending: 3,
             active: 2,
             completed: 10,
@@ -102,7 +87,7 @@ describe("Admin GitHub Webhook API Integration Tests", () => {
             total: 16
         });
 
-        mockBackgroundJobService.getActiveJobsCount.mockReturnValue(2);
+        (backgroundJobService.getActiveJobsCount as jest.Mock).mockReturnValue(2);
     });
 
     afterAll(async () => {
@@ -136,12 +121,14 @@ describe("Admin GitHub Webhook API Integration Tests", () => {
                 }
             });
 
-            expect(mockWorkflowService.healthCheck).toHaveBeenCalled();
-            expect(mockWorkflowService.getWorkflowStatus).toHaveBeenCalled();
+            const instance = WorkflowIntegrationService.getInstance();
+            expect(instance.healthCheck).toHaveBeenCalled();
+            expect(instance.getWorkflowStatus).toHaveBeenCalled();
         });
 
         it("should return unhealthy status when components have issues", async () => {
-            mockWorkflowService.healthCheck.mockResolvedValue({
+            const instance = WorkflowIntegrationService.getInstance();
+            (instance.healthCheck as jest.Mock).mockResolvedValue({
                 healthy: false,
                 components: {
                     BackgroundJob: { status: "unhealthy", error: "Queue connection lost" },
@@ -172,7 +159,8 @@ describe("Admin GitHub Webhook API Integration Tests", () => {
         });
 
         it("should handle health check errors gracefully", async () => {
-            mockWorkflowService.healthCheck.mockRejectedValue(
+            const instance = WorkflowIntegrationService.getInstance();
+            (instance.healthCheck as jest.Mock).mockRejectedValue(
                 new Error("Health check service unavailable")
             );
 
@@ -191,7 +179,8 @@ describe("Admin GitHub Webhook API Integration Tests", () => {
         });
 
         it("should include workflow status in health check", async () => {
-            mockWorkflowService.getWorkflowStatus.mockReturnValue({
+            const instance = WorkflowIntegrationService.getInstance();
+            (instance.getWorkflowStatus as jest.Mock).mockReturnValue({
                 initialized: true,
                 activeJobs: 5,
                 queueSize: 10,
@@ -228,8 +217,10 @@ describe("Admin GitHub Webhook API Integration Tests", () => {
                 data: {
                     jobId: "test-job-123",
                     status: "completed",
-                    prNumber: 1,
-                    repositoryName: "test/repo",
+                    data: {
+                        prNumber: 1,
+                        repositoryName: "test/repo"
+                    },
                     createdAt: expect.any(String),
                     startedAt: expect.any(String),
                     completedAt: expect.any(String),
@@ -238,18 +229,20 @@ describe("Admin GitHub Webhook API Integration Tests", () => {
                     result: {
                         mergeScore: 85,
                         reviewStatus: "COMPLETED",
-                        suggestionsCount: 1,
+                        suggestions: [
+                            { type: "improvement", message: "Consider adding tests" }
+                        ],
                         summary: "PR looks good overall"
                     },
                     timestamp: expect.any(String)
                 }
             });
 
-            expect(mockBackgroundJobService.getJobData).toHaveBeenCalledWith("test-job-123");
+            expect(backgroundJobService.getJobData).toHaveBeenCalledWith("test-job-123");
         });
 
         it("should return 404 when job not found", async () => {
-            mockBackgroundJobService.getJobData.mockReturnValue(null);
+            (backgroundJobService.getJobData as jest.Mock).mockReturnValue(null);
 
             const response = await request(app)
                 .get(getEndpointWithPrefix(["ADMIN", "WEBHOOK", "GET_JOB"]).replace(":jobId", "non-existent-job"))
@@ -262,7 +255,7 @@ describe("Admin GitHub Webhook API Integration Tests", () => {
         });
 
         it("should handle job data with error information", async () => {
-            mockBackgroundJobService.getJobData.mockReturnValue({
+            (backgroundJobService.getJobData as jest.Mock).mockReturnValue({
                 id: "failed-job-456",
                 status: "failed",
                 data: {
@@ -301,7 +294,7 @@ describe("Admin GitHub Webhook API Integration Tests", () => {
         });
 
         it("should handle job data retrieval errors", async () => {
-            mockBackgroundJobService.getJobData.mockImplementation(() => {
+            (backgroundJobService.getJobData as jest.Mock).mockImplementation(() => {
                 throw new Error("Database connection error");
             });
 
@@ -317,7 +310,7 @@ describe("Admin GitHub Webhook API Integration Tests", () => {
         });
 
         it("should return job data for pending jobs", async () => {
-            mockBackgroundJobService.getJobData.mockReturnValue({
+            (backgroundJobService.getJobData as jest.Mock).mockReturnValue({
                 id: "pending-job-789",
                 status: "pending",
                 data: {
@@ -369,19 +362,19 @@ describe("Admin GitHub Webhook API Integration Tests", () => {
                 }
             });
 
-            expect(mockBackgroundJobService.getQueueStats).toHaveBeenCalled();
-            expect(mockBackgroundJobService.getActiveJobsCount).toHaveBeenCalled();
+            expect(backgroundJobService.getQueueStats).toHaveBeenCalled();
+            expect(backgroundJobService.getActiveJobsCount).toHaveBeenCalled();
         });
 
         it("should handle empty queue statistics", async () => {
-            mockBackgroundJobService.getQueueStats.mockReturnValue({
+            (backgroundJobService.getQueueStats as jest.Mock).mockReturnValue({
                 pending: 0,
                 active: 0,
                 completed: 0,
                 failed: 0,
                 total: 0
             });
-            mockBackgroundJobService.getActiveJobsCount.mockReturnValue(0);
+            (backgroundJobService.getActiveJobsCount as jest.Mock).mockReturnValue(0);
 
             const response = await request(app)
                 .get(getEndpointWithPrefix(["ADMIN", "WEBHOOK", "QUEUE_STATS"]))
@@ -398,7 +391,7 @@ describe("Admin GitHub Webhook API Integration Tests", () => {
         });
 
         it("should handle queue statistics retrieval errors", async () => {
-            mockBackgroundJobService.getQueueStats.mockImplementation(() => {
+            (backgroundJobService.getQueueStats as jest.Mock).mockImplementation(() => {
                 throw new Error("Queue service unavailable");
             });
 
@@ -414,7 +407,7 @@ describe("Admin GitHub Webhook API Integration Tests", () => {
         });
 
         it("should include detailed queue metrics", async () => {
-            mockBackgroundJobService.getQueueStats.mockReturnValue({
+            (backgroundJobService.getQueueStats as jest.Mock).mockReturnValue({
                 pending: 5,
                 active: 3,
                 completed: 25,
@@ -458,11 +451,13 @@ describe("Admin GitHub Webhook API Integration Tests", () => {
                 }
             });
 
-            expect(mockWorkflowService.getWorkflowStatus).toHaveBeenCalled();
+            const instance = WorkflowIntegrationService.getInstance();
+            expect(instance.getWorkflowStatus).toHaveBeenCalled();
         });
 
         it("should handle uninitialized workflow", async () => {
-            mockWorkflowService.getWorkflowStatus.mockReturnValue({
+            const instance = WorkflowIntegrationService.getInstance();
+            (instance.getWorkflowStatus as jest.Mock).mockReturnValue({
                 initialized: false,
                 activeJobs: 0,
                 queueSize: 0,
@@ -482,7 +477,8 @@ describe("Admin GitHub Webhook API Integration Tests", () => {
         });
 
         it("should include detailed workflow metrics", async () => {
-            mockWorkflowService.getWorkflowStatus.mockReturnValue({
+            const instance = WorkflowIntegrationService.getInstance();
+            (instance.getWorkflowStatus as jest.Mock).mockReturnValue({
                 initialized: true,
                 activeJobs: 4,
                 queueSize: 8,
@@ -520,7 +516,8 @@ describe("Admin GitHub Webhook API Integration Tests", () => {
         });
 
         it("should handle workflow status retrieval errors", async () => {
-            mockWorkflowService.getWorkflowStatus.mockImplementation(() => {
+            const instance = WorkflowIntegrationService.getInstance();
+            (instance.getWorkflowStatus as jest.Mock).mockImplementation(() => {
                 throw new Error("Workflow service error");
             });
 
@@ -541,6 +538,7 @@ describe("Admin GitHub Webhook API Integration Tests", () => {
     describe("Error Handling and Edge Cases", () => {
         it("should handle service initialization failures", async () => {
             const { WorkflowIntegrationService } = await import("../../../../api/services/pr-review/workflow-integration.service");
+            const originalFn = WorkflowIntegrationService.getInstance;
             WorkflowIntegrationService.getInstance = jest.fn(() => {
                 throw new Error("Service initialization failed");
             });
@@ -554,7 +552,7 @@ describe("Admin GitHub Webhook API Integration Tests", () => {
             });
 
             // Restore mock
-            WorkflowIntegrationService.getInstance = jest.fn(() => mockWorkflowService);
+            WorkflowIntegrationService.getInstance = originalFn;
         });
 
         it("should handle concurrent requests to admin endpoints", async () => {
@@ -575,7 +573,7 @@ describe("Admin GitHub Webhook API Integration Tests", () => {
         });
 
         it("should handle malformed job IDs gracefully", async () => {
-            mockBackgroundJobService.getJobData.mockReturnValue(null);
+            (backgroundJobService.getJobData as jest.Mock).mockReturnValue(null);
 
             const malformedIds = ["", " ", "null", "undefined", "../../etc/passwd"];
 
@@ -603,7 +601,7 @@ describe("Admin GitHub Webhook API Integration Tests", () => {
         });
 
         it("should handle high queue statistics efficiently", async () => {
-            mockBackgroundJobService.getQueueStats.mockReturnValue({
+            (backgroundJobService.getQueueStats as jest.Mock).mockReturnValue({
                 pending: 1000,
                 active: 50,
                 completed: 10000,
