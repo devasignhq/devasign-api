@@ -22,6 +22,7 @@ jest.mock("../../../../api/services/stellar.service", () => ({
     stellarService: {
         getAccountInfo: jest.fn(),
         transferAsset: jest.fn(),
+        transferAssetViaSponsor: jest.fn(),
         swapAsset: jest.fn()
     }
 }));
@@ -92,6 +93,10 @@ describe("Wallet API Integration Tests", () => {
         });
 
         mockStellarService.transferAsset.mockResolvedValue({
+            txHash: "mock_tx_hash_123"
+        });
+
+        mockStellarService.transferAssetViaSponsor.mockResolvedValue({
             txHash: "mock_tx_hash_123"
         });
 
@@ -212,36 +217,22 @@ describe("Wallet API Integration Tests", () => {
             });
         });
 
-        it("should withdraw XLM successfully", async () => {
+        it("should return error when user wallet tries to withdraw XLM", async () => {
+            // User wallets only support USDC withdrawals
             const withdrawData = {
                 walletAddress: "GBPOJZGQPO23FSADGDD3PQFRGLWTETJRK2IY4D5HEQXLDCDEHYFSAAII",
                 assetType: "XLM",
                 amount: "50"
             };
 
-            const response = await request(app)
+            await request(app)
                 .post(getEndpointWithPrefix(["WALLET", "WITHDRAW"]))
                 .set("x-test-user-id", "test-user-1")
                 .send(withdrawData)
-                .expect(STATUS_CODES.SUCCESS);
-
-            expect(response.body.data).toMatchObject({
-                txHash: "mock_tx_hash_123",
-                category: TransactionCategory.WITHDRAWAL,
-                amount: 50,
-                asset: "XLM",
-                destinationAddress: withdrawData.walletAddress
-            });
-
-            // Verify transaction was recorded
-            const transaction = await prisma.transaction.findFirst({
-                where: { userId: "test-user-1", category: TransactionCategory.WITHDRAWAL }
-            });
-            expect(transaction).toBeTruthy();
-            expect(transaction?.amount).toBe(50);
+                .expect(STATUS_CODES.SERVER_ERROR);
         });
 
-        it("should withdraw USDC successfully", async () => {
+        it("should withdraw USDC successfully from user wallet (fee sponsored)", async () => {
             const withdrawData = {
                 walletAddress: "GBPOJZGQPO23FSADGDD3PQFRGLWTETJRK2IY4D5HEQXLDCDEHYFSAAII",
                 assetType: "USDC",
@@ -260,20 +251,45 @@ describe("Wallet API Integration Tests", () => {
                 amount: 100,
                 asset: "USDC"
             });
+
+            // Verify transaction was recorded for user
+            const transaction = await prisma.transaction.findFirst({
+                where: { userId: "test-user-1", category: TransactionCategory.WITHDRAWAL }
+            });
+            expect(transaction).toBeTruthy();
+            expect(transaction?.amount).toBe(100);
+
+            // User wallet withdrawals should use sponsored transfer
+            expect(mockStellarService.transferAssetViaSponsor).toHaveBeenCalled();
+            expect(mockStellarService.transferAsset).not.toHaveBeenCalled();
         });
 
-        it("should return error when insufficient XLM balance", async () => {
+        it("should return error when insufficient XLM balance for installation wallet", async () => {
+            const installation = TestDataFactory.installation({
+                id: "12345678"
+            });
+            await prisma.installation.create({
+                data: {
+                    ...installation,
+                    wallet: TestDataFactory.createWalletRelation(),
+                    users: {
+                        connect: { userId: "test-user-1" }
+                    }
+                }
+            });
+
             mockStellarService.getAccountInfo.mockResolvedValue({
                 subentry_count: 0,
                 balances: [
                     {
                         asset_type: "native",
-                        balance: "2.0000000" // Only 1 XLM available after reserve
+                        balance: "1.0000000" // Below minimum reserve + fee buffer
                     }
                 ]
             });
 
             const withdrawData = {
+                installationId: "12345678",
                 walletAddress: "GBPOJZGQPO23FSADGDD3PQFRGLWTETJRK2IY4D5HEQXLDCDEHYFSAAII",
                 assetType: "XLM",
                 amount: "50"
@@ -290,6 +306,10 @@ describe("Wallet API Integration Tests", () => {
             mockStellarService.getAccountInfo.mockResolvedValue({
                 subentry_count: 0,
                 balances: [
+                    {
+                        asset_type: "native",
+                        balance: "100.0000000"
+                    },
                     {
                         asset_type: "credit_alphanum12",
                         asset_code: "USDC",
@@ -314,7 +334,7 @@ describe("Wallet API Integration Tests", () => {
         it("should return error for invalid amount", async () => {
             const withdrawData = {
                 walletAddress: "GBPOJZGQPO23FSADGDD3PQFRGLWTETJRK2IY4D5HEQXLDCDEHYFSAAII",
-                assetType: "XLM",
+                assetType: "USDC",
                 amount: "-10"
             };
 
@@ -325,11 +345,10 @@ describe("Wallet API Integration Tests", () => {
                 .expect(STATUS_CODES.SERVER_ERROR);
         });
 
-        it("should withdraw from installation wallet", async () => {
+        it("should withdraw USDC from installation wallet", async () => {
             const installation = TestDataFactory.installation({
                 id: "12345678"
             });
-            // Remove wallet fields
             await prisma.installation.create({
                 data: {
                     ...installation,
@@ -358,9 +377,54 @@ describe("Wallet API Integration Tests", () => {
                 category: TransactionCategory.WITHDRAWAL
             });
 
+            // Installation wallets pay their own fees (no sponsor)
+            expect(mockStellarService.transferAsset).toHaveBeenCalled();
+            expect(mockStellarService.transferAssetViaSponsor).not.toHaveBeenCalled();
+
             // Verify transaction was recorded for installation
             const transaction = await prisma.transaction.findFirst({
                 where: { installationId: "12345678", category: TransactionCategory.WITHDRAWAL }
+            });
+            expect(transaction).toBeTruthy();
+        });
+
+        it("should withdraw XLM from installation wallet", async () => {
+            const installation = TestDataFactory.installation({
+                id: "12345679"
+            });
+            await prisma.installation.create({
+                data: {
+                    ...installation,
+                    wallet: TestDataFactory.createWalletRelation(),
+                    users: {
+                        connect: { userId: "test-user-1" }
+                    }
+                }
+            });
+
+            const withdrawData = {
+                installationId: "12345679",
+                walletAddress: "GBPOJZGQPO23FSADGDD3PQFRGLWTETJRK2IY4D5HEQXLDCDEHYFSAAII",
+                assetType: "XLM",
+                amount: "50"
+            };
+
+            const response = await request(app)
+                .post(getEndpointWithPrefix(["WALLET", "WITHDRAW"]))
+                .set("x-test-user-id", "test-user-1")
+                .send(withdrawData)
+                .expect(STATUS_CODES.SUCCESS);
+
+            expect(response.body.data).toMatchObject({
+                txHash: "mock_tx_hash_123",
+                category: TransactionCategory.WITHDRAWAL,
+                amount: 50,
+                asset: "XLM"
+            });
+
+            // Verify transaction was recorded for installation
+            const transaction = await prisma.transaction.findFirst({
+                where: { installationId: "12345679", category: TransactionCategory.WITHDRAWAL }
             });
             expect(transaction).toBeTruthy();
         });
@@ -368,12 +432,12 @@ describe("Wallet API Integration Tests", () => {
 
     describe(`POST ${getEndpointWithPrefix(["WALLET", "SWAP"])} - Swap Asset`, () => {
         let testUser: any;
+        let installation: any;
 
         beforeEach(async () => {
             testUser = TestDataFactory.user({
                 userId: "test-user-1"
             });
-            // Remove wallet fields
             await prisma.user.create({
                 data: {
                     ...testUser,
@@ -381,17 +445,31 @@ describe("Wallet API Integration Tests", () => {
                     contributionSummary: { create: {} }
                 }
             });
+
+            // Swap is only for installation wallets
+            installation = TestDataFactory.installation({ id: "12345678" });
+            await prisma.installation.create({
+                data: {
+                    ...installation,
+                    wallet: TestDataFactory.createWalletRelation(),
+                    users: {
+                        connect: { userId: "test-user-1" }
+                    }
+                }
+            });
         });
 
         it("should swap XLM to USDC successfully", async () => {
             const swapData = {
                 toAssetType: "USDC",
-                amount: "50",
-                equivalentAmount: "45"
+                amount: "50"
             };
 
             const response = await request(app)
-                .post(getEndpointWithPrefix(["WALLET", "SWAP"]))
+                .post(
+                    getEndpointWithPrefix(["WALLET", "SWAP"])
+                        .replace(":installationId", "12345678")
+                )
                 .set("x-test-user-id", "test-user-1")
                 .send(swapData)
                 .expect(STATUS_CODES.SUCCESS);
@@ -406,9 +484,9 @@ describe("Wallet API Integration Tests", () => {
                 assetTo: "USDC"
             });
 
-            // Verify transaction was recorded
+            // Verify transaction was recorded for installation
             const transaction = await prisma.transaction.findFirst({
-                where: { userId: "test-user-1", category: TransactionCategory.SWAP_XLM }
+                where: { installationId: "12345678", category: TransactionCategory.SWAP_XLM }
             });
             expect(transaction).toBeTruthy();
         });
@@ -416,12 +494,14 @@ describe("Wallet API Integration Tests", () => {
         it("should swap USDC to XLM successfully", async () => {
             const swapData = {
                 toAssetType: "XLM",
-                amount: "100",
-                equivalentAmount: "110"
+                amount: "100"
             };
 
             const response = await request(app)
-                .post(getEndpointWithPrefix(["WALLET", "SWAP"]))
+                .post(
+                    getEndpointWithPrefix(["WALLET", "SWAP"])
+                        .replace(":installationId", "12345678")
+                )
                 .set("x-test-user-id", "test-user-1")
                 .send(swapData)
                 .expect(STATUS_CODES.SUCCESS);
@@ -434,28 +514,73 @@ describe("Wallet API Integration Tests", () => {
             });
         });
 
-        it("should return error when insufficient balance for swap", async () => {
+        it("should return error when insufficient XLM balance for swap to USDC", async () => {
             mockStellarService.getAccountInfo.mockResolvedValue({
                 subentry_count: 0,
                 balances: [
                     {
                         asset_type: "native",
-                        balance: "2.0000000"
+                        balance: "1.0000000" // Below minimum reserve + fee buffer
                     }
                 ]
             });
 
             const swapData = {
                 toAssetType: "USDC",
-                amount: "50",
-                equivalentAmount: "45"
+                amount: "50"
             };
 
             await request(app)
-                .post(getEndpointWithPrefix(["WALLET", "SWAP"]))
+                .post(
+                    getEndpointWithPrefix(["WALLET", "SWAP"])
+                        .replace(":installationId", "12345678")
+                )
                 .set("x-test-user-id", "test-user-1")
                 .send(swapData)
                 .expect(STATUS_CODES.SERVER_ERROR);
+        });
+
+        it("should return error when insufficient USDC balance for swap to XLM", async () => {
+            mockStellarService.getAccountInfo.mockResolvedValue({
+                subentry_count: 0,
+                balances: [
+                    {
+                        asset_type: "native",
+                        balance: "100.0000000"
+                    }
+                    // No USDC balance entry
+                ]
+            });
+
+            const swapData = {
+                toAssetType: "XLM",
+                amount: "100"
+            };
+
+            await request(app)
+                .post(
+                    getEndpointWithPrefix(["WALLET", "SWAP"])
+                        .replace(":installationId", "12345678")
+                )
+                .set("x-test-user-id", "test-user-1")
+                .send(swapData)
+                .expect(STATUS_CODES.SERVER_ERROR);
+        });
+
+        it("should return error when installation not found or user not a member", async () => {
+            const swapData = {
+                toAssetType: "USDC",
+                amount: "50"
+            };
+
+            await request(app)
+                .post(
+                    getEndpointWithPrefix(["WALLET", "SWAP"])
+                        .replace(":installationId", "99999999")
+                )
+                .set("x-test-user-id", "test-user-1")
+                .send(swapData)
+                .expect(STATUS_CODES.NOT_FOUND);
         });
     });
 

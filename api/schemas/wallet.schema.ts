@@ -20,12 +20,14 @@ export const withdrawAssetSchema = {
 };
 
 export const swapAssetSchema = {
+    params: z.object({
+        installationId: installationIdSchema
+    }),
     body: z.object({
         toAssetType: z.enum(["USDC", "XLM"]).optional(),
         amount: z.string().refine((val) => !isNaN(parseFloat(val)) && parseFloat(val) > 0, {
             message: "Amount must be a positive number"
-        }),
-        installationId: installationIdSchema.optional()
+        })
     })
 };
 

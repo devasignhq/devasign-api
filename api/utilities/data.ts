@@ -156,8 +156,8 @@ export const ENDPOINTS = {
         GET_ACCOUNT: "/account",
         /** POST /withdraw - Withdraw funds from wallet */
         WITHDRAW: "/withdraw",
-        /** POST /swap - Swap currencies in wallet */
-        SWAP: "/swap",
+        /** POST /swap/:installationId - Swap currencies in wallet */
+        SWAP: "/swap/:installationId",
         /** Transaction management endpoints */
         TRANSACTIONS: {
             /** GET /transactions - Get all transactions */

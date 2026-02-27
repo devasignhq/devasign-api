@@ -66,9 +66,9 @@ export const withdrawAsset = async (req: Request, res: Response, next: NextFunct
     } = req.body;
 
     try {
-        // Ensure amount is valid
-        if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
-            throw new ValidationError("Invalid amount specified");
+        // User wallets can only withdraw USDC
+        if (!installationId && assetType !== "USDC") {
+            throw new ValidationError("User wallets only support USDC withdrawals.");
         }
 
         // Get wallet info based on installation or user
@@ -91,8 +91,8 @@ export const withdrawAsset = async (req: Request, res: Response, next: NextFunct
         const requiredXLMForFeesAndReserve = minimumReserve + feeBuffer;
         const currentXLMBalance = parseFloat(xlmBalanceLine.balance);
 
-        // Ensure we always have enough for fees and reserve
-        if (currentXLMBalance < requiredXLMForFeesAndReserve) {
+        // Ensure we always have enough for fees and reserve (user wallet fees are sponsored)
+        if (installationId && currentXLMBalance < requiredXLMForFeesAndReserve) {
             throw new ValidationError(
                 `Insufficient XLM for network fees and reserve (Minimum required: ${requiredXLMForFeesAndReserve.toFixed(4)} XLM)`
             );
@@ -126,14 +126,29 @@ export const withdrawAsset = async (req: Request, res: Response, next: NextFunct
             }
         }
 
-        // Perform transfer
-        const { txHash } = await stellarService.transferAsset(
-            walletSecret,
-            destinationAddress,
-            assetType === "USDC" ? usdcAssetId : xlmAssetId,
-            assetType === "USDC" ? usdcAssetId : xlmAssetId,
-            amount
-        );
+        // Perform transfer (user wallet withdrawals fees are sponsored by master account)
+        let txHash: string;
+        if (installationId) {
+            // Installation wallets pay their own fees
+            ({ txHash } = await stellarService.transferAsset(
+                walletSecret,
+                destinationAddress,
+                assetType === "USDC" ? usdcAssetId : xlmAssetId,
+                assetType === "USDC" ? usdcAssetId : xlmAssetId,
+                amount
+            ));
+        } else {
+            // User wallet withdrawals — master account sponsors the transaction fee
+            const masterSecret = process.env.STELLAR_MASTER_SECRET_KEY!;
+            ({ txHash } = await stellarService.transferAssetViaSponsor(
+                masterSecret,
+                walletSecret,
+                destinationAddress,
+                assetType === "USDC" ? usdcAssetId : xlmAssetId,
+                assetType === "USDC" ? usdcAssetId : xlmAssetId,
+                amount
+            ));
+        }
 
         // Record transaction
         const transactionPayload = {
@@ -148,13 +163,13 @@ export const withdrawAsset = async (req: Request, res: Response, next: NextFunct
             )
         };
 
-        const withdrawal = await prisma.transaction.create({ data: transactionPayload });
+        const transaction = await prisma.transaction.create({ data: transactionPayload });
 
         // Return transaction details
         responseWrapper({
             res,
             status: STATUS_CODES.SUCCESS,
-            data: withdrawal,
+            data: transaction,
             message: "Withdrawal successful"
         });
     } catch (error) {
@@ -163,26 +178,37 @@ export const withdrawAsset = async (req: Request, res: Response, next: NextFunct
 };
 
 /**
- * Swap assets in wallet.
+ * Swap assets in wallet. Only installation wallets can swap assets.
  */
 export const swapAsset = async (req: Request, res: Response, next: NextFunction) => {
     const { userId } = res.locals;
-    const {
-        installationId,
-        toAssetType = "USDC",
-        amount
-    } = req.body;
+    const { installationId } = req.params;
+    const { toAssetType = "USDC", amount } = req.body;
 
     try {
-        // Ensure amount is valid
-        if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
-            throw new ValidationError("Invalid amount specified");
+        // Check if user is part of the installation
+        const installation = await prisma.installation.findFirst({
+            where: {
+                id: installationId,
+                users: { some: { userId } }
+            },
+            select: { wallet: true }
+        });
+
+        if (!installation) {
+            throw new NotFoundError(
+                "Installation does not exist or user is not part of this installation."
+            );
         }
 
-        // Get wallet info based on installation or user
-        const wallet = await getContextWallet(userId, installationId);
-        const walletAddress = wallet.address;
-        const walletSecret = await KMSService.decryptWallet(wallet);
+        // Ensure installation has a wallet
+        if (!installation.wallet) {
+            throw new NotFoundError("Installation wallet not found");
+        }
+
+        // Get wallet details
+        const walletAddress = installation.wallet.address;
+        const walletSecret = await KMSService.decryptWallet(installation.wallet);
 
         // Check balance before swap
         const accountInfo = await stellarService.getAccountInfo(walletAddress);
@@ -248,29 +274,26 @@ export const swapAsset = async (req: Request, res: Response, next: NextFunction)
         }
 
         // Record transaction
-        const transactionPayload = {
-            txHash: result.txHash,
-            category: toAssetType === "USDC"
-                ? TransactionCategory.SWAP_XLM
-                : TransactionCategory.SWAP_USDC,
-            amount: parseFloat(amount.toString()),
-            fromAmount: parseFloat(amount.toString()),
-            toAmount: parseFloat(result.receivedAmount),
-            assetFrom: toAssetType === "USDC" ? "XLM" : "USDC",
-            assetTo: toAssetType,
-            ...(installationId
-                ? { installation: { connect: { id: installationId } } }
-                : { user: { connect: { userId } } }
-            )
-        };
-
-        const swap = await prisma.transaction.create({ data: transactionPayload });
+        const transaction = await prisma.transaction.create({
+            data: {
+                txHash: result.txHash,
+                category: toAssetType === "USDC"
+                    ? TransactionCategory.SWAP_XLM
+                    : TransactionCategory.SWAP_USDC,
+                amount: parseFloat(amount.toString()),
+                fromAmount: parseFloat(amount.toString()),
+                toAmount: parseFloat(result.receivedAmount),
+                assetFrom: toAssetType === "USDC" ? "XLM" : "USDC",
+                assetTo: toAssetType,
+                installation: { connect: { id: installationId } }
+            }
+        });
 
         // Return transaction details
         responseWrapper({
             res,
             status: STATUS_CODES.SUCCESS,
-            data: swap,
+            data: transaction,
             message: "Swap successful"
         });
     } catch (error) {
