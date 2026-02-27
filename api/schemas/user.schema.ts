@@ -6,12 +6,6 @@ export const createUserSchema = {
     })
 };
 
-export const getUserSchema = {
-    query: z.object({
-        view: z.enum(["basic", "full"]).optional()
-    })
-};
-
 export const updateAddressBookSchema = {
     body: z.object({
         address: z.string().regex(/^G[A-Z0-9]{55}$/, "Invalid Stellar address format"),

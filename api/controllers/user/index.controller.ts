@@ -164,7 +164,6 @@ export const createUser = async (req: Request, res: Response, next: NextFunction
  */
 export const getUser = async (req: Request, res: Response, next: NextFunction) => {
     const { userId } = res.locals;
-    const { view = "basic" } = req.query; // view: "basic" | "full"
 
     // Check if it matches the contributor app domain
     const origin = req.get("origin");
@@ -206,15 +205,13 @@ export const getUser = async (req: Request, res: Response, next: NextFunction) =
                     installations: true
                 }
             },
-            ...(view === "full" ? {
-                contributionSummary: {
-                    select: {
-                        tasksCompleted: true,
-                        activeTasks: true,
-                        totalEarnings: true
-                    }
+            contributionSummary: {
+                select: {
+                    tasksCompleted: true,
+                    activeTasks: true,
+                    totalEarnings: true
                 }
-            } : {})
+            }
         };
 
         // Fetch user and handle not found

@@ -5,12 +5,7 @@ import {
     getUser,
     generateSumsubSdkToken
 } from "../controllers/user";
-
-import {
-    createUserSchema,
-    getUserSchema,
-    updateAddressBookSchema
-} from "../schemas/user.schema";
+import { createUserSchema, updateAddressBookSchema } from "../schemas/user.schema";
 import { ENDPOINTS } from "../utilities/data";
 import { validateRequestParameters } from "../middlewares/request.middleware";
 
@@ -24,11 +19,7 @@ userRoutes.post(
 );
 
 // Get user
-userRoutes.get(
-    ENDPOINTS.USER.GET,
-    validateRequestParameters(getUserSchema),
-    getUser as RequestHandler
-);
+userRoutes.get(ENDPOINTS.USER.GET, getUser as RequestHandler);
 
 // Update user's address book
 userRoutes.patch(
