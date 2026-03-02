@@ -166,14 +166,12 @@ describe("Task {taskId} API Integration Tests", () => {
         mockContractService.increaseBounty.mockResolvedValue({
             success: true,
             txHash: "test-increase-bounty-tx-hash",
-            approvalTxHash: "test-approval-tx-hash",
             result: { createdAt: 1234567890 }
         });
 
         mockContractService.decreaseBounty.mockResolvedValue({
             success: true,
             txHash: "test-decrease-bounty-tx-hash",
-            approvalTxHash: "test-approval-tx-hash",
             result: { createdAt: 1234567890 }
         });
 

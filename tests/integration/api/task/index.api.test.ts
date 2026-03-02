@@ -153,7 +153,6 @@ describe("Task API Integration Tests", () => {
         mockContractService.createEscrow.mockResolvedValue({
             success: true,
             txHash: "test-contract-tx-hash",
-            approvalTxHash: "test-approval-tx-hash",
             result: { createdAt: 1234567890 }
         });
 

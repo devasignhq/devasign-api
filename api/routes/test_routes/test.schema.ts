@@ -130,13 +130,6 @@ export const createEscrowSchema = {
     })
 };
 
-export const approveUsdcSpendingSchema = {
-    body: z.object({
-        userSecretKey: z.string().min(1, "User secret key is required"),
-        amount: z.number().min(1, "Amount is required")
-    })
-};
-
 export const getEscrowSchema = {
     params: z.object({
         taskId: z.string().min(1, "Task ID is required")

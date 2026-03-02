@@ -199,44 +199,6 @@ export class ContractService {
     }
 
     /**
-     * Approve USDC spending by the escrow contract.
-     * @param userSecretKey - The secret key of the user granting approval
-     * @param amount - The amount of USDC to approve in stroops
-     * @returns An object containing success status and transaction hash
-     */
-    public static async approveUsdcSpending(
-        userSecretKey: string,
-        amount: bigint
-    ) {
-        // Create keypair from user's secret key
-        const userKeypair = Keypair.fromSecret(userSecretKey);
-
-        // Get the escrow contract address that will be approved to spend
-        const contractAddress = new Address(this.CONFIG.contractId);
-
-        // Calculate approval expiration (approximately 31 days from now)
-        const ledger = await this.server.getLatestLedger();
-        const expirationLedger = ledger.sequence + 535680; // ~31 days
-
-        // Build the USDC approval operation
-        const operation = this.usdcContract.call(
-            "approve",
-            new Address(userKeypair.publicKey()).toScVal(),
-            contractAddress.toScVal(),
-            nativeToScVal(amount, { type: "i128" }),
-            nativeToScVal(expirationLedger, { type: "u32" })
-        );
-
-        // Submit the approval transaction
-        const result = await this.submitTransaction(operation, userKeypair, "approveUsdcSpending");
-
-        return {
-            success: true,
-            txHash: result.txHash
-        };
-    }
-
-    /**
      * Create a new escrow for a task on the smart contract.
      * @param creatorSecretKey - The secret key of the task creator
      * @param taskId - The ID of the task
@@ -250,24 +212,8 @@ export class ContractService {
         issueUrl: string,
         bountyAmount: number
     ) {
-        // Convert bounty amount to stroops
+        // Convert bounty amount to stroops and create keypair and address from the creator's secret key
         const bountyAmountInStroops = this.convertToStroops(bountyAmount);
-
-        // First, approve the contract to spend USDC on behalf of the creator
-        let approval;
-        try {
-            approval = await this.approveUsdcSpending(
-                creatorSecretKey,
-                bountyAmountInStroops
-            );
-        } catch (error) {
-            if (error instanceof EscrowContractError) {
-                throw error;
-            }
-            throw new EscrowContractError("Failed to approve USDC spending", error);
-        }
-
-        // Create keypair and address from the creator's secret key
         const creatorKeypair = Keypair.fromSecret(creatorSecretKey);
         const creatorAddress = new Address(creatorKeypair.publicKey());
 
@@ -283,12 +229,7 @@ export class ContractService {
         // Submit the transaction and wait for confirmation
         const result = await this.submitTransaction(operation, creatorKeypair, "createEscrow");
 
-        return {
-            success: true,
-            result,
-            approvalTxHash: approval.txHash,
-            txHash: result.txHash
-        };
+        return { success: true, result, txHash: result.txHash };
     }
 
     /**
@@ -348,10 +289,8 @@ export class ContractService {
         taskId: string,
         contributorPublicKey: string
     ) {
-        // Create keypair from creator's secret key
+        // Create keypair and address from creator's secret key
         const creatorKeypair = Keypair.fromSecret(creatorSecretKey);
-
-        // Create address object for the contributor
         const contributorAddress = new Address(contributorPublicKey);
 
         // Build the contract call operation
@@ -380,24 +319,8 @@ export class ContractService {
         taskId: string,
         amount: number
     ) {
-        // Convert amount to stroops
+        // Convert amount to stroops and create keypair and address from the creator's secret key
         const amountInStroops = this.convertToStroops(amount);
-
-        // First, approve the contract to spend USDC on behalf of the creator
-        let approval;
-        try {
-            approval = await this.approveUsdcSpending(
-                creatorSecretKey,
-                amountInStroops
-            );
-        } catch (error) {
-            if (error instanceof EscrowContractError) {
-                throw error;
-            }
-            throw new EscrowContractError("Failed to approve USDC spending", error);
-        }
-
-        // Create keypair from creator's secret key
         const creatorKeypair = Keypair.fromSecret(creatorSecretKey);
         const creatorAddress = new Address(creatorKeypair.publicKey());
 
@@ -412,12 +335,7 @@ export class ContractService {
         // Submit the transaction
         const result = await this.submitTransaction(operation, creatorKeypair, "increaseBounty");
 
-        return {
-            success: true,
-            result,
-            approvalTxHash: approval.txHash,
-            txHash: result.txHash
-        };
+        return { success: true, result, txHash: result.txHash };
     }
 
     /**
@@ -433,10 +351,8 @@ export class ContractService {
         taskId: string,
         amount: number
     ) {
-        // Convert amount to stroops
+        // Convert amount to stroops and create keypair and address from the creator's secret key
         const amountInStroops = this.convertToStroops(amount);
-
-        // Create keypair from creator's secret key
         const creatorKeypair = Keypair.fromSecret(creatorSecretKey);
         const creatorAddress = new Address(creatorKeypair.publicKey());
 
