@@ -184,7 +184,6 @@ export const disputeTaskSchema = {
 
 export const resolveDisputeSchema = {
     body: z.object({
-        adminSecretKey: z.string().min(1, "Admin secret key is required"),
         taskId: z.string().min(1, "Task ID is required"),
         resolution: z.union([
             z.literal("PayContributor"),

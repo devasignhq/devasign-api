@@ -257,7 +257,7 @@ router.post("/task/resolve-dispute",
     validateRequestParameters(resolveDisputeSchema),
     async (req: Request, res: Response, next: NextFunction) => {
         try {
-            const { adminSecretKey, taskId, resolution } = req.body;
+            const { taskId, resolution } = req.body;
 
             // Convert resolution if it's a PartialPayment
             let processedResolution: "PayContributor" | "RefundCreator" | { PartialPayment: number };
@@ -271,7 +271,6 @@ router.post("/task/resolve-dispute",
             }
 
             const result = await ContractService.resolveDispute(
-                adminSecretKey,
                 taskId,
                 processedResolution
             );

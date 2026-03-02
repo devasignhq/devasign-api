@@ -22,7 +22,8 @@ export class ContractService {
             "STELLAR_RPC_URL",
             "TASK_ESCROW_CONTRACT_ID",
             "USDC_CONTRACT_ID",
-            "STELLAR_MASTER_PUBLIC_KEY"
+            "STELLAR_MASTER_PUBLIC_KEY",
+            "STELLAR_MASTER_SECRET_KEY"
         ];
         const missing = requiredVars.filter(v => !process.env[v]);
         if (missing.length > 0) {
@@ -250,24 +251,8 @@ export class ContractService {
         issueUrl: string,
         bountyAmount: number
     ) {
-        // Convert bounty amount to stroops
+        // Convert bounty amount to stroops and create keypair and address from the creator's secret key
         const bountyAmountInStroops = this.convertToStroops(bountyAmount);
-
-        // First, approve the contract to spend USDC on behalf of the creator
-        let approval;
-        try {
-            approval = await this.approveUsdcSpending(
-                creatorSecretKey,
-                bountyAmountInStroops
-            );
-        } catch (error) {
-            if (error instanceof EscrowContractError) {
-                throw error;
-            }
-            throw new EscrowContractError("Failed to approve USDC spending", error);
-        }
-
-        // Create keypair and address from the creator's secret key
         const creatorKeypair = Keypair.fromSecret(creatorSecretKey);
         const creatorAddress = new Address(creatorKeypair.publicKey());
 
@@ -283,12 +268,7 @@ export class ContractService {
         // Submit the transaction and wait for confirmation
         const result = await this.submitTransaction(operation, creatorKeypair, "createEscrow");
 
-        return {
-            success: true,
-            result,
-            approvalTxHash: approval.txHash,
-            txHash: result.txHash
-        };
+        return { success: true, result, txHash: result.txHash };
     }
 
     /**
@@ -348,10 +328,8 @@ export class ContractService {
         taskId: string,
         contributorPublicKey: string
     ) {
-        // Create keypair from creator's secret key
+        // Create keypair and address from creator's secret key
         const creatorKeypair = Keypair.fromSecret(creatorSecretKey);
-
-        // Create address object for the contributor
         const contributorAddress = new Address(contributorPublicKey);
 
         // Build the contract call operation
@@ -380,24 +358,8 @@ export class ContractService {
         taskId: string,
         amount: number
     ) {
-        // Convert amount to stroops
+        // Convert amount to stroops and create keypair and address from the creator's secret key
         const amountInStroops = this.convertToStroops(amount);
-
-        // First, approve the contract to spend USDC on behalf of the creator
-        let approval;
-        try {
-            approval = await this.approveUsdcSpending(
-                creatorSecretKey,
-                amountInStroops
-            );
-        } catch (error) {
-            if (error instanceof EscrowContractError) {
-                throw error;
-            }
-            throw new EscrowContractError("Failed to approve USDC spending", error);
-        }
-
-        // Create keypair from creator's secret key
         const creatorKeypair = Keypair.fromSecret(creatorSecretKey);
         const creatorAddress = new Address(creatorKeypair.publicKey());
 
@@ -412,12 +374,7 @@ export class ContractService {
         // Submit the transaction
         const result = await this.submitTransaction(operation, creatorKeypair, "increaseBounty");
 
-        return {
-            success: true,
-            result,
-            approvalTxHash: approval.txHash,
-            txHash: result.txHash
-        };
+        return { success: true, result, txHash: result.txHash };
     }
 
     /**
@@ -433,10 +390,8 @@ export class ContractService {
         taskId: string,
         amount: number
     ) {
-        // Convert amount to stroops
+        // Convert amount to stroops and create keypair and address from the creator's secret key
         const amountInStroops = this.convertToStroops(amount);
-
-        // Create keypair from creator's secret key
         const creatorKeypair = Keypair.fromSecret(creatorSecretKey);
         const creatorAddress = new Address(creatorKeypair.publicKey());
 
@@ -511,18 +466,16 @@ export class ContractService {
     /**
      * Resolve a dispute for a task (admin only).
      * Determines how the escrowed funds should be distributed after a dispute.
-     * @param adminSecretKey - The secret key of the admin resolving the dispute
      * @param taskId - The ID of the task
      * @param resolution - The resolution decision
      * @returns An object containing success status, result, and transaction hash
      */
     public static async resolveDispute(
-        adminSecretKey: string,
         taskId: string,
         resolution: "PayContributor" | "RefundCreator" | { PartialPayment: number }
     ) {
         // Create keypair from admin's secret key
-        const adminKeypair = Keypair.fromSecret(adminSecretKey);
+        const adminKeypair = Keypair.fromSecret(process.env.STELLAR_MASTER_SECRET_KEY!);
 
         // Build the resolution value based on the decision
         let resolutionScVal: xdr.ScVal;
