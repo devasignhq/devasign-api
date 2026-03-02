@@ -3,7 +3,6 @@ import { ContractService } from "../../services/contract.service";
 import { validateRequestParameters } from "../../middlewares/request.middleware";
 import {
     createEscrowSchema,
-    approveUsdcSpendingSchema,
     getEscrowSchema,
     assignContributorSchema,
     increaseBountySchema,
@@ -63,31 +62,6 @@ router.post("/escrow",
 
             res.status(201).json({
                 message: "Escrow created successfully",
-                data: result
-            });
-        } catch (error) {
-            next(error);
-        }
-    }
-);
-
-/**
- * Approve USDC spending by the escrow contract.
- * This must be called before creating an escrow.
- */
-router.post("/usdc/approve",
-    validateRequestParameters(approveUsdcSpendingSchema),
-    async (req: Request, res: Response, next: NextFunction) => {
-        try {
-            const { userSecretKey, amount } = req.body;
-
-            const result = await ContractService.approveUsdcSpending(
-                userSecretKey,
-                amount
-            );
-
-            res.status(200).json({
-                message: "USDC spending approved successfully",
                 data: result
             });
         } catch (error) {
@@ -257,7 +231,7 @@ router.post("/task/resolve-dispute",
     validateRequestParameters(resolveDisputeSchema),
     async (req: Request, res: Response, next: NextFunction) => {
         try {
-            const { taskId, resolution } = req.body;
+            const { adminSecretKey, taskId, resolution } = req.body;
 
             // Convert resolution if it's a PartialPayment
             let processedResolution: "PayContributor" | "RefundCreator" | { PartialPayment: number };
@@ -271,6 +245,7 @@ router.post("/task/resolve-dispute",
             }
 
             const result = await ContractService.resolveDispute(
+                adminSecretKey,
                 taskId,
                 processedResolution
             );

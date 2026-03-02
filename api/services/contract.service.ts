@@ -22,8 +22,7 @@ export class ContractService {
             "STELLAR_RPC_URL",
             "TASK_ESCROW_CONTRACT_ID",
             "USDC_CONTRACT_ID",
-            "STELLAR_MASTER_PUBLIC_KEY",
-            "STELLAR_MASTER_SECRET_KEY"
+            "STELLAR_MASTER_PUBLIC_KEY"
         ];
         const missing = requiredVars.filter(v => !process.env[v]);
         if (missing.length > 0) {
@@ -197,44 +196,6 @@ export class ContractService {
         }
 
         return result;
-    }
-
-    /**
-     * Approve USDC spending by the escrow contract.
-     * @param userSecretKey - The secret key of the user granting approval
-     * @param amount - The amount of USDC to approve in stroops
-     * @returns An object containing success status and transaction hash
-     */
-    public static async approveUsdcSpending(
-        userSecretKey: string,
-        amount: bigint
-    ) {
-        // Create keypair from user's secret key
-        const userKeypair = Keypair.fromSecret(userSecretKey);
-
-        // Get the escrow contract address that will be approved to spend
-        const contractAddress = new Address(this.CONFIG.contractId);
-
-        // Calculate approval expiration (approximately 31 days from now)
-        const ledger = await this.server.getLatestLedger();
-        const expirationLedger = ledger.sequence + 535680; // ~31 days
-
-        // Build the USDC approval operation
-        const operation = this.usdcContract.call(
-            "approve",
-            new Address(userKeypair.publicKey()).toScVal(),
-            contractAddress.toScVal(),
-            nativeToScVal(amount, { type: "i128" }),
-            nativeToScVal(expirationLedger, { type: "u32" })
-        );
-
-        // Submit the approval transaction
-        const result = await this.submitTransaction(operation, userKeypair, "approveUsdcSpending");
-
-        return {
-            success: true,
-            txHash: result.txHash
-        };
     }
 
     /**
@@ -466,16 +427,18 @@ export class ContractService {
     /**
      * Resolve a dispute for a task (admin only).
      * Determines how the escrowed funds should be distributed after a dispute.
+     * @param adminSecretKey - The secret key of the admin resolving the dispute
      * @param taskId - The ID of the task
      * @param resolution - The resolution decision
      * @returns An object containing success status, result, and transaction hash
      */
     public static async resolveDispute(
+        adminSecretKey: string,
         taskId: string,
         resolution: "PayContributor" | "RefundCreator" | { PartialPayment: number }
     ) {
         // Create keypair from admin's secret key
-        const adminKeypair = Keypair.fromSecret(process.env.STELLAR_MASTER_SECRET_KEY!);
+        const adminKeypair = Keypair.fromSecret(adminSecretKey);
 
         // Build the resolution value based on the decision
         let resolutionScVal: xdr.ScVal;

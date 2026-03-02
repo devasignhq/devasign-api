@@ -130,13 +130,6 @@ export const createEscrowSchema = {
     })
 };
 
-export const approveUsdcSpendingSchema = {
-    body: z.object({
-        userSecretKey: z.string().min(1, "User secret key is required"),
-        amount: z.number().min(1, "Amount is required")
-    })
-};
-
 export const getEscrowSchema = {
     params: z.object({
         taskId: z.string().min(1, "Task ID is required")
@@ -184,6 +177,7 @@ export const disputeTaskSchema = {
 
 export const resolveDisputeSchema = {
     body: z.object({
+        adminSecretKey: z.string().min(1, "Admin secret key is required"),
         taskId: z.string().min(1, "Task ID is required"),
         resolution: z.union([
             z.literal("PayContributor"),
