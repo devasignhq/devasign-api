@@ -32,7 +32,7 @@ export const getInstallationTasksSchema = {
     query: z.object({
         ...paginationSchema.shape,
         detailed: z.literal("true").optional(),
-        status: z.enum(TaskStatus).optional(),
+        status: z.nativeEnum(TaskStatus).optional(),
         repoUrl: z.string().min(1).max(500, "Repository URL must be between 1 and 500 characters").optional(),
         issueTitle: z.string().min(1).max(300, "Issue title must be between 1 and 300 characters").optional(),
         issueLabels: z.union([
@@ -87,7 +87,7 @@ export const createTaskSchema = {
                 number: z.number(),
                 title: z.string(),
                 body: z.string().nullable().optional(),
-                url: z.url(),
+                url: z.string().url(),
                 state: z.string(),
                 labels: z.array(z.object({
                     id: z.string(),
@@ -97,7 +97,7 @@ export const createTaskSchema = {
                 })),
                 locked: z.boolean(),
                 repository: z.object({
-                    url: z.url()
+                    url: z.string().url()
                 }),
                 createdAt: z.string(),
                 updatedAt: z.string(),
@@ -144,7 +144,7 @@ export const markAsCompleteSchema = {
             const validUrlPattern = /^https:\/\/github\.com\/[^/]+\/[^/]+\/pull\/\d+$/;
             return validUrlPattern.test(url);
         }, "Invalid pull request URL format. Must be a GitHub pull request"),
-        attachmentUrl: z.url().optional()
+        attachmentUrl: z.string().url().optional()
     })
 };
 

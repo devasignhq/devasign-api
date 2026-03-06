@@ -30,7 +30,6 @@
     "@google-cloud/vertexai": "^1.10.0",
     "@langchain/community": "^1.1.21",
     "@langchain/core": "^1.1.19",
-    "@langchain/google-vertexai": "^2.1.15",
     "@langchain/textsplitters": "^1.0.1",
     "@octokit/rest": "^22.0.0",
     "@paralleldrive/cuid2": "^3.3.0",
@@ -59,7 +58,7 @@
     "ts-node": "^10.9.2",
     "typescript": "^5.8.2",
     "winston": "^3.18.3",
-    "zod": "^4.1.12"
+    "zod": "^3.24.2"
   },
   "devDependencies": {
     "@eslint/js": "^9.36.0",
@@ -87,6 +86,7 @@
   "overrides": {
     "fast-xml-parser": "^5.5.0",
     "minimatch": "^10.2.1",
-    "glob": "^11.0.1"
+    "glob": "^11.0.1",
+    "@tootallnate/once": "3.0.1"
   }
 }
