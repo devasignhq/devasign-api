@@ -11,6 +11,7 @@
     "test:coverage": "jest --coverage",
     "test:ci": "jest --ci --coverage --watchAll=false",
     "dev": "ts-node-dev --respawn --transpile-only api/index.ts",
+    "dev:once": "ts-node --transpile-only api/index.ts",
     "start": "node dist/index.js",
     "build": "tsc",
     "lint": "eslint . --ext .ts,.js",
@@ -27,6 +28,7 @@
   "dependencies": {
     "@google-cloud/kms": "^5.2.1",
     "@google-cloud/vertexai": "^1.10.0",
+    "@langchain/community": "^1.1.21",
     "@langchain/core": "^1.1.19",
     "@langchain/google-vertexai": "^2.1.15",
     "@langchain/textsplitters": "^1.0.1",

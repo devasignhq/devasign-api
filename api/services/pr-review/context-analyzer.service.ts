@@ -1,4 +1,3 @@
-import { GeminiAIService } from "./gemini-ai.service";
 import { GeminiServiceError } from "../../models/error.model";
 import { PullRequestData, ReviewContext, CodeChunkResult } from "../../models/ai-review.model";
 import { VectorStoreService } from "./vector-store.service";
@@ -9,10 +8,9 @@ import { dataLogger, messageLogger } from "../../config/logger.config";
  * Uses AI and Vector Store to determine and fetch relevant context for PR review
  */
 export class PullRequestContextAnalyzerService {
-    private geminiService: GeminiAIService;
     private vectorStoreService: VectorStoreService;
+
     constructor() {
-        this.geminiService = new GeminiAIService();
         this.vectorStoreService = new VectorStoreService();
     }
 
@@ -33,6 +31,8 @@ export class PullRequestContextAnalyzerService {
 
             // Find Relevant Code Chunks using Vector Search
             const relevantChunks = await this.getRelevantCodeChunks(prData);
+
+            dataLogger.info("Relevant code chunks retrieved", { relevantChunks });
 
             messageLogger.info("Context analysis completed.");
 
@@ -118,7 +118,7 @@ export class PullRequestContextAnalyzerService {
             `;
 
             // Generate embedding for the query
-            const embedding = await this.geminiService.generateEmbedding(query);
+            const embedding = await this.vectorStoreService.generateEmbedding(query, "query");
 
             // Search vector store
             const chunks = await this.vectorStoreService.findSimilarChunks(

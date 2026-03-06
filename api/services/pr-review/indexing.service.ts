@@ -1,22 +1,28 @@
 import { OctokitService } from "../octokit.service";
-import { GeminiAIService } from "./gemini-ai.service";
 import { VectorStoreService } from "./vector-store.service";
 import { dataLogger, messageLogger } from "../../config/logger.config";
 import { prisma } from "../../config/database.config";
 import { IndexingStatus } from "../../../prisma_client";
 import { RecursiveCharacterTextSplitter, SupportedTextSplitterLanguage } from "@langchain/textsplitters";
 
+type CodeChunkWithEmbedding = {
+    codeFileId: string;
+    filePath: string;
+    chunkIndex: number;
+    content: string;
+    embedding?: number[];
+};
+
 /**
  * Service to manage indexing of repository codebases
  */
 export class IndexingService {
-    private geminiService: GeminiAIService;
     private vectorStoreService: VectorStoreService;
-    private tokenPerMinuteCount: number = 0;
-    private countingTokens: boolean = false;
+    private minuteStartTime: number = Date.now();
+    private requestsThisMinute: number = 0;
+    private tokensThisMinute: number = 0;
 
     constructor() {
-        this.geminiService = new GeminiAIService();
         this.vectorStoreService = new VectorStoreService();
     }
 
@@ -58,7 +64,7 @@ export class IndexingService {
             let relevantFiles = allFiles.filter(path => this.isRelevantFile(path));
             const totalFiles = relevantFiles.length;
 
-            dataLogger.info(`Found ${totalFiles} relevant files to index`);
+            dataLogger.info(`Found ${totalFiles} relevant files to index from ${allFiles.length} total files`);
 
             // Resume logic: if we have a lastIndexedFilePath, filter out files that come before or equal to it
             if (indexingState.lastIndexedFilePath) {
@@ -87,8 +93,8 @@ export class IndexingService {
                 return;
             }
 
-            // Fetch file contents in batches (process in chunks of 20 files to manage memory and API limits)
-            const batchSize = 20;
+            // Fetch file contents in batches (process in chunks of 40 files to optimize GraphQL efficiency)
+            const batchSize = 40;
             let processedFiles = totalFiles - relevantFiles.length; // Approximate count of already processed
 
             for (let i = 0; i < relevantFiles.length; i += batchSize) {
@@ -100,6 +106,8 @@ export class IndexingService {
                     repositoryName,
                     batchPaths
                 );
+
+                const currentBatchChunks: CodeChunkWithEmbedding[] = [];
 
                 // Process each file in the batch
                 for (const filePath of batchPaths) {
@@ -114,14 +122,35 @@ export class IndexingService {
                         continue;
                     }
 
-                    // Process file
-                    await this.processFile(
+                    // Preprocess content
+                    const cleanContent = this.preprocessContent(trimmedContent, filePath);
+
+                    // Upsert file metadata
+                    const codeFile = await this.vectorStoreService.upsertCodeFile(
                         installationId,
                         repositoryName,
                         filePath,
-                        trimmedContent,
                         fileData.oid // Use OID as hash
                     );
+
+                    // Chunk content
+                    const chunks = await this.chunkContent(cleanContent, filePath);
+                    const allChunkTexts = chunks.map(c => c.trim()).filter(Boolean);
+
+                    // Add chunks to batch
+                    for (let j = 0; j < allChunkTexts.length; j++) {
+                        currentBatchChunks.push({
+                            codeFileId: codeFile.id,
+                            filePath,
+                            chunkIndex: j,
+                            content: allChunkTexts[j]
+                        });
+                    }
+                }
+
+                // Embed and store chunks
+                if (currentBatchChunks.length > 0) {
+                    await this.embedAndStoreChunks(currentBatchChunks);
                 }
 
                 // Update progress per batch
@@ -195,125 +224,100 @@ export class IndexingService {
     }
 
     /**
-     * Process a single file: chunk, embed, and store
-     * @param installationId - The ID of the installation
-     * @param repositoryName - The name of the repository
-     * @param filePath - The file path
-     * @param content - The file content
-     * @param fileHash - The file hash
-     * @returns A promise that resolves when the file is processed
+     * Process chunk buffer in optimal batches, respecting TPM and RPM rate limits
+     * @param chunks - Array of chunk objects over multiple files
      */
-    private async processFile(
-        installationId: string,
-        repositoryName: string,
-        filePath: string,
-        content: string,
-        fileHash: string
+    private async embedAndStoreChunks(
+        chunks: CodeChunkWithEmbedding[]
     ) {
-        // Preprocess: Extract clean code if it's a Notebook
-        const cleanContent = this.preprocessContent(content, filePath);
+        let p = 0;
 
-        // Upsert file metadata
-        const codeFile = await this.vectorStoreService.upsertCodeFile(
-            installationId,
-            repositoryName,
-            filePath,
-            fileHash
-        );
+        // Process chunk buffer in optimal batches, noting TPM and RPM rate limits
+        while (p < chunks.length) {
+            const embedBatch: CodeChunkWithEmbedding[] = [];
+            let batchTokens = 0;
 
-        // Smart Splitting
-        const chunks = await this.chunkContent(cleanContent, filePath);
+            // Add chunks to batch
+            while (p < chunks.length) {
+                const chunk = chunks[p];
+                const tokens = this.vectorStoreService.estimateTokens(chunk.content);
 
-        // Generate embeddings and prepare for storage
-        const allChunkTexts = chunks.map(c => c.trim()).filter(Boolean);
-        const chunksWithEmbeddings: { index: number; content: string; embedding: number[] }[] = [];
-        const failedChunks: { index: number; content: string }[] = [];
+                // Limits for voyage-code-3 bulk endpoint
+                // Max length of list: 1000
+                if (embedBatch.length >= 1000) break;
+                // Target ~80-95% of total max tokens per lists to be safe (100,000 out of 120,000 max)
+                if (batchTokens + tokens > 100000 && embedBatch.length > 0) break;
 
-        // Estimate tokens for all chunks
-        const estimatedTokens = this.geminiService.estimateTokens(allChunkTexts.join("\n"));
-        messageLogger.info(`Estimated tokens: ${estimatedTokens}`);
-        if (!this.countingTokens) {
-            this.checkTokenLimit();
-            this.countingTokens = true;
-        }
+                embedBatch.push(chunk);
+                batchTokens += tokens;
+                p++;
+            }
 
-        // Generate embeddings and prepare for storage
-        for (let i = 0; i < allChunkTexts.length; i++) {
-            const chunkText = allChunkTexts[i].trim();
-            if (!chunkText) continue;
+            await this.checkRateLimits(batchTokens);
 
-            // Estimate tokens for each chunk
-            const estimatedTokens = this.geminiService.estimateTokens(chunkText);
-            this.tokenPerMinuteCount += estimatedTokens;
+            // Reserve rate limits synchronously to prevent race conditions during concurrent execution
+            this.requestsThisMinute++;
+            this.tokensThisMinute += batchTokens;
 
             try {
-                // Generate embedding
-                const embedding = await this.geminiService.generateEmbedding(chunkText);
+                // Embed documents
+                const documents = embedBatch.map(c => c.content);
+                const embeddings = await this.vectorStoreService.embedDocuments(documents);
 
-                // Add chunk to list
-                chunksWithEmbeddings.push({
-                    index: i,
-                    content: chunkText,
-                    embedding
-                });
-            } catch (error) {
-                // Log and skip this chunk if embedding fails, but continue revision
-                dataLogger.warn("Failed to generate embedding for chunk, scheduling retry", { filePath, chunkIndex: i, error });
-                failedChunks.push({ index: i, content: chunkText });
-            }
-        }
-
-        // Retry failed chunks
-        if (failedChunks.length > 0) {
-            dataLogger.info(`Retrying ${failedChunks.length} failed chunks`, { filePath });
-            for (const failedChunk of failedChunks) {
-                const { index, content } = failedChunk;
-
-                // Estimate tokens for each chunk
-                const estimatedTokens = this.geminiService.estimateTokens(content);
-                this.tokenPerMinuteCount += estimatedTokens;
-
-                try {
-                    // Generate embedding
-                    const embedding = await this.geminiService.generateEmbedding(content);
-
-                    // Add chunk to list
-                    chunksWithEmbeddings.push({
-                        index,
-                        content,
-                        embedding
-                    });
-                    dataLogger.info("Retry successful for chunk", { filePath, chunkIndex: index });
-                } catch (error) {
-                    dataLogger.warn("Retry failed for chunk, skipping", { filePath, chunkIndex: index, error });
+                // Add embeddings to chunks
+                for (let i = 0; i < embedBatch.length; i++) {
+                    embedBatch[i].embedding = embeddings[i];
                 }
+            } catch (error) {
+                dataLogger.error("Failed to embed batch of chunks", { error });
+                throw error;
             }
         }
 
-        // Store chunks
-        if (chunksWithEmbeddings.length > 0) {
-            await this.vectorStoreService.upsertCodeChunks(codeFile.id, chunksWithEmbeddings);
+        // Group chunks by file to satisfy vector DB constraints (clear old content per file)
+        const chunksByFile: Record<string, { index: number; content: string; embedding: number[] }[]> = {};
+        for (const chunk of chunks) {
+            if (!chunk.embedding) continue;
+            if (!chunksByFile[chunk.codeFileId]) chunksByFile[chunk.codeFileId] = [];
+            chunksByFile[chunk.codeFileId].push({
+                index: chunk.chunkIndex,
+                content: chunk.content,
+                embedding: chunk.embedding
+            });
         }
 
-        // Log successful indexing of this file
-        dataLogger.info("File indexed successfully", {
-            filePath,
-            totalChunks: chunks.length,
-            successfulChunks: chunksWithEmbeddings.length
-        });
+        // Upsert by file
+        for (const [fileId, fileChunks] of Object.entries(chunksByFile)) {
+            await this.vectorStoreService.upsertCodeChunks(fileId, fileChunks);
+        }
     }
 
-
     /**
-     * Check the token limit 
-     * @returns A promise that resolves when the token limit is checked
+     * Restricts execution to respect global RPM / TPM rate limits
+     * @param nextBatchTokens - Tokens to be embedded in the subsequent request
      */
-    private async checkTokenLimit() {
-        await new Promise(resolve => setInterval(() => {
-            messageLogger.warn(`Token count for minute: ${this.tokenPerMinuteCount}`);
-            resolve(true);
-            this.tokenPerMinuteCount = 0;
-        }, 60000));
+    private async checkRateLimits(nextBatchTokens: number) {
+        const now = Date.now();
+
+        // Reset rate limits if a minute has passed
+        if (now - this.minuteStartTime > 60000) {
+            this.minuteStartTime = now;
+            this.requestsThisMinute = 0;
+            this.tokensThisMinute = 0;
+        }
+
+        // Voyage voyage-code-3 limit: 3M TPM, 2000 RPM. (Target limits slightly lower for safety)
+        if (this.requestsThisMinute >= 1990 || this.tokensThisMinute + nextBatchTokens > 2900000) {
+            // Wait for rate limits to reset
+            const waitTime = 60000 - (now - this.minuteStartTime) + 1000;
+            messageLogger.warn(`Rate limit near: TPM (${this.tokensThisMinute}/${nextBatchTokens}), RPM (${this.requestsThisMinute}). Waiting ${waitTime}ms...`);
+            await new Promise(resolve => setTimeout(resolve, waitTime));
+
+            // Reset rate limits
+            this.minuteStartTime = Date.now();
+            this.requestsThisMinute = 0;
+            this.tokensThisMinute = 0;
+        }
     }
 
     /**
@@ -330,8 +334,8 @@ export class IndexingService {
         const splitter = RecursiveCharacterTextSplitter.fromLanguage(
             this.getLanguageFromExtension(extension),
             {
-                chunkSize: 3000,
-                chunkOverlap: 200
+                chunkSize: 6000,
+                chunkOverlap: 600
             }
         );
 
@@ -380,35 +384,66 @@ export class IndexingService {
      * @returns The preprocessed content
      */
     private preprocessContent(content: string, filePath: string): string {
-        // Check if the file is a Jupyter Notebook
-        if (!filePath.toLowerCase().endsWith(".ipynb")) {
-            return content;
+        // 1. Check if the file is a Jupyter Notebook
+        if (filePath.toLowerCase().endsWith(".ipynb")) {
+            try {
+                // Parse the notebook JSON directly from content
+                const notebook = JSON.parse(content);
+                if (!notebook.cells || !Array.isArray(notebook.cells)) return ""; // Return empty string instead of raw content
+
+                // Extract only code and markdown cells
+                return notebook.cells
+                    .map((cell: { source: unknown[]; cell_type: string; }) => {
+                        // source can be a string or an array of strings in Jupyter JSON
+                        const source = Array.isArray(cell.source)
+                            ? cell.source.join("")
+                            : (cell.source || "");
+
+                        // Add a small header for the AI context if it's a markdown cell
+                        return cell.cell_type === "markdown"
+                            ? `### Notebook Markdown: ${source}`
+                            : source;
+                    })
+                    .filter(Boolean)
+                    .join("\n\n");
+            } catch (error) {
+                const errorMessage = error instanceof Error ? error.message : String(error);
+                dataLogger.warn("Notebook parsing failed (likely truncated or invalid JSON), using regex fallback to extract source", { filePath, error: errorMessage });
+
+                // Fallback: Use string matching to extract "source" fields safely ignoring structural JSON errors
+                const sourceBlocks: string[] = [];
+                // Match "source": [...] or "source": "..."
+                const sourceRegex = /"source"\s*:\s*(?:\[(.*?)\]|"(.*?)")/gs;
+                let match;
+
+                while ((match = sourceRegex.exec(content)) !== null) {
+                    if (match[1]) {
+                        // Array of strings inside the source block
+                        const stringLiterals = match[1].match(/"([^"\\]*(?:\\.[^"\\]*)*)"/g);
+                        if (stringLiterals) {
+                            sourceBlocks.push(
+                                stringLiterals.map(s => {
+                                    try { return JSON.parse(s); }
+                                    catch { return s.replace(/^"|"$/g, "").replace(/\\n/g, "\n").replace(/\\"/g, "\""); }
+                                }).join("")
+                            );
+                        }
+                    } else if (match[2]) {
+                        // Single string source block
+                        try {
+                            sourceBlocks.push(JSON.parse(`"${match[2]}"`));
+                        } catch {
+                            sourceBlocks.push(match[2].replace(/\\n/g, "\n").replace(/\\"/g, "\""));
+                        }
+                    }
+                }
+
+                return sourceBlocks.length > 0 ? sourceBlocks.join("\n\n") : "";
+            }
         }
 
-        try {
-            // Parse the notebook JSON
-            const notebook = JSON.parse(content);
-            if (!notebook.cells || !Array.isArray(notebook.cells)) return content;
-
-            // Extract only code and markdown cells
-            return notebook.cells
-                .map((cell: { source: unknown[]; cell_type: string; }) => {
-                    // source can be a string or an array of strings in Jupyter JSON
-                    const source = Array.isArray(cell.source)
-                        ? cell.source.join("")
-                        : (cell.source || "");
-
-                    // Add a small header for the AI context if it's a markdown cell
-                    return cell.cell_type === "markdown"
-                        ? `### Notebook Markdown: ${source}`
-                        : source;
-                })
-                .filter(Boolean)
-                .join("\n\n");
-        } catch {
-            dataLogger.warn("Notebook parsing failed, using raw JSON", { filePath });
-            return content;
-        }
+        // 2. Strip massive base64 encoded images across ALL other file types (Markdown, CSS, HTML, TSX)
+        return content.replace(/data:image\/[^;]+;base64,[a-zA-Z0-9+/]+=*/g, "[BASE64_IMAGE_STRIPPED]");
     }
 
     /**
@@ -425,14 +460,18 @@ export class IndexingService {
 
     /** File extensions to ignore for vector DB indexing */
     private ignoredExtensions: string[] = [
-        // Configuration & Build
-        ".json", ".yml", ".yaml", ".toml", ".lock", ".config", ".conf",
+        // Huge auto-generated dependency locks
+        "package-lock.json", "yarn.lock", "pnpm-lock.yaml", "bun.lockb", ".lock",
 
-        // Documentation
-        ".md", ".txt", ".rst", ".adoc",
-
-        // Media & Assets
+        // Media, Audio & Assets
         ".png", ".jpg", ".jpeg", ".gif", ".svg", ".ico", ".webp", ".mp4", ".webm",
+        ".mp3", ".wav", ".ogg", ".flac",
+
+        // Design & 3D Models
+        ".fig", ".sketch", ".psd", ".ai", ".xd", ".fbx", ".gltf", ".blend",
+
+        // Office & Documents (PDF already ignored below)
+        ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
 
         // Fonts
         ".woff", ".woff2", ".ttf", ".eot", ".otf",
@@ -440,8 +479,8 @@ export class IndexingService {
         // Build artifacts & Dependencies
         ".map", ".min.js", ".min.css",
 
-        // Environment & Secrets
-        ".env", ".env.example", ".env.local",
+        // Environment, Secrets & Cryptography
+        ".env", ".pem", ".crt", ".cer", ".key", ".p12",
 
         // Archives
         ".zip", ".tar", ".gz", ".7z", ".rar",
@@ -469,6 +508,9 @@ export class IndexingService {
         // Compiled/Binary
         ".wasm", ".bin", ".hex",
 
+        // Machine Learning Models & Large Data
+        ".onnx", ".pt", ".pth", ".h5", ".hdf5", ".parquet", ".avro", ".csv",
+
         // Database files (often large)
         ".db", ".sqlite", ".sqlite3",
 
@@ -478,14 +520,17 @@ export class IndexingService {
 
     /** Directories to ignore for vector DB indexing */
     private ignoredDirs: string[] = [
-        // Dependencies
+        // Dependencies & Framework Caches
         "node_modules/", ".yarn/", ".pnp/",
+        ".nuxt/", ".output/", ".serverless/", ".terraform/",
+        ".expo/", "ios/Pods/", ".angular/", ".nx/",
 
         // Build outputs
         "dist/", "build/", ".next/", "out/", ".turbo/",
 
-        // Test coverage
-        "coverage/", ".nyc_output/",
+        // Test coverage & E2E Reports
+        "coverage/", ".nyc_output/", "playwright-report/", "test-results/",
+        "cypress/videos/", "cypress/screenshots/",
 
         // Cache directories
         ".cache/", ".parcel-cache/", ".eslintcache/",
@@ -494,16 +539,19 @@ export class IndexingService {
         ".vscode/", ".idea/", ".vs/",
 
         // Version control
-        ".git/", ".github/", ".husky/",
+        ".git/", ".husky/",
 
         // Package manager
         ".yarn/cache/", ".yarn/unplugged/",
 
-        // Documentation sites
-        "docs/public/", "storybook-static/",
+        // Test fixtures & Mock data (often large JSON dumps)
+        "__fixtures__/", "fixtures/", "mocks/", "__mocks__/", "stub/", "stubs/",
 
-        // Test fixtures (often large mock data)
-        "__fixtures__/", "fixtures/",
+        // Data & Seed files (massive database initializers or raw data dumps)
+        "data/", "seeds/", "seeders/",
+
+        // API Client workspaces (Massive JSON collections)
+        "postman/", "insomnia/", ".postman/",
 
         // Generated files
         ".snaplet/", "prisma/migrations/", "__snapshots__/",
@@ -523,11 +571,14 @@ export class IndexingService {
         // Public assets
         "public/fonts/", "public/images/", "public/videos/",
 
-        // Python
+        // Localization & Translations
+        "locales/", "locale/", "i18n/", "translations/", "lang/",
+
+        // Python & ML
         "__pycache__/", ".venv/", "venv/", "env/", "virtualenv/",
         ".Python/", "*.egg-info/", ".eggs/", ".pytest_cache/",
         ".tox/", ".hypothesis/", ".mypy_cache/", ".pyre/", ".pytype/",
-        "htmlcov/", ".ruff_cache/",
+        "htmlcov/", ".ruff_cache/", ".ipynb_checkpoints/",
 
         // C/C++
         "CMakeFiles/", "cmake-build-debug/", "cmake-build-release/",
@@ -558,10 +609,6 @@ export class IndexingService {
         "__MACOSX/",
 
         // Other common
-        "vendor/", ".well-known/",
-
-        // Examples & Documentation code
-        "examples/", "cookbook/", "samples/", "demos/",
-        "tutorials/", "guides/", "docs/"
+        "vendor/", ".well-known/"
     ];
 }

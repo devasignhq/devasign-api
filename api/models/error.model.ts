@@ -222,6 +222,20 @@ export class GitHubAPIError extends ErrorClass {
     }
 }
 
+/** 
+ * Voyage API related errors
+ */
+export class VoyageAPIError extends ErrorClass  {
+    constructor(message: string, details?: unknown) {
+        super(
+            "VOYAGE_API_ERROR",
+            details,
+            message,
+            STATUS_CODES.SERVER_ERROR
+        );
+    }
+}
+
 /**
  * GitHub webhook validation errors
  */

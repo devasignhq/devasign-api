@@ -1,5 +1,9 @@
-import { VertexAI, GenerativeModel, SchemaType, ResponseSchema } from "@google-cloud/vertexai";
-import { VertexAIEmbeddings } from "@langchain/google-vertexai";
+import {
+    VertexAI,
+    GenerativeModel,
+    SchemaType,
+    ResponseSchema
+} from "@google-cloud/vertexai";
 import {
     AIReview,
     QualityMetrics,
@@ -21,7 +25,6 @@ import { dataLogger, messageLogger } from "../../config/logger.config";
 export class GeminiAIService {
     private vertexAI: VertexAI;
     private model: GenerativeModel;
-    private embeddingModel: VertexAIEmbeddings;
     private readonly config: {
         model: string;
         maxTokens: number;
@@ -68,16 +71,6 @@ export class GeminiAIService {
                 responseMimeType: "application/json",
                 responseSchema: this.getResponseSchema()
             }
-        });
-
-        // Initialize embedding model
-        this.embeddingModel = new VertexAIEmbeddings({
-            model: "gemini-embedding-001",
-            location: this.config.location,
-            platformType: "gcp",
-            authOptions: { projectId: this.config.projectId },
-            maxConcurrency: 1,
-            maxRetries: 3
         });
     }
 
@@ -149,56 +142,6 @@ export class GeminiAIService {
             }
             throw new GeminiServiceError("Failed to generate follow-up AI review", error);
         }
-    }
-
-    /**
-     * Generates text embeddings for a given string array
-     * @param documents - The array of strings to embed
-     * @returns A promise that resolves to an array of embeddings
-     */
-    async embedDocuments(documents: string[]): Promise<number[][]> {
-        return this.handleRateLimit(async () => {
-            try {
-                const embeddings = await this.embeddingModel.embedDocuments(documents);
-
-                if (!embeddings) {
-                    throw new GeminiServiceError("Failed to generate embeddings");
-                }
-
-                return embeddings;
-            } catch (error) {
-                if (typeof error === "object" && error !== null && "stack" in error) {
-                    error.stack = undefined;
-                }
-                const mainError = getFieldFromUnknownObject(error, "error");
-                throw new GeminiServiceError("Failed to generate embedding", mainError || error);
-            }
-        });
-    }
-
-    /**
-     * Generates text embeddings for a given string
-     * @param text - The text to embed
-     * @returns A promise that resolves to the generated embedding
-     */
-    async generateEmbedding(text: string): Promise<number[]> {
-        return this.handleRateLimit(async () => {
-            try {
-                const embeddings = await this.embeddingModel.embedQuery(text);
-
-                if (!embeddings) {
-                    throw new GeminiServiceError("Failed to generate embedding");
-                }
-
-                return embeddings;
-            } catch (error) {
-                if (typeof error === "object" && error !== null && "stack" in error) {
-                    error.stack = undefined;
-                }
-                const mainError = getFieldFromUnknownObject(error, "error");
-                throw new GeminiServiceError("Failed to generate embedding", mainError || error);
-            }
-        });
     }
 
     /**
@@ -652,10 +595,7 @@ For 'suggestions', include specific file paths, line numbers, and 'suggestedCode
             return null;
         }
     }
-
-    /**
-     * Estimates token count for content (rough approximation)
-     */
+    
     /**
      * Estimates token count for content (rough approximation)
      */

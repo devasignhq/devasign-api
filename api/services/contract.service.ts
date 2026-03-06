@@ -50,9 +50,6 @@ export class ContractService {
     // Task escrow contract instance
     private static contract = new Contract(this.CONFIG.contractId);
 
-    // USDC token contract instance for approval operations
-    private static usdcContract = new Contract(this.CONFIG.usdcContractId);
-
     // Map of contract error codes to user-friendly messages
     private static ERROR_CODES: Record<string, string> = {
         "1": "Task not found",
