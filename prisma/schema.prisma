@@ -288,13 +288,14 @@ model CodeFile {
 }
 
 model CodeChunk {
-    id         String                       @id @default(cuid())
+    id         String                       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
     codeFile   CodeFile                     @relation(fields: [codeFileId], references: [id], onDelete: Cascade)
     codeFileId String
     chunkIndex Int
     content    String
-    embedding  Unsupported("vector(3072)")?
+    embedding  Unsupported("vector(1024)")?
 
+    @@unique([codeFileId, chunkIndex])
     @@index([codeFileId])
 }
 

@@ -43,7 +43,7 @@ export const addTeamMemberSchema = {
     body: z.object({
         username: z.string().min(1, "Username is required"),
         permissionCodes: z.array(z.string()).min(1, "Permission codes must be a non-empty array"),
-        email: z.email("Email must be valid").optional()
+        email: z.string().email("Email must be valid").optional()
     })
 };
 

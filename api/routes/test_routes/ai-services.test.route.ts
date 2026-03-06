@@ -354,7 +354,7 @@ router.post(
             }
 
             // 1. Generate embedding for query
-            const embedding = await geminiService.generateEmbedding(query);
+            const embedding = await vectorStoreService.generateEmbedding(query, "query");
 
             // 2. Search vector store
             const results = await vectorStoreService.findSimilarChunks(

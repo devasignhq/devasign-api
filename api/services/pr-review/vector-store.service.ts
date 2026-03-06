@@ -1,12 +1,79 @@
-import { createId } from "@paralleldrive/cuid2";;
 import { CodeFile, CodeChunk, Prisma } from "../../../prisma_client";
 import { prisma } from "../../config/database.config";
 import { dataLogger } from "../../config/logger.config";
+import { VoyageEmbeddings } from "@langchain/community/embeddings/voyage";
+import { VoyageAPIError } from "../../models/error.model";
+import { getFieldFromUnknownObject } from "../../utilities/helper";
 
 /**
  * Service for managing vector store operations using pgvector
  */
 export class VectorStoreService {
+    private getEmbeddingModel: (inputType: "document" | "query") => VoyageEmbeddings;
+
+    constructor() {
+        // Verify required environment variables are present
+        if (!process.env.VOYAGEAI_API_KEY) {
+            throw new VoyageAPIError("Missing VoyageAI API key in environment variables");
+        }
+
+        // Initialize embedding model
+        this.getEmbeddingModel = (inputType: "document" | "query") => new VoyageEmbeddings({
+            apiKey: process.env.VOYAGEAI_API_KEY,
+            modelName: process.env.VOYAGEAI_MODEL || "voyage-code-3",
+            inputType,
+            truncation: false
+        });
+    }
+
+    /**
+     * Generates text embeddings for a given string array
+     * @param documents - The array of strings to embed
+     * @returns A promise that resolves to an array of embeddings
+     */
+    async embedDocuments(documents: string[]): Promise<number[][]> {
+        try {
+            const embeddings = await this.getEmbeddingModel("document").embedDocuments(documents);
+
+            if (!embeddings) {
+                throw new VoyageAPIError("Failed to generate embeddings");
+            }
+
+            return embeddings;
+        } catch (error) {
+            // Remove stack trace from error
+            if (typeof error === "object" && error !== null && "stack" in error) {
+                error.stack = undefined;
+            }
+            const mainError = getFieldFromUnknownObject(error, "error");
+            throw new VoyageAPIError("Failed to generate embedding", mainError || error);
+        }
+    }
+
+    /**
+     * Generates text embeddings for a given string
+     * @param text - The text to embed
+     * @returns A promise that resolves to the generated embedding
+     */
+    async generateEmbedding(text: string, inputType: "document" | "query" = "document"): Promise<number[]> {
+        try {
+            const embeddings = await this.getEmbeddingModel(inputType).embedQuery(text);
+
+            if (!embeddings) {
+                throw new VoyageAPIError("Failed to generate embedding");
+            }
+
+            return embeddings;
+        } catch (error) {
+            // Remove stack trace from error
+            if (typeof error === "object" && error !== null && "stack" in error) {
+                error.stack = undefined;
+            }
+            const mainError = getFieldFromUnknownObject(error, "error");
+            throw new VoyageAPIError("Failed to generate embedding", mainError || error);
+        }
+    }
+
     /**
      * Upserts a code file record
      * @param installationId - The ID of the installation
@@ -72,17 +139,41 @@ export class VectorStoreService {
         const values = chunks.map(chunk => {
             // Format embedding array as string for SQL vector syntax
             const embeddingString = `[${chunk.embedding.join(",")}]`;
-            const id = createId();
 
             // Return a template fragment for each row
-            return Prisma.sql`(${id}, ${codeFileId}, ${chunk.index}, ${chunk.content}, ${embeddingString}::vector)`;
+            return Prisma.sql`(${codeFileId}, ${chunk.index}, ${chunk.content}, ${embeddingString}::vector)`;
         });
 
-        // Execute one single INSERT statement for all chunks
-        await prisma.$executeRaw`
-            INSERT INTO "CodeChunk" ("id", "codeFileId", "chunkIndex", "content", "embedding")
-            VALUES ${Prisma.join(values)}
-        `;
+        // Execute INSERT statements in batches to prevent Prisma Accelerate P6004 timeout errors
+        // (10 seconds query limit). We implement a fallback mechanism to reduce batch size on failure.
+        let remainingValues = [...values];
+        let currentBatchSize = 100;
+
+        while (remainingValues.length > 0) {
+            const batchToInsert = remainingValues.slice(0, currentBatchSize);
+
+            try {
+                await prisma.$executeRaw`
+                    INSERT INTO "CodeChunk" ("codeFileId", "chunkIndex", "content", "embedding")
+                    VALUES ${Prisma.join(batchToInsert)}
+                    ON CONFLICT ("codeFileId", "chunkIndex") DO NOTHING
+                `;
+
+                // If successful, remove the inserted items from the remaining pool
+                remainingValues = remainingValues.slice(batchToInsert.length);
+            } catch (error) {
+                if (currentBatchSize === 100) {
+                    dataLogger.warn("Batch insert failed at size 100, retrying with 50", { codeFileId });
+                    currentBatchSize = 50;
+                } else if (currentBatchSize === 50) {
+                    dataLogger.warn("Batch insert failed at size 50, retrying with 25", { codeFileId });
+                    currentBatchSize = 25;
+                } else {
+                    dataLogger.error("Batch insert failed at size 25, aborting", { codeFileId, error });
+                    throw error;
+                }
+            }
+        }
     }
 
     /**
@@ -149,5 +240,13 @@ export class VectorStoreService {
             dataLogger.error("Error finding similar chunks", { error });
             return [];
         }
+    }
+
+    /**
+     * Estimates token count for content (rough approximation)
+     */
+    public estimateTokens(content: string): number {
+        // Rough estimation: ~4 characters per token
+        return Math.ceil(content.length / 4);
     }
 }

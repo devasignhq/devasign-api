@@ -311,7 +311,7 @@ export class BackgroundJobService extends EventEmitter {
             job.completedAt = new Date();
             job.result = result;
 
-            const processingTime = Date.now() - startTime;
+            const processingTime = this.formatDuration(Date.now() - startTime);
 
             dataLogger.info(
                 "Job completed successfully",
@@ -326,7 +326,7 @@ export class BackgroundJobService extends EventEmitter {
             this.emit("jobCompleted", job);
 
         } catch (error) {
-            const processingTime = Date.now() - startTime;
+            const processingTime = this.formatDuration(Date.now() - startTime);
             const errorMessage = error instanceof Error ? error.message : String(error);
 
             dataLogger.error(
@@ -502,6 +502,27 @@ export class BackgroundJobService extends EventEmitter {
             return true;
         }
         return false;
+    }
+
+    /**
+     * Formats duration in milliseconds to a human readable string.
+     * 
+     * @param ms - The duration in milliseconds
+     * @returns A formatted string
+     */
+    private formatDuration(ms: number): string {
+        const hours = Math.floor(ms / 3600000);
+        const minutes = Math.floor((ms % 3600000) / 60000);
+        const seconds = Math.floor((ms % 60000) / 1000);
+        const milliseconds = ms % 1000;
+
+        const parts = [];
+        if (hours > 0) parts.push(`${hours}h`);
+        if (minutes > 0) parts.push(`${minutes}m`);
+        if (seconds > 0) parts.push(`${seconds}s`);
+        if (milliseconds > 0 || parts.length === 0) parts.push(`${milliseconds}ms`);
+
+        return parts.join(" ");
     }
 }
 

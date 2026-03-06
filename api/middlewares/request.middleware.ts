@@ -86,9 +86,9 @@ export const validateRequestParameters = ({
     query,
     body
 }: {
-    params?: z.ZodObject,
-    query?: z.ZodObject,
-    body?: z.ZodObject
+    params?: z.AnyZodObject,
+    query?: z.AnyZodObject,
+    body?: z.AnyZodObject
 }) => {
     return (req: Request, _: Response, next: NextFunction) => {
         try {
