@@ -30,7 +30,6 @@ export default defineConfig([
             "max-len": ["warn", { code: 300, ignoreUrls: true }],
             "eol-last": ["error", "always"],
 
-            // Configure TypeScript unused vars rule to ignore variables starting with underscore
             "@typescript-eslint/no-unused-vars": [
                 "error",
                 {
@@ -48,7 +47,7 @@ export default defineConfig([
 
     // Overrides preceding configurations for test files only.
     {
-        files: ["**/*.test.{js,ts}", "**/*.spec.{js,ts}", "**/tests/**/*.{js,ts}", "api/routes/test_routes/*.{js,ts}"],
+        files: ["**/*.test.{js,ts}", "**/*.spec.{js,ts}", "**/tests/**/*.{js,ts}", "api/routes/_test_/*.{js,ts}"],
         rules: {
             "no-console": "off",
             "@typescript-eslint/no-explicit-any": "off",
