@@ -31,7 +31,6 @@ jest.mock("../../../../api/services/pr-review/pr-analysis.service", () => ({
     }
 }));
 
-// Mock Firebase service for task messaging
 jest.mock("../../../../api/services/firebase.service", () => ({
     FirebaseService: {
         updateTaskStatus: jest.fn().mockResolvedValue(true),
@@ -48,7 +47,6 @@ jest.mock("../../../../api/services/octokit.service", () => ({
     }
 }));
 
-// Mock Contract service
 jest.mock("../../../../api/services/contract.service", () => ({
     ContractService: {
         approveCompletion: jest.fn(),
@@ -62,11 +60,10 @@ jest.mock("../../../../api/services/kms.service", () => ({
     }
 }));
 
-// Mock IndexingService and backgroundJobService
-const mockClearInstallationData = jest.fn().mockResolvedValue(true);
 jest.mock("../../../../api/services/pr-review/indexing.service", () => ({
     IndexingService: jest.fn().mockImplementation(() => ({
-        clearInstallationData: mockClearInstallationData
+        clearInstallationData: jest.fn().mockResolvedValue(true),
+        clearRepositoryData: jest.fn().mockResolvedValue(true)
     }))
 }));
 
@@ -85,6 +82,8 @@ describe("Webhook API Integration Tests", () => {
     let mockPRAnalysisService: any;
     let mockContractService: any;
     let mockFirebaseService: any;
+    let mockIndexingService: any;
+    let mockBackgroundJobService: any;
 
     const WEBHOOK_SECRET = "test-webhook-secret";
     const VALID_INSTALLATION_ID = "12345678";
@@ -134,6 +133,12 @@ describe("Webhook API Integration Tests", () => {
 
         const { PRAnalysisService } = await import("../../../../api/services/pr-review/pr-analysis.service");
         mockPRAnalysisService = PRAnalysisService;
+
+        const { IndexingService } = await import("../../../../api/services/pr-review/indexing.service");
+        mockIndexingService = IndexingService;
+
+        const { backgroundJobService } = await import("../../../../api/services/background-job.service");
+        mockBackgroundJobService = backgroundJobService;
     });
 
     beforeEach(async () => {
@@ -275,14 +280,14 @@ describe("Webhook API Integration Tests", () => {
         });
 
         it("should log installation creation and queue indexing jobs when repositories are provided", async () => {
-            const { backgroundJobService } = await import("../../../../api/services/background-job.service");
-
-            const payload = createInstallationPayload("created", {
+            const basePayload = createInstallationPayload("created");
+            const payload = {
+                ...basePayload,
                 repositories: [
                     { full_name: "test/repo-1" },
                     { full_name: "test/repo-2" }
                 ]
-            });
+            };
             const payloadString = JSON.stringify(payload);
             const signature = createWebhookSignature(payloadString);
 
@@ -299,9 +304,9 @@ describe("Webhook API Integration Tests", () => {
                 data: { installationId: VALID_INSTALLATION_ID }
             });
 
-            expect(backgroundJobService.addRepositoryIndexingJob).toHaveBeenCalledTimes(2);
-            expect(backgroundJobService.addRepositoryIndexingJob).toHaveBeenCalledWith(VALID_INSTALLATION_ID, "test/repo-1");
-            expect(backgroundJobService.addRepositoryIndexingJob).toHaveBeenCalledWith(VALID_INSTALLATION_ID, "test/repo-2");
+            expect(mockBackgroundJobService.addRepositoryIndexingJob).toHaveBeenCalledTimes(2);
+            expect(mockBackgroundJobService.addRepositoryIndexingJob).toHaveBeenCalledWith(VALID_INSTALLATION_ID, "test/repo-1");
+            expect(mockBackgroundJobService.addRepositoryIndexingJob).toHaveBeenCalledWith(VALID_INSTALLATION_ID, "test/repo-2");
         });
 
         it("should archive installation and refund open tasks on delete", async () => {
@@ -374,7 +379,8 @@ describe("Webhook API Integration Tests", () => {
             expect(mockOctokitService.removeBountyLabelAndDeleteBountyComment).toHaveBeenCalled();
 
             // Verify indexing data is cleared
-            expect(mockClearInstallationData).toHaveBeenCalledWith(VALID_INSTALLATION_ID);
+            const mockIndexingServiceInstance = (mockIndexingService as jest.Mock).mock.results[0].value;
+            expect(mockIndexingServiceInstance.clearInstallationData).toHaveBeenCalledWith(VALID_INSTALLATION_ID);
         });
 
         it("should reactivate installation on unsuspend", async () => {
@@ -439,6 +445,10 @@ describe("Webhook API Integration Tests", () => {
                 message: "installation_repositories event processed",
                 data: { installationId: VALID_INSTALLATION_ID, action: "added" }
             });
+
+            expect(mockBackgroundJobService.addRepositoryIndexingJob).toHaveBeenCalledTimes(2);
+            expect(mockBackgroundJobService.addRepositoryIndexingJob).toHaveBeenCalledWith(VALID_INSTALLATION_ID, "test/repo-1");
+            expect(mockBackgroundJobService.addRepositoryIndexingJob).toHaveBeenCalledWith(VALID_INSTALLATION_ID, "test/repo-2");
         });
 
         it("should process removed repositories", async () => {
@@ -460,6 +470,9 @@ describe("Webhook API Integration Tests", () => {
                 message: "installation_repositories event processed",
                 data: { installationId: VALID_INSTALLATION_ID, action: "removed" }
             });
+
+            const mockIndexingServiceInstance = mockIndexingService.mock.results[0].value;
+            expect(mockIndexingServiceInstance.clearRepositoryData).toHaveBeenCalledWith(VALID_INSTALLATION_ID, "test/repo-1");
         });
     });
 
