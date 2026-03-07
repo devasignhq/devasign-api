@@ -349,6 +349,77 @@ describe("Webhook Middleware", () => {
             });
         });
 
+        describe("Installation Repositories Events", () => {
+            const createInstallationReposPayload = (overrides = {}) => ({
+                action: "added",
+                installation: { id: 12345678 },
+                repositories_added: [{ full_name: "owner/repo" }],
+                ...overrides
+            });
+
+            it("should process valid installation_repositories event", async () => {
+                const payload = createInstallationReposPayload();
+
+                (mockRequest.get as jest.Mock).mockImplementation((header: string) => {
+                    if (header === "X-GitHub-Event") return "installation_repositories";
+                    if (header === "X-GitHub-Delivery") return "test-delivery-789";
+                    return undefined;
+                });
+                mockRequest.body = payload;
+
+                await validateGitHubWebhookEvent(mockRequest as Request, mockResponse as Response, mockNext);
+
+                expect(mockNext).toHaveBeenCalled();
+                expect(mockRequest.body.webhookMeta).toMatchObject({
+                    eventType: "installation_repositories",
+                    action: "added",
+                    deliveryId: "test-delivery-789"
+                });
+            });
+
+            it("should ignore unsupported action", async () => {
+                const payload = createInstallationReposPayload({ action: "unsupported" });
+
+                (mockRequest.get as jest.Mock).mockImplementation((header: string) => {
+                    if (header === "X-GitHub-Event") return "installation_repositories";
+                    return undefined;
+                });
+                mockRequest.body = payload;
+
+                await validateGitHubWebhookEvent(mockRequest as Request, mockResponse as Response, mockNext);
+
+                expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.SUCCESS);
+                expect(mockResponse.json).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        message: "installation_repositories action not processed",
+                        meta: { action: "unsupported" }
+                    })
+                );
+                expect(mockNext).not.toHaveBeenCalled();
+            });
+
+            it("should reject when installation data is missing", async () => {
+                const payload = createInstallationReposPayload({ installation: undefined });
+
+                (mockRequest.get as jest.Mock).mockImplementation((header: string) => {
+                    if (header === "X-GitHub-Event") return "installation_repositories";
+                    return undefined;
+                });
+                mockRequest.body = payload;
+
+                await validateGitHubWebhookEvent(mockRequest as Request, mockResponse as Response, mockNext);
+
+                expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.BAD_PAYLOAD);
+                expect(mockResponse.json).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        message: "Missing required installation data",
+                        meta: { installation: false }
+                    })
+                );
+                expect(mockNext).not.toHaveBeenCalled();
+            });
+        });
+
         describe("Valid PR Events", () => {
             it("should process valid opened PR event", async () => {
                 const payload = createValidPRPayload();

@@ -5,6 +5,7 @@ import { dataLogger } from "../../config/logger.config";
 import { PullRequestWebhookService } from "../../services/github-webhook/pull_request-webhook.service";
 import { InstallationWebhookService } from "../../services/github-webhook/installation-webhook.service";
 import { IssueCommentWebhookService } from "../../services/github-webhook/issue_comment-webhook.service";
+import { InstallationRepositoriesWebhookService } from "../../services/github-webhook/installation_repositories-webhook.service";
 
 /**
  * Handles GitHub webhook events
@@ -25,6 +26,11 @@ export const handleGitHubWebhook = async (req: Request, res: Response, next: Nex
 
     if (eventType === "installation") {
         await InstallationWebhookService.handleInstallationEvent(req, res, next);
+        return;
+    }
+
+    if (eventType === "installation_repositories") {
+        await InstallationRepositoriesWebhookService.handleInstallationRepositoriesEvent(req, res, next);
         return;
     }
 

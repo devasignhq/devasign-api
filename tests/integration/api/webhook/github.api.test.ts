@@ -31,7 +31,6 @@ jest.mock("../../../../api/services/pr-review/pr-analysis.service", () => ({
     }
 }));
 
-// Mock Firebase service for task messaging
 jest.mock("../../../../api/services/firebase.service", () => ({
     FirebaseService: {
         updateTaskStatus: jest.fn().mockResolvedValue(true),
@@ -48,7 +47,6 @@ jest.mock("../../../../api/services/octokit.service", () => ({
     }
 }));
 
-// Mock Contract service
 jest.mock("../../../../api/services/contract.service", () => ({
     ContractService: {
         approveCompletion: jest.fn(),
@@ -62,6 +60,19 @@ jest.mock("../../../../api/services/kms.service", () => ({
     }
 }));
 
+jest.mock("../../../../api/services/pr-review/indexing.service", () => ({
+    IndexingService: jest.fn().mockImplementation(() => ({
+        clearInstallationData: jest.fn().mockResolvedValue(true),
+        clearRepositoryData: jest.fn().mockResolvedValue(true)
+    }))
+}));
+
+jest.mock("../../../../api/services/background-job.service", () => ({
+    backgroundJobService: {
+        addRepositoryIndexingJob: jest.fn().mockResolvedValue("job-id-123")
+    }
+}));
+
 describe("Webhook API Integration Tests", () => {
     let app: express.Application;
     let prisma: any;
@@ -71,6 +82,8 @@ describe("Webhook API Integration Tests", () => {
     let mockPRAnalysisService: any;
     let mockContractService: any;
     let mockFirebaseService: any;
+    let mockIndexingService: any;
+    let mockBackgroundJobService: any;
 
     const WEBHOOK_SECRET = "test-webhook-secret";
     const VALID_INSTALLATION_ID = "12345678";
@@ -120,6 +133,12 @@ describe("Webhook API Integration Tests", () => {
 
         const { PRAnalysisService } = await import("../../../../api/services/pr-review/pr-analysis.service");
         mockPRAnalysisService = PRAnalysisService;
+
+        const { IndexingService } = await import("../../../../api/services/pr-review/indexing.service");
+        mockIndexingService = IndexingService;
+
+        const { backgroundJobService } = await import("../../../../api/services/background-job.service");
+        mockBackgroundJobService = backgroundJobService;
     });
 
     beforeEach(async () => {
@@ -260,6 +279,36 @@ describe("Webhook API Integration Tests", () => {
             });
         });
 
+        it("should log installation creation and queue indexing jobs when repositories are provided", async () => {
+            const basePayload = createInstallationPayload("created");
+            const payload = {
+                ...basePayload,
+                repositories: [
+                    { full_name: "test/repo-1" },
+                    { full_name: "test/repo-2" }
+                ]
+            };
+            const payloadString = JSON.stringify(payload);
+            const signature = createWebhookSignature(payloadString);
+
+            const response = await request(app)
+                .post(getEndpointWithPrefix(["WEBHOOK", "GITHUB"]))
+                .set("X-GitHub-Event", "installation")
+                .set("X-Hub-Signature-256", signature)
+                .set("Content-Type", "application/json")
+                .send(payloadString)
+                .expect(STATUS_CODES.SUCCESS);
+
+            expect(response.body).toMatchObject({
+                message: "Installation creation logged",
+                data: { installationId: VALID_INSTALLATION_ID }
+            });
+
+            expect(mockBackgroundJobService.addRepositoryIndexingJob).toHaveBeenCalledTimes(2);
+            expect(mockBackgroundJobService.addRepositoryIndexingJob).toHaveBeenCalledWith(VALID_INSTALLATION_ID, "test/repo-1");
+            expect(mockBackgroundJobService.addRepositoryIndexingJob).toHaveBeenCalledWith(VALID_INSTALLATION_ID, "test/repo-2");
+        });
+
         it("should archive installation and refund open tasks on delete", async () => {
             // Create user and installation with wallet
             const creator = await prisma.user.create({
@@ -328,6 +377,10 @@ describe("Webhook API Integration Tests", () => {
 
             expect(mockContractService.refund).toHaveBeenCalled();
             expect(mockOctokitService.removeBountyLabelAndDeleteBountyComment).toHaveBeenCalled();
+
+            // Verify indexing data is cleared
+            const mockIndexingServiceInstance = (mockIndexingService as jest.Mock).mock.results[0].value;
+            expect(mockIndexingServiceInstance.clearInstallationData).toHaveBeenCalledWith(VALID_INSTALLATION_ID);
         });
 
         it("should reactivate installation on unsuspend", async () => {
@@ -359,6 +412,67 @@ describe("Webhook API Integration Tests", () => {
                 where: { id: VALID_INSTALLATION_ID }
             });
             expect(updatedInstallation?.status).toBe("ACTIVE");
+        });
+    });
+
+    describe(`POST ${getEndpointWithPrefix(["WEBHOOK", "GITHUB"])} - Installation Repositories Events`, () => {
+        const createInstallationReposPayload = (action: string, overrides: any = {}) => {
+            return {
+                action,
+                installation: {
+                    id: parseInt(VALID_INSTALLATION_ID)
+                },
+                ...overrides
+            };
+        };
+
+        it("should process added repositories", async () => {
+            const payload = createInstallationReposPayload("added", {
+                repositories_added: [{ full_name: "test/repo-1" }, { full_name: "test/repo-2" }]
+            });
+            const payloadString = JSON.stringify(payload);
+            const signature = createWebhookSignature(payloadString);
+
+            const response = await request(app)
+                .post(getEndpointWithPrefix(["WEBHOOK", "GITHUB"]))
+                .set("X-GitHub-Event", "installation_repositories")
+                .set("X-Hub-Signature-256", signature)
+                .set("Content-Type", "application/json")
+                .send(payloadString)
+                .expect(STATUS_CODES.SUCCESS);
+
+            expect(response.body).toMatchObject({
+                message: "installation_repositories event processed",
+                data: { installationId: VALID_INSTALLATION_ID, action: "added" }
+            });
+
+            expect(mockBackgroundJobService.addRepositoryIndexingJob).toHaveBeenCalledTimes(2);
+            expect(mockBackgroundJobService.addRepositoryIndexingJob).toHaveBeenCalledWith(VALID_INSTALLATION_ID, "test/repo-1");
+            expect(mockBackgroundJobService.addRepositoryIndexingJob).toHaveBeenCalledWith(VALID_INSTALLATION_ID, "test/repo-2");
+        });
+
+        it("should process removed repositories", async () => {
+            const payload = createInstallationReposPayload("removed", {
+                repositories_removed: [{ full_name: "test/repo-1" }]
+            });
+            const payloadString = JSON.stringify(payload);
+            const signature = createWebhookSignature(payloadString);
+
+            const response = await request(app)
+                .post(getEndpointWithPrefix(["WEBHOOK", "GITHUB"]))
+                .set("X-GitHub-Event", "installation_repositories")
+                .set("X-Hub-Signature-256", signature)
+                .set("Content-Type", "application/json")
+                .send(payloadString)
+                .expect(STATUS_CODES.SUCCESS);
+
+            expect(response.body).toMatchObject({
+                message: "installation_repositories event processed",
+                data: { installationId: VALID_INSTALLATION_ID, action: "removed" }
+            });
+
+            const mockIndexingServiceInstance = mockIndexingService.mock.results[0].value;
+            expect(mockIndexingServiceInstance.clearRepositoryData).toHaveBeenCalledWith(VALID_INSTALLATION_ID, "test/repo-1");
         });
     });
 
