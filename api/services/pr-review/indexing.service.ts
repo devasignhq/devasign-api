@@ -32,15 +32,17 @@ export class IndexingService {
      */
     async clearInstallationData(installationId: string): Promise<void> {
         dataLogger.info("Clearing indexing data for installation", { installationId });
-        
-        // Clear indexing state
-        await prisma.repositoryIndexingState.deleteMany({
-            where: { installationId }
-        });
-        // Clear code files
-        await prisma.codeFile.deleteMany({
-            where: { installationId }
-        });
+
+        await prisma.$transaction([
+            // Clear indexing state
+            prisma.repositoryIndexingState.deleteMany({
+                where: { installationId }
+            }),
+            // Clear code files
+            prisma.codeFile.deleteMany({
+                where: { installationId }
+            })
+        ]);
     }
 
     /**
@@ -50,15 +52,17 @@ export class IndexingService {
      */
     async clearRepositoryData(installationId: string, repositoryName: string): Promise<void> {
         dataLogger.info("Clearing indexing data for repository", { installationId, repositoryName });
-        
-        // Clear indexing state
-        await prisma.repositoryIndexingState.deleteMany({
-            where: { installationId, repositoryName }
-        });
-        // Clear code files
-        await prisma.codeFile.deleteMany({
-            where: { installationId, repositoryName }
-        });
+
+        await prisma.$transaction([
+            // Clear indexing state
+            prisma.repositoryIndexingState.deleteMany({
+                where: { installationId, repositoryName }
+            }),
+            // Clear code files
+            prisma.codeFile.deleteMany({
+                where: { installationId, repositoryName }
+            })
+        ]);
     }
 
     /**
