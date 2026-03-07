@@ -8,6 +8,8 @@ import { ContractService } from "../contract.service";
 import { KMSService } from "../kms.service";
 import { OctokitService } from "../octokit.service";
 import { TaskIssue } from "../../models/task.model";
+import { backgroundJobService } from "../background-job.service";
+import { IndexingService } from "../pr-review/indexing.service";
 
 export class InstallationWebhookService {
     /**
@@ -51,11 +53,24 @@ export class InstallationWebhookService {
      */
     static async handleInstallationCreated(req: Request, res: Response, next: NextFunction) {
         try {
-            const { installation: githubInstallation } = req.body;
+            const { installation: githubInstallation, repositories } = req.body;
             const installationId = githubInstallation.id.toString();
 
             // Log creation, actual setup happens via user flow
             dataLogger.info(`Installation created: ${installationId}`);
+
+            // Start indexing job for each repository
+            if (repositories && Array.isArray(repositories)) {
+                for (const repo of repositories) {
+                    if (repo && repo.full_name) {
+                        try {
+                            await backgroundJobService.addRepositoryIndexingJob(installationId, repo.full_name);
+                        } catch (error) {
+                            dataLogger.warn(`Failed to add indexing job for ${repo.full_name}:`, { error });
+                        }
+                    }
+                }
+            }
 
             responseWrapper({
                 res,
@@ -73,7 +88,7 @@ export class InstallationWebhookService {
      */
     static async handleInstallationDeletedOrSuspended(req: Request, res: Response, next: NextFunction) {
         try {
-            const { installation: githubInstallation } = req.body;
+            const { action, installation: githubInstallation } = req.body;
             const installationId = githubInstallation.id.toString();
 
             // Archive installation and refund open tasks
@@ -100,6 +115,19 @@ export class InstallationWebhookService {
                     data: { installationId },
                     message: "Installation not found in database, skipping archive"
                 });
+            }
+
+            // Clear all indexed files across every installation repo
+            if (action === "deleted") {
+                const indexingService = new IndexingService();
+                try {
+                    await indexingService.clearInstallationData(installationId);
+                } catch (error) {
+                    dataLogger.warn(
+                        `Failed to clear indexed data for installation ${installationId}:`, 
+                        { error }
+                    );
+                }
             }
 
             let refundedAmount = 0;

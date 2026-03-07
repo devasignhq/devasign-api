@@ -27,6 +27,41 @@ export class IndexingService {
     }
 
     /**
+     * Clear all indexing data and state for an installation
+     * @param installationId - The ID of the installation
+     */
+    async clearInstallationData(installationId: string): Promise<void> {
+        dataLogger.info("Clearing indexing data for installation", { installationId });
+        
+        // Clear indexing state
+        await prisma.repositoryIndexingState.deleteMany({
+            where: { installationId }
+        });
+        // Clear code files
+        await prisma.codeFile.deleteMany({
+            where: { installationId }
+        });
+    }
+
+    /**
+     * Clear all indexing data and state for a specific repository
+     * @param installationId - The ID of the installation
+     * @param repositoryName - The name of the repository
+     */
+    async clearRepositoryData(installationId: string, repositoryName: string): Promise<void> {
+        dataLogger.info("Clearing indexing data for repository", { installationId, repositoryName });
+        
+        // Clear indexing state
+        await prisma.repositoryIndexingState.deleteMany({
+            where: { installationId, repositoryName }
+        });
+        // Clear code files
+        await prisma.codeFile.deleteMany({
+            where: { installationId, repositoryName }
+        });
+    }
+
+    /**
      * Index a repository by fetching all files, chunking them, and storing embeddings
      * @param installationId - The ID of the installation
      * @param repositoryName - The name of the repository
