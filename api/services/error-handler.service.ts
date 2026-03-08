@@ -200,6 +200,10 @@ export class ErrorHandlerService {
             warnings.push("DEFAULT_SUBSCRIPTION_PACKAGE_ID not configured - subscription defaults unavailable");
         }
 
+        if (!process.env.STATSIG_API_KEY) {
+            warnings.push("STATSIG_API_KEY not configured - Statsig integration will fail");
+        }
+
         // Log warnings
         warnings.forEach(warning => {
             messageLogger.warn(warning);
