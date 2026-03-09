@@ -118,8 +118,10 @@ if (process.env.NODE_ENV !== "production") {
     app.use("/octokit", internalMiddlware, octokitTestRoutes);
 }
 
+// Error handling middleware
 app.use(errorHandler);
 
+// Database connection
 prisma.$connect();
 
 // Initialize error handling system
