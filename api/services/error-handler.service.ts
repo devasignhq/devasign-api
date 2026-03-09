@@ -128,103 +128,53 @@ export class ErrorHandlerService {
         const warnings: string[] = [];
         const errors: string[] = [];
 
-        // Database Configuration (Critical)
-        if (!process.env.DATABASE_URL) {
-            errors.push("DATABASE_URL not configured - database operations will fail");
-        }
+        const requiredVars = [
+            { keys: ["DATABASE_URL"], msg: "DATABASE_URL not configured - database operations will fail" },
+            { keys: ["GITHUB_APP_ID", "GITHUB_APP_PRIVATE_KEY"], msg: "GitHub app credentials not configured - GitHub integration will fail" },
+            { keys: ["STELLAR_NETWORK"], msg: "STELLAR_NETWORK not configured - Stellar operations will fail" },
+            { keys: ["STELLAR_HORIZON_URL"], msg: "STELLAR_HORIZON_URL not configured - Stellar Horizon API unavailable" },
+            { keys: ["STELLAR_RPC_URL"], msg: "STELLAR_RPC_URL not configured - Soroban RPC unavailable" },
+            { keys: ["STELLAR_MASTER_PUBLIC_KEY", "STELLAR_MASTER_SECRET_KEY"], msg: "Stellar master keypair not configured - Stellar transactions will fail" },
+            { keys: ["TASK_ESCROW_CONTRACT_ID"], msg: "TASK_ESCROW_CONTRACT_ID not configured - escrow operations will fail" },
+            { keys: ["FIREBASE_PROJECT_ID", "FIREBASE_CLIENT_EMAIL", "FIREBASE_PRIVATE_KEY"], msg: "Firebase credentials not configured - Firebase integration will fail" },
+            { keys: ["GCP_PROJECT_ID", "GCP_LOCATION_ID", "GCP_KEY_RING_ID", "GCP_KEY_ID"], msg: "GCP credentials not configured - wallet encryption will fail" },
+            { keys: ["SUMSUB_APP_TOKEN", "SUMSUB_SECRET_KEY", "SUMSUB_LEVEL_NAME"], msg: "Sumsub misconfiguration" }
+        ];
 
-        // GitHub Configuration (Critical)
-        if (!process.env.GITHUB_APP_ID || !process.env.GITHUB_APP_PRIVATE_KEY) {
-            errors.push("GitHub app credentials not configured - GitHub integration will fail");
-        }
+        const warningVars = [
+            { keys: ["GITHUB_WEBHOOK_SECRET"], msg: "GITHUB_WEBHOOK_SECRET not configured - pull request review disabled" },
+            { keys: ["NODE_ENV"], msg: "NODE_ENV not configured - defaulting to development mode" },
+            { keys: ["PORT"], msg: "PORT not configured - defaulting to 8080" },
+            { keys: ["CONTRIBUTOR_APP_URL"], msg: "CONTRIBUTOR_APP_URL not configured - contributor redirects may fail" },
+            { keys: ["DEFAULT_SUBSCRIPTION_PACKAGE_ID"], msg: "DEFAULT_SUBSCRIPTION_PACKAGE_ID not configured - subscription defaults unavailable" }
+        ];
 
-        if (!process.env.GITHUB_WEBHOOK_SECRET) {
-            warnings.push("GITHUB_WEBHOOK_SECRET not configured - pull request review disabled");
-        }
+        requiredVars.forEach(({ keys, msg }) => {
+            if (keys.some(key => !process.env[key])) errors.push(msg);
+        });
 
-        // Stellar Configuration (Critical for blockchain operations)
-        if (!process.env.STELLAR_NETWORK) {
-            errors.push("STELLAR_NETWORK not configured - Stellar operations will fail");
-        }
+        warningVars.forEach(({ keys, msg }) => {
+            if (keys.some(key => !process.env[key])) warnings.push(msg);
+        });
 
-        if (!process.env.STELLAR_HORIZON_URL) {
-            errors.push("STELLAR_HORIZON_URL not configured - Stellar Horizon API unavailable");
-        }
-
-        if (!process.env.STELLAR_RPC_URL) {
-            errors.push("STELLAR_RPC_URL not configured - Soroban RPC unavailable");
-        }
-
-        if (!process.env.STELLAR_MASTER_PUBLIC_KEY || !process.env.STELLAR_MASTER_SECRET_KEY) {
-            errors.push("Stellar master keypair not configured - Stellar transactions will fail");
-        }
-
-        // Smart Contract Configuration (Critical)
-        if (!process.env.TASK_ESCROW_CONTRACT_ID) {
-            errors.push("TASK_ESCROW_CONTRACT_ID not configured - escrow operations will fail");
-        }
-
-        if (!process.env.USDC_CONTRACT_ID) {
-            errors.push("USDC_CONTRACT_ID not configured - USDC token operations will fail");
-        }
-
-        // Firebase Configuration (Critical)
-        if (!process.env.FIREBASE_PROJECT_ID || !process.env.FIREBASE_CLIENT_EMAIL || !process.env.FIREBASE_PRIVATE_KEY) {
-            errors.push("Firebase credentials not configured - Firebase integration will fail");
-        }
-
-        // GCP Configuration (Critical)
-        if (!process.env.GCP_PROJECT_ID || !process.env.GCP_LOCATION_ID || !process.env.GCP_KEY_RING_ID || !process.env.GCP_KEY_ID) {
-            errors.push("GCP credentials not configured - wallet encryption will fail");
-        }
-
-        // Sumsub Configuration (Critical)
-        if (!process.env.SUMSUB_APP_TOKEN || !process.env.SUMSUB_SECRET_KEY || !process.env.SUMSUB_LEVEL_NAME) {
-            errors.push("Sumsub misconfiguration");
-        }
-
-        // Application Configuration
-        if (!process.env.NODE_ENV) {
-            warnings.push("NODE_ENV not configured - defaulting to development mode");
-        }
-
-        if (!process.env.PORT) {
-            warnings.push("PORT not configured - defaulting to 8080");
-        }
-
-        if (!process.env.CONTRIBUTOR_APP_URL) {
-            warnings.push("CONTRIBUTOR_APP_URL not configured - contributor redirects may fail");
-        }
-
-        if (!process.env.DEFAULT_SUBSCRIPTION_PACKAGE_ID) {
-            warnings.push("DEFAULT_SUBSCRIPTION_PACKAGE_ID not configured - subscription defaults unavailable");
-        }
-
-        if (!process.env.STATSIG_API_KEY) {
+        if (process.env.NODE_ENV === "production" && !process.env.STATSIG_API_KEY) {
             warnings.push("STATSIG_API_KEY not configured - Statsig integration will fail");
         }
 
-        // Log warnings
-        warnings.forEach(warning => {
-            messageLogger.warn(warning);
-        });
-
-        // Log errors
-        errors.forEach(error => {
-            messageLogger.error(`Config validation error: ${error}`);
-        });
+        // Log warnings and errors
+        warnings.forEach(warning => messageLogger.warn(warning));
+        errors.forEach(error => messageLogger.error(`Config validation error: ${error}`));
 
         dataLogger.info(
             "Environment configuration validation completed",
             {
                 warnings: warnings.length,
                 errors: errors.length,
-                hasMonitoring: !!process.env.MONITORING_WEBHOOK_URL,
-                hasAlerting: !!process.env.ALERT_WEBHOOK_URL,
                 hasStellarConfig: !!(process.env.STELLAR_NETWORK && process.env.STELLAR_HORIZON_URL),
                 hasContractConfig: !!(process.env.TASK_ESCROW_CONTRACT_ID && process.env.USDC_CONTRACT_ID),
                 hasFirebase: !!(process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_CLIENT_EMAIL),
-                hasGCP: !!(process.env.GCP_PROJECT_ID && process.env.GCP_KEY_RING_ID)
+                hasGCP: !!(process.env.GCP_PROJECT_ID && process.env.GCP_KEY_RING_ID),
+                hasStatsig: !!(process.env.NODE_ENV === "production" && process.env.STATSIG_API_KEY)
             }
         );
     }
