@@ -27,7 +27,6 @@ import { ErrorHandlerService } from "./services/error-handler.service";
 import { dataLogger, messageLogger } from "./config/logger.config";
 import { ALLOWED_ORIGINS, ENDPOINTS, STATUS_CODES } from "./utilities/data";
 import { ErrorClass } from "./models/error.model";
-import { Statsig } from "@statsig/statsig-node-core";
 
 const app = express();
 const PORT = process.env.NODE_ENV === "development"
@@ -130,14 +129,6 @@ ErrorHandlerService.initialize().catch(error => {
     dataLogger.error("Failed to initialize error handling system", { error });
     // Continue startup even if error handling initialization fails
 });
-
-// Initialize Statsig
-if (process.env.NODE_ENV === "production" && process.env.STATSIG_API_KEY) {
-    (async () => {
-        const statsig = new Statsig(process.env.STATSIG_API_KEY!);
-        await statsig.initialize();
-    })();
-}
 
 // Initialize workflow integration service
 (async () => {
