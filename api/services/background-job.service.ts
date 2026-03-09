@@ -138,11 +138,7 @@ export class BackgroundJobService extends EventEmitter {
 
         dataLogger.info(
             `${options.type} job added to queue`,
-            {
-                jobId,
-                data: options.data,
-                queueSize: this.jobs.size
-            }
+            { jobId, queueSize: this.jobs.size }
         );
 
         // Emit event for monitoring

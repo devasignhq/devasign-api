@@ -346,14 +346,14 @@ prisma.$queryRaw\`
 ${chunksInfo || "No relevant code chunks found."}}`}
 
 === INSTRUCTIONS ===
-1. **Analyze the PR**: Understand the goal from the description and linked issues.
+1. **Analyze the PR**: Understand the goal from the description and linked issues (if any).
 2. **Review Changes**: Examine the code changes in \`formattedPullRequest\`.
 3. **Apply Context**:
     - Use the **README** to understand the high-level project domain.
     - STRICTLY follow the **STYLE GUIDE** if provided.
     - Use **RELEVANT CODE CHUNKS** to detect inconsistencies, redundant implementations, or broken imports.
 4. **Identify Issues**: Prioritize in this order:
-    - **Core**: Verify that the PR actually solves the linked issue(s).
+    - **Core**: Verify that the PR actually solves the linked issue(s) or fulfills the goal described in the PR's title and description.
     - **Critical**: Security vulnerabilities (SQLi, XSS, etc.), logic bugs, race conditions, broken interfaces.
     - **Important**: Performance bottlenecks (~O(n^2) or worse), poor error handling, missing tests.
     - **Maintainability**: Spaghetti code, poor naming, lack of comments, code duplication.
@@ -411,7 +411,7 @@ New commits have been pushed to this PR since the last review. Your task is to e
 Before producing your final JSON output, reason through the following steps internally:
 
 Step 1 — Understand the PR goal:
-  Examine the PR title, description, and linked issues to clarify what the PR aims to achieve.
+  Examine the PR title, description, and linked issues (if any) to clarify what the PR aims to achieve.
 
 Step 2 — Recall the previous review:
   Read the PREVIOUS DIFF and the PREVIOUS REVIEW SUMMARY.
@@ -463,7 +463,7 @@ ${prData.formattedPullRequest}
 3. Do NOT re-report issues that were fully fixed; DO report issues that are still present or worsened.
 4. Identify any **new** issues introduced by the latest commits.
 5. Prioritise in this order:
-    - **Core**: Does the new diff still make progress towards solving the linked issue(s)?
+    - **Core**: Does the new diff still make progress towards solving the linked issue(s) or fulfilling the PR's stated goals?
     - **Critical**: Security vulnerabilities, logic bugs, race conditions.
     - **Important**: Performance, error handling, missing tests.
     - **Maintainability**: Code clarity, duplication, naming.
