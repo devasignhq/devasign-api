@@ -7,9 +7,9 @@ import { prisma } from "../../config/database.config";
 import { dataLogger } from "../../config/logger.config";
 import { OctokitService } from "../octokit.service";
 
-const authorizedAssociations = ["OWNER", "MEMBER", "COLLABORATOR"];
-
 export class IssueCommentWebhookService {
+    private static readonly AUTHORIZED_ASSOCIATIONS = ["OWNER", "MEMBER", "COLLABORATOR"];
+
     /**
      * Handles issue_comment events.
      * When the comment body is exactly "review" (case-insensitive) and the comment
@@ -47,7 +47,7 @@ export class IssueCommentWebhookService {
             const authorAssociation = comment.author_association;
 
             // A review can be triggered by repo maintainers (OWNER, MEMBER, COLLABORATOR)
-            if (!authorAssociation || !authorizedAssociations.includes(authorAssociation.toUpperCase())) {
+            if (!authorAssociation || !this.AUTHORIZED_ASSOCIATIONS.includes(authorAssociation.toUpperCase())) {
                 dataLogger.info("Review comment ignored: User is not a repo maintainer", {
                     username: comment.user?.login,
                     authorAssociation,
