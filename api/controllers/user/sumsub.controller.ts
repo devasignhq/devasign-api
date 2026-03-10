@@ -4,6 +4,7 @@ import crypto from "crypto-js";
 import { STATUS_CODES } from "../../utilities/data";
 import { responseWrapper } from "../../utilities/helper";
 import { ErrorClass } from "../../models/error.model";
+import { statsigService } from "../../services/statsig.service";
 
 /**
  * Generate Sumsub SDK access token
@@ -11,6 +12,17 @@ import { ErrorClass } from "../../models/error.model";
 export const generateSumsubSdkToken = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const userId = res.locals.userId;
+
+        const requireKyc = await statsigService.checkGate({ userID: userId }, "require_kyc");
+        if (!requireKyc) {
+            return responseWrapper({
+                res,
+                status: STATUS_CODES.SUCCESS,
+                data: null,
+                message: "KYC is currently disabled"
+            });
+        }
+
         const SUMSUB_APP_TOKEN = process.env.SUMSUB_APP_TOKEN!;
         const SUMSUB_SECRET_KEY = process.env.SUMSUB_SECRET_KEY!;
         const SUMSUB_LEVEL_NAME = process.env.SUMSUB_LEVEL_NAME!;

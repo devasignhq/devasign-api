@@ -2,6 +2,7 @@
 import request from "supertest";
 import express from "express";
 import axios from "axios";
+import { statsigService } from "../../../../api/services/statsig.service";
 import { userRoutes } from "../../../../api/routes/user.route";
 import { errorHandler } from "../../../../api/middlewares/error.middleware";
 import { DatabaseTestHelper } from "../../../helpers/database-test-helper";
@@ -15,6 +16,13 @@ jest.mock("../../../../api/config/logger.config", () => ({
         info: jest.fn(),
         warn: jest.fn(),
         error: jest.fn()
+    }
+}));
+
+// Mock Statsig service
+jest.mock("../../../../api/services/statsig.service", () => ({
+    statsigService: {
+        checkGate: jest.fn().mockResolvedValue(true)
     }
 }));
 
@@ -93,6 +101,20 @@ describe("User Sumsub API Integration Tests", () => {
     });
 
     describe(`GET ${getEndpointWithPrefix(["USER", "SUMSUB_TOKEN"])}`, () => {
+        it("should return early with success if require_kyc gate is disabled", async () => {
+            (statsigService.checkGate as jest.Mock).mockResolvedValueOnce(false);
+
+            const response = await request(app)
+                .get(getEndpointWithPrefix(["USER", "SUMSUB_TOKEN"]))
+                .expect(STATUS_CODES.SUCCESS);
+
+            expect(response.body).toMatchObject({
+                data: null,
+                message: "KYC is currently disabled"
+            });
+            expect(mockedAxios.post).not.toHaveBeenCalled();
+        });
+
         it("should generate Sumsub SDK token successfully", async () => {
             const mockSumsubResponse = {
                 token: "mock-sumsub-token",
