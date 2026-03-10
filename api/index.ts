@@ -158,8 +158,7 @@ async function main() {
                 });
 
                 // Shutdown workflow integration service
-                const shutdownWorkflowService = WorkflowIntegrationService.getInstance();
-                await shutdownWorkflowService.shutdown();
+                await workflowService.shutdown();
 
                 // Close database connection
                 await prisma.$disconnect();
