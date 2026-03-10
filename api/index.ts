@@ -27,6 +27,8 @@ import { ErrorHandlerService } from "./services/error-handler.service";
 import { dataLogger, messageLogger } from "./config/logger.config";
 import { ALLOWED_ORIGINS, ENDPOINTS, STATUS_CODES } from "./utilities/data";
 import { ErrorClass } from "./models/error.model";
+import { WorkflowIntegrationService } from "./services/pr-review/workflow-integration.service";
+import { statsigService } from "./services/statsig.service";
 
 const app = express();
 const PORT = process.env.NODE_ENV === "development"
@@ -133,7 +135,6 @@ ErrorHandlerService.initialize().catch(error => {
 // Initialize workflow integration service
 (async () => {
     try {
-        const { WorkflowIntegrationService } = await import("./services/pr-review/workflow-integration.service");
         const workflowService = WorkflowIntegrationService.getInstance();
         await workflowService.initialize();
     } catch (error) {
@@ -145,7 +146,6 @@ ErrorHandlerService.initialize().catch(error => {
 // Initialize Statsig service
 (async () => {
     try {
-        const { statsigService } = await import("./services/statsig.service");
         await statsigService.initialize();
     } catch (error) {
         dataLogger.error("Failed to initialize Statsig Service", { error });
@@ -167,7 +167,6 @@ const gracefulShutdown = async (signal: string) => {
         });
 
         // Shutdown workflow integration service
-        const { WorkflowIntegrationService } = await import("./services/pr-review/workflow-integration.service");
         const workflowService = WorkflowIntegrationService.getInstance();
         await workflowService.shutdown();
 
