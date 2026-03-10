@@ -142,6 +142,16 @@ ErrorHandlerService.initialize().catch(error => {
     }
 })();
 
+// Initialize Statsig service
+(async () => {
+    try {
+        const { statsigService } = await import("./services/statsig.service");
+        await statsigService.initialize();
+    } catch (error) {
+        dataLogger.error("Failed to initialize Statsig Service", { error });
+    }
+})();
+
 const server = app.listen(PORT, "0.0.0.0", () => {
     messageLogger.info(`Server is running on port ${PORT}`);
 });
