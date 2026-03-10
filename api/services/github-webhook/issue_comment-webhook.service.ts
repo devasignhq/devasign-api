@@ -7,6 +7,8 @@ import { prisma } from "../../config/database.config";
 import { dataLogger } from "../../config/logger.config";
 import { OctokitService } from "../octokit.service";
 
+const authorizedAssociations = ["OWNER", "MEMBER", "COLLABORATOR"];
+
 export class IssueCommentWebhookService {
     /**
      * Handles issue_comment events.
@@ -41,22 +43,37 @@ export class IssueCommentWebhookService {
 
             const installationId = installation.id.toString();
 
-            // Check if user is part of the installation
-            const userInstallation = await prisma.installation.findUnique({
-                where: {
-                    id: installationId,
-                    users: { some: { username: comment.user?.login } }
-                },
-                select: { id: true }
-            });
+            // Check if user has permission to trigger a review
+            const authorAssociation = comment.author_association;
 
-            // Return success if user is not part of the installation
-            if (!userInstallation) {
+            // A review can be triggered by repo maintainers (OWNER, MEMBER, COLLABORATOR)
+            if (!authorAssociation || !authorizedAssociations.includes(authorAssociation.toUpperCase())) {
+                dataLogger.info("Review comment ignored: User is not a repo maintainer", {
+                    username: comment.user?.login,
+                    authorAssociation,
+                    prNumber: issue.number
+                });
+
                 return responseWrapper({
                     res,
                     status: STATUS_CODES.SUCCESS,
                     data: {},
-                    message: "User is not part of this installation - skipping"
+                    message: `User is not authorized to trigger review (association: ${authorAssociation}) - skipping`
+                });
+            }
+
+            // Check if installation exists and is active
+            const activeInstallation = await prisma.installation.findUnique({
+                where: { id: installationId },
+                select: { id: true, status: true }
+            });
+
+            if (!activeInstallation || activeInstallation.status !== "ACTIVE") {
+                return responseWrapper({
+                    res,
+                    status: STATUS_CODES.SUCCESS,
+                    data: {},
+                    message: "Installation is not active or not found - skipping"
                 });
             }
 
