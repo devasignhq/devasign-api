@@ -126,61 +126,61 @@ app.use(errorHandler);
 // Database connection
 prisma.$connect();
 
-// Initialize error handling system
-ErrorHandlerService.initialize().catch(error => {
-    dataLogger.error("Failed to initialize error handling system", { error });
-    // Continue startup even if error handling initialization fails
-});
-
-// Initialize workflow integration service
-(async () => {
+async function main() {
     try {
-        const workflowService = WorkflowIntegrationService.getInstance();
-        await workflowService.initialize();
-    } catch (error) {
-        dataLogger.error("Failed to initialize Workflow Integration Service", { error });
-        // Continue startup even if workflow initialization fails
-    }
-})();
-
-// Initialize Statsig service
-(async () => {
-    try {
-        await statsigService.initialize();
-    } catch (error) {
-        dataLogger.error("Failed to initialize Statsig Service", { error });
-    }
-})();
-
-const server = app.listen(PORT, "0.0.0.0", () => {
-    messageLogger.info(`Server is running on port ${PORT}`);
-});
-
-// Graceful shutdown handling
-const gracefulShutdown = async (signal: string) => {
-    messageLogger.info(`${signal} received, starting graceful shutdown...`);
-
-    try {
-        // Stop accepting new connections
-        server.close(() => {
-            messageLogger.info("HTTP server closed");
+        // Await all service initializations sequentially to prevent race conditions
+        await ErrorHandlerService.initialize().catch(error => {
+            dataLogger.error("Failed to initialize error handling system", { error });
         });
 
-        // Shutdown workflow integration service
         const workflowService = WorkflowIntegrationService.getInstance();
-        await workflowService.shutdown();
+        await workflowService.initialize().catch(error => {
+            dataLogger.error("Failed to initialize Workflow Integration Service", { error });
+        });
 
-        // Close database connection
-        await prisma.$disconnect();
-        messageLogger.info("Database connection closed");
+        await statsigService.initialize().catch(error => {
+            dataLogger.error("Failed to initialize Statsig Service", { error });
+        });
 
-        messageLogger.info("Graceful shutdown completed");
-        process.exit(0);
+        // Now start the server
+        const server = app.listen(PORT, "0.0.0.0", () => {
+            messageLogger.info(`Server is running on port ${PORT}`);
+        });
+
+        // Graceful shutdown handling
+        const gracefulShutdown = async (signal: string) => {
+            messageLogger.info(`${signal} received, starting graceful shutdown...`);
+
+            try {
+                // Stop accepting new connections
+                server.close(() => {
+                    messageLogger.info("HTTP server closed");
+                });
+
+                // Shutdown workflow integration service
+                const shutdownWorkflowService = WorkflowIntegrationService.getInstance();
+                await shutdownWorkflowService.shutdown();
+
+                // Close database connection
+                await prisma.$disconnect();
+                messageLogger.info("Database connection closed");
+
+                messageLogger.info("Graceful shutdown completed");
+                process.exit(0);
+            } catch (error) {
+                dataLogger.error("Error during graceful shutdown", { error });
+                process.exit(1);
+            }
+        };
+
+        process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+        process.on("SIGINT", () => gracefulShutdown("SIGINT"));
+
     } catch (error) {
-        dataLogger.error("Error during graceful shutdown", { error });
+        dataLogger.error("Failed to initialize services. Server is shutting down.", { error });
         process.exit(1);
     }
-};
+}
 
-process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
-process.on("SIGINT", () => gracefulShutdown("SIGINT"));
+// Run the server
+main();
