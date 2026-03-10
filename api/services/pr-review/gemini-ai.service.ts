@@ -533,10 +533,10 @@ For 'suggestions', include specific file paths, line numbers, and 'suggestedCode
             // very last ``` so that backtick sequences *inside* field values
             // (e.g. suggestedCode blocks) are left untouched.
             // ----------------------------------------------------------------
-            const fenceMatch = raw.match(/^```(?:json)?\s*\n?([\s\S]*?)\n?```\s*$/);
+            const fenceMatch = raw.match(/```(?:json)?([\s\S]*?)```/);
             if (fenceMatch) {
                 try {
-                    return JSON.parse(fenceMatch[1]) as T;
+                    return JSON.parse(fenceMatch[1].trim()) as T;
                 } catch {
                     // Fell through — try brute-force extraction below
                 }
