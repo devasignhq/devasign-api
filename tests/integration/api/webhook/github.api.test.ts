@@ -1254,6 +1254,7 @@ describe("Webhook API Integration Tests", () => {
                 id: 99,
                 body: "review",
                 user: { login: COMMENTER },
+                author_association: "MEMBER",
                 ...overrides.comment
             },
             repository: {
@@ -1341,7 +1342,7 @@ describe("Webhook API Integration Tests", () => {
         });
 
         it("should be case-insensitive and trim whitespace in 'review' comment", async () => {
-            const payload = createIssueCommentPayload({ comment: { id: 101, body: "  REVIEW  ", user: { login: COMMENTER } } });
+            const payload = createIssueCommentPayload({ comment: { id: 101, body: "  REVIEW  ", user: { login: COMMENTER }, author_association: "MEMBER" } });
             const payloadString = JSON.stringify(payload);
             const signature = createWebhookSignature(payloadString);
 
@@ -1376,7 +1377,7 @@ describe("Webhook API Integration Tests", () => {
         });
 
         it("should skip when comment body is not exactly 'review'", async () => {
-            const payload = createIssueCommentPayload({ comment: { id: 102, body: "lgtm", user: { login: COMMENTER } } });
+            const payload = createIssueCommentPayload({ comment: { id: 102, body: "lgtm", user: { login: COMMENTER }, author_association: "MEMBER" } });
             const payloadString = JSON.stringify(payload);
             const signature = createWebhookSignature(payloadString);
 
@@ -1392,9 +1393,9 @@ describe("Webhook API Integration Tests", () => {
             expect(mockWorkflowService.processWebhookWorkflow).not.toHaveBeenCalled();
         });
 
-        it("should skip when the commenter is not a member of the installation", async () => {
+        it("should skip when the commenter is not an authorized repo maintainer", async () => {
             const payload = createIssueCommentPayload({
-                comment: { id: 103, body: "review", user: { login: "outside-contributor" } }
+                comment: { id: 103, body: "review", user: { login: "outside-contributor" }, author_association: "CONTRIBUTOR" }
             });
             const payloadString = JSON.stringify(payload);
             const signature = createWebhookSignature(payloadString);
@@ -1407,7 +1408,30 @@ describe("Webhook API Integration Tests", () => {
                 .send(payloadString)
                 .expect(STATUS_CODES.SUCCESS);
 
-            expect(response.body.message).toBe("User is not part of this installation - skipping");
+            expect(response.body.message).toBe("User is not authorized to trigger review (association: CONTRIBUTOR) - skipping");
+            expect(mockWorkflowService.processWebhookWorkflow).not.toHaveBeenCalled();
+        });
+
+        it("should skip when the installation is not active", async () => {
+            // Update the prisma installation to be INACTIVE
+            await prisma.installation.update({
+                where: { id: VALID_INSTALLATION_ID },
+                data: { status: "ARCHIVED" }
+            });
+
+            const payload = createIssueCommentPayload({ author_association: "OWNER" });
+            const payloadString = JSON.stringify(payload);
+            const signature = createWebhookSignature(payloadString);
+
+            const response = await request(app)
+                .post(getEndpointWithPrefix(["WEBHOOK", "GITHUB"]))
+                .set("X-GitHub-Event", "issue_comment")
+                .set("X-Hub-Signature-256", signature)
+                .set("Content-Type", "application/json")
+                .send(payloadString)
+                .expect(STATUS_CODES.SUCCESS);
+
+            expect(response.body.message).toBe("Installation is not active or not found - skipping");
             expect(mockWorkflowService.processWebhookWorkflow).not.toHaveBeenCalled();
         });
 

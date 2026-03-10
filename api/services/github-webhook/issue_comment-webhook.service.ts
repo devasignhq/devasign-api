@@ -7,6 +7,8 @@ import { prisma } from "../../config/database.config";
 import { dataLogger } from "../../config/logger.config";
 import { OctokitService } from "../octokit.service";
 
+const authorizedAssociations = ["OWNER", "MEMBER", "COLLABORATOR"];
+
 export class IssueCommentWebhookService {
     /**
      * Handles issue_comment events.
@@ -42,10 +44,9 @@ export class IssueCommentWebhookService {
             const installationId = installation.id.toString();
 
             // Check if user has permission to trigger a review
-            // A review can be triggered by repo maintainers (OWNER, MEMBER, COLLABORATOR)
             const authorAssociation = comment.author_association;
-            const authorizedAssociations = ["OWNER", "MEMBER", "COLLABORATOR"];
 
+            // A review can be triggered by repo maintainers (OWNER, MEMBER, COLLABORATOR)
             if (!authorAssociation || !authorizedAssociations.includes(authorAssociation.toUpperCase())) {
                 dataLogger.info("Review comment ignored: User is not a repo maintainer", {
                     username: comment.user?.login,
