@@ -730,20 +730,18 @@ export class AIReviewCommentService {
     // =========================================================================
 
     private static formatReview(result: ReviewResult): FormattedReview {
-        const header = this.createHeader(result);
         const mergeScoreSection = this.createMergeScoreSection(result);
         const suggestionsSection = this.createSuggestionsSection(result);
         const footer = this.createFooter(result);
 
         const fullComment = [
-            header,
             mergeScoreSection,
             suggestionsSection,
             footer
         ].join("\n\n");
 
         return {
-            header,
+            header: "",
             mergeScoreSection,
             suggestionsSection,
             footer,
@@ -756,66 +754,35 @@ export class AIReviewCommentService {
      * a "follow-up" badge and a previous summary block if available.
      */
     private static formatFollowUpReview(result: ReviewResult): FormattedReview {
-        const emoji = this.getMergeScoreEmoji(result.mergeScore);
-        const status = this.getMergeScoreStatus(result.mergeScore);
         const scoreBar = this.createScoreBar(result.mergeScore);
-        const recommendation = this.getMergeRecommendation(result.mergeScore);
-        const processingTime = result.processingTime ? `${Math.round(result.processingTime / 1000)}s` : "N/A";
-        const timestamp = result.createdAt.toISOString();
 
         const previousSummaryBlock = result.previousSummary
-            ? `<details>\n<summary>📋 Previous Review Summary</summary>\n\n${result.previousSummary}\n\n</details>\n\n`
+            ? `<details>\n<summary>Previous Review Summary</summary>\n\n${result.previousSummary}\n\n</details>\n\n`
             : "";
 
-        const header = `## 🔄 Follow-Up AI Code Review\n\n**Status:** ${status}  \n**Confidence:** ${Math.round(result.confidence * 100)}%\n\n---`;
-
-        const mergeScoreSection = `### ${emoji} Updated Merge Score: ${result.mergeScore}/100\n\n${scoreBar}\n\n**Recommendation:** ${recommendation}\n\n${previousSummaryBlock}${result.summary}`;
+        const mergeScoreSection = `### Updated Merge Score: ${result.mergeScore}/100\n\n${scoreBar}\n\n${previousSummaryBlock}${result.summary}`;
 
         const suggestionsSection = this.createSuggestionsSection(result);
 
-        const footer = `\n\n<details>\n<summary>📊 Review Metadata</summary>\n\n- **Processing Time:** ${processingTime}\n- **Analysis Date:** ${new Date(result.createdAt).toLocaleString()}\n- **Review Type:** Follow-Up (triggered by new push)\n\n</details>\n\n> 🤖 This is a follow-up review generated after new commits were pushed to the PR.\n> \n> 💬 Questions? [Open an issue](https://github.com/devasignhq/devasign-api/issues) or contact support.\n\n<!-- AI-REVIEW-MARKER:${result.installationId}:${result.prNumber}:${timestamp} -->`;
+        const footer = this.createFooter(result);
 
-        const fullComment = [header, mergeScoreSection, suggestionsSection, footer].join("\n\n");
+        const fullComment = [mergeScoreSection, suggestionsSection, footer].join("\n\n");
 
-        return { header, mergeScoreSection, suggestionsSection, footer, fullComment };
-    }
-
-    private static createHeader(result: ReviewResult): string {
-        const emoji = this.getMergeScoreEmoji(result.mergeScore);
-        const status = this.getMergeScoreStatus(result.mergeScore);
-
-        return `## ${emoji} AI Code Review Results
-
-**Status:** ${status}  
-**Confidence:** ${Math.round(result.confidence * 100)}%
-
----`;
+        return { header: "", mergeScoreSection, suggestionsSection, footer, fullComment };
     }
 
     private static createMergeScoreSection(result: ReviewResult): string {
         const scoreBar = this.createScoreBar(result.mergeScore);
-        const recommendation = this.getMergeRecommendation(result.mergeScore);
-        const emoji = this.getMergeScoreEmoji(result.mergeScore);
 
-        return `### ${emoji} Merge Score: ${result.mergeScore}/100
-
-${scoreBar}
-
-**Recommendation:** ${recommendation}
-
-${result.summary}`;
+        return `### Merge Score: ${result.mergeScore}/100\n\n${scoreBar}\n\n${result.summary}`;
     }
 
     private static createSuggestionsSection(result: ReviewResult): string {
         if (result.suggestions.length === 0) {
-            return `### 💡 Code Suggestions
-
-✨ Great job! No specific suggestions at this time.`;
+            return "### Code Suggestions\n\nGreat job! No specific suggestions at this time.";
         }
 
-        let section = `### 💡 Code Suggestions (${result.suggestions.length})
-
-`;
+        let section = `### Code Suggestions (${result.suggestions.length})\n\n`;
 
         // Group suggestions by severity
         const groupedSuggestions = this.groupSuggestionsBySeverity(result.suggestions);
@@ -823,32 +790,19 @@ ${result.summary}`;
         ["high", "medium", "low"].forEach(severity => {
             const suggestions = groupedSuggestions[severity as keyof typeof groupedSuggestions];
             if (suggestions.length > 0) {
-                const severityEmoji = this.getSuggestionSeverityEmoji(severity as "high" | "medium" | "low");
                 const severityLabel = severity.charAt(0).toUpperCase() + severity.slice(1);
 
-                section += `#### ${severityEmoji} ${severityLabel} Priority (${suggestions.length})
-
-`;
+                section += `#### ${severityLabel} Priority (${suggestions.length})\n\n`;
 
                 suggestions.forEach((suggestion, index) => {
-                    const typeEmoji = this.getSuggestionTypeEmoji(suggestion.type);
                     const fileLabel = suggestion.file
                         ? `**${suggestion.file}**${suggestion.lineNumber ? ` (Line ${suggestion.lineNumber})` : ""}`
                         : "**General**";
 
-                    section += `
-${index + 1}. ${fileLabel}
-${typeEmoji} ${suggestion.description}
-
-💭 **Reasoning:** ${suggestion.reasoning}`;
+                    section += `${index + 1}. ${fileLabel}\n${suggestion.description}\n\n**Reasoning:** ${suggestion.reasoning}`;
 
                     if (suggestion.suggestedCode) {
-                        section += `
-
-**Suggested Code:**
-\`\`\`${suggestion.language ?? ""}
-${suggestion.suggestedCode}
-\`\`\``;
+                        section += `\n\n**Suggested Code:**\n\`\`\`${suggestion.language ?? ""}\n${suggestion.suggestedCode}\n\`\`\``;
                     }
 
                     section += "\n\n";
@@ -856,16 +810,14 @@ ${suggestion.suggestedCode}
             }
         });
 
-        return section;
+        return section.trim();
     }
 
     private static createFooter(result: ReviewResult): string {
         const processingTime = result.processingTime ? `${Math.round(result.processingTime / 1000)}s` : "N/A";
         const timestamp = result.createdAt.toISOString();
 
-        return `
-
-<details>
+        return `<details>
 <summary>📊 Review Metadata</summary>
 
 - **Processing Time:** ${processingTime}
@@ -893,51 +845,6 @@ ${suggestion.suggestedCode}
         if (score >= 85) color = "🟢"; // Green for high scores
 
         return `${color} \`${filled}${empty}\` ${score}%`;
-    }
-
-    private static getMergeScoreEmoji(score: number): string {
-        if (score >= 85) return "🟢";
-        if (score >= 70) return "🟡";
-        if (score >= 50) return "🟠";
-        return "🔴";
-    }
-
-    private static getMergeScoreStatus(score: number): string {
-        if (score >= 85) return "Ready to Merge";
-        if (score >= 70) return "Review Recommended";
-        if (score >= 50) return "Changes Needed";
-        return "Major Issues Found";
-    }
-
-    private static getMergeRecommendation(score: number): string {
-        if (score >= 85) {
-            return "✅ This PR looks great and is ready for merge!";
-        } else if (score >= 70) {
-            return "⚠️ This PR is mostly good but could benefit from some improvements before merging.";
-        } else if (score >= 50) {
-            return "❌ This PR needs significant improvements before it should be merged.";
-        } else {
-            return "🚫 This PR has major issues that must be addressed before merging.";
-        }
-    }
-
-    private static getSuggestionSeverityEmoji(severity: "high" | "medium" | "low"): string {
-        switch (severity) {
-            case "high": return "🔴";
-            case "medium": return "🟡";
-            case "low": return "🔵";
-            default: return "⚪";
-        }
-    }
-
-    private static getSuggestionTypeEmoji(type: string): string {
-        switch (type) {
-            case "fix": return "🔧";
-            case "improvement": return "✨";
-            case "optimization": return "⚡";
-            case "style": return "🎨";
-            default: return "💡";
-        }
     }
 
     private static groupSuggestionsBySeverity(suggestions: CodeSuggestion[]): {
@@ -971,13 +878,7 @@ ${suggestion.suggestedCode}
     }
 
     private static isAIReviewComment(commentBody: string): boolean {
-        return commentBody.includes("<!-- AI-REVIEW-MARKER:") &&
-            (commentBody.includes("## 🔍 PR Review In Progress") ||
-                commentBody.includes("## 🤖 PR Review Results") ||
-                commentBody.includes("## 🟢 PR Review Results") ||
-                commentBody.includes("## 🟡 PR Review Results") ||
-                commentBody.includes("## 🟠 PR Review Results") ||
-                commentBody.includes("## 🔴 PR Review Results"));
+        return commentBody.includes("<!-- AI-REVIEW-MARKER:");
     }
 
     private static formatInProgressComment(
@@ -986,7 +887,7 @@ ${suggestion.suggestedCode}
     ): string {
         const timestamp = new Date().toISOString();
 
-        return `## 🔍 PR Review In Progress
+        return `## PR Review In Progress
 
 ---
 
@@ -995,9 +896,9 @@ This comment will be updated automatically once the analysis is complete.
 
 ### What's happening?
 
-- 🔎 Analysing the diff and changed files
-- 🧠 Evaluating code quality, patterns, and potential issues
-- 📝 Generating actionable suggestions
+- Analysing the diff and changed files
+- Evaluating code quality, patterns, and potential issues
+- Generating actionable suggestions
 
 > ⏳ This usually takes a minute or two. Please hang tight!
 
@@ -1014,7 +915,7 @@ This comment will be updated automatically once the analysis is complete.
     ): string {
         const timestamp = new Date().toISOString();
 
-        return `## 🔄 Follow-Up Review In Progress
+        return `## Follow-Up Review In Progress
 
 ---
 
@@ -1023,9 +924,9 @@ A follow-up review has been triggered and is currently running.
 
 ### What's happening?
 
-- 🔎 Comparing new changes against the previous review
-- 🧠 Checking whether earlier concerns were addressed
-- 📝 Identifying any new issues introduced by the latest push
+- Comparing new changes against the previous review
+- Checking whether earlier concerns were addressed
+- Identifying any new issues introduced by the latest push
 
 > ⏳ This usually takes a minute or two. Please hang tight!
 
@@ -1056,12 +957,6 @@ ${error}
 1. **Manual Review:** Please proceed with manual code review
 2. **Retry:** A review can be triggered by the repo maintainer commenting 'review'
 3. **Support:** If this error persists, please contact support
-
----
-
-> 🤖 This is an automated error message from the PR review system.
-> 
-> 💬 Need help? [Open an issue](https://github.com/devasign/issues) or contact support.
 
 <!-- AI-REVIEW-MARKER:${installationId}:${prNumber}:${timestamp} -->`;
     }
