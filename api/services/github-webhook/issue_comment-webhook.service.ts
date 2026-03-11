@@ -433,11 +433,21 @@ export class IssueCommentWebhookService {
                             amount
                         );
                     } catch (error) {
-                        // If escrow creation fails, log, post failure comment and return
+                        // If escrow creation fails, log, rollback task creation and post failure comment
                         dataLogger.error(
                             "Failed to create escrow on smart contract",
                             { issueId: issue.id, installationId, error }
                         );
+
+                        try {
+                            await prisma.task.delete({ where: { id: task.id } });
+                        } catch (error) {
+                            dataLogger.error(
+                                "Failed to rollback task creation",
+                                { taskId: task.id, installationId, issueId: issue.id, error }
+                            );
+                        }
+                        
                         await this.bountyFailureComment(installationId, repository.full_name, issue.number);
                         return;
                     }

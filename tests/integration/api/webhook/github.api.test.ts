@@ -47,7 +47,8 @@ jest.mock("../../../../api/services/octokit.service", () => ({
         getBountyLabel: jest.fn().mockResolvedValue({ id: "mock-label-id" }),
         createBountyLabels: jest.fn().mockResolvedValue([{ name: "💵 Bounty", id: "mock-label-id" }]),
         customBountyMessage: jest.fn().mockReturnValue("mock-bounty-message"),
-        addBountyLabelAndCreateBountyComment: jest.fn().mockResolvedValue({ id: "mock-comment-id" })
+        addBountyLabelAndCreateBountyComment: jest.fn().mockResolvedValue({ id: "mock-comment-id" }),
+        createComment: jest.fn()
     }
 }));
 
@@ -135,7 +136,12 @@ describe("Webhook API Integration Tests", () => {
             getOctokit: jest.fn(),
             getOwnerAndRepo: jest.fn(),
             getDefaultBranch: jest.fn(),
-            removeBountyLabelAndDeleteBountyComment: jest.fn()
+            removeBountyLabelAndDeleteBountyComment: jest.fn(),
+            getBountyLabel: jest.fn().mockResolvedValue({ id: "mock-label-id" }),
+            createBountyLabels: jest.fn().mockResolvedValue([{ name: "💵 Bounty", id: "mock-label-id" }]),
+            customBountyMessage: jest.fn().mockReturnValue("mock-bounty-message"),
+            addBountyLabelAndCreateBountyComment: jest.fn().mockResolvedValue({ id: "mock-comment-id" }),
+            createComment: jest.fn()
         };
         Object.assign(OctokitService, mockOctokitService);
 
@@ -929,7 +935,7 @@ describe("Webhook API Integration Tests", () => {
             });
 
             it("should handle contributor without wallet address", async () => {
-            // Create user without wallet
+                // Create user without wallet
                 const userWithoutWallet = TestDataFactory.user({
                     userId: "no-wallet-user",
                     username: "no-wallet-user"
@@ -1024,7 +1030,7 @@ describe("Webhook API Integration Tests", () => {
             });
         });
     });
-    
+
     describe(`POST ${getEndpointWithPrefix(["WEBHOOK", "GITHUB"])} - Issue Comment Events`, () => {
         const COMMENTER = "test-member";
         const PR_NUMBER = 42;
@@ -1220,7 +1226,7 @@ describe("Webhook API Integration Tests", () => {
             });
 
             it("should skip when the installation is not active", async () => {
-            // Update the prisma installation to be INACTIVE
+                // Update the prisma installation to be INACTIVE
                 await prisma.installation.update({
                     where: { id: VALID_INSTALLATION_ID },
                     data: { status: "ARCHIVED" }
@@ -1312,7 +1318,7 @@ describe("Webhook API Integration Tests", () => {
             });
 
             it("should skip non-created/edited comment actions (e.g. deleted)", async () => {
-            // The middleware should reject 'deleted' before it reaches the controller
+                // The middleware should reject 'deleted' before it reaches the controller
                 const payload = createIssueCommentPayload({ action: "deleted" });
                 const payloadString = JSON.stringify(payload);
                 const signature = createWebhookSignature(payloadString);
@@ -1527,6 +1533,227 @@ describe("Webhook API Integration Tests", () => {
                 await prisma.installation.update({
                     where: { id: VALID_INSTALLATION_ID },
                     data: { status: "ACTIVE" }
+                });
+            });
+
+            describe("Asynchronous Background Processing", () => {
+                const waitFor = async (condition: () => Promise<boolean>, timeout: number = 3000) => {
+                    const start = Date.now();
+                    while (Date.now() - start < timeout) {
+                        if (await condition()) return true;
+                        await new Promise(resolve => setTimeout(resolve, 50));
+                    }
+                    return false;
+                };
+
+                let OctokitServiceMock: any;
+                let stellarServiceMock: any;
+
+                beforeAll(async () => {
+                    const { OctokitService } = await import("../../../../api/services/octokit.service");
+                    OctokitServiceMock = OctokitService;
+                    const { stellarService } = await import("../../../../api/services/stellar.service");
+                    stellarServiceMock = stellarService;
+                });
+
+                beforeEach(() => {
+                    jest.clearAllMocks();
+                    stellarServiceMock.getAccountInfo.mockResolvedValue({ balances: [{ asset_code: "USDC", balance: "1000" }] });
+                    mockContractService.createEscrow.mockResolvedValue({
+                        txHash: "mock-tx-hash",
+                        result: { createdAt: (Date.now() / 1000).toString() }
+                    });
+                    OctokitServiceMock.getBountyLabel.mockResolvedValue({ id: "mock-label-id" });
+                    OctokitServiceMock.addBountyLabelAndCreateBountyComment.mockResolvedValue({ id: "mock-comment-id" });
+                    OctokitServiceMock.createComment.mockResolvedValue({ id: "mock-failure-comment-id" });
+                });
+
+                it("should successfully create bounty task, escrow, and comments", async () => {
+                    const payload = createIssueCommentPayload({
+                        issue: { number: PR_NUMBER + 1, title: "A plain issue", state: "open", node_id: "node_id_123", html_url: `https://github.com/test/repo/issues/${PR_NUMBER + 1}` },
+                        comment: { id: 200, body: "/bounty $300 2 days", user: { login: COMMENTER }, author_association: "MEMBER" }
+                    });
+                    delete payload.issue.pull_request;
+
+                    const payloadString = JSON.stringify(payload);
+                    const signature = createWebhookSignature(payloadString);
+
+                    const response = await request(app)
+                        .post(getEndpointWithPrefix(["WEBHOOK", "GITHUB"]))
+                        .set("X-GitHub-Event", "issue_comment")
+                        .set("X-Hub-Signature-256", signature)
+                        .set("Content-Type", "application/json")
+                        .send(payloadString)
+                        .expect(STATUS_CODES.SUCCESS);
+
+                    expect(response.body.message).toBe("Bounty comment recognized - processing in background");
+
+                    const backgroundTaskFinished = await waitFor(async () => {
+                        const task = await prisma.task.findFirst({
+                            where: { issue: { path: ["number"], equals: PR_NUMBER + 1 } }
+                        });
+                        return task?.status === "OPEN";
+                    });
+
+                    expect(backgroundTaskFinished).toBe(true);
+
+                    const task = await prisma.task.findFirst({
+                        where: { issue: { path: ["number"], equals: PR_NUMBER + 1 } }
+                    });
+                    expect(task).toBeDefined();
+                    expect(task?.bounty).toBe(300);
+                    expect(task?.timeline).toBe(2);
+
+                    const transaction = await prisma.transaction.findFirst({
+                        where: { taskId: task?.id }
+                    });
+                    expect(transaction).toBeDefined();
+                    expect(transaction?.amount).toBe(300);
+
+                    expect(mockContractService.createEscrow).toHaveBeenCalledWith(
+                        expect.any(String),
+                        task?.id,
+                        expect.any(String),
+                        300
+                    );
+
+                    expect(OctokitServiceMock.addBountyLabelAndCreateBountyComment).toHaveBeenCalledWith(
+                        expect.any(String),
+                        expect.any(String),
+                        "mock-label-id",
+                        "mock-bounty-message"
+                    );
+                });
+
+                it("should fail background processing and post comment if insufficient USDC balance", async () => {
+                    stellarServiceMock.getAccountInfo.mockResolvedValueOnce({ balances: [{ asset_code: "USDC", balance: "10" }] }); // 10 is < 300
+
+                    const payload = createIssueCommentPayload({
+                        issue: { number: PR_NUMBER + 2, title: "A plain issue", state: "open", node_id: "node_id_123", html_url: `https://github.com/test/repo/issues/${PR_NUMBER + 2}` },
+                        comment: { id: 201, body: "/bounty $300 2 days", user: { login: COMMENTER }, author_association: "MEMBER" }
+                    });
+                    delete payload.issue.pull_request;
+
+                    const payloadString = JSON.stringify(payload);
+                    const signature = createWebhookSignature(payloadString);
+
+                    await request(app)
+                        .post(getEndpointWithPrefix(["WEBHOOK", "GITHUB"]))
+                        .set("X-GitHub-Event", "issue_comment")
+                        .set("X-Hub-Signature-256", signature)
+                        .set("Content-Type", "application/json")
+                        .send(payloadString)
+                        .expect(STATUS_CODES.SUCCESS);
+
+                    const failureCommentCalled = await waitFor(async () => {
+                        return OctokitServiceMock.createComment.mock.calls.length > 0;
+                    });
+                    expect(failureCommentCalled).toBe(true);
+                    expect(OctokitServiceMock.createComment).toHaveBeenCalledWith(
+                        expect.any(String),
+                        VALID_REPO_NAME,
+                        PR_NUMBER + 2,
+                        "Your USDC balance is insufficient to create this bounty"
+                    );
+                });
+
+                it("should handle failure getting or creating bounty label", async () => {
+                    OctokitServiceMock.getBountyLabel.mockRejectedValueOnce(new Error("Not found"));
+                    OctokitServiceMock.createBountyLabels.mockResolvedValueOnce([]); // No bounty label created
+
+                    const payload = createIssueCommentPayload({
+                        issue: { number: PR_NUMBER + 3, title: "A plain issue", state: "open", node_id: "node_id_123", html_url: `https://github.com/test/repo/issues/${PR_NUMBER + 3}` },
+                        comment: { id: 202, body: "/bounty $300 2 days", user: { login: COMMENTER }, author_association: "MEMBER" }
+                    });
+                    delete payload.issue.pull_request;
+
+                    const payloadString = JSON.stringify(payload);
+                    const signature = createWebhookSignature(payloadString);
+
+                    await request(app)
+                        .post(getEndpointWithPrefix(["WEBHOOK", "GITHUB"]))
+                        .set("X-GitHub-Event", "issue_comment")
+                        .set("X-Hub-Signature-256", signature)
+                        .set("Content-Type", "application/json")
+                        .send(payloadString)
+                        .expect(STATUS_CODES.SUCCESS);
+
+                    const failureCommentCalled = await waitFor(async () => {
+                        return OctokitServiceMock.createComment.mock.calls.length > 0;
+                    });
+                    expect(failureCommentCalled).toBe(true);
+                    expect(OctokitServiceMock.createComment).toHaveBeenCalledWith(
+                        expect.any(String),
+                        VALID_REPO_NAME,
+                        PR_NUMBER + 3,
+                        expect.any(String)
+                    );
+                });
+
+                it("should handle failure in escrow creation and rollback task", async () => {
+                    mockContractService.createEscrow.mockRejectedValueOnce(new Error("Contract error"));
+
+                    const payload = createIssueCommentPayload({
+                        issue: { number: PR_NUMBER + 4, title: "A plain issue", state: "open", node_id: "node_id_123", html_url: `https://github.com/test/repo/issues/${PR_NUMBER + 4}` },
+                        comment: { id: 203, body: "/bounty $300 2 days", user: { login: COMMENTER }, author_association: "MEMBER" }
+                    });
+                    delete payload.issue.pull_request;
+
+                    const payloadString = JSON.stringify(payload);
+                    const signature = createWebhookSignature(payloadString);
+
+                    await request(app)
+                        .post(getEndpointWithPrefix(["WEBHOOK", "GITHUB"]))
+                        .set("X-GitHub-Event", "issue_comment")
+                        .set("X-Hub-Signature-256", signature)
+                        .set("Content-Type", "application/json")
+                        .send(payloadString)
+                        .expect(STATUS_CODES.SUCCESS);
+
+                    const failureCommentCalled = await waitFor(async () => {
+                        return OctokitServiceMock.createComment.mock.calls.length > 0;
+                    });
+                    expect(failureCommentCalled).toBe(true);
+
+                    // Allow time for rollback to complete
+                    await new Promise(resolve => setTimeout(resolve, 100));
+
+                    const task = await prisma.task.findFirst({
+                        where: { issue: { path: ["number"], equals: PR_NUMBER + 4 } }
+                    });
+                    expect(task).toBeNull();
+                });
+
+                it("should handle failure when adding bounty label on issue", async () => {
+                    OctokitServiceMock.addBountyLabelAndCreateBountyComment.mockRejectedValueOnce(new Error("Octokit error"));
+
+                    const payload = createIssueCommentPayload({
+                        issue: { number: PR_NUMBER + 5, title: "A plain issue", state: "open", node_id: "node_id_123", html_url: `https://github.com/test/repo/issues/${PR_NUMBER + 5}` },
+                        comment: { id: 204, body: "/bounty $300 2 days", user: { login: COMMENTER }, author_association: "MEMBER" }
+                    });
+                    delete payload.issue.pull_request;
+
+                    const payloadString = JSON.stringify(payload);
+                    const signature = createWebhookSignature(payloadString);
+
+                    await request(app)
+                        .post(getEndpointWithPrefix(["WEBHOOK", "GITHUB"]))
+                        .set("X-GitHub-Event", "issue_comment")
+                        .set("X-Hub-Signature-256", signature)
+                        .set("Content-Type", "application/json")
+                        .send(payloadString)
+                        .expect(STATUS_CODES.SUCCESS);
+
+                    const failureCommentCalled = await waitFor(async () => {
+                        return OctokitServiceMock.createComment.mock.calls.length > 0;
+                    });
+                    expect(failureCommentCalled).toBe(true);
+                    expect(OctokitServiceMock.createComment).toHaveBeenCalledWith(
+                        expect.any(String),
+                        VALID_REPO_NAME,
+                        PR_NUMBER + 5,
+                        "Bounty was created but there was an issue while posting the bounty comment or adding the bounty label on issue"
+                    );
                 });
             });
         });
