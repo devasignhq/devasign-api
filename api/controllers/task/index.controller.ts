@@ -16,7 +16,7 @@ import {
 import { FirebaseService } from "../../services/firebase.service";
 import { ContractService } from "../../services/contract.service";
 import { KMSService } from "../../services/kms.service";
-import { dataLogger, messageLogger } from "../../config/logger.config";
+import { dataLogger } from "../../config/logger.config";
 
 type USDCBalance = HorizonApi.BalanceLineAsset<"credit_alphanum12">;
 
@@ -39,12 +39,15 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
     try {
         // Get installation and verify it exists
         const installation = await prisma.installation.findUnique({
-            where: { id: payload.installationId },
+            where: { 
+                id: payload.installationId, 
+                users: { some: { userId } } 
+            },
             select: { wallet: true, status: true }
         });
 
         if (!installation) {
-            throw new NotFoundError("Installation not found");
+            throw new NotFoundError("Installation not found or user is not a member of the installation");
         }
 
         // Check if installation is archived
@@ -117,8 +120,20 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
                 parseFloat(payload.bounty)
             );
         } catch (error) {
-            // If escrow creation fails, log and throw error
-            messageLogger.error("Failed to create escrow on smart contract");
+            // If escrow creation fails, log, rollback task creation and throw error
+            dataLogger.error(
+                "Failed to create escrow on smart contract", 
+                { issueId: payload.issue.id, installationId }
+            );
+
+            try {
+                await prisma.task.delete({ where: { id: task.id } });
+            } catch (error) {
+                dataLogger.error(
+                    "Failed to rollback task creation", 
+                    { taskId: task.id, installationId, issueId: payload.issue.id, error }
+                );
+            }
 
             if (error instanceof EscrowContractError) {
                 throw error;
@@ -163,7 +178,7 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
             });
 
         const [updatedTask] = await prisma.$transaction([
-            // Update task with bounty comment id
+            // Update task status and issue bindings with bounty comment id
             prisma.task.update({
                 where: { id: task.id },
                 data: {
@@ -411,13 +426,13 @@ export const deleteTask = async (req: Request, res: Response, next: NextFunction
         if (!task) {
             throw new NotFoundError("Task not found");
         }
-        // Check if installation is archived
-        if (task.installation.status === "ARCHIVED") {
-            throw new ValidationError("Cannot delete task for an archived installation");
-        }
         // Verify user is the creator
         if (task.creatorId !== userId) {
             throw new AuthorizationError("Only task creator can perform this action");
+        }
+        // Check if installation is archived
+        if (task.installation.status === "ARCHIVED") {
+            throw new ValidationError("Cannot delete task for an archived installation");
         }
         // Verify task is still open
         if (task.status !== "OPEN") {
