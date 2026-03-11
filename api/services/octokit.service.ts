@@ -1538,4 +1538,64 @@ ${accepted ? "**This bounty has already been assigned.**" : `**To work on this t
         // Return the complete results object with all file contents or nulls
         return results;
     }
+
+    /**
+     * Create a comment on an issue or pull request
+     * @param installationId - The ID of the installation
+     * @param repositoryName - The name of the repository (e.g. "owner/repo")
+     * @param issueNumber - The number of the issue or pull request
+     * @param body - The body of the comment
+     * @returns The created comment data
+     */
+    static async createComment(
+        installationId: string,
+        repositoryName: string,
+        issueNumber: number,
+        body: string
+    ) {
+        // Get authenticated Octokit instance
+        const octokit = await this.getOctokit(installationId);
+        // Extract owner and repo name from URL
+        const [owner, repo] = this.getOwnerAndRepo(repositoryName);
+
+        // Create comment on issue
+        const response = await octokit.rest.issues.createComment({
+            owner,
+            repo,
+            issue_number: issueNumber,
+            body
+        });
+
+        return response.data;
+    }
+
+    /**
+     * Update an existing comment
+     * @param installationId - The ID of the installation
+     * @param repositoryName - The name of the repository (e.g. "owner/repo")
+     * @param commentId - The ID of the comment to update
+     * @param body - The text of the new comment
+     * @returns The updated comment data
+     */
+    static async updateComment(
+        installationId: string,
+        repositoryName: string,
+        commentId: number | string,
+        body: string
+    ) {
+        // Get authenticated Octokit instance
+        const octokit = await this.getOctokit(installationId);
+        // Extract owner and repo name from URL
+        const [owner, repo] = this.getOwnerAndRepo(repositoryName);
+
+        // Update comment
+        const response = await octokit.rest.issues.updateComment({
+            owner,
+            repo,
+            comment_id: typeof commentId === "string" ? parseInt(commentId, 10) : commentId,
+            body
+        });
+
+        return response.data;
+    }
 }

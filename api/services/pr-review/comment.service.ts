@@ -444,37 +444,21 @@ export class AIReviewCommentService {
         body: string
     ): Promise<string> {
         try {
-            const comment = await this.callGitHubAPI(installationId, async (octokit) => {
-                // Get the owner and repo from the repository name
-                const [owner, repo] = OctokitService.getOwnerAndRepo(repositoryName);
-
-                // Create the comment
-                const response = await octokit.rest.issues.createComment({
-                    owner,
-                    repo,
-                    issue_number: prNumber,
-                    body
-                });
-
-                return response.data;
-            });
-
-            return comment.id.toString();
-
-        } catch (error) {
-            throw new GitHubAPIError(
-                `Failed to create comment on PR #${prNumber} in ${repositoryName}`,
-                {
-                    installationId,
-                    repositoryName,
-                    prNumber,
-                    bodyLength: body.length,
-                    originalError: getFieldFromUnknownObject<string>(error, "message"),
-                    operation: "createComment"
-                },
-                getFieldFromUnknownObject<number>(error, "status") || 500,
-                getFieldFromUnknownObject<number>(error, "rateLimitRemaining") || 0
+            const comment = await OctokitService.createComment(
+                installationId,
+                repositoryName,
+                prNumber,
+                body
             );
+            return comment.id.toString();
+        } catch (error) {
+            dataLogger.error("Failed to post comment", {
+                installationId,
+                repositoryName,
+                prNumber,
+                error
+            });
+            throw new Error(`Failed to post comment on PR #${prNumber}: ${error instanceof Error ? error.message : String(error)}`);
         }
     }
 
@@ -485,33 +469,20 @@ export class AIReviewCommentService {
         body: string
     ): Promise<void> {
         try {
-            await this.callGitHubAPI(installationId, async (octokit) => {
-                // Get the owner and repo from the repository name
-                const [owner, repo] = OctokitService.getOwnerAndRepo(repositoryName);
-
-                // Update the comment
-                await octokit.rest.issues.updateComment({
-                    owner,
-                    repo,
-                    comment_id: parseInt(commentId),
-                    body
-                });
-            });
-
-        } catch (error) {
-            throw new GitHubAPIError(
-                `Failed to update comment ${commentId} in ${repositoryName}`,
-                {
-                    installationId,
-                    repositoryName,
-                    commentId,
-                    bodyLength: body.length,
-                    originalError: getFieldFromUnknownObject<string>(error, "message"),
-                    operation: "updateComment"
-                },
-                getFieldFromUnknownObject<number>(error, "status") || 500,
-                getFieldFromUnknownObject<number>(error, "rateLimitRemaining") || 0
+            await OctokitService.updateComment(
+                installationId,
+                repositoryName,
+                commentId,
+                body
             );
+        } catch (error) {
+            dataLogger.error("Failed to update comment", {
+                installationId,
+                repositoryName,
+                commentId,
+                error
+            });
+            throw new Error(`Failed to update comment ${commentId}: ${error instanceof Error ? error.message : String(error)}`);
         }
     }
 

@@ -122,6 +122,7 @@ export class InstallationWebhookService {
                 const indexingService = new IndexingService();
                 try {
                     await indexingService.clearInstallationData(installationId);
+                    dataLogger.info(`Cleared indexing data for installation ${installationId}`);
                 } catch (error) {
                     dataLogger.warn(
                         `Failed to clear indexed data for installation ${installationId}:`, 
