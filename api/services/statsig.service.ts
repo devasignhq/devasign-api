@@ -13,10 +13,10 @@ class StatsigService {
     public async initialize() {
         if (this.isInitialized) return;
 
-        // Check if STATSIG_SERVER_SECRET is set
-        const serverSecret = process.env.STATSIG_SERVER_SECRET;
+        // Check if STATSIG_API_KEY is set
+        const serverSecret = process.env.STATSIG_API_KEY;
         if (!serverSecret) {
-            dataLogger.warn("STATSIG_SERVER_SECRET is not set. Statsig will not be initialized.");
+            dataLogger.warn("STATSIG_API_KEY is not set. Statsig will not be initialized.");
             return;
         }
 

@@ -48,16 +48,17 @@ import { ENDPOINTS } from "../utilities/data";
 import { validateRequestParameters } from "../middlewares/request.middleware";
 
 export const taskRoutes = Router();
+export const publicTaskRoutes = Router();
 
 // Get all tasks
-taskRoutes.get(
+publicTaskRoutes.get(
     ENDPOINTS.TASK.GET_ALL,
     validateRequestParameters(getTasksSchema),
     getTasks as RequestHandler
 );
 
 // Get a specific task
-taskRoutes.get(
+publicTaskRoutes.get(
     ENDPOINTS.TASK.GET_BY_ID,
     validateRequestParameters(getTaskSchema),
     getTask as RequestHandler

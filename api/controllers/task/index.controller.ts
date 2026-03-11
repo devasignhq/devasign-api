@@ -178,7 +178,7 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
             });
 
         const [updatedTask] = await prisma.$transaction([
-            // Update task status and issue bindings with bounty comment id
+            // Update task status, escrow transaction hash and issue bindings with bounty comment id
             prisma.task.update({
                 where: { id: task.id },
                 data: {
@@ -322,7 +322,8 @@ export const getTasks = async (req: Request, res: Response, next: NextFunction) 
                             userId: true,
                             username: true
                         }
-                    }
+                    },
+                    escrowTransactions: true
                 } : {})
             },
             orderBy: {
@@ -379,6 +380,7 @@ export const getTask = async (req: Request, res: Response, next: NextFunction) =
                         username: true
                     }
                 },
+                escrowTransactions: true,
                 createdAt: true,
                 updatedAt: true
             }

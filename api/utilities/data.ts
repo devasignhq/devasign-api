@@ -47,6 +47,9 @@ export const STATUS_CODES = {
  * API endpoint definitions
  */
 export const ENDPOINTS = {
+    /** Public endpoints (no authentication required) */
+    PUBLIC_PREFIX: "/public",
+
     /** User management endpoints */
     USER: {
         PREFIX: "/users",
@@ -59,6 +62,7 @@ export const ENDPOINTS = {
         /** POST /sumsub-token - Generate Sumsub SDK access token */
         SUMSUB_TOKEN: "/sumsub-token"
     },
+
     /** Installation management endpoints */
     INSTALLATION: {
         PREFIX: "/installations",
@@ -95,6 +99,7 @@ export const ENDPOINTS = {
             ANALYZE_PR: "/github/:installationId/analyze-pr"
         }
     },
+
     /** Task management endpoints */
     TASK: {
         PREFIX: "/tasks",
@@ -149,6 +154,7 @@ export const ENDPOINTS = {
             MARK_VIEWED: "/activities/:taskActivityId/viewed"
         }
     },
+
     /** Wallet and payment endpoints */
     WALLET: {
         PREFIX: "/wallet",
@@ -168,6 +174,7 @@ export const ENDPOINTS = {
             RECORD_TOPUPS: "/transactions/record-topups"
         }
     },
+
     /** Webhook endpoints */
     WEBHOOK: {
         PREFIX: "/webhook",
@@ -176,6 +183,7 @@ export const ENDPOINTS = {
         /** POST /sumsub - Sumsub webhook events */
         SUMSUB: "/sumsub"
     },
+    
     /** Administrative endpoints */
     ADMIN: {
         PREFIX: "/admin",
