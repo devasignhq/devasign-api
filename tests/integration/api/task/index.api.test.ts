@@ -176,7 +176,7 @@ describe("Task API Integration Tests", () => {
         beforeEach(async () => {
             // Create test user
             testUser = TestDataFactory.user({ userId: "task-creator-user" });
-            await prisma.user.create({
+            testUser = await prisma.user.create({
                 data: {
                     ...testUser,
                     contributionSummary: { create: {} }
@@ -187,10 +187,13 @@ describe("Task API Integration Tests", () => {
             testInstallation = TestDataFactory.installation({
                 id: "12345678"
             });
-            await prisma.installation.create({
+            testInstallation = await prisma.installation.create({
                 data: {
                     ...testInstallation,
-                    wallet: TestDataFactory.createWalletRelation()
+                    wallet: TestDataFactory.createWalletRelation(),
+                    users: {
+                        connect: { userId: "task-creator-user" }
+                    }
                 }
             });
         });
@@ -233,8 +236,6 @@ describe("Task API Integration Tests", () => {
             expect(mockContractService.createEscrow).toHaveBeenCalledTimes(1);
             expect(mockOctokitService.addBountyLabelAndCreateBountyComment).toHaveBeenCalledTimes(1);
         });
-
-
 
         it("should return error when installation not found", async () => {
             const taskData = {
@@ -332,6 +333,96 @@ describe("Task API Integration Tests", () => {
                 .expect(STATUS_CODES.SERVER_ERROR);
 
             expect(response.body.message).toBe("Cannot create task for an archived installation");
+        });
+
+        it("should return error when installation wallet not found", async () => {
+            const noWalletInstallation = TestDataFactory.installation({
+                id: "87654321"
+            });
+            await prisma.installation.create({
+                data: {
+                    ...noWalletInstallation,
+                    users: {
+                        connect: { userId: "task-creator-user" }
+                    }
+                }
+            });
+
+            const taskData = {
+                payload: {
+                    installationId: noWalletInstallation.id,
+                    bountyLabelId: "label-123",
+                    bounty: "100",
+                    timeline: 7,
+                    issue: TestDataFactory.githubIssue()
+                }
+            };
+
+            const response = await request(app)
+                .post(getEndpointWithPrefix(["TASK", "CREATE"]))
+                .set("x-test-user-id", "task-creator-user")
+                .send(taskData)
+                .expect(STATUS_CODES.SERVER_ERROR);
+
+            expect(response.body.message).toBe("Installation wallet not found");
+        });
+
+        it("should return error when USDC trustline not found", async () => {
+            mockStellarService.getAccountInfo.mockResolvedValue({
+                balances: [
+                    {
+                        asset_code: "XLM",
+                        balance: "1000.0000000"
+                    }
+                ]
+            });
+
+            const taskData = {
+                payload: {
+                    installationId: testInstallation.id,
+                    bountyLabelId: "label-123",
+                    bounty: "100",
+                    timeline: 7,
+                    issue: TestDataFactory.githubIssue()
+                }
+            };
+
+            const response = await request(app)
+                .post(getEndpointWithPrefix(["TASK", "CREATE"]))
+                .set("x-test-user-id", "task-creator-user")
+                .send(taskData)
+                .expect(STATUS_CODES.SERVER_ERROR);
+
+            expect(response.body.message).toBe("USDC trustline not found");
+        });
+
+        it("should handle escrow creation failure", async () => {
+            const { EscrowContractError } = await import("../../../../api/models/error.model");
+            mockContractService.createEscrow.mockRejectedValue(
+                new EscrowContractError("Failed to create escrow on smart contract")
+            );
+
+            const taskData = {
+                payload: {
+                    installationId: testInstallation.id,
+                    bountyLabelId: "label-123",
+                    bounty: "100",
+                    timeline: 7,
+                    issue: TestDataFactory.githubIssue()
+                }
+            };
+
+            const response = await request(app)
+                .post(getEndpointWithPrefix(["TASK", "CREATE"]))
+                .set("x-test-user-id", "task-creator-user")
+                .send(taskData)
+                .expect(STATUS_CODES.SERVER_ERROR);
+
+            expect(response.body.message).toBe("Failed to create escrow on smart contract");
+
+            // Verify task was rolled back
+            const tasksCount = await prisma.task.count();
+            expect(tasksCount).toBe(0);
         });
     });
 
