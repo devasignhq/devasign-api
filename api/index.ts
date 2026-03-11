@@ -21,7 +21,8 @@ import {
     testRoutes,
     aiServicesRoutes,
     contractRoutes,
-    octokitTestRoutes
+    octokitTestRoutes,
+    publicTaskRoutes
 } from "./routes";
 import { ErrorHandlerService } from "./services/error-handler.service";
 import { dataLogger, messageLogger } from "./config/logger.config";
@@ -69,6 +70,7 @@ app.use(
 app.use(apiLimiter);
 app.use(express.json());
 
+// Admin routes
 app.use(
     ENDPOINTS.ADMIN.PREFIX,
     dynamicRoute,
@@ -77,24 +79,34 @@ app.use(
     adminRoutes
 );
 
+// User routes
 app.use(
     ENDPOINTS.USER.PREFIX,
     dynamicRoute,
     validateUser as RequestHandler,
     userRoutes
 );
+// Installation routes
 app.use(
     ENDPOINTS.INSTALLATION.PREFIX,
     dynamicRoute,
     validateUser as RequestHandler,
     installationRoutes
 );
+// Public task routes
+app.use(
+    ENDPOINTS.TASK.PREFIX + ENDPOINTS.PUBLIC_PREFIX,
+    dynamicRoute,
+    publicTaskRoutes
+);
+// Task routes
 app.use(
     ENDPOINTS.TASK.PREFIX,
     dynamicRoute,
     validateUser as RequestHandler,
     taskRoutes
 );
+// Wallet routes
 app.use(
     ENDPOINTS.WALLET.PREFIX,
     dynamicRoute,
