@@ -41,12 +41,12 @@ export class InstallationRepositoriesWebhookService {
             if (action === "removed" && repositories_removed && Array.isArray(repositories_removed)) {
                 for (const repo of repositories_removed) {
                     if (repo && repo.full_name) {
-                        dataLogger.info(`Clearing removed repository for installation ${installationId}: ${repo.full_name}`);
                         try {
                             await indexingService.clearRepositoryData(
                                 installationId,
                                 repo.full_name
                             );
+                            dataLogger.info(`Cleared indexing data for removed repository ${installationId}: ${repo.full_name}`);
                         } catch (error) {
                             dataLogger.warn(`Failed to clear indexing data for removed repository ${repo.full_name}:`, { error });
                         }

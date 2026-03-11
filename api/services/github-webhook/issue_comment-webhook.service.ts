@@ -10,6 +10,7 @@ import { stellarService } from "../stellar.service";
 import { ContractService } from "../contract.service";
 import { KMSService } from "../kms.service";
 import { HorizonApi } from "../../models/horizonapi.model";
+import { GitHubComment } from "../../models/github.model";
 
 export class IssueCommentWebhookService {
     private static readonly AUTHORIZED_ASSOCIATIONS = ["OWNER", "MEMBER", "COLLABORATOR"];
@@ -357,8 +358,15 @@ export class IssueCommentWebhookService {
                         (asset): asset is USDCBalance => "asset_code" in asset && asset.asset_code === "USDC"
                     ) as USDCBalance;
 
+                    // If installation wallet has insufficient USDC balance, log error, post failure comment and return
                     if (!usdcAsset || parseFloat(usdcAsset.balance) < amount) {
                         dataLogger.info("Insufficient USDC balance", { installationId, amount });
+                        await this.bountyFailureComment(
+                            installationId,
+                            repository.full_name,
+                            issue.number,
+                            "Your USDC balance is insufficient to create this bounty"
+                        );
                         return;
                     }
 
@@ -376,9 +384,10 @@ export class IssueCommentWebhookService {
                         if (label) bountyLabelId = label.id;
                     }
 
-                    // If bounty label is not found and cannot be created, log error and return
+                    // If bounty label is not found and cannot be created, log error, post failure comment and return
                     if (!bountyLabelId) {
                         dataLogger.error("Failed to get or create bounty label", { repo: repository.full_name });
+                        await this.bountyFailureComment(installationId, repository.full_name, issue.number);
                         return;
                     }
 
@@ -424,22 +433,12 @@ export class IssueCommentWebhookService {
                             amount
                         );
                     } catch (error) {
-                        // If escrow creation fails, log and throw error
+                        // If escrow creation fails, log, post failure comment and return
                         dataLogger.error(
                             "Failed to create escrow on smart contract",
                             { issueId: issue.id, installationId, error }
                         );
-
-                        // Rollback task creation
-                        try {
-                            await prisma.task.delete({ where: { id: task.id } });
-                        } catch (error) {
-                            dataLogger.error(
-                                "Failed to rollback task creation",
-                                { taskId: task.id, issueId: issue.id, installationId, error }
-                            );
-                        }
-
+                        await this.bountyFailureComment(installationId, repository.full_name, issue.number);
                         return;
                     }
 
@@ -453,11 +452,27 @@ export class IssueCommentWebhookService {
                             OctokitService.customBountyMessage(amount.toString(), task.id)
                         );
                     } catch (error) {
-                        // Log error and continue
-                        dataLogger.info(
-                            "Failed to either post bounty comment or add bounty label",
-                            { taskId: task.id, issueId: issue.id, installationId, error }
-                        );
+                        const partialData = (error as { data?: { addComment?: { commentEdge?: { node?: GitHubComment } } } })?.data;
+                        if (partialData?.addComment?.commentEdge?.node) {
+                            // Comment was posted successfully despite warning/error (adding the bounty label failed)
+                            bountyComment = partialData.addComment.commentEdge.node;
+                            dataLogger.warn(
+                                "Bounty comment created. Failed to add bounty label on issue",
+                                { taskId: task.id, issueId: issue.id, installationId, error }
+                            );
+                        } else {
+                            // Log error, post failure comment and continue
+                            dataLogger.info(
+                                "Failed to either post bounty comment or add bounty label",
+                                { taskId: task.id, issueId: issue.id, installationId, error }
+                            );
+                            await this.bountyFailureComment(
+                                installationId,
+                                repository.full_name,
+                                issue.number,
+                                "Bounty was created but there was an issue while posting the bounty comment or adding the bounty label on issue"
+                            );
+                        }
                     }
 
                     await prisma.$transaction([
@@ -494,15 +509,46 @@ export class IssueCommentWebhookService {
                         { taskId: task.id, issueId: issue.id, installationId }
                     );
                 } catch (err) {
+                    // Log error and post failure comment
                     dataLogger.error(
                         "Error in async bounty task creation",
                         { error: err, issueId: issue.id, installationId }
                     );
+                    await this.bountyFailureComment(installationId, repository.full_name, issue.number);
                 }
             })();
 
         } catch (error) {
             next(error);
+        }
+    }
+
+    /**
+     * Posts a comment on an issue to indicate that bounty creation has failed.
+     * @param installationId - The ID of the installation
+     * @param repositoryName - The name of the repository
+     * @param issueNumber - The number of the issue
+     * @param error - The error message to post (optional)
+     */
+    private static async bountyFailureComment(
+        installationId: string,
+        repositoryName: string,
+        issueNumber: number,
+        error?: string
+    ) {
+        try {
+            await OctokitService.createComment(
+                installationId,
+                repositoryName,
+                issueNumber,
+                error || "Bounty creation failed due to an internal error. Please try again on the DevAsign dashboard."
+            );
+        } catch (error) {
+            dataLogger.error(
+                "Failed to post bounty failure comment",
+                { error, installationId, repositoryName, issueNumber }
+            );
+            return error;
         }
     }
 }
