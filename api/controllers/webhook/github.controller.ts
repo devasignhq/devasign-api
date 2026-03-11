@@ -35,7 +35,7 @@ export const handleGitHubWebhook = async (req: Request, res: Response, next: Nex
     }
 
     if (eventType === "issue_comment") {
-        await IssueCommentWebhookService.handleReviewCommentTrigger(req, res, next);
+        await IssueCommentWebhookService.handleIssueCommentEvent(req, res, next);
         return;
     }
 
