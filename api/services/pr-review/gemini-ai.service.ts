@@ -48,7 +48,7 @@ export class GeminiAIService {
         // Configuration for Gemini models
         this.config = {
             model: process.env.GEMINI_MODEL || "gemini-2.5-pro",
-            maxTokens: parseInt(process.env.GEMINI_MAX_TOKENS || "8192"),
+            maxTokens: parseInt(process.env.GEMINI_MAX_TOKENS || "65536"),
             temperature: parseFloat(process.env.GEMINI_TEMPERATURE || "0.0"),
             maxRetries: parseInt(process.env.GEMINI_MAX_RETRIES || "3"),
             contextLimit: parseInt(process.env.GEMINI_CONTEXT_LIMIT || "1048576"),
@@ -366,7 +366,7 @@ ${chunksInfo || "No relevant code chunks found."}}`}
     - **MUST** include specific file paths and line numbers.
     - **MUST** provide \`suggestedCode\` for fixes and optimizations.
     - Focus on the *changed* code, but note if changed code breaks existing patterns seen in chunks.
-- **Summary**: Very short and concise summary of the review.
+- **Summary**: Very short, concise, and straight to the point summary of the review.
 
 === REASONING ===
 For 'suggestions', include specific file paths, line numbers, and 'suggestedCode'. Do NOT return any markdown formatting outside the JSON block.`;
@@ -472,7 +472,7 @@ ${prData.formattedPullRequest}
 === OUTPUT REQUIREMENTS ===
 - **Merge Score**: Updated 0-100 score reflecting the PR state after the new push.
 - **Suggestions**: Only actionable suggestions on the NEW code or STILL-OPEN previous concerns.
-- **Summary**: Concise summary that covers (a) what was fixed since the last review, (b) remaining issues, (c) new issues.
+- **Summary**: Concise and straight to the point summary that covers (a) what was fixed since the last review, (b) remaining issues, (c) new issues.
 
 === REASONING ===
 For 'suggestions', include specific file paths, line numbers, and 'suggestedCode'. Do NOT return any markdown formatting outside the JSON block.`;
@@ -488,11 +488,23 @@ For 'suggestions', include specific file paths, line numbers, and 'suggestedCode
                 const result = await this.model.generateContent(prompt);
                 const response = await result.response;
 
+                const candidate = response.candidates?.[0];
+
                 // Extract the response text
-                const text = response.candidates?.[0]?.content?.parts?.[0]?.text;
+                const text = candidate?.content?.parts?.[0]?.text;
 
                 if (!text) {
                     throw new GeminiServiceError("Empty response from Gemini API");
+                }
+
+                // Detect truncated responses — finishReason will be MAX_TOKENS
+                // when the model hit the maxOutputTokens limit mid-generation.
+                const finishReason = candidate?.finishReason;
+                if (finishReason === "MAX_TOKENS") {
+                    messageLogger.warn(
+                        "Gemini response was truncated (finishReason=MAX_TOKENS). " +
+                        "Output tokens may have been insufficient. Attempting JSON repair."
+                    );
                 }
 
                 return text;
@@ -584,8 +596,21 @@ For 'suggestions', include specific file paths, line numbers, and 'suggestedCode
                     try {
                         return JSON.parse(raw.slice(start, end + 1)) as T;
                     } catch {
-                        // Still invalid — fall through to null
+                        // Still invalid — fall through to repair
                     }
+                }
+
+                // ----------------------------------------------------------
+                // Strategy 4: JSON was truncated (e.g. due to MAX_TOKENS).
+                // Attempt to repair the truncated JSON by closing any open
+                // strings, arrays, and objects so we can salvage whatever
+                // the model managed to produce.
+                // ----------------------------------------------------------
+                const truncated = raw.slice(start);
+                const repaired = this.repairTruncatedJSON(truncated);
+                if (repaired) {
+                    messageLogger.warn("Successfully repaired truncated JSON response");
+                    return repaired as T;
                 }
             }
 
@@ -594,6 +619,119 @@ For 'suggestions', include specific file paths, line numbers, and 'suggestedCode
             dataLogger.error("Error parsing AI response", { error, rawResponse: response });
             return null;
         }
+    }
+
+    /**
+     * Attempts to repair a truncated JSON string by closing any open
+     * strings, arrays, and objects. This handles the common case where
+     * the Gemini model hits maxOutputTokens and the JSON is cut off
+     * mid-value.
+     *
+     * The algorithm walks the string character-by-character, tracking
+     * whether we are inside a string and maintaining a stack of open
+     * structural tokens ({ and [). When the string ends we:
+     *   1. Close any open string with a quote
+     *   2. Pop the structural stack, emitting } or ] for each open brace/bracket
+     *   3. Try to parse the result
+     *
+     * To avoid keeping a half-written final field (which is almost
+     * certainly garbage), we also try a "trimmed" variant that strips
+     * the last incomplete key-value pair before closing.
+     */
+    private repairTruncatedJSON(truncated: string): unknown | null {
+        try {
+            let inString = false;
+            let escape = false;
+            const stack: string[] = []; // tracks open { and [
+
+            for (let i = 0; i < truncated.length; i++) {
+                const ch = truncated[i];
+                if (escape) { escape = false; continue; }
+                if (ch === "\\" && inString) { escape = true; continue; }
+                if (ch === "\"") { inString = !inString; continue; }
+                if (inString) continue;
+
+                if (ch === "{" || ch === "[") {
+                    stack.push(ch);
+                } else if (ch === "}" || ch === "]") {
+                    stack.pop();
+                }
+            }
+
+            // Nothing to repair — the braces are balanced (shouldn't happen
+            // if we got here, but just in case).
+            if (stack.length === 0) return null;
+
+            // Build the closing sequence
+            let repaired = truncated;
+
+            // If we ended mid-string, close the string
+            if (inString) {
+                repaired += "\"";
+            }
+
+            // Build closing brackets in reverse stack order
+            const closers = stack
+                .map(open => (open === "{" ? "}" : "]"))
+                .reverse()
+                .join("");
+
+            // --- Attempt A: trim the last incomplete value, then close ---
+            // Find the last complete key-value separator (comma or colon
+            // outside a string) and cut there so we don't keep a half-
+            // written value.
+            const trimmedRepaired = this.trimLastIncompleteValue(repaired) + closers;
+
+            try {
+                return JSON.parse(trimmedRepaired);
+            } catch {
+                // Trimmed variant didn't work — try the raw close
+            }
+
+            // --- Attempt B: just close everything as-is ---
+            repaired += closers;
+            try {
+                return JSON.parse(repaired);
+            } catch {
+                return null;
+            }
+        } catch {
+            return null;
+        }
+    }
+
+    /**
+     * Trims the last incomplete key-value pair from a JSON string that
+     * was cut off mid-generation. Works by finding the last top-level
+     * comma and cutting there, or the last complete structural element.
+     */
+    private trimLastIncompleteValue(json: string): string {
+        // Walk backwards to find the last comma that is NOT inside a string
+        let inString = false;
+        let escape = false;
+        let lastSafeComma = -1;
+
+        for (let i = 0; i < json.length; i++) {
+            const ch = json[i];
+            if (escape) { escape = false; continue; }
+            if (ch === "\\" && inString) { escape = true; continue; }
+            if (ch === "\"") { inString = !inString; continue; }
+            if (inString) continue;
+
+            if (ch === ",") {
+                // Last comma before the truncated section, at any depth
+                lastSafeComma = i;
+            }
+        }
+
+        if (lastSafeComma > 0) {
+            // Cut right after the last complete element (before the comma
+            // that precedes the truncated element). We keep everything up
+            // to (but not including) the comma.
+            return json.slice(0, lastSafeComma);
+        }
+
+        return json;
     }
     
     /**
