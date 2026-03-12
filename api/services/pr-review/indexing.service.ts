@@ -125,51 +125,8 @@ export class IndexingService {
                     batchPaths
                 );
 
-                const currentBatchChunks: CodeChunkWithEmbedding[] = [];
-
-                // Process each file in the batch
-                for (const filePath of batchPaths) {
-                    const fileData = fileContents[filePath];
-                    // Skip binary files
-                    if (!fileData || fileData.isBinary) continue;
-
-                    // Skip empty or whitespace-only files
-                    const trimmedContent = fileData.text.trim();
-                    if (!trimmedContent) {
-                        dataLogger.info(`Skipping empty or whitespace-only file: ${filePath}`);
-                        continue;
-                    }
-
-                    // Preprocess content
-                    const cleanContent = this.preprocessContent(trimmedContent, filePath);
-
-                    // Upsert file metadata
-                    const codeFile = await this.vectorStoreService.upsertCodeFile(
-                        installationId,
-                        repositoryName,
-                        filePath,
-                        fileData.oid
-                    );
-
-                    // Chunk content
-                    const chunks = await this.chunkContent(cleanContent, filePath);
-                    const allChunkTexts = chunks.map(c => c.trim()).filter(Boolean);
-
-                    // Add chunks to batch
-                    for (let j = 0; j < allChunkTexts.length; j++) {
-                        currentBatchChunks.push({
-                            codeFileId: codeFile.id,
-                            filePath,
-                            chunkIndex: j,
-                            content: allChunkTexts[j]
-                        });
-                    }
-                }
-
-                // Embed and store chunks
-                if (currentBatchChunks.length > 0) {
-                    await this.embedAndStoreChunks(currentBatchChunks);
-                }
+                // Use helper to process the batch
+                await this.processBatch(installationId, repositoryName, batchPaths, fileContents);
 
                 dataLogger.info(`Incrementally indexed batch ${Math.floor(i / batchSize) + 1}: ${batchPaths.length} files`);
             }
@@ -270,51 +227,8 @@ export class IndexingService {
                     batchPaths
                 );
 
-                const currentBatchChunks: CodeChunkWithEmbedding[] = [];
-
-                // Process each file in the batch
-                for (const filePath of batchPaths) {
-                    const fileData = fileContents[filePath];
-                    // Skip binary files
-                    if (!fileData || fileData.isBinary) continue;
-
-                    const trimmedContent = fileData.text.trim();
-                    // Skip empty or whitespace-only files
-                    if (!trimmedContent) {
-                        dataLogger.info(`Skipping empty or whitespace-only file: ${filePath}`);
-                        continue;
-                    }
-
-                    // Preprocess content
-                    const cleanContent = this.preprocessContent(trimmedContent, filePath);
-
-                    // Upsert file metadata
-                    const codeFile = await this.vectorStoreService.upsertCodeFile(
-                        installationId,
-                        repositoryName,
-                        filePath,
-                        fileData.oid // Use OID as hash
-                    );
-
-                    // Chunk content
-                    const chunks = await this.chunkContent(cleanContent, filePath);
-                    const allChunkTexts = chunks.map(c => c.trim()).filter(Boolean);
-
-                    // Add chunks to batch
-                    for (let j = 0; j < allChunkTexts.length; j++) {
-                        currentBatchChunks.push({
-                            codeFileId: codeFile.id,
-                            filePath,
-                            chunkIndex: j,
-                            content: allChunkTexts[j]
-                        });
-                    }
-                }
-
-                // Embed and store chunks
-                if (currentBatchChunks.length > 0) {
-                    await this.embedAndStoreChunks(currentBatchChunks);
-                }
+                // Use helper to process the batch
+                await this.processBatch(installationId, repositoryName, batchPaths, fileContents);
 
                 // Update progress per batch
                 const lastFileInBatch = batchPaths[batchPaths.length - 1];
@@ -384,6 +298,63 @@ export class IndexingService {
             }
         });
         messageLogger.info(`Repository indexing progress updated ${lastIndexedFilePath}`);
+    }
+
+    /**
+     * Processes a batch of files: skips binary/empty files, preprocesses,
+     * upserts metadata, chunks content, and stores embeddings.
+     */
+    private async processBatch(
+        installationId: string,
+        repositoryName: string,
+        batchPaths: string[],
+        fileContents: Record<string, { oid: string; text: string; isBinary: boolean } | null>
+    ): Promise<void> {
+        const currentBatchChunks: CodeChunkWithEmbedding[] = [];
+
+        // Process each file in the batch
+        for (const filePath of batchPaths) {
+            const fileData = fileContents[filePath];
+            // Skip binary files
+            if (!fileData || fileData.isBinary) continue;
+
+            const trimmedContent = fileData.text.trim();
+            // Skip empty or whitespace-only files
+            if (!trimmedContent) {
+                dataLogger.info(`Skipping empty or whitespace-only file: ${filePath}`);
+                continue;
+            }
+
+            // Preprocess content
+            const cleanContent = this.preprocessContent(trimmedContent, filePath);
+
+            // Upsert file metadata
+            const codeFile = await this.vectorStoreService.upsertCodeFile(
+                installationId,
+                repositoryName,
+                filePath,
+                fileData.oid // Use OID as hash
+            );
+
+            // Chunk content
+            const chunks = await this.chunkContent(cleanContent, filePath);
+            const allChunkTexts = chunks.map(c => c.trim()).filter(Boolean);
+
+            // Add chunks to batch
+            for (let j = 0; j < allChunkTexts.length; j++) {
+                currentBatchChunks.push({
+                    codeFileId: codeFile.id,
+                    filePath,
+                    chunkIndex: j,
+                    content: allChunkTexts[j]
+                });
+            }
+        }
+
+        // Embed and store chunks
+        if (currentBatchChunks.length > 0) {
+            await this.embedAndStoreChunks(currentBatchChunks);
+        }
     }
 
     /**

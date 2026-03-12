@@ -72,9 +72,10 @@ export class PushWebhookService {
 
     /**
      * Deduplicates changed files across all commits in a push.
-     * A file that was removed then re-added is treated as "to index" (not "to remove").
-     * A file that was added then removed is treated as "to remove" only if it was
-     * previously indexed (which is handled at the indexing layer).
+     * This ensures the final state of files is correctly represented.
+     * - A file added or modified will be in `filesToIndex`, even if it was removed in an earlier commit.
+     * - A file removed will be in `filesToRemove`, unless it was re-added or modified in a later commit.
+     * - A file that is added and then removed within the same push will end up in `filesToRemove`.
      */
     static deduplicateChangedFiles(commits: PushCommit[]): {
         filesToIndex: string[];
