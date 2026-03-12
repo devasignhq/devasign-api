@@ -10,6 +10,25 @@ import { mockFirebaseAuth } from "../../../mocks/firebase.service.mock";
 import { getEndpointWithPrefix } from "../../../helpers/test-utils";
 import { apiLimiter } from "../../../../api/middlewares/rate-limit.middleware";
 
+// Mock Job Queue Service to prevent real instance creation
+jest.mock("../../../../api/services/background-job.service", () => {
+    const mockBackgroundJobService = {
+        getJobData: jest.fn(),
+        getQueueStats: jest.fn(),
+        getActiveJobsCount: jest.fn(),
+        addPRAnalysisJob: jest.fn(),
+        addRepositoryIndexingJob: jest.fn(),
+        stop: jest.fn(),
+        cancelJob: jest.fn()
+    };
+    return {
+        BackgroundJobService: {
+            getInstance: jest.fn().mockReturnValue(mockBackgroundJobService)
+        },
+        backgroundJobService: mockBackgroundJobService
+    };
+});
+
 // Mock Firebase admin for authentication
 jest.mock("../../../../api/config/firebase.config", () => {
     return {

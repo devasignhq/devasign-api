@@ -1,7 +1,7 @@
 import request from "supertest";
 import express, { RequestHandler } from "express";
 import { TestDataFactory } from "../../../helpers/test-data-factory";
-import { taskRoutes } from "../../../../api/routes/task.route";
+import { taskRoutes, publicTaskRoutes } from "../../../../api/routes/task.route";
 import { errorHandler } from "../../../../api/middlewares/error.middleware";
 import { validateUser } from "../../../../api/middlewares/auth.middleware";
 import { DatabaseTestHelper } from "../../../helpers/database-test-helper";
@@ -78,7 +78,13 @@ describe("Task API Integration Tests", () => {
         app = express();
         app.use(express.json());
 
-        // Mock authentication middleware for testing
+        // Public task routes
+        app.use(
+            ENDPOINTS.TASK.PREFIX + ENDPOINTS.PUBLIC_PREFIX,
+            publicTaskRoutes
+        );
+
+        // Mock authentication middleware for testing (private routes)
         app.use(ENDPOINTS.TASK.PREFIX, (req, res, next) => {
             res.locals.user = {
                 uid: req.headers["x-test-user-id"] || "test-user-1",
@@ -426,7 +432,9 @@ describe("Task API Integration Tests", () => {
         });
     });
 
-    describe(`GET ${getEndpointWithPrefix(["TASK", "GET_ALL"])} - Get Tasks`, () => {
+    const publicPrefix = ENDPOINTS.TASK.PREFIX + ENDPOINTS.PUBLIC_PREFIX;
+
+    describe(`GET ${ENDPOINTS.TASK.PREFIX + ENDPOINTS.PUBLIC_PREFIX + ENDPOINTS.TASK.GET_ALL} - Get Tasks`, () => {
         beforeEach(async () => {
             // Create test users
             const user1 = TestDataFactory.user({ userId: "user-1" });
@@ -478,7 +486,7 @@ describe("Task API Integration Tests", () => {
 
         it("should get all open tasks with pagination", async () => {
             const response = await request(app)
-                .get(`${getEndpointWithPrefix(["TASK", "GET_ALL"])}?page=1&limit=10`)
+                .get(`${publicPrefix}${ENDPOINTS.TASK.GET_ALL}?page=1&limit=10`)
                 .expect(STATUS_CODES.SUCCESS);
 
             expect(response.body.data).toMatchObject(
@@ -500,7 +508,7 @@ describe("Task API Integration Tests", () => {
             const installation = await prisma.installation.findFirst();
 
             const response = await request(app)
-                .get(`${getEndpointWithPrefix(["TASK", "GET_ALL"])}?installationId=${installation.id}`)
+                .get(`${publicPrefix}${ENDPOINTS.TASK.GET_ALL}?installationId=${installation.id}`)
                 .expect(STATUS_CODES.SUCCESS);
 
             dataLogger.info("should filter tasks by installation ID", response.body.data);
@@ -512,7 +520,7 @@ describe("Task API Integration Tests", () => {
 
         it("should return detailed view when requested", async () => {
             const response = await request(app)
-                .get(`${getEndpointWithPrefix(["TASK", "GET_ALL"])}?detailed=true`)
+                .get(`${publicPrefix}${ENDPOINTS.TASK.GET_ALL}?detailed=true`)
                 .expect(STATUS_CODES.SUCCESS);
 
             dataLogger.info("should return detailed view when requested", response.body.data);
@@ -524,7 +532,7 @@ describe("Task API Integration Tests", () => {
 
         it("should sort tasks by creation date", async () => {
             const response = await request(app)
-                .get(`${getEndpointWithPrefix(["TASK", "GET_ALL"])}?sort=asc`)
+                .get(`${publicPrefix}${ENDPOINTS.TASK.GET_ALL}?sort=asc`)
                 .expect(STATUS_CODES.SUCCESS);
 
             const dates = response.body.data.map((task: any) => new Date(task.createdAt).getTime());
@@ -533,7 +541,7 @@ describe("Task API Integration Tests", () => {
         });
     });
 
-    describe(`GET ${getEndpointWithPrefix(["TASK", "GET_BY_ID"])} - Get Task`, () => {
+    describe(`GET ${ENDPOINTS.TASK.PREFIX + ENDPOINTS.PUBLIC_PREFIX + ENDPOINTS.TASK.GET_BY_ID} - Get Task`, () => {
         let testTask: any;
 
         beforeEach(async () => {
@@ -561,7 +569,7 @@ describe("Task API Integration Tests", () => {
 
         it("should get task by ID successfully", async () => {
             const response = await request(app)
-                .get(`/tasks/${testTask.id}`)
+                .get(`${publicPrefix}/${testTask.id}`)
                 .expect(STATUS_CODES.SUCCESS);
 
             expect(response.body.data.id).toBe(testTask.id);
@@ -569,7 +577,7 @@ describe("Task API Integration Tests", () => {
 
         it("should return 404 when task not found", async () => {
             await request(app)
-                .get("/tasks/non-existent-task-id-0000")
+                .get(`${publicPrefix}/non-existent-task-id-0000`)
                 .expect(STATUS_CODES.NOT_FOUND);
         });
 
@@ -582,7 +590,7 @@ describe("Task API Integration Tests", () => {
             const created = await prisma.task.create({ data: closedTask });
 
             await request(app)
-                .get(`/tasks/${created.id}`)
+                .get(`${publicPrefix}/${created.id}`)
                 .expect(STATUS_CODES.NOT_FOUND);
         });
     });
@@ -741,14 +749,6 @@ describe("Task API Integration Tests", () => {
                 taskRoutes
             );
             appWithoutAuth.use(errorHandler);
-
-            await request(appWithoutAuth)
-                .get(getEndpointWithPrefix(["TASK", "GET_ALL"]))
-                .expect(STATUS_CODES.UNAUTHENTICATED);
-
-            await request(appWithoutAuth)
-                .get("/tasks/task-id")
-                .expect(STATUS_CODES.UNAUTHENTICATED);
 
             await request(appWithoutAuth)
                 .post(getEndpointWithPrefix(["TASK", "CREATE"]))

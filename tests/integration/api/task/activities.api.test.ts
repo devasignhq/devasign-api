@@ -7,7 +7,6 @@ import { DatabaseTestHelper } from "../../../helpers/database-test-helper";
 import { ENDPOINTS, STATUS_CODES } from "../../../../api/utilities/data";
 import { mockFirebaseAuth } from "../../../mocks/firebase.service.mock";
 import { getEndpointWithPrefix } from "../../../helpers/test-utils";
-import { createId } from "@paralleldrive/cuid2";;
 
 // Mock Firebase admin for authentication
 jest.mock("../../../../api/config/firebase.config", () => {
@@ -339,7 +338,7 @@ describe("Task Activities API Integration Tests", () => {
         it("should return 404 when activity not found", async () => {
             await request(app)
                 .patch(getEndpointWithPrefix(["TASK", "ACTIVITIES", "MARK_VIEWED"])
-                    .replace(":taskActivityId", createId()))
+                    .replace(":taskActivityId", testTask.id))
                 .set("x-test-user-id", "installation-user")
                 .expect(STATUS_CODES.NOT_FOUND);
         });

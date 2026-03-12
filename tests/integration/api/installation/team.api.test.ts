@@ -7,9 +7,27 @@ import { validateUser } from "../../../../api/middlewares/auth.middleware";
 import { DatabaseTestHelper } from "../../../helpers/database-test-helper";
 import { ENDPOINTS, STATUS_CODES } from "../../../../api/utilities/data";
 import { mockFirebaseAuth } from "../../../mocks/firebase.service.mock";
-import { generateRandomString, getEndpointWithPrefix } from "../../../helpers/test-utils";
-import { createId } from "@paralleldrive/cuid2";import { apiLimiter } from "../../../../api/middlewares/rate-limit.middleware";
-;
+import { generateRandomString, getEndpointWithPrefix, generateRandomCuid } from "../../../helpers/test-utils";
+import { apiLimiter } from "../../../../api/middlewares/rate-limit.middleware";
+
+// Mock Job Queue Service to prevent real instance creation
+jest.mock("../../../../api/services/background-job.service", () => {
+    const mockBackgroundJobService = {
+        getJobData: jest.fn(),
+        getQueueStats: jest.fn(),
+        getActiveJobsCount: jest.fn(),
+        addPRAnalysisJob: jest.fn(),
+        addRepositoryIndexingJob: jest.fn(),
+        stop: jest.fn(),
+        cancelJob: jest.fn()
+    };
+    return {
+        BackgroundJobService: {
+            getInstance: jest.fn().mockReturnValue(mockBackgroundJobService)
+        },
+        backgroundJobService: mockBackgroundJobService
+    };
+});
 
 // Mock Firebase admin for authentication
 jest.mock("../../../../api/config/firebase.config", () => {
@@ -20,7 +38,7 @@ jest.mock("../../../../api/config/firebase.config", () => {
     };
 });
 
-// Mock Stellar service for wallet operations
+// Mock external services
 jest.mock("../../../../api/services/stellar.service", () => ({
     stellarService: {
         createWallet: jest.fn(),
@@ -100,9 +118,9 @@ describe("Installation Team API Integration Tests", () => {
     describe(`POST ${getEndpointWithPrefix(["INSTALLATION", "TEAM", "ADD_MEMBER"])} - Add Team Member`, () => {
         let testInstallation: any;
         let testUser: any;
-        const manageTasksCode = createId();
-        const manageTeamCode = createId();
-        const viewAnalyticsCode = createId();
+        const manageTasksCode = generateRandomCuid();
+        const manageTeamCode = generateRandomCuid();
+        const viewAnalyticsCode = generateRandomCuid();
 
         beforeEach(async () => {
             testUser = TestDataFactory.user({ userId: "team-owner" });
@@ -243,9 +261,9 @@ describe("Installation Team API Integration Tests", () => {
     describe(`PATCH ${getEndpointWithPrefix(["INSTALLATION", "TEAM", "UPDATE_MEMBER"])} - Update Team Member`, () => {
         let testInstallation: any;
         const teamMemberId = generateRandomString(28);
-        const manageTasksCode = createId();
-        const manageTeamCode = createId();
-        const viewAnalyticsCode = createId();
+        const manageTasksCode = generateRandomCuid();
+        const manageTeamCode = generateRandomCuid();
+        const viewAnalyticsCode = generateRandomCuid();
 
         beforeEach(async () => {
             const owner = TestDataFactory.user({ userId: "team-owner" });
@@ -358,7 +376,7 @@ describe("Installation Team API Integration Tests", () => {
     describe(`DELETE ${getEndpointWithPrefix(["INSTALLATION", "TEAM", "REMOVE_MEMBER"])} - Remove Team Member`, () => {
         let testInstallation: any;
         const teamMemberId = generateRandomString(28);
-        const manageTasksCode = createId();
+        const manageTasksCode = generateRandomCuid();
 
         beforeEach(async () => {
             const owner = TestDataFactory.user({ userId: "team-owner" });
@@ -467,7 +485,7 @@ describe("Installation Team API Integration Tests", () => {
                 installationRoutes
             );
             appWithoutAuth.use(errorHandler);
-            const manageTasksCode = createId();
+            const manageTasksCode = generateRandomCuid();
 
             await request(appWithoutAuth)
                 .post(getEndpointWithPrefix(["INSTALLATION", "TEAM", "ADD_MEMBER"])
@@ -478,14 +496,14 @@ describe("Installation Team API Integration Tests", () => {
             await request(appWithoutAuth)
                 .patch(getEndpointWithPrefix(["INSTALLATION", "TEAM", "UPDATE_MEMBER"])
                     .replace(":installationId", "12345678")
-                    .replace(":userId", createId()))
+                    .replace(":userId", generateRandomCuid()))
                 .send({ permissionCodes: [manageTasksCode] })
                 .expect(STATUS_CODES.UNAUTHENTICATED);
 
             await request(appWithoutAuth)
                 .delete(getEndpointWithPrefix(["INSTALLATION", "TEAM", "REMOVE_MEMBER"])
                     .replace(":installationId", "12345678")
-                    .replace(":userId", createId()))
+                    .replace(":userId", generateRandomCuid()))
                 .expect(STATUS_CODES.UNAUTHENTICATED);
         });
     });

@@ -1,7 +1,27 @@
-
 import request from "supertest";
 import express from "express";
 import crypto from "crypto";
+
+// Mock BackgroundJobService to prevent open handles
+jest.mock("../../../../api/services/background-job.service", () => {
+    const mockBackgroundJobService = {
+        getInstance: jest.fn(),
+        stop: jest.fn(),
+        startCleanup: jest.fn(),
+        getJobData: jest.fn(),
+        getQueueStats: jest.fn(),
+        getActiveJobsCount: jest.fn(),
+        addPRAnalysisJob: jest.fn(),
+        addRepositoryIndexingJob: jest.fn(),
+        cancelJob: jest.fn()
+    };
+    mockBackgroundJobService.getInstance = jest.fn().mockReturnValue(mockBackgroundJobService);
+    return {
+        BackgroundJobService: mockBackgroundJobService,
+        backgroundJobService: mockBackgroundJobService
+    };
+});
+
 import { webhookRoutes } from "../../../../api/routes/webhook.route";
 import { errorHandler } from "../../../../api/middlewares/error.middleware";
 import { DatabaseTestHelper } from "../../../helpers/database-test-helper";
@@ -64,6 +84,7 @@ jest.mock("../../../../api/services/contract.service", () => ({
 
 describe("Sumsub Webhook API Integration Tests", () => {
     let app: express.Application;
+    let server: any;
     let prisma: any;
     const SUMSUB_SECRET = "test-sumsub-secret";
     const TEST_USER_ID = "test-user-id";
@@ -89,6 +110,8 @@ describe("Sumsub Webhook API Integration Tests", () => {
 
         app.use(ENDPOINTS.WEBHOOK.PREFIX, webhookRoutes);
         app.use(errorHandler);
+
+        server = app.listen();
     });
 
     beforeEach(async () => {
@@ -99,6 +122,7 @@ describe("Sumsub Webhook API Integration Tests", () => {
 
     afterAll(async () => {
         await prisma.$disconnect();
+        if (server) server.close();
         delete process.env.SUMSUB_WEBHOOK_SECRET;
     });
 
@@ -121,7 +145,7 @@ describe("Sumsub Webhook API Integration Tests", () => {
                 reviewResult: { reviewAnswer: "GREEN" }
             };
 
-            await request(app)
+            await request(server)
                 .post(getEndpointWithPrefix(["WEBHOOK", "SUMSUB"]))
                 .set("x-payload-digest", signPayload(payload))
                 .set("Content-Type", "application/json")
@@ -142,7 +166,7 @@ describe("Sumsub Webhook API Integration Tests", () => {
                 reviewRejectType: "FINAL"
             };
 
-            await request(app)
+            await request(server)
                 .post(getEndpointWithPrefix(["WEBHOOK", "SUMSUB"]))
                 .set("x-payload-digest", signPayload(payload))
                 .set("Content-Type", "application/json")
@@ -163,7 +187,7 @@ describe("Sumsub Webhook API Integration Tests", () => {
                 reviewRejectType: "RETRY"
             };
 
-            await request(app)
+            await request(server)
                 .post(getEndpointWithPrefix(["WEBHOOK", "SUMSUB"]))
                 .set("x-payload-digest", signPayload(payload))
                 .set("Content-Type", "application/json")
@@ -179,10 +203,11 @@ describe("Sumsub Webhook API Integration Tests", () => {
 
             const payload = {
                 type: "applicantActivated",
-                externalUserId: TEST_USER_ID
+                externalUserId: TEST_USER_ID,
+                reviewResult: { reviewAnswer: "GREEN" }
             };
 
-            await request(app)
+            await request(server)
                 .post(getEndpointWithPrefix(["WEBHOOK", "SUMSUB"]))
                 .set("x-payload-digest", signPayload(payload))
                 .set("Content-Type", "application/json")
@@ -201,7 +226,7 @@ describe("Sumsub Webhook API Integration Tests", () => {
                 externalUserId: TEST_USER_ID
             };
 
-            await request(app)
+            await request(server)
                 .post(getEndpointWithPrefix(["WEBHOOK", "SUMSUB"]))
                 .set("x-payload-digest", signPayload(payload))
                 .set("Content-Type", "application/json")
@@ -219,7 +244,7 @@ describe("Sumsub Webhook API Integration Tests", () => {
                 // No externalUserId
             };
 
-            await request(app)
+            await request(server)
                 .post(getEndpointWithPrefix(["WEBHOOK", "SUMSUB"]))
                 .set("x-payload-digest", signPayload(payload))
                 .set("Content-Type", "application/json")
@@ -233,17 +258,13 @@ describe("Sumsub Webhook API Integration Tests", () => {
                 externalUserId: TEST_USER_ID
             };
 
-            await request(app)
+            const response = await request(server)
                 .post(getEndpointWithPrefix(["WEBHOOK", "SUMSUB"]))
                 .set("x-payload-digest", "invalid-signature")
                 .set("Content-Type", "application/json")
-                .send(JSON.stringify(payload))
-                .expect((res) => {
-                    const expected = [STATUS_CODES.SERVER_ERROR, STATUS_CODES.UNKNOWN];
-                    if (!expected.includes(res.status)) {
-                        throw new Error(`Expected status ${expected.join(" or ")}, but got ${res.status}. Body: ${JSON.stringify(res.body)}`);
-                    }
-                });
+                .send(JSON.stringify(payload));
+
+            expect([STATUS_CODES.SERVER_ERROR, STATUS_CODES.UNKNOWN]).toContain(response.status);
         });
     });
 });

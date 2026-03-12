@@ -44,6 +44,11 @@ export class BackgroundJobService extends EventEmitter {
     private orchestrationService: AIReviewOrchestrationService;
     private indexingService: IndexingService;
 
+    // Timers
+    private cleanupTimer?: NodeJS.Timeout;
+    private currentSleepTimer?: NodeJS.Timeout;
+    private currentSleepResolve?: (value: void | PromiseLike<void>) => void;
+
     // Configuration
     private readonly config = {
         "pr-analysis": {
@@ -429,7 +434,7 @@ export class BackgroundJobService extends EventEmitter {
      * Starts periodic cleanup of old jobs
      */
     private startCleanup(): void {
-        setInterval(() => {
+        this.cleanupTimer = setInterval(() => {
             this.cleanupOldJobs();
         }, this.config.cleanupIntervalMs);
     }
@@ -463,7 +468,14 @@ export class BackgroundJobService extends EventEmitter {
      * @returns A promise that resolves after the specified duration
      */
     private sleep(ms: number): Promise<void> {
-        return new Promise(resolve => setTimeout(resolve, ms));
+        return new Promise(resolve => {
+            this.currentSleepResolve = resolve;
+            this.currentSleepTimer = setTimeout(() => {
+                this.currentSleepResolve = undefined;
+                this.currentSleepTimer = undefined;
+                resolve();
+            }, ms);
+        });
     }
 
     /**
@@ -471,6 +483,22 @@ export class BackgroundJobService extends EventEmitter {
      */
     public stop(): void {
         this.processing = false;
+        
+        if (this.cleanupTimer) {
+            clearInterval(this.cleanupTimer);
+            this.cleanupTimer = undefined;
+        }
+
+        if (this.currentSleepTimer) {
+            clearTimeout(this.currentSleepTimer);
+            this.currentSleepTimer = undefined;
+        }
+
+        if (this.currentSleepResolve) {
+            this.currentSleepResolve();
+            this.currentSleepResolve = undefined;
+        }
+
         messageLogger.info("Job queue processing stopped");
     }
 
