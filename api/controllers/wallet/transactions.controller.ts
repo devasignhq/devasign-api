@@ -6,6 +6,7 @@ import { HorizonApi } from "../../models/horizonapi.model";
 import { Prisma, TransactionCategory } from "../../../prisma_client";
 import { stellarService } from "../../services/stellar.service";
 import { AuthorizationError, NotFoundError } from "../../models/error.model";
+import { dataLogger } from "../../config/logger.config";
 
 /**
  * Get user transactions.
@@ -191,38 +192,21 @@ export const recordWalletTopups = async (req: Request, res: Response, next: Next
             });
         }
 
-        // Get the last recorded topup transaction for comparison
-        const lastRecordedTopup = await prisma.transaction.findFirst({
-            where: {
-                category: "TOP_UP",
-                ...(installationId ? { installationId } : { userId })
-            },
-            orderBy: {
-                doneAt: "desc"
-            }
+        // Collect all incoming tx hashes and check which ones already exist
+        const incomingHashes = stellarTopups.map(tx => tx.transaction_hash);
+        const existingRecords = await prisma.transaction.findMany({
+            where: { txHash: { in: incomingHashes } },
+            select: { txHash: true }
         });
+        const existingHashes = new Set(existingRecords.map(r => r.txHash));
 
-        // Find the most recent stellar transaction hash for comparison
-        const mostRecentStellarTxHash = stellarTopups[0]?.transaction_hash;
-
-        // If last recorded topup matches the most recent stellar topup, no new transactions
-        if (lastRecordedTopup && lastRecordedTopup.txHash === mostRecentStellarTxHash) {
-            return responseWrapper({
-                res,
-                status: STATUS_CODES.SUCCESS,
-                data: { processed: 0 },
-                message: "No new topup transactions found"
-            });
-        }
-
-        // Process stellar topup transactions until we find a match with existing records
+        // Build list of genuinely new transactions, skipping any already recorded
         const newTransactions: Prisma.TransactionCreateInput[] = [];
         let processed = 0;
 
         for (const stellarTx of stellarTopups) {
-            // Stop if we've reached a transaction we've already recorded
-            if (lastRecordedTopup && stellarTx.transaction_hash === lastRecordedTopup.txHash) {
-                break;
+            if (existingHashes.has(stellarTx.transaction_hash)) {
+                continue;
             }
 
             const paymentTx = stellarTx as (HorizonApi.PaymentOperationResponse | HorizonApi.PathPaymentOperationResponse);
@@ -248,15 +232,32 @@ export const recordWalletTopups = async (req: Request, res: Response, next: Next
             processed++;
         }
 
-        // Create transactions individually to support relations
-        if (newTransactions.length > 0) {
-            await prisma.$transaction(
-                newTransactions.map(transactionData =>
-                    prisma.transaction.create({
-                        data: transactionData
-                    })
-                )
-            );
+        // Nothing new to record
+        if (newTransactions.length === 0) {
+            return responseWrapper({
+                res,
+                status: STATUS_CODES.SUCCESS,
+                data: { processed: 0 },
+                message: "No new topup transactions found"
+            });
+        }
+
+        // Create transactions individually to handle potential race conditions on a per-transaction basis
+        for (const transactionData of newTransactions) {
+            try {
+                await prisma.transaction.create({
+                    data: transactionData
+                });
+            } catch (error) {
+                if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+                    // This race condition means another request inserted the transaction between our check and our write.
+                    // This is not a true error, as the data is now present. We can proceed.
+                    dataLogger.info(`Handled P2002 race condition for txHash: ${transactionData.txHash}.`);
+                } else {
+                    // Re-throw any other errors
+                    throw error;
+                }
+            }
         }
 
         // Return details of recorded transactions
