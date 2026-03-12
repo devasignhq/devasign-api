@@ -66,6 +66,130 @@ export class IndexingService {
     }
 
     /**
+     * Incrementally index only changed files in a repository.
+     * Deletes removed files and re-indexes added/modified files.
+     * @param installationId - The ID of the installation
+     * @param repositoryName - The name of the repository
+     * @param filesToIndex - File paths to fetch, chunk, embed and upsert
+     * @param filesToRemove - File paths to delete from the index
+     */
+    async indexChangedFiles(
+        installationId: string,
+        repositoryName: string,
+        filesToIndex: string[],
+        filesToRemove: string[]
+    ): Promise<void> {
+        dataLogger.info("Starting incremental indexing", {
+            installationId,
+            repositoryName,
+            filesToIndex: filesToIndex.length,
+            filesToRemove: filesToRemove.length
+        });
+
+        const startTime = Date.now();
+
+        try {
+            // Delete removed files from the index (CodeFile cascade-deletes CodeChunks)
+            if (filesToRemove.length > 0) {
+                const deleteCount = await prisma.codeFile.deleteMany({
+                    where: {
+                        installationId,
+                        repositoryName,
+                        filePath: { in: filesToRemove }
+                    }
+                });
+                dataLogger.info(`Deleted ${deleteCount.count} removed files from index`);
+            }
+
+            // Filter relevant files for indexing (skip images, lockfiles, etc.)
+            const relevantFiles = filesToIndex.filter(path => this.isRelevantFile(path));
+
+            // Skip if no relevant changes
+            if (relevantFiles.length === 0) {
+                dataLogger.info("No relevant files to index after filtering");
+                return;
+            }
+
+            dataLogger.info(`Indexing ${relevantFiles.length} relevant files (from ${filesToIndex.length} changed)`);
+
+            // Fetch, chunk, embed, and upsert in batches (same flow as indexRepository)
+            const batchSize = 40;
+
+            for (let i = 0; i < relevantFiles.length; i += batchSize) {
+                const batchPaths = relevantFiles.slice(i, i + batchSize);
+
+                // Fetch contents for the batch
+                const fileContents = await OctokitService.getMultipleFilesWithFragments(
+                    installationId,
+                    repositoryName,
+                    batchPaths
+                );
+
+                const currentBatchChunks: CodeChunkWithEmbedding[] = [];
+
+                // Process each file in the batch
+                for (const filePath of batchPaths) {
+                    const fileData = fileContents[filePath];
+                    // Skip binary files
+                    if (!fileData || fileData.isBinary) continue;
+
+                    // Skip empty or whitespace-only files
+                    const trimmedContent = fileData.text.trim();
+                    if (!trimmedContent) {
+                        dataLogger.info(`Skipping empty or whitespace-only file: ${filePath}`);
+                        continue;
+                    }
+
+                    // Preprocess content
+                    const cleanContent = this.preprocessContent(trimmedContent, filePath);
+
+                    // Upsert file metadata
+                    const codeFile = await this.vectorStoreService.upsertCodeFile(
+                        installationId,
+                        repositoryName,
+                        filePath,
+                        fileData.oid
+                    );
+
+                    // Chunk content
+                    const chunks = await this.chunkContent(cleanContent, filePath);
+                    const allChunkTexts = chunks.map(c => c.trim()).filter(Boolean);
+
+                    // Add chunks to batch
+                    for (let j = 0; j < allChunkTexts.length; j++) {
+                        currentBatchChunks.push({
+                            codeFileId: codeFile.id,
+                            filePath,
+                            chunkIndex: j,
+                            content: allChunkTexts[j]
+                        });
+                    }
+                }
+
+                // Embed and store chunks
+                if (currentBatchChunks.length > 0) {
+                    await this.embedAndStoreChunks(currentBatchChunks);
+                }
+
+                dataLogger.info(`Incrementally indexed batch ${Math.floor(i / batchSize) + 1}: ${batchPaths.length} files`);
+            }
+
+            // Log success
+            const duration = Date.now() - startTime;
+            dataLogger.info("Incremental indexing completed", {
+                installationId,
+                repositoryName,
+                filesIndexed: relevantFiles.length,
+                filesRemoved: filesToRemove.length,
+                duration
+            });
+        } catch (error) {
+            dataLogger.error("Incremental indexing failed", { error, installationId, repositoryName });
+            throw error;
+        }
+    }
+
+    /**
      * Index a repository by fetching all files, chunking them, and storing embeddings
      * @param installationId - The ID of the installation
      * @param repositoryName - The name of the repository
@@ -201,7 +325,7 @@ export class IndexingService {
                 dataLogger.info(`Indexed ${processedFiles}/${totalFiles} files`);
             }
 
-            // Mark as completed
+            // Mark indexing as completed
             await prisma.repositoryIndexingState.update({
                 where: {
                     installationId_repositoryName: {
@@ -221,7 +345,7 @@ export class IndexingService {
         } catch (error) {
             dataLogger.error("Repository indexing failed", { error, installationId, repositoryName });
 
-            // Mark as failed
+            // Mark indexing as failed
             await prisma.repositoryIndexingState.update({
                 where: {
                     installationId_repositoryName: {

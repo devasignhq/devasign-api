@@ -6,6 +6,7 @@ import { PullRequestWebhookService } from "../../services/github-webhook/pull_re
 import { InstallationWebhookService } from "../../services/github-webhook/installation-webhook.service";
 import { IssueCommentWebhookService } from "../../services/github-webhook/issue_comment-webhook.service";
 import { InstallationRepositoriesWebhookService } from "../../services/github-webhook/installation_repositories-webhook.service";
+import { PushWebhookService } from "../../services/github-webhook/push-webhook.service";
 
 /**
  * Handles GitHub webhook events
@@ -36,6 +37,11 @@ export const handleGitHubWebhook = async (req: Request, res: Response, next: Nex
 
     if (eventType === "issue_comment") {
         await IssueCommentWebhookService.handleIssueCommentEvent(req, res, next);
+        return;
+    }
+
+    if (eventType === "push") {
+        await PushWebhookService.handlePushEvent(req, res, next);
         return;
     }
 

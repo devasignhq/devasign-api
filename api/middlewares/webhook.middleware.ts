@@ -256,6 +256,64 @@ export const validateGitHubWebhookEvent = async (req: Request, res: Response, ne
             break;
         }
 
+        case "push": {
+            const { ref, created, deleted } = req.body;
+
+            // Skip branch/tag creation and deletion events
+            if (created || deleted) {
+                responseWrapper({
+                    res,
+                    status: STATUS_CODES.SUCCESS,
+                    data: {},
+                    message: "Push creation/deletion event not processed",
+                    meta: { ref, created, deleted }
+                });
+                return;
+            }
+
+            // Skip tag pushes (only process branch pushes)
+            if (ref && ref.startsWith("refs/tags/")) {
+                responseWrapper({
+                    res,
+                    status: STATUS_CODES.SUCCESS,
+                    data: {},
+                    message: "Tag push not processed",
+                    meta: { ref }
+                });
+                return;
+            }
+
+            // Validate required data
+            if (!repository || !installation) {
+                responseWrapper({
+                    res,
+                    status: STATUS_CODES.BAD_PAYLOAD,
+                    data: {},
+                    message: "Missing required webhook data",
+                    meta: {
+                        repository: Boolean(repository),
+                        installation: Boolean(installation)
+                    }
+                });
+                return;
+            }
+
+            // Only process pushes to the default branch
+            const defaultBranchRef = `refs/heads/${repository.default_branch}`;
+            if (ref !== defaultBranchRef) {
+                responseWrapper({
+                    res,
+                    status: STATUS_CODES.SUCCESS,
+                    data: {},
+                    message: "Push not targeting default branch - skipping",
+                    meta: { ref, defaultBranch: repository.default_branch }
+                });
+                return;
+            }
+
+            break;
+        }
+
         default:
             // Event type not processed
             responseWrapper({
