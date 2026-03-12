@@ -6,7 +6,7 @@ import { errorHandler } from "../../../../api/middlewares/error.middleware";
 import { DatabaseTestHelper } from "../../../helpers/database-test-helper";
 import { ENDPOINTS, STATUS_CODES } from "../../../../api/utilities/data";
 import { mockFirebaseAuth } from "../../../mocks/firebase.service.mock";
-import { generateRandomString, getEndpointWithPrefix, generateRandomCuid } from "../../../helpers/test-utils";
+import { generateRandomString, getEndpointWithPrefix, generateRandomCUID } from "../../../helpers/test-utils";
 
 
 // Mock Firebase admin for authentication
@@ -279,7 +279,7 @@ describe("Task {taskId} API Integration Tests", () => {
         it("should return 404 when task not found", async () => {
             await request(app)
                 .patch(getEndpointWithPrefix(["TASK", "{TASKID}", "ADD_BOUNTY_COMMENT"])
-                    .replace(":taskId", generateRandomCuid()))
+                    .replace(":taskId", generateRandomCUID()))
                 .set("x-test-user-id", "task-creator")
                 .send({
                     installationId: "12345678",
@@ -684,7 +684,7 @@ describe("Task {taskId} API Integration Tests", () => {
         it("should return 404 when task not found", async () => {
             await request(app)
                 .post(getEndpointWithPrefix(["TASK", "{TASKID}", "APPLY"])
-                    .replace(":taskId", generateRandomCuid()))
+                    .replace(":taskId", generateRandomCUID()))
                 .set("x-test-user-id", "applicant")
                 .expect(STATUS_CODES.NOT_FOUND);
         });
@@ -838,7 +838,7 @@ describe("Task {taskId} API Integration Tests", () => {
         });
 
         it("should return error when contributor did not apply", async () => {
-            const nonApplicantId = generateRandomCuid();
+            const nonApplicantId = generateRandomCUID();
             const nonApplicant = TestDataFactory.user({ userId: nonApplicantId });
             await prisma.user.create({
                 data: { ...nonApplicant, contributionSummary: { create: {} } }
@@ -1349,7 +1349,7 @@ describe("Task {taskId} API Integration Tests", () => {
         it("should return 404 when task not found", async () => {
             await request(app)
                 .post(getEndpointWithPrefix(["TASK", "{TASKID}", "VALIDATE_COMPLETION"])
-                    .replace(":taskId", generateRandomCuid()))
+                    .replace(":taskId", generateRandomCUID()))
                 .set("x-test-user-id", "task-creator")
                 .expect(STATUS_CODES.NOT_FOUND);
         });

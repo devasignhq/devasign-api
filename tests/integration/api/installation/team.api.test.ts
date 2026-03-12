@@ -7,7 +7,7 @@ import { validateUser } from "../../../../api/middlewares/auth.middleware";
 import { DatabaseTestHelper } from "../../../helpers/database-test-helper";
 import { ENDPOINTS, STATUS_CODES } from "../../../../api/utilities/data";
 import { mockFirebaseAuth } from "../../../mocks/firebase.service.mock";
-import { generateRandomString, getEndpointWithPrefix, generateRandomCuid } from "../../../helpers/test-utils";
+import { generateRandomString, getEndpointWithPrefix, generateRandomCUID } from "../../../helpers/test-utils";
 import { apiLimiter } from "../../../../api/middlewares/rate-limit.middleware";
 
 // Mock Job Queue Service to prevent real instance creation
@@ -118,9 +118,9 @@ describe("Installation Team API Integration Tests", () => {
     describe(`POST ${getEndpointWithPrefix(["INSTALLATION", "TEAM", "ADD_MEMBER"])} - Add Team Member`, () => {
         let testInstallation: any;
         let testUser: any;
-        const manageTasksCode = generateRandomCuid();
-        const manageTeamCode = generateRandomCuid();
-        const viewAnalyticsCode = generateRandomCuid();
+        const manageTasksCode = generateRandomCUID();
+        const manageTeamCode = generateRandomCUID();
+        const viewAnalyticsCode = generateRandomCUID();
 
         beforeEach(async () => {
             testUser = TestDataFactory.user({ userId: "team-owner" });
@@ -261,9 +261,9 @@ describe("Installation Team API Integration Tests", () => {
     describe(`PATCH ${getEndpointWithPrefix(["INSTALLATION", "TEAM", "UPDATE_MEMBER"])} - Update Team Member`, () => {
         let testInstallation: any;
         const teamMemberId = generateRandomString(28);
-        const manageTasksCode = generateRandomCuid();
-        const manageTeamCode = generateRandomCuid();
-        const viewAnalyticsCode = generateRandomCuid();
+        const manageTasksCode = generateRandomCUID();
+        const manageTeamCode = generateRandomCUID();
+        const viewAnalyticsCode = generateRandomCUID();
 
         beforeEach(async () => {
             const owner = TestDataFactory.user({ userId: "team-owner" });
@@ -376,7 +376,7 @@ describe("Installation Team API Integration Tests", () => {
     describe(`DELETE ${getEndpointWithPrefix(["INSTALLATION", "TEAM", "REMOVE_MEMBER"])} - Remove Team Member`, () => {
         let testInstallation: any;
         const teamMemberId = generateRandomString(28);
-        const manageTasksCode = generateRandomCuid();
+        const manageTasksCode = generateRandomCUID();
 
         beforeEach(async () => {
             const owner = TestDataFactory.user({ userId: "team-owner" });
@@ -485,7 +485,7 @@ describe("Installation Team API Integration Tests", () => {
                 installationRoutes
             );
             appWithoutAuth.use(errorHandler);
-            const manageTasksCode = generateRandomCuid();
+            const manageTasksCode = generateRandomCUID();
 
             await request(appWithoutAuth)
                 .post(getEndpointWithPrefix(["INSTALLATION", "TEAM", "ADD_MEMBER"])
@@ -496,14 +496,14 @@ describe("Installation Team API Integration Tests", () => {
             await request(appWithoutAuth)
                 .patch(getEndpointWithPrefix(["INSTALLATION", "TEAM", "UPDATE_MEMBER"])
                     .replace(":installationId", "12345678")
-                    .replace(":userId", generateRandomCuid()))
+                    .replace(":userId", generateRandomCUID()))
                 .send({ permissionCodes: [manageTasksCode] })
                 .expect(STATUS_CODES.UNAUTHENTICATED);
 
             await request(appWithoutAuth)
                 .delete(getEndpointWithPrefix(["INSTALLATION", "TEAM", "REMOVE_MEMBER"])
                     .replace(":installationId", "12345678")
-                    .replace(":userId", generateRandomCuid()))
+                    .replace(":userId", generateRandomCUID()))
                 .expect(STATUS_CODES.UNAUTHENTICATED);
         });
     });

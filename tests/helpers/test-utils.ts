@@ -77,7 +77,10 @@ export function generateRandomUUID(): string {
     });
 }
 
-export function generateRandomCuid(): string {
+/**
+ * Generates a random CUID for testing
+ */
+export function generateRandomCUID(): string {
     const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
     let result = "c";
     for (let i = 0; i < 24; i++) {

@@ -6,7 +6,7 @@ import { errorHandler } from "../../../../api/middlewares/error.middleware";
 import { DatabaseTestHelper } from "../../../helpers/database-test-helper";
 import { ENDPOINTS, STATUS_CODES } from "../../../../api/utilities/data";
 import { mockFirebaseAuth } from "../../../mocks/firebase.service.mock";
-import { getEndpointWithPrefix, generateRandomCuid } from "../../../helpers/test-utils";
+import { getEndpointWithPrefix, generateRandomCUID } from "../../../helpers/test-utils";
 
 // Mock Firebase admin for authentication
 jest.mock("../../../../api/config/firebase.config", () => {
@@ -301,7 +301,7 @@ describe("Task Installation API Integration Tests", () => {
             await request(app)
                 .get(getEndpointWithPrefix(["TASK", "INSTALLATION", "GET_TASK"])
                     .replace(":installationId", testInstallation.id)
-                    .replace(":taskId", generateRandomCuid()))
+                    .replace(":taskId", generateRandomCUID()))
                 .set("x-test-user-id", "installation-user")
                 .expect(STATUS_CODES.NOT_FOUND);
         });
