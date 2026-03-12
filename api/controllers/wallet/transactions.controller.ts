@@ -242,23 +242,21 @@ export const recordWalletTopups = async (req: Request, res: Response, next: Next
             });
         }
 
-        try {
-            // Create transactions individually to support relations
-            await prisma.$transaction(
-                newTransactions.map(transactionData =>
-                    prisma.transaction.create({
-                        data: transactionData
-                    })
-                )
-            );
-        } catch (error) {
-            if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-                // This race condition means another request inserted the transaction between our check and our write.
-                // This is not a true error, as the data is now present. We can proceed.
-                dataLogger.info("Handled P2002 race condition in recordWalletTopups.", { error });
-            } else {
-                // Re-throw any other errors
-                throw error;
+        // Create transactions individually to handle potential race conditions on a per-transaction basis
+        for (const transactionData of newTransactions) {
+            try {
+                await prisma.transaction.create({
+                    data: transactionData
+                });
+            } catch (error) {
+                if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+                    // This race condition means another request inserted the transaction between our check and our write.
+                    // This is not a true error, as the data is now present. We can proceed.
+                    dataLogger.info(`Handled P2002 race condition for txHash: ${transactionData.txHash}.`);
+                } else {
+                    // Re-throw any other errors
+                    throw error;
+                }
             }
         }
 
