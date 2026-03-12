@@ -1,5 +1,7 @@
 import { App, Octokit } from "octokit";
 import {
+    BOUNTY_LABEL,
+    BOUNTY_PAID_LABEL,
     GitHubComment,
     InstallationOctokit,
     IssueDto,
@@ -444,8 +446,8 @@ ${accepted ? "**This bounty has already been assigned.**" : `**To work on this t
             queryString += ` sort:"${filters.sort}-${filters.direction}"`;
         }
 
-        // Exclude issues with the "💵 Bounty" label (already managed by our system)
-        queryString += " -label:\"💵 Bounty\"";
+        // Exclude issues with bounty-related labels (already managed by our system)
+        queryString += ` -label:\"${BOUNTY_LABEL}\" -label:\"${BOUNTY_PAID_LABEL}\"`;
 
         // Calculate pagination cursor for pages beyond the first
         const after = page > 1 ? `after: "${btoa(`cursor:${(page - 1) * perPage}`)}",` : "";
@@ -849,7 +851,7 @@ ${accepted ? "**This bounty has already been assigned.**" : `**To work on this t
         // Get all labels from response
         const allLabels = response.repository.labels.nodes;
         // Filter out the "💵 Bounty" label
-        const filteredLabels = allLabels.filter(label => label.name !== "💵 Bounty");
+        const filteredLabels = allLabels.filter(label => label.name !== BOUNTY_LABEL);
 
         // Return filtered labels and all milestones
         return {
@@ -915,12 +917,12 @@ ${accepted ? "**This bounty has already been assigned.**" : `**To work on this t
         // Define the bounty-related labels to create
         const labels = [
             {
-                name: "💵 Bounty",
+                name: BOUNTY_LABEL,
                 color: "85BB65",
                 description: "Issues with a monetary reward"
             },
             {
-                name: "Bounty Paid ✅",
+                name: BOUNTY_PAID_LABEL,
                 color: "9C53E0",
                 description: "Bounty has been successfully paid"
             }
@@ -1015,7 +1017,7 @@ ${accepted ? "**This bounty has already been assigned.**" : `**To work on this t
      * @returns The bounty label
      */
     static async getBountyLabel(repositoryId: string, installationId: string) {
-        return this.getLabel(repositoryId, installationId, "💵 Bounty");
+        return this.getLabel(repositoryId, installationId, BOUNTY_LABEL);
     }
 
     /**
@@ -1025,7 +1027,7 @@ ${accepted ? "**This bounty has already been assigned.**" : `**To work on this t
      * @returns The bounty paid label
      */
     static async getBountyPaidLabel(repositoryId: string, installationId: string) {
-        return this.getLabel(repositoryId, installationId, "Bounty Paid ✅");
+        return this.getLabel(repositoryId, installationId, BOUNTY_PAID_LABEL);
     }
 
     /**
