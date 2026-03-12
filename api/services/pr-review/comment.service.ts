@@ -721,17 +721,13 @@ export class AIReviewCommentService {
     }
 
     /**
-     * Formats a follow-up review comment. Visually distinct from initial reviews — includes
-     * a "follow-up" badge and a previous summary block if available.
+     * Formats a follow-up review comment. Visually distinct from 
+     * initial reviews — includes a "follow-up" badge.
      */
     private static formatFollowUpReview(result: ReviewResult): FormattedReview {
         const scoreBar = this.createScoreBar(result.mergeScore);
 
-        const previousSummaryBlock = result.previousSummary
-            ? `<details>\n<summary>Previous Review Summary</summary>\n\n${result.previousSummary}\n\n</details>\n\n`
-            : "";
-
-        const mergeScoreSection = `### Updated Merge Score: ${result.mergeScore}/100\n\n${scoreBar}\n\n${previousSummaryBlock}${result.summary}`;
+        const mergeScoreSection = `### Updated Merge Score: ${result.mergeScore}/100\n\n${scoreBar}\n\n${result.summary}`;
 
         const suggestionsSection = this.createSuggestionsSection(result);
 

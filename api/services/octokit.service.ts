@@ -444,8 +444,8 @@ ${accepted ? "**This bounty has already been assigned.**" : `**To work on this t
             queryString += ` sort:"${filters.sort}-${filters.direction}"`;
         }
 
-        // Exclude issues with the "💵 Bounty" label (already managed by our system)
-        queryString += " -label:\"💵 Bounty\"";
+        // Exclude issues with bounty-related labels (already managed by our system)
+        queryString += " -label:\"💵 Bounty\" -label:\"Bounty Paid ✅\"";
 
         // Calculate pagination cursor for pages beyond the first
         const after = page > 1 ? `after: "${btoa(`cursor:${(page - 1) * perPage}`)}",` : "";
