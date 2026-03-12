@@ -709,7 +709,6 @@ For 'suggestions', include specific file paths, line numbers, and 'suggestedCode
         // Walk backwards to find the last comma that is NOT inside a string
         let inString = false;
         let escape = false;
-        let depth = 0;
         let lastSafeComma = -1;
 
         for (let i = 0; i < json.length; i++) {
@@ -719,10 +718,8 @@ For 'suggestions', include specific file paths, line numbers, and 'suggestedCode
             if (ch === "\"") { inString = !inString; continue; }
             if (inString) continue;
 
-            if (ch === "{" || ch === "[") depth++;
-            else if (ch === "}" || ch === "]") depth--;
-            else if (ch === "," && depth === 1) {
-                // Top-level comma in the outermost object/array
+            if (ch === ",") {
+                // Last comma before the truncated section, at any depth
                 lastSafeComma = i;
             }
         }
