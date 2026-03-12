@@ -10,7 +10,7 @@ import { stellarService } from "../stellar.service";
 import { ContractService } from "../contract.service";
 import { KMSService } from "../kms.service";
 import { HorizonApi } from "../../models/horizonapi.model";
-import { GitHubComment } from "../../models/github.model";
+import { BOUNTY_LABEL, GitHubComment } from "../../models/github.model";
 
 export class IssueCommentWebhookService {
     private static readonly AUTHORIZED_ASSOCIATIONS = ["OWNER", "MEMBER", "COLLABORATOR"];
@@ -380,7 +380,7 @@ export class IssueCommentWebhookService {
                         bountyLabelId = label.id;
                     } catch {
                         const labels = await OctokitService.createBountyLabels(repository.node_id, installationId);
-                        const label = labels.find(l => l.name === "💵 Bounty");
+                        const label = labels.find(l => l.name === BOUNTY_LABEL);
                         if (label) bountyLabelId = label.id;
                     }
 

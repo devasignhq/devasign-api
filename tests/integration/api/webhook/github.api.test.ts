@@ -8,6 +8,7 @@ import { TestDataFactory } from "../../../../tests/helpers/test-data-factory";
 import { ENDPOINTS, STATUS_CODES } from "../../../../api/utilities/data";
 import { getEndpointWithPrefix } from "../../../helpers/test-utils";
 import { mockFirebaseAuth } from "../../../mocks/firebase.service.mock";
+import { BOUNTY_LABEL } from "../../../../api/models/github.model";
 
 // Mock Firebase admin for authentication
 jest.mock("../../../../api/config/firebase.config", () => {
@@ -45,7 +46,7 @@ jest.mock("../../../../api/services/octokit.service", () => ({
         getDefaultBranch: jest.fn(),
         removeBountyLabelAndDeleteBountyComment: jest.fn(),
         getBountyLabel: jest.fn().mockResolvedValue({ id: "mock-label-id" }),
-        createBountyLabels: jest.fn().mockResolvedValue([{ name: "💵 Bounty", id: "mock-label-id" }]),
+        createBountyLabels: jest.fn().mockResolvedValue([{ name: BOUNTY_LABEL, id: "mock-label-id" }]),
         customBountyMessage: jest.fn().mockReturnValue("mock-bounty-message"),
         addBountyLabelAndCreateBountyComment: jest.fn().mockResolvedValue({ id: "mock-comment-id" }),
         createComment: jest.fn()
@@ -138,7 +139,7 @@ describe("Webhook API Integration Tests", () => {
             getDefaultBranch: jest.fn(),
             removeBountyLabelAndDeleteBountyComment: jest.fn(),
             getBountyLabel: jest.fn().mockResolvedValue({ id: "mock-label-id" }),
-            createBountyLabels: jest.fn().mockResolvedValue([{ name: "💵 Bounty", id: "mock-label-id" }]),
+            createBountyLabels: jest.fn().mockResolvedValue([{ name: BOUNTY_LABEL, id: "mock-label-id" }]),
             customBountyMessage: jest.fn().mockReturnValue("mock-bounty-message"),
             addBountyLabelAndCreateBountyComment: jest.fn().mockResolvedValue({ id: "mock-comment-id" }),
             createComment: jest.fn()

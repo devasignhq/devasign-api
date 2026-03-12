@@ -1,6 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Octokit } from "@octokit/core";
 
+export const BOUNTY_LABEL = "💵 Bounty";
+export const BOUNTY_PAID_LABEL = "Bounty Paid ✅";
+
 export type InstallationOctokit = Octokit & {
     paginate: import("@octokit/plugin-paginate-rest").PaginateInterface;
 } & {
