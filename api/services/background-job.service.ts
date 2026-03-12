@@ -10,11 +10,18 @@ import { dataLogger, messageLogger } from "../config/logger.config";
  * Supports PR analysis and repository indexing
  */
 
-export type JobType = "pr-analysis" | "repository-indexing";
+export type JobType = "pr-analysis" | "repository-indexing" | "repository-incremental-indexing";
 
 export interface RepositoryIndexingData {
     installationId: string;
     repositoryName: string;
+}
+
+export interface IncrementalIndexingData {
+    installationId: string;
+    repositoryName: string;
+    filesToIndex: string[];
+    filesToRemove: string[];
 }
 
 export interface PRAnalysisJobData {
@@ -61,7 +68,13 @@ export class BackgroundJobService extends EventEmitter {
             maxConcurrentJobs: parseInt(process.env.INDEXING_MAX_CONCURRENT || "1"),
             maxRetries: parseInt(process.env.INDEXING_MAX_RETRIES || "3"),
             retryDelayMs: parseInt(process.env.INDEXING_RETRY_DELAY || "60000"), // 1 minute
-            timeoutMs: parseInt(process.env.INDEXING_JOB_TIMEOUT || "21600000") // 6 hours
+            timeoutMs: parseInt(process.env.INDEXING_JOB_TIMEOUT || "14400000") // 4 hours
+        },
+        "repository-incremental-indexing": {
+            maxConcurrentJobs: parseInt(process.env.INCREMENTAL_INDEXING_MAX_CONCURRENT || "2"),
+            maxRetries: parseInt(process.env.INCREMENTAL_INDEXING_MAX_RETRIES || "2"),
+            retryDelayMs: parseInt(process.env.INCREMENTAL_INDEXING_RETRY_DELAY || "30000"), // 30 seconds
+            timeoutMs: parseInt(process.env.INCREMENTAL_INDEXING_JOB_TIMEOUT || "1800000") // 30 minutes
         },
         cleanupIntervalMs: parseInt(process.env.JOB_QUEUE_CLEANUP_INTERVAL || "3600000") // 1 hour
     };
@@ -108,6 +121,28 @@ export class BackgroundJobService extends EventEmitter {
             type: "repository-indexing",
             data: { installationId, repositoryName },
             idGenerator: () => `repo-indexing-${installationId}-${repositoryName.replace("/", "~")}`
+        });
+    }
+
+    /**
+     * Adds an incremental repository indexing job to the queue.
+     * Only processes changed files (added/modified/removed) instead of the full repository.
+     * @param installationId - The ID of the installation
+     * @param repositoryName - The name of the repository
+     * @param filesToIndex - File paths to re-index (added/modified)
+     * @param filesToRemove - File paths to remove from the index
+     * @returns The generated job ID
+     */
+    public async addIncrementalIndexingJob(
+        installationId: string,
+        repositoryName: string,
+        filesToIndex: string[],
+        filesToRemove: string[]
+    ): Promise<string> {
+        return this.addJob({
+            type: "repository-incremental-indexing",
+            data: { installationId, repositoryName, filesToIndex, filesToRemove },
+            idGenerator: () => `repo-incremental-indexing-${installationId}-${repositoryName.replace("/", "~")}-${Date.now()}`
         });
     }
 
@@ -294,7 +329,12 @@ export class BackgroundJobService extends EventEmitter {
                     case "repository-indexing": {
                         const { installationId, repositoryName } = job.data as RepositoryIndexingData;
                         await this.indexingService.indexRepository(installationId, repositoryName);
-                        return { success: true }; // Indexing returns void
+                        return { success: true };
+                    }
+                    case "repository-incremental-indexing": {
+                        const { installationId, repositoryName, filesToIndex, filesToRemove } = job.data as IncrementalIndexingData;
+                        await this.indexingService.indexChangedFiles(installationId, repositoryName, filesToIndex, filesToRemove);
+                        return { success: true, filesIndexed: filesToIndex.length, filesRemoved: filesToRemove.length };
                     }
                     default:
                         throw new Error(`Unknown job type: ${job.type}`);
