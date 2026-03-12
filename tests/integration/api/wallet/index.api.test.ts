@@ -428,6 +428,67 @@ describe("Wallet API Integration Tests", () => {
             });
             expect(transaction).toBeTruthy();
         });
+
+        it("should return error when installation wallet not found", async () => {
+            const installation = TestDataFactory.installation({ id: "12345678" });
+            await prisma.installation.create({
+                data: {
+                    ...installation,
+                    users: { connect: { userId: "test-user-1" } }
+                }
+            });
+
+            const withdrawData = {
+                installationId: "12345678",
+                walletAddress: "GBPOJZGQPO23FSADGDD3PQFRGLWTETJRK2IY4D5HEQXLDCDEHYFSAAII",
+                assetType: "USDC",
+                amount: "100"
+            };
+
+            await request(app)
+                .post(getEndpointWithPrefix(["WALLET", "WITHDRAW"]))
+                .set("x-test-user-id", "test-user-1")
+                .send(withdrawData)
+                .expect(STATUS_CODES.NOT_FOUND);
+        });
+
+        it("should return error when no XLM balance found in wallet", async () => {
+            mockStellarService.getAccountInfo.mockResolvedValue({
+                subentry_count: 0,
+                balances: []
+            });
+
+            const withdrawData = {
+                walletAddress: "GBPOJZGQPO23FSADGDD3PQFRGLWTETJRK2IY4D5HEQXLDCDEHYFSAAII",
+                assetType: "USDC",
+                amount: "100"
+            };
+
+            await request(app)
+                .post(getEndpointWithPrefix(["WALLET", "WITHDRAW"]))
+                .set("x-test-user-id", "test-user-1")
+                .send(withdrawData)
+                .expect(STATUS_CODES.SERVER_ERROR);
+        });
+
+        it("should return error when no USDC asset found in wallet during USDC withdrawal", async () => {
+            mockStellarService.getAccountInfo.mockResolvedValue({
+                subentry_count: 0,
+                balances: [{ asset_type: "native", balance: "100.0000000" }]
+            });
+
+            const withdrawData = {
+                walletAddress: "GBPOJZGQPO23FSADGDD3PQFRGLWTETJRK2IY4D5HEQXLDCDEHYFSAAII",
+                assetType: "USDC",
+                amount: "100"
+            };
+
+            await request(app)
+                .post(getEndpointWithPrefix(["WALLET", "WITHDRAW"]))
+                .set("x-test-user-id", "test-user-1")
+                .send(withdrawData)
+                .expect(STATUS_CODES.SERVER_ERROR);
+        });
     });
 
     describe(`POST ${getEndpointWithPrefix(["WALLET", "SWAP"])} - Swap Asset`, () => {
@@ -581,6 +642,78 @@ describe("Wallet API Integration Tests", () => {
                 .set("x-test-user-id", "test-user-1")
                 .send(swapData)
                 .expect(STATUS_CODES.NOT_FOUND);
+        });
+
+        it("should return error when no XLM balance found in wallet for swap", async () => {
+            mockStellarService.getAccountInfo.mockResolvedValue({
+                subentry_count: 0,
+                balances: []
+            });
+
+            const swapData = {
+                toAssetType: "USDC",
+                amount: "50"
+            };
+
+            await request(app)
+                .post(
+                    getEndpointWithPrefix(["WALLET", "SWAP"])
+                        .replace(":installationId", "12345678")
+                )
+                .set("x-test-user-id", "test-user-1")
+                .send(swapData)
+                .expect(STATUS_CODES.SERVER_ERROR);
+        });
+
+        it("should return error when no USDC asset found in wallet for swap to XLM", async () => {
+            mockStellarService.getAccountInfo.mockResolvedValue({
+                subentry_count: 0,
+                balances: [{ asset_type: "native", balance: "100.0000000" }]
+            });
+
+            const swapData = {
+                toAssetType: "XLM",
+                amount: "100"
+            };
+
+            await request(app)
+                .post(
+                    getEndpointWithPrefix(["WALLET", "SWAP"])
+                        .replace(":installationId", "12345678")
+                )
+                .set("x-test-user-id", "test-user-1")
+                .send(swapData)
+                .expect(STATUS_CODES.SERVER_ERROR);
+        });
+
+        it("should record accurate transaction details for swap", async () => {
+            const swapData = {
+                toAssetType: "USDC",
+                amount: "50"
+            };
+
+            await request(app)
+                .post(
+                    getEndpointWithPrefix(["WALLET", "SWAP"])
+                        .replace(":installationId", "12345678")
+                )
+                .set("x-test-user-id", "test-user-1")
+                .send(swapData)
+                .expect(STATUS_CODES.SUCCESS);
+
+            const transaction = await prisma.transaction.findFirst({
+                where: { txHash: "mock_swap_tx_hash_123" }
+            });
+
+            expect(transaction).toMatchObject({
+                category: TransactionCategory.SWAP_XLM,
+                amount: 50,
+                fromAmount: 50,
+                toAmount: 45,
+                assetFrom: "XLM",
+                assetTo: "USDC",
+                installationId: "12345678"
+            });
         });
     });
 

@@ -63,7 +63,10 @@ describe("Authentication Middleware", () => {
                 const mockDecodedToken = {
                     uid: "test-user-id",
                     email: "test@example.com",
-                    name: "Test User"
+                    name: "Test User",
+                    firebase: {
+                        sign_in_provider: "github.com"
+                    }
                 };
 
                 mockRequest.headers = {
@@ -92,13 +95,13 @@ describe("Authentication Middleware", () => {
 
                 await validateUser(mockRequest as Request, mockResponse as Response, mockNext);
 
-                expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.UNAUTHENTICATED);
-                expect(mockResponse.json).toHaveBeenCalledWith({
-                    data: {},
-                    message: "Authentication failed",
-                    warning: "Invalid or expired token"
-                });
-                expect(mockNext).not.toHaveBeenCalled();
+                expect(mockNext).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        code: "AUTHENTICATION_FAILED",
+                        status: STATUS_CODES.UNAUTHENTICATED,
+                        message: "Invalid or expired token"
+                    })
+                );
             });
 
 
@@ -110,12 +113,13 @@ describe("Authentication Middleware", () => {
 
                 await validateUser(mockRequest as Request, mockResponse as Response, mockNext);
 
-                expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.UNAUTHENTICATED);
-                expect(mockResponse.json).toHaveBeenCalledWith({
-                    data: {},
-                    message: "No authorization token sent"
-                });
-                expect(mockNext).not.toHaveBeenCalled();
+                expect(mockNext).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        code: "AUTHENTICATION_FAILED",
+                        status: STATUS_CODES.UNAUTHENTICATED,
+                        message: "No authorization token sent"
+                    })
+                );
                 expect(mockFirebaseAuth).not.toHaveBeenCalled();
             });
 
@@ -126,12 +130,13 @@ describe("Authentication Middleware", () => {
 
                 await validateUser(mockRequest as Request, mockResponse as Response, mockNext);
 
-                expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.UNAUTHENTICATED);
-                expect(mockResponse.json).toHaveBeenCalledWith({
-                    data: {},
-                    message: "No authorization token sent"
-                });
-                expect(mockNext).not.toHaveBeenCalled();
+                expect(mockNext).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        code: "AUTHENTICATION_FAILED",
+                        status: STATUS_CODES.UNAUTHENTICATED,
+                        message: "No authorization token sent"
+                    })
+                );
                 expect(mockFirebaseAuth).not.toHaveBeenCalled();
             });
 
@@ -145,7 +150,13 @@ describe("Authentication Middleware", () => {
                 await validateUser(mockRequest as Request, mockResponse as Response, mockNext);
 
                 expect(mockFirebaseAuth).toHaveBeenCalled();
-                expect(mockNext).not.toHaveBeenCalled();
+                expect(mockNext).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        code: "AUTHENTICATION_FAILED",
+                        status: STATUS_CODES.UNAUTHENTICATED,
+                        message: "Invalid or expired token"
+                    })
+                );
             });
 
             it("should reject request with empty authorization header", async () => {
@@ -155,12 +166,13 @@ describe("Authentication Middleware", () => {
 
                 await validateUser(mockRequest as Request, mockResponse as Response, mockNext);
 
-                expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.UNAUTHENTICATED);
-                expect(mockResponse.json).toHaveBeenCalledWith({
-                    data: {},
-                    message: "No authorization token sent"
-                });
-                expect(mockNext).not.toHaveBeenCalled();
+                expect(mockNext).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        code: "AUTHENTICATION_FAILED",
+                        status: STATUS_CODES.UNAUTHENTICATED,
+                        message: "No authorization token sent"
+                    })
+                );
             });
         });
 
@@ -174,13 +186,13 @@ describe("Authentication Middleware", () => {
 
                 await validateUser(mockRequest as Request, mockResponse as Response, mockNext);
 
-                expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.UNAUTHENTICATED);
-                expect(mockResponse.json).toHaveBeenCalledWith({
-                    data: {},
-                    message: "Authentication failed",
-                    warning: "Invalid or expired token"
-                });
-                expect(mockNext).not.toHaveBeenCalled();
+                expect(mockNext).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        code: "AUTHENTICATION_FAILED",
+                        status: STATUS_CODES.UNAUTHENTICATED,
+                        message: "Invalid or expired token"
+                    })
+                );
             });
 
             it("should handle invalid signature error", async () => {
@@ -193,13 +205,13 @@ describe("Authentication Middleware", () => {
 
                 await validateUser(mockRequest as Request, mockResponse as Response, mockNext);
 
-                expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.UNAUTHENTICATED);
-                expect(mockResponse.json).toHaveBeenCalledWith({
-                    data: {},
-                    message: "Authentication failed",
-                    warning: "Firebase ID token has invalid signature"
-                });
-                expect(mockNext).not.toHaveBeenCalled();
+                expect(mockNext).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        code: "AUTHENTICATION_FAILED",
+                        status: STATUS_CODES.UNAUTHENTICATED,
+                        message: "Firebase ID token has invalid signature"
+                    })
+                );
             });
 
             it("should call Firebase auth with correct token", async () => {
@@ -407,12 +419,13 @@ describe("Authentication Middleware", () => {
 
                 await validateAdmin(mockRequest as Request, mockResponse as Response, mockNext);
 
-                expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.UNAUTHORIZED);
-                expect(mockResponse.json).toHaveBeenCalledWith({
-                    data: {},
-                    message: "Access denied. Admin privileges required."
-                });
-                expect(mockNext).not.toHaveBeenCalled();
+                expect(mockNext).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        code: "UNAUTHORIZED",
+                        status: STATUS_CODES.UNAUTHORIZED,
+                        message: "Access denied. Admin privileges required."
+                    })
+                );
             });
 
             it("should deny access when admin property is false", async () => {
@@ -426,12 +439,13 @@ describe("Authentication Middleware", () => {
 
                 await validateAdmin(mockRequest as Request, mockResponse as Response, mockNext);
 
-                expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.UNAUTHORIZED);
-                expect(mockResponse.json).toHaveBeenCalledWith({
-                    data: {},
-                    message: "Access denied. Admin privileges required."
-                });
-                expect(mockNext).not.toHaveBeenCalled();
+                expect(mockNext).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        code: "UNAUTHORIZED",
+                        status: STATUS_CODES.UNAUTHORIZED,
+                        message: "Access denied. Admin privileges required."
+                    })
+                );
             });
 
             it("should deny access when custom_claims.admin is false", async () => {
@@ -448,12 +462,13 @@ describe("Authentication Middleware", () => {
 
                 await validateAdmin(mockRequest as Request, mockResponse as Response, mockNext);
 
-                expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.UNAUTHORIZED);
-                expect(mockResponse.json).toHaveBeenCalledWith({
-                    data: {},
-                    message: "Access denied. Admin privileges required."
-                });
-                expect(mockNext).not.toHaveBeenCalled();
+                expect(mockNext).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        code: "UNAUTHORIZED",
+                        status: STATUS_CODES.UNAUTHORIZED,
+                        message: "Access denied. Admin privileges required."
+                    })
+                );
             });
 
             it("should deny access when currentUser is missing", async () => {
@@ -461,12 +476,13 @@ describe("Authentication Middleware", () => {
 
                 await validateAdmin(mockRequest as Request, mockResponse as Response, mockNext);
 
-                expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.UNAUTHORIZED);
-                expect(mockResponse.json).toHaveBeenCalledWith({
-                    data: {},
-                    message: "Access denied. Admin privileges required."
-                });
-                expect(mockNext).not.toHaveBeenCalled();
+                expect(mockNext).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        code: "UNAUTHORIZED",
+                        status: STATUS_CODES.UNAUTHORIZED,
+                        message: "Access denied. Admin privileges required."
+                    })
+                );
             });
 
             it("should deny access when currentUser is null", async () => {
@@ -476,12 +492,13 @@ describe("Authentication Middleware", () => {
 
                 await validateAdmin(mockRequest as Request, mockResponse as Response, mockNext);
 
-                expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.UNAUTHORIZED);
-                expect(mockResponse.json).toHaveBeenCalledWith({
-                    data: {},
-                    message: "Access denied. Admin privileges required."
-                });
-                expect(mockNext).not.toHaveBeenCalled();
+                expect(mockNext).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        code: "UNAUTHORIZED",
+                        status: STATUS_CODES.UNAUTHORIZED,
+                        message: "Access denied. Admin privileges required."
+                    })
+                );
             });
 
             it("should deny access when currentUser is undefined", async () => {
@@ -491,12 +508,13 @@ describe("Authentication Middleware", () => {
 
                 await validateAdmin(mockRequest as Request, mockResponse as Response, mockNext);
 
-                expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.UNAUTHORIZED);
-                expect(mockResponse.json).toHaveBeenCalledWith({
-                    data: {},
-                    message: "Access denied. Admin privileges required."
-                });
-                expect(mockNext).not.toHaveBeenCalled();
+                expect(mockNext).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        code: "UNAUTHORIZED",
+                        status: STATUS_CODES.UNAUTHORIZED,
+                        message: "Access denied. Admin privileges required."
+                    })
+                );
             });
         });
 
@@ -515,12 +533,13 @@ describe("Authentication Middleware", () => {
 
                 await validateAdmin(mockRequest as Request, mockResponse as Response, mockNext);
 
-                expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.UNAUTHORIZED);
-                expect(mockResponse.json).toHaveBeenCalledWith({
-                    data: {},
-                    message: "Access denied. Admin privileges required."
-                });
-                expect(mockNext).not.toHaveBeenCalled();
+                expect(mockNext).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        code: "UNAUTHORIZED",
+                        status: STATUS_CODES.UNAUTHORIZED,
+                        message: "Access denied. Admin privileges required."
+                    })
+                );
             });
 
             it("should allow access when admin is truthy value", async () => {
@@ -549,12 +568,13 @@ describe("Authentication Middleware", () => {
 
                 await validateAdmin(mockRequest as Request, mockResponse as Response, mockNext);
 
-                expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.UNAUTHORIZED);
-                expect(mockResponse.json).toHaveBeenCalledWith({
-                    data: {},
-                    message: "Access denied. Admin privileges required."
-                });
-                expect(mockNext).not.toHaveBeenCalled();
+                expect(mockNext).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        code: "UNAUTHORIZED",
+                        status: STATUS_CODES.UNAUTHORIZED,
+                        message: "Access denied. Admin privileges required."
+                    })
+                );
             });
 
             it("should preserve other request body properties", async () => {

@@ -48,9 +48,9 @@ describe("Rate Limit Middleware", () => {
             app.use(path, apiLimiter);
             app.get(path, (req: Request, res: Response) => { res.status(200).json({ message: "success" }); });
 
-            // Limit is 150.
+            // Limit is 300.
             // We'll send requests in batches of 20 to avoid overwhelm.
-            const limit = 160;
+            const limit = 310;
             let blocked = false;
 
             for (let i = 0; i < limit; i += 20) {
@@ -63,7 +63,7 @@ describe("Rate Limit Middleware", () => {
                 for (const res of responses) {
                     if (res.status === STATUS_CODES.RATE_LIMIT) {
                         blocked = true;
-                        expect(res.body.message).toBe("Too many requests from this IP, please try again after 15 minutes");
+                        expect(res.body.message).toBe("Too many requests from this IP, please try again after 1 minute");
                         break;
                     }
                 }

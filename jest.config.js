@@ -18,7 +18,6 @@ module.exports = {
 
     // Module name mapping for path aliases
     moduleNameMapper: {
-        "^@paralleldrive/cuid2$": "<rootDir>/tests/mocks/cuid2.mock.ts",
         "^@/(.*)$": "<rootDir>/api/$1",
         "^@tests/(.*)$": "<rootDir>/tests/$1"
     },

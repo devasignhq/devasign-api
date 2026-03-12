@@ -78,6 +78,18 @@ export function generateRandomUUID(): string {
 }
 
 /**
+ * Generates a random CUID for testing
+ */
+export function generateRandomCUID(): string {
+    const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
+    let result = "c";
+    for (let i = 0; i < 24; i++) {
+        result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
+}
+
+/**
  * Creates a deep clone of an object (useful for test data manipulation)
  */
 export function deepClone<T>(obj: T): T {

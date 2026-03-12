@@ -10,6 +10,25 @@ import { ENDPOINTS, STATUS_CODES } from "../../../../api/utilities/data";
 import { TestDataFactory } from "../../../helpers/test-data-factory";
 import { getEndpointWithPrefix } from "../../../helpers/test-utils";
 
+// Mock Job Queue Service to prevent real instance creation
+jest.mock("../../../../api/services/background-job.service", () => {
+    const mockBackgroundJobService = {
+        getJobData: jest.fn(),
+        getQueueStats: jest.fn(),
+        getActiveJobsCount: jest.fn(),
+        addPRAnalysisJob: jest.fn(),
+        addRepositoryIndexingJob: jest.fn(),
+        stop: jest.fn(),
+        cancelJob: jest.fn()
+    };
+    return {
+        BackgroundJobService: {
+            getInstance: jest.fn().mockReturnValue(mockBackgroundJobService)
+        },
+        backgroundJobService: mockBackgroundJobService
+    };
+});
+
 // Mock logger
 jest.mock("../../../../api/config/logger.config", () => ({
     dataLogger: {

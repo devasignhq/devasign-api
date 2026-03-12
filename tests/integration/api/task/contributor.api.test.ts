@@ -1,13 +1,12 @@
 import request from "supertest";
 import express from "express";
-import { createId } from "@paralleldrive/cuid2";;
 import { TestDataFactory } from "../../../helpers/test-data-factory";
 import { taskRoutes } from "../../../../api/routes/task.route";
 import { errorHandler } from "../../../../api/middlewares/error.middleware";
 import { DatabaseTestHelper } from "../../../helpers/database-test-helper";
 import { ENDPOINTS, STATUS_CODES } from "../../../../api/utilities/data";
 import { mockFirebaseAuth } from "../../../mocks/firebase.service.mock";
-import { getEndpointWithPrefix } from "../../../helpers/test-utils";
+import { getEndpointWithPrefix, generateRandomCUID } from "../../../helpers/test-utils";
 
 // Mock Firebase admin for authentication
 jest.mock("../../../../api/config/firebase.config", () => {
@@ -305,7 +304,7 @@ describe("Task Contributor API Integration Tests", () => {
         it("should return 404 when task not found", async () => {
             await request(app)
                 .get(getEndpointWithPrefix(["TASK", "CONTRIBUTOR", "GET_TASK"])
-                    .replace(":taskId", createId()))
+                    .replace(":taskId", generateRandomCUID()))
                 .set("x-test-user-id", "contributor-user")
                 .expect(STATUS_CODES.NOT_FOUND);
         });

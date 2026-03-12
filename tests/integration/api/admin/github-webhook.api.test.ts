@@ -10,10 +10,32 @@ import { WorkflowIntegrationService } from "../../../../api/services/pr-review/w
 import { backgroundJobService } from "../../../../api/services/background-job.service";
 
 // Mock Workflow Integration Service
-jest.mock("../../../../api/services/pr-review/workflow-integration.service");
+jest.mock("../../../../api/services/pr-review/workflow-integration.service", () => {
+    return {
+        WorkflowIntegrationService: {
+            getInstance: jest.fn()
+        }
+    };
+});
 
 // Mock Job Queue Service
-jest.mock("../../../../api/services/background-job.service");
+jest.mock("../../../../api/services/background-job.service", () => {
+    const mockBackgroundJobService = {
+        getJobData: jest.fn(),
+        getQueueStats: jest.fn(),
+        getActiveJobsCount: jest.fn(),
+        addPRAnalysisJob: jest.fn(),
+        addRepositoryIndexingJob: jest.fn(),
+        stop: jest.fn(),
+        cancelJob: jest.fn()
+    };
+    return {
+        BackgroundJobService: {
+            getInstance: jest.fn().mockReturnValue(mockBackgroundJobService)
+        },
+        backgroundJobService: mockBackgroundJobService
+    };
+});
 
 describe("Admin GitHub Webhook API Integration Tests", () => {
     let app: express.Application;
