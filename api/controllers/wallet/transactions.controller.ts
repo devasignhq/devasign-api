@@ -6,6 +6,7 @@ import { HorizonApi } from "../../models/horizonapi.model";
 import { Prisma, TransactionCategory } from "../../../prisma_client";
 import { stellarService } from "../../services/stellar.service";
 import { AuthorizationError, NotFoundError } from "../../models/error.model";
+import { dataLogger } from "../../config/logger.config";
 
 /**
  * Get user transactions.
@@ -241,14 +242,25 @@ export const recordWalletTopups = async (req: Request, res: Response, next: Next
             });
         }
 
-        // Create transactions individually to support relations
-        await prisma.$transaction(
-            newTransactions.map(transactionData =>
-                prisma.transaction.create({
-                    data: transactionData
-                })
-            )
-        );
+        try {
+            // Create transactions individually to support relations
+            await prisma.$transaction(
+                newTransactions.map(transactionData =>
+                    prisma.transaction.create({
+                        data: transactionData
+                    })
+                )
+            );
+        } catch (error) {
+            if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+                // This race condition means another request inserted the transaction between our check and our write.
+                // This is not a true error, as the data is now present. We can proceed.
+                dataLogger.info("Handled P2002 race condition in recordWalletTopups.", { error });
+            } else {
+                // Re-throw any other errors
+                throw error;
+            }
+        }
 
         // Return details of recorded transactions
         responseWrapper({

@@ -3,6 +3,7 @@ import { Request, Response, ErrorRequestHandler, NextFunction } from "express";
 import { STATUS_CODES } from "../utilities/data";
 import { getFieldFromUnknownObject } from "../utilities/helper";
 import { dataLogger } from "../config/logger.config";
+import { Prisma } from "../../prisma_client";
 
 /**
  * Centralized error handling middleware
@@ -36,6 +37,15 @@ export const errorHandler = ((error: unknown, req: Request, res: Response, _next
     if (errorName === "ValidationError") {
         return res.status(STATUS_CODES.SERVER_ERROR).json({
             message: getFieldFromUnknownObject<string>(error, "message"),
+            details: returnError ? getFieldFromUnknownObject<string>(error, "errors") : null
+        });
+    }
+
+    // Handle prisma known request errors
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        return res.status(STATUS_CODES.SERVER_ERROR).json({
+            message: getFieldFromUnknownObject<string>(error, "message"),
+            code: getFieldFromUnknownObject<string>(error, "code"),
             details: returnError ? getFieldFromUnknownObject<string>(error, "errors") : null
         });
     }
