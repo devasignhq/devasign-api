@@ -53,19 +53,20 @@ export class KMSService {
         const iv = crypto.randomBytes(12);
         const cipher = crypto.createCipheriv("aes-256-gcm", plaintextDEK, iv);
 
-        let encryptedSecret = cipher.update(stellarSecret, "utf8", "hex");
-        encryptedSecret += cipher.final("hex");
-        const authTag = cipher.getAuthTag().toString("hex");
-
-        // Clear the plaintext DEK from memory for security
-        plaintextDEK.fill(0);
-
-        return {
-            encryptedDEK: encryptedDEK.toString("base64"),
-            encryptedSecret,
-            iv: iv.toString("hex"),
-            authTag
-        };
+        try { 
+            let encryptedSecret = cipher.update(stellarSecret, "utf8", "hex"); 
+            encryptedSecret += cipher.final("hex"); 
+            const authTag = cipher.getAuthTag().toString("hex"); 
+            return { 
+                encryptedDEK: encryptedDEK.toString("base64"), 
+                encryptedSecret, 
+                iv: iv.toString("hex"), 
+                authTag 
+            }; 
+        } finally { 
+            // Clear the plaintext DEK from memory for security
+            plaintextDEK.fill(0); 
+        }
     }
 
     /**
