@@ -74,21 +74,7 @@ Please provide:
 1. Overall code quality assessment (1-10)
 2. Specific suggestions for improvement
 3. Any potential bugs or security issues
-4. Best practices recommendations
-
-Format your response as JSON:
-{
-  "quality_score": <number 1-10>,
-  "summary": "<brief summary>",
-  "suggestions": [
-    {
-      "type": "<improvement|bug|security|style>",
-      "description": "<detailed description>",
-      "line": <line number or null>
-    }
-  ],
-  "overall_feedback": "<comprehensive feedback>"
-}`;
+4. Best practices recommendations`;
 
             // Call Gemini API
             const response = await (geminiService as any).callGeminiAPI(reviewPrompt);
@@ -105,7 +91,7 @@ Format your response as JSON:
                 }
             });
         } catch (error) {
-            next(createError(500, "Failed to generate code review", { cause: error }));
+            next(error);
         }
     }) as RequestHandler
 );
