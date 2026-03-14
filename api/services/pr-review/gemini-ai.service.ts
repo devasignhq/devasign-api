@@ -525,8 +525,15 @@ For 'suggestions', include specific file paths, line numbers, and 'suggestedCode
                     throw new GeminiRateLimitError("Gemini API rate limit exceeded", undefined, error);
                 }
 
+                // Handle context limit errors
                 if (errorMessage?.includes("context") || errorMessage?.includes("token")) {
-                    const tokens = await this.estimateTokens(prompt);
+                    let tokens = 0;
+                    try {
+                        tokens = await this.estimateTokens(prompt);
+                    } catch (estimationError) {
+                        dataLogger.warn("Failed to estimate token count after context limit error", { estimationError });
+                        // Fallback to a zero count, but don't let the estimation failure crash the process.
+                    }
                     throw new GeminiContextLimitError(
                         tokens,
                         this.config.contextLimit,
