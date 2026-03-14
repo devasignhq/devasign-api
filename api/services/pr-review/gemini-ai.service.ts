@@ -37,13 +37,9 @@ export class GeminiAIService {
 
     constructor() {
         // Verify required environment variables are present
-        if (!process.env.GCP_PROJECT_ID || !process.env.GCP_LOCATION_ID) {
-            throw new GeminiServiceError("Missing GCP credentials (GCP_PROJECT_ID, GCP_LOCATION_ID) in environment variables");
+        if (!process.env.GCP_PROJECT_ID) {
+            throw new GeminiServiceError("Missing GCP credentials (GCP_PROJECT_ID) in environment variables");
         }
-
-        // Initialize Vertex AI with project and location
-        const projectId = process.env.GCP_PROJECT_ID;
-        const location = process.env.GCP_LOCATION_ID;
 
         // Configuration for Gemini models
         this.config = {
@@ -52,26 +48,35 @@ export class GeminiAIService {
             temperature: parseFloat(process.env.GEMINI_TEMPERATURE || "0.0"),
             maxRetries: parseInt(process.env.GEMINI_MAX_RETRIES || "3"),
             contextLimit: parseInt(process.env.GEMINI_CONTEXT_LIMIT || "1048576"),
-            projectId,
-            location
+            projectId: process.env.GCP_PROJECT_ID,
+            location: "global"
         };
 
         // Initialize Vertex AI
         this.vertexAI = new VertexAI({
             project: this.config.projectId,
-            location: this.config.location
+            location: this.config.location,
+            apiEndpoint: "aiplatform.googleapis.com"
         });
 
-        // Initialize Gemini model
-        this.model = this.vertexAI.getGenerativeModel({
-            model: this.config.model,
-            generationConfig: {
-                maxOutputTokens: this.config.maxTokens,
-                temperature: this.config.temperature,
-                responseMimeType: "application/json",
-                responseSchema: this.getResponseSchema()
+        // Initialize Gemini model with Priority PayGo headers
+        this.model = this.vertexAI.getGenerativeModel(
+            {
+                model: this.config.model,
+                generationConfig: {
+                    maxOutputTokens: this.config.maxTokens,
+                    temperature: this.config.temperature,
+                    responseMimeType: "application/json",
+                    responseSchema: this.getResponseSchema()
+                }
+            },
+            {
+                customHeaders: new Headers({
+                    "X-Vertex-AI-LLM-Request-Type": "shared",
+                    "X-Vertex-AI-LLM-Shared-Request-Type": "priority"
+                })
             }
-        });
+        );
     }
 
     /**
@@ -485,12 +490,15 @@ For 'suggestions', include specific file paths, line numbers, and 'suggestedCode
         return this.handleRateLimit(async () => {
             try {
                 // Call Gemini API
-                const result = await this.model.generateContent(prompt);
-                const response = await result.response;
+                const { response } = await this.model.generateContent(prompt);
 
-                const candidate = response.candidates?.[0];
+                dataLogger.info(
+                    "Gemini API response",
+                    { model: this.config.model, usageMetadata: response.usageMetadata }
+                );
 
                 // Extract the response text
+                const candidate = response.candidates?.[0];
                 const text = candidate?.content?.parts?.[0]?.text;
 
                 if (!text) {
@@ -518,8 +526,9 @@ For 'suggestions', include specific file paths, line numbers, and 'suggestedCode
                 }
 
                 if (errorMessage?.includes("context") || errorMessage?.includes("token")) {
+                    const tokens = await this.estimateTokens(prompt);
                     throw new GeminiContextLimitError(
-                        this.estimateTokens(prompt),
+                        tokens,
                         this.config.contextLimit,
                         error
                     );
@@ -733,13 +742,15 @@ For 'suggestions', include specific file paths, line numbers, and 'suggestedCode
 
         return json;
     }
-    
+
     /**
      * Estimates token count for content (rough approximation)
      */
-    public estimateTokens(content: string): number {
-        // Rough estimation: ~4 characters per token
-        return Math.ceil(content.length / 4);
+    public async estimateTokens(text: string): Promise<number> {
+        const result = await this.model.countTokens({
+            contents: [{ role: "user", parts: [{ text }] }]
+        });
+        return result.totalTokens;
     }
 
     /**
@@ -802,7 +813,7 @@ For 'suggestions', include specific file paths, line numbers, and 'suggestedCode
                             },
                             description: { type: SchemaType.STRING, description: "Clear explanation" },
                             suggestedCode: { type: SchemaType.STRING, description: "The fixed code block", nullable: true },
-                            language: { type: SchemaType.STRING, description: "The language of the fixed code block", nullable: true },
+                            language: { type: SchemaType.STRING, description: "The programming language of the fixed code block", nullable: true },
                             reasoning: { type: SchemaType.STRING, description: "Why this change is better" }
                         },
                         required: ["type", "severity", "description", "reasoning"]
