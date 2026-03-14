@@ -46,7 +46,7 @@ export class GeminiAIService {
             model: process.env.GEMINI_MODEL || "gemini-2.5-pro",
             maxTokens: parseInt(process.env.GEMINI_MAX_TOKENS || "65536"),
             temperature: parseFloat(process.env.GEMINI_TEMPERATURE || "0.0"),
-            maxRetries: parseInt(process.env.GEMINI_MAX_RETRIES || "3"),
+            maxRetries: parseInt(process.env.GEMINI_MAX_RETRIES || "5"),
             contextLimit: parseInt(process.env.GEMINI_CONTEXT_LIMIT || "1048576"),
             projectId: process.env.GCP_PROJECT_ID,
             location: "global"
@@ -278,7 +278,7 @@ export class GeminiAIService {
             } catch (error) {
                 lastError = error as Error;
 
-                // Check if it's a rate limit error
+                // Check if it's a rate limit error and retry after delay
                 if (this.isRateLimitError(error)) {
                     const delay = ErrorUtils.getRetryDelay(error as Error, attempt);
                     messageLogger.info(`Rate limited, retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`);

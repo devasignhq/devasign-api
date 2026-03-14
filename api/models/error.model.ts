@@ -368,18 +368,18 @@ export class ErrorUtils {
      * Gets retry delay based on error type and attempt count
      */
     static getRetryDelay(error: Error, attempt: number): number {
-        const baseDelay = 1000; // 1 second
-        const maxDelay = 30000; // 30 seconds
-
+        // If it's a rate limit error and the error has retryAfter property, return it
         if (error instanceof GeminiRateLimitError && error.retryAfter) {
             return error.retryAfter * 1000;
         }
 
-        // Exponential backoff with jitter
-        const delay = Math.min(baseDelay * Math.pow(2, attempt), maxDelay);
-        const jitter = Math.random() * 0.1 * delay;
+        // "Randomly wait up to 2^x * 1 seconds between each retry until the 
+        // range reaches 60 seconds, then randomly up to 60 seconds afterwards."
+        const multiplier = 1000; // 1 second
+        const maxWait = 60000; // 60 seconds
 
-        return delay + jitter;
+        const exponentialWait = Math.min(multiplier * Math.pow(2, attempt), maxWait);
+        return Math.random() * exponentialWait;
     }
 
     /**
