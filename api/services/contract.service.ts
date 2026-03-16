@@ -137,7 +137,7 @@ export class ContractService {
 
         // Build the transaction with the operation
         const transaction = new TransactionBuilder(account, {
-            fee: BASE_FEE,
+            fee: "10000",
             networkPassphrase: this.CONFIG.networkPassphrase
         })
             .addOperation(operation)
