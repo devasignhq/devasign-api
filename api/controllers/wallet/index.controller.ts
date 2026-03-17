@@ -62,7 +62,8 @@ export const withdrawAsset = async (req: Request, res: Response, next: NextFunct
         installationId,
         walletAddress: destinationAddress,
         assetType = "XLM",
-        amount
+        amount,
+        memo
     } = req.body;
 
     try {
@@ -135,7 +136,8 @@ export const withdrawAsset = async (req: Request, res: Response, next: NextFunct
                 destinationAddress,
                 assetType === "USDC" ? usdcAssetId : xlmAssetId,
                 assetType === "USDC" ? usdcAssetId : xlmAssetId,
-                amount
+                amount,
+                memo
             ));
         } else {
             // User wallet withdrawals — master account sponsors the transaction fee
@@ -146,7 +148,8 @@ export const withdrawAsset = async (req: Request, res: Response, next: NextFunct
                 destinationAddress,
                 assetType === "USDC" ? usdcAssetId : xlmAssetId,
                 assetType === "USDC" ? usdcAssetId : xlmAssetId,
-                amount
+                amount,
+                memo
             ));
         }
 

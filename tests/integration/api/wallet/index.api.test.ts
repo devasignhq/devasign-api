@@ -236,7 +236,8 @@ describe("Wallet API Integration Tests", () => {
             const withdrawData = {
                 walletAddress: "GBPOJZGQPO23FSADGDD3PQFRGLWTETJRK2IY4D5HEQXLDCDEHYFSAAII",
                 assetType: "USDC",
-                amount: "100"
+                amount: "100",
+                memo: "lunch money"
             };
 
             const response = await request(app)
