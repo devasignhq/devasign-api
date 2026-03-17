@@ -246,6 +246,17 @@ describe("Wallet API Integration Tests", () => {
                 .send(withdrawData)
                 .expect(STATUS_CODES.SUCCESS);
 
+            // Add assertion to verify memo is passed
+            expect(mockStellarService.transferAssetViaSponsor).toHaveBeenCalledWith(
+                expect.any(String),
+                expect.any(String),
+                withdrawData.walletAddress,
+                expect.any(String),
+                expect.any(String),
+                withdrawData.amount,
+                withdrawData.memo
+            );
+
             expect(response.body.data).toMatchObject({
                 txHash: "mock_tx_hash_123",
                 category: TransactionCategory.WITHDRAWAL,

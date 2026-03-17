@@ -16,7 +16,7 @@ export const withdrawAssetSchema = {
             message: "Amount must be a positive number"
         }),
         installationId: installationIdSchema.optional(),
-        memo: z.string().optional()
+        memo: z.string().max(28, "Memo must be at most 28 characters").optional()
     })
 };
 
