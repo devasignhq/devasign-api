@@ -4,7 +4,6 @@ import {
     rpc as SorobanRpc,
     TransactionBuilder,
     Networks,
-    BASE_FEE,
     xdr,
     Address,
     nativeToScVal,
@@ -39,7 +38,8 @@ export class ContractService {
             : Networks.TESTNET,
         contractId: process.env.TASK_ESCROW_CONTRACT_ID!,
         usdcContractId: process.env.USDC_CONTRACT_ID!,
-        masterPublicKey: process.env.STELLAR_MASTER_PUBLIC_KEY!
+        masterPublicKey: process.env.STELLAR_MASTER_PUBLIC_KEY!,
+        maxFee: process.env.MAX_FEE || "1000000"
     };
 
     // Soroban RPC server instance for network communication
@@ -137,7 +137,7 @@ export class ContractService {
 
         // Build the transaction with the operation
         const transaction = new TransactionBuilder(account, {
-            fee: "10000",
+            fee: this.CONFIG.maxFee, // 1,000,000 stroops
             networkPassphrase: this.CONFIG.networkPassphrase
         })
             .addOperation(operation)
@@ -248,7 +248,7 @@ export class ContractService {
 
         // Build a transaction for simulation purposes only
         const transaction = new TransactionBuilder(account, {
-            fee: BASE_FEE,
+            fee: this.CONFIG.maxFee, // 1,000,000 stroops
             networkPassphrase: this.CONFIG.networkPassphrase
         })
             .addOperation(operation)

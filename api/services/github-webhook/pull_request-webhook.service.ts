@@ -291,11 +291,12 @@ export class PullRequestWebhookService {
                     installationId: relatedTask.installation.id,
                     operation: "task_completed",
                     issueUrl: prUrl,
-                    message: "PR merged - Payment processed successfully"
+                    message: "PR merged - Payment processed successfully",
+                    metadata: { taskId: relatedTask.id }
                 }).catch(
                     error => dataLogger.warn(
                         "Failed to update installation activity for live updates",
-                        { installationId: installation.id, error }
+                        { installationId: installation.id, prUrl, error }
                     )
                 );
             } catch (error) {
