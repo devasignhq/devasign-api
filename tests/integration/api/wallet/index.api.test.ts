@@ -251,8 +251,8 @@ describe("Wallet API Integration Tests", () => {
                 expect.any(String),
                 expect.any(String),
                 withdrawData.walletAddress,
-                expect.any(String),
-                expect.any(String),
+                expect.any(Object),
+                expect.any(Object),
                 withdrawData.amount,
                 withdrawData.memo
             );
@@ -274,6 +274,52 @@ describe("Wallet API Integration Tests", () => {
             // User wallet withdrawals should use sponsored transfer
             expect(mockStellarService.transferAssetViaSponsor).toHaveBeenCalled();
             expect(mockStellarService.transferAsset).not.toHaveBeenCalled();
+        });
+
+        it("should allow withdrawing with a MEMO_ID (numeric up to uint64 max)", async () => {
+            const withdrawData = {
+                walletAddress: "GBPOJZGQPO23FSADGDD3PQFRGLWTETJRK2IY4D5HEQXLDCDEHYFSAAII",
+                assetType: "USDC",
+                amount: "100",
+                memo: "18446744073709551615"
+            };
+
+            await request(app)
+                .post(getEndpointWithPrefix(["WALLET", "WITHDRAW"]))
+                .set("x-test-user-id", "test-user-1")
+                .send(withdrawData)
+                .expect(STATUS_CODES.SUCCESS);
+        });
+
+        it("should allow withdrawing with a MEMO_HASH (64-character hex)", async () => {
+            const withdrawData = {
+                walletAddress: "GBPOJZGQPO23FSADGDD3PQFRGLWTETJRK2IY4D5HEQXLDCDEHYFSAAII",
+                assetType: "USDC",
+                amount: "100",
+                memo: "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
+            };
+
+            await request(app)
+                .post(getEndpointWithPrefix(["WALLET", "WITHDRAW"]))
+                .set("x-test-user-id", "test-user-1")
+                .send(withdrawData)
+                .expect(STATUS_CODES.SUCCESS);
+        });
+
+        it("should return error when memo is invalid (exceeds 28 bytes text)", async () => {
+            const withdrawData = {
+                walletAddress: "GBPOJZGQPO23FSADGDD3PQFRGLWTETJRK2IY4D5HEQXLDCDEHYFSAAII",
+                assetType: "USDC",
+                amount: "100",
+                memo: "This text is definitely way longer than the 28 bytes limit!"
+            };
+
+            // Should fail Zod validation
+            await request(app)
+                .post(getEndpointWithPrefix(["WALLET", "WITHDRAW"]))
+                .set("x-test-user-id", "test-user-1")
+                .send(withdrawData)
+                .expect(STATUS_CODES.SERVER_ERROR);
         });
 
         it("should return error when insufficient XLM balance for installation wallet", async () => {

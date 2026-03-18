@@ -16,10 +16,16 @@ export const withdrawAssetSchema = {
             message: "Amount must be a positive number"
         }),
         installationId: installationIdSchema.optional(),
-        memo: z.string().refine(
-            (val) => Buffer.byteLength(val, "utf8") <= 28,
-            "Memo must be at most 28 bytes"
-        ).optional()
+        memo: z.string().refine((val) => {
+            if (val === "") return true;
+            if (/^[0-9a-fA-F]{64}$/.test(val)) return true;
+            if (/^\d+$/.test(val)) {
+                try {
+                    if (BigInt(val) <= 18446744073709551615n) return true;
+                } catch { /* ignore */ }
+            }
+            return Buffer.byteLength(val, "utf8") <= 28;
+        }, "Invalid memo: must be a numeric ID, a 64-character hex hash, or text up to 28 bytes").optional()
     })
 };
 
