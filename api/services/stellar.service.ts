@@ -71,6 +71,39 @@ export class StellarService {
     }
 
     /**
+     * Helper method to deduct the Memo type automatically from a string value.
+     */
+    private createMemo(memoValue?: string): Memo {
+        if (!memoValue) {
+            return Memo.none();
+        }
+
+        // Check if it's a 64-character hex string (32-byte hash)
+        if (/^[0-9a-fA-F]{64}$/.test(memoValue)) {
+            return Memo.hash(memoValue);
+        }
+
+        // Check if it's a completely numeric string that fits in a 64-bit unsigned uint
+        if (/^\d+$/.test(memoValue)) {
+            try {
+                const asBigInt = BigInt(memoValue);
+                if (asBigInt <= 18446744073709551615n) {
+                    return Memo.id(memoValue);
+                }
+            } catch {
+                // Ignored, falls through to text
+            }
+        }
+
+        // Fallback to text (max 28 bytes)
+        if (Buffer.byteLength(memoValue, "utf8") <= 28) {
+            return Memo.text(memoValue);
+        }
+
+        throw new StellarServiceError("Invalid memo format. Must be a 64-bit ID, a 64-character hex hash, or a text string up to 28 bytes.");
+    }
+
+    /**
      * Create a new Stellar wallet funded by the master account.
      * The master account pays for the account creation and initial funding.
      * @returns The new wallet credentials and transaction hash
@@ -345,7 +378,7 @@ export class StellarService {
                         sendAssetId,
                         amount
                     )
-                    .setMemo(Memo.text(memo || ""))
+                    .setMemo(this.createMemo(memo))
                     .build();
             } else {
                 // Build a path payment operation for different assets.
@@ -356,7 +389,7 @@ export class StellarService {
                         destAsset: destAssetId,
                         sendAmount: amount
                     })
-                    .setMemo(Memo.text(memo || ""))
+                    .setMemo(this.createMemo(memo))
                     .build();
             }
 
@@ -429,7 +462,7 @@ export class StellarService {
                         sendAssetId,
                         amount
                     )
-                    .setMemo(Memo.text(memo || ""))
+                    .setMemo(this.createMemo(memo))
                     .build();
             } else {
                 // Build a path payment operation for different assets.
@@ -440,7 +473,7 @@ export class StellarService {
                         destAsset: destAssetId,
                         sendAmount: amount
                     })
-                    .setMemo(Memo.text(memo || ""))
+                    .setMemo(this.createMemo(memo))
                     .build();
             }
 
