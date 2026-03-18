@@ -17,13 +17,14 @@ export const withdrawAssetSchema = {
         }),
         installationId: installationIdSchema.optional(),
         memo: z.string().refine((val) => {
+            if (val === "") return true;
             if (/^[0-9a-fA-F]{64}$/.test(val)) return true;
             if (/^\d+$/.test(val)) {
                 try {
                     return BigInt(val) <= 18446744073709551615n;
-                } catch { return false; }
+                } catch { /* ignore */ }
             }
-            return Buffer.byteLength(val, "utf8") >= 1 && Buffer.byteLength(val, "utf8") <= 28;
+            return Buffer.byteLength(val, "utf8") <= 28;
         }, "Invalid memo: must be a numeric ID, a 64-character hex hash, or text up to 28 bytes").optional()
     })
 };
