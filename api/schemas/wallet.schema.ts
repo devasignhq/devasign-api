@@ -21,7 +21,7 @@ export const withdrawAssetSchema = {
             if (/^[0-9a-fA-F]{64}$/.test(val)) return true;
             if (/^\d+$/.test(val)) {
                 try {
-                    return BigInt(val) <= 18446744073709551615n;
+                    if (BigInt(val) <= 18446744073709551615n) return true;
                 } catch { /* ignore */ }
             }
             return Buffer.byteLength(val, "utf8") <= 28;
