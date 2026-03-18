@@ -236,7 +236,8 @@ describe("Wallet API Integration Tests", () => {
             const withdrawData = {
                 walletAddress: "GBPOJZGQPO23FSADGDD3PQFRGLWTETJRK2IY4D5HEQXLDCDEHYFSAAII",
                 assetType: "USDC",
-                amount: "100"
+                amount: "100",
+                memo: "lunch money"
             };
 
             const response = await request(app)
@@ -244,6 +245,17 @@ describe("Wallet API Integration Tests", () => {
                 .set("x-test-user-id", "test-user-1")
                 .send(withdrawData)
                 .expect(STATUS_CODES.SUCCESS);
+
+            // Add assertion to verify memo is passed
+            expect(mockStellarService.transferAssetViaSponsor).toHaveBeenCalledWith(
+                expect.any(String),
+                expect.any(String),
+                withdrawData.walletAddress,
+                expect.any(String),
+                expect.any(String),
+                withdrawData.amount,
+                withdrawData.memo
+            );
 
             expect(response.body.data).toMatchObject({
                 txHash: "mock_tx_hash_123",

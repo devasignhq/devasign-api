@@ -15,7 +15,11 @@ export const withdrawAssetSchema = {
         amount: z.string().refine((val) => !isNaN(parseFloat(val)) && parseFloat(val) > 0, {
             message: "Amount must be a positive number"
         }),
-        installationId: installationIdSchema.optional()
+        installationId: installationIdSchema.optional(),
+        memo: z.string().refine(
+            (val) => Buffer.byteLength(val, "utf8") <= 28,
+            "Memo must be at most 28 bytes"
+        ).optional()
     })
 };
 
