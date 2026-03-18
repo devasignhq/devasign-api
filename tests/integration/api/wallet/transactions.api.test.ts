@@ -400,6 +400,60 @@ describe("Wallet API Integration Tests", () => {
                 data: { processed: 0 }
             });
         });
+
+        it("should filter out dust/spam transactions with amount less than 0.01", async () => {
+            mockStellarService.getTopUpTransactions.mockResolvedValue([
+                {
+                    transaction_hash: "tx_hash_valid",
+                    amount: "1.0000000",
+                    asset_type: "native",
+                    from: "GBPOJZGQPO23FSADGDD3PQFRGLWTETJRK2IY4D5HEQXLDCDEHYFSAAII",
+                    created_at: new Date().toISOString()
+                },
+                {
+                    transaction_hash: "tx_hash_dust_1",
+                    amount: "0.0004160",
+                    asset_type: "native",
+                    from: "GBPOJZGQPO23FSADGDD3PQFRGLWTETJRK2IY4D5HEQXLDCDEHYFSAAII",
+                    created_at: new Date().toISOString()
+                },
+                {
+                    transaction_hash: "tx_hash_dust_2",
+                    amount: "0.0099999",
+                    asset_type: "credit_alphanum12",
+                    asset_code: "USDC",
+                    from: "GBPOJZGQPO23FSADGDD3PQFRGLWTETJRK2IY4D5HEQXLDCDEHYFSAAII",
+                    created_at: new Date().toISOString()
+                }
+            ]);
+
+            const response = await request(app)
+                .post(getEndpointWithPrefix(["WALLET", "TRANSACTIONS", "RECORD_TOPUPS"]))
+                .set("x-test-user-id", "test-user-1")
+                .send({})
+                .expect(STATUS_CODES.SUCCESS);
+
+            expect(response.body).toMatchObject({
+                message: "Successfully processed 1 topup transactions",
+                data: {
+                    processed: 1,
+                    transactions: expect.arrayContaining([
+                        expect.objectContaining({
+                            txHash: "tx_hash_valid",
+                            amount: 1,
+                            asset: "XLM"
+                        })
+                    ])
+                }
+            });
+
+            // Verify only 1 transaction was recorded
+            const transactions = await prisma.transaction.findMany({
+                where: { userId: "test-user-1", category: TransactionCategory.TOP_UP }
+            });
+            expect(transactions).toHaveLength(1);
+            expect(transactions[0].txHash).toBe("tx_hash_valid");
+        });
     });
 
     describe("Error Handling", () => {

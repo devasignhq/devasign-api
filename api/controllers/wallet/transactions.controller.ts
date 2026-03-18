@@ -211,6 +211,12 @@ export const recordWalletTopups = async (req: Request, res: Response, next: Next
 
             const paymentTx = stellarTx as (HorizonApi.PaymentOperationResponse | HorizonApi.PathPaymentOperationResponse);
             const amount = parseFloat(paymentTx.amount);
+
+            // Filter out dust/spam transactions (amounts less than 0.01)
+            if (amount < 0.01) {
+                continue;
+            }
+
             const asset = paymentTx.asset_type === "native" ? "XLM" : paymentTx.asset_code!;
 
             // Create transaction data
