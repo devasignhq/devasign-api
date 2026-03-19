@@ -173,30 +173,17 @@ export class FirebaseService {
     }
 
     /**
-     * Update the last activity timestamp for a task to trigger live updates.
+     * Update the last activity timestamp for live updates.
      * @param activity - The activity to update
      * @returns The updated activity
      */
     static async updateAppActivity(activity: Activity) {
-        // Get the reference to the task document
-        let taskRef;
-        switch (activity.type) {
-            case "task":
-                taskRef = tasksCollection.doc(activity.taskId);
-                break;
-            case "installation":
-                taskRef = activityCollection.doc(activity.installationId);
-                break;
-            case "contributor":
-                taskRef = activityCollection.doc(activity.userId);
-                break;
-            default:
-                throw new Error("Invalid activity type");
-        };
+        // Get the reference to the activity document
+        const activityRef = this.getActivityRef(activity);
         const lastActivityAt = Timestamp.now();
 
         // Update the activity document
-        await taskRef.set(
+        await activityRef.set(
             { ...activity, lastActivityAt },
             { merge: true }
         );
@@ -208,20 +195,25 @@ export class FirebaseService {
      * @returns The deleted activity
      */
     static deleteAppActivity(activity: Partial<Activity>) {
-        // Get the reference to the task document
-        let taskRef;
+        const activityRef = this.getActivityRef(activity);
+        return activityRef!.delete();
+    }
+
+    /**
+     * Get the reference to the activity document.
+     * @param activity - The activity to get the reference to
+     * @returns The activity reference
+     */
+    private static getActivityRef(activity: Activity | Partial<Activity>) {
         switch (activity.type) {
             case "task":
-                taskRef = tasksCollection.doc(activity.taskId!);
-                break;
+                return tasksCollection.doc(activity.taskId!);
             case "installation":
-                taskRef = activityCollection.doc(activity.installationId!);
-                break;
+                return activityCollection.doc(activity.installationId!);
             case "contributor":
-                taskRef = activityCollection.doc(activity.userId!);
-                break;
+                return activityCollection.doc(activity.userId!);
+            default:
+                throw new Error("Invalid activity type");
         };
-        // Delete the activity document
-        return taskRef!.delete();
     }
 }
