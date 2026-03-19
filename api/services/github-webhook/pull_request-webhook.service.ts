@@ -222,7 +222,7 @@ export class PullRequestWebhookService {
             );
 
             try {
-                await prisma.$transaction([
+                const [updatedTask] = await prisma.$transaction([
                     // Update task as completed and settled
                     prisma.task.update({
                         where: { id: relatedTask.id },
@@ -233,6 +233,12 @@ export class PullRequestWebhookService {
                             escrowTransactions: {
                                 push: { txHash: transactionResponse.txHash, method: "bounty_payout" }
                             }
+                        },
+                        select: {
+                            status: true,
+                            completedAt: true,
+                            settled: true,
+                            updatedAt: true
                         }
                     }),
                     // Record transaction for contributor
@@ -250,6 +256,7 @@ export class PullRequestWebhookService {
                     prisma.contributionSummary.update({
                         where: { userId: relatedTask.contributor.userId },
                         data: {
+                            activeTasks: { decrement: 1 },
                             tasksCompleted: { increment: 1 },
                             totalEarnings: { increment: relatedTask.bounty }
                         }
@@ -292,7 +299,7 @@ export class PullRequestWebhookService {
                     operation: "task_completed",
                     issueUrl: prUrl,
                     message: "PR merged - Payment processed successfully",
-                    metadata: { taskId: relatedTask.id }
+                    metadata: { taskId: relatedTask.id, ...updatedTask }
                 }).catch(
                     error => dataLogger.warn(
                         "Failed to update installation activity for live updates",
