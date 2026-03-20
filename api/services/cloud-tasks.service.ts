@@ -40,23 +40,6 @@ export interface PRAnalysisJobData {
  * Service for enqueueing background jobs to Google Cloud Tasks.
  */
 export class CloudTasksService {
-    static {
-        // Enforce required environment variables for Cloud Tasks configuration
-        const requiredVars = [
-            "GCP_PROJECT_ID",
-            "GCP_LOCATION_ID",
-            "CLOUD_RUN_SERVICE_URL",
-            "CLOUD_TASKS_SERVICE_ACCOUNT_EMAIL",
-            "CLOUD_TASKS_PR_ANALYSIS_QUEUE",
-            "CLOUD_TASKS_REPO_INDEXING_QUEUE",
-            "CLOUD_TASKS_INCREMENTAL_INDEXING_QUEUE"
-        ];
-        const missing = requiredVars.filter(v => !process.env[v]);
-        if (missing.length > 0) {
-            throw new CloudTasksError(`Missing required environment variables for CloudTasksService: ${missing.join(", ")}`);
-        }
-    }
-
     // Google Cloud Tasks client instance
     private client: CloudTasksClient;
 
@@ -79,6 +62,19 @@ export class CloudTasksService {
     };
 
     constructor() {
+        const requiredVars = [
+            "GCP_PROJECT_ID",
+            "GCP_LOCATION_ID",
+            "CLOUD_RUN_SERVICE_URL",
+            "CLOUD_TASKS_SERVICE_ACCOUNT_EMAIL",
+            "CLOUD_TASKS_PR_ANALYSIS_QUEUE",
+            "CLOUD_TASKS_REPO_INDEXING_QUEUE",
+            "CLOUD_TASKS_INCREMENTAL_INDEXING_QUEUE"
+        ];
+        const missing = requiredVars.filter(v => !process.env[v]);
+        if (missing.length > 0) {
+            dataLogger.error(`Missing required environment variables for CloudTasksService: ${missing.join(", ")}`);
+        }
         this.client = new CloudTasksClient();
     }
 
@@ -153,7 +149,8 @@ export class CloudTasksService {
         );
 
         // Resolve the invocation target endpoint
-        const url = `${this.config.cloudRunUrl}${this.config.endpoints[type]}`;
+        const baseUrl = this.config.cloudRunUrl.replace(/\/$/, "");
+        const url = `${baseUrl}${this.config.endpoints[type]}`;
 
         // Construct the HTTP request task definitions
         const task = {
@@ -170,9 +167,8 @@ export class CloudTasksService {
             },
             // Set dispatch deadline based on job type
             dispatchDeadline: {
-                seconds: type === "repository-indexing" ? 3600 // 60 minutes
-                    : type === "pr-analysis" ? 600 // 10 minutes
-                        : 1800 // 30 minutes (incremental)
+                seconds: type === "pr-analysis" ? 600 // 10 minutes
+                    : 1800 // 30 minutes (indexing)
             }
         };
 
