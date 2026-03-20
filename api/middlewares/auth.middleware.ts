@@ -81,17 +81,3 @@ export const validateUserInstallation = async (req: Request, res: Response, next
         next(error);
     }
 };
-
-/**
- * Middleware to validate if the current user is a Firebase admin
- */
-export const validateAdmin = async (req: Request, res: Response, next: NextFunction) => {
-    const currentUser = res.locals.user;
-
-    // Check if user has admin privileges
-    if (!currentUser?.admin && !currentUser?.custom_claims?.admin) {
-        return next(new AuthorizationError("Access denied. Admin privileges required."));
-    }
-
-    next();
-};
