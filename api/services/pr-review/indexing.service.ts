@@ -746,3 +746,5 @@ export class IndexingService {
         "vendor/", ".well-known/"
     ];
 }
+
+export const indexingService = new IndexingService();

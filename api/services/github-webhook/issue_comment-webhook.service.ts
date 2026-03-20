@@ -1,6 +1,5 @@
 import { Request, Response, NextFunction } from "express";
 import { GitHubWebhookPayload } from "../../models/ai-review.model";
-import { WorkflowIntegrationService } from "../pr-review/workflow-integration.service";
 import { responseWrapper, stellarTimestampToDate } from "../../utilities/helper";
 import { STATUS_CODES } from "../../utilities/data";
 import { prisma } from "../../config/database.config";
@@ -11,6 +10,7 @@ import { ContractService } from "../contract.service";
 import { KMSService } from "../kms.service";
 import { HorizonApi } from "../../models/horizonapi.model";
 import { BOUNTY_LABEL, GitHubComment } from "../../models/github.model";
+import { orchestrationService } from "../pr-review/orchestration.service";
 
 export class IssueCommentWebhookService {
     private static readonly AUTHORIZED_ASSOCIATIONS = ["OWNER", "MEMBER", "COLLABORATOR"];
@@ -196,9 +196,8 @@ export class IssueCommentWebhookService {
                 manualTrigger: true
             };
 
-            // Process the webhook workflow
-            const workflowService = WorkflowIntegrationService.getInstance();
-            const result = await workflowService.processWebhookWorkflow(payload);
+            // Trigger review background job
+            const result = await orchestrationService.triggerReviewBackgroundJob(payload);
 
             // If the workflow failed, return an error response
             if (!result.success) {
@@ -211,32 +210,16 @@ export class IssueCommentWebhookService {
                 });
             }
 
-            // If the workflow failed to create a job, return an error response
-            if (result.reason && !result.jobId) {
-                return responseWrapper({
-                    res,
-                    status: STATUS_CODES.SUCCESS,
-                    data: {
-                        prNumber,
-                        repositoryName,
-                        timestamp: new Date().toISOString()
-                    },
-                    message: result.reason
-                });
-            }
-
             // Return a response indicating that the job was created
             responseWrapper({
                 res,
                 status: STATUS_CODES.BACKGROUND_JOB,
                 data: {
                     jobId: result.jobId,
-                    installationId: result.prData?.installationId,
-                    repositoryName: result.prData?.repositoryName,
-                    prNumber: result.prData?.prNumber,
-                    prUrl: result.prData?.prUrl,
-                    linkedIssuesCount: result.prData?.linkedIssues.length || 0,
-                    changedFilesCount: result.prData?.changedFiles.length || 0,
+                    installationId: payload.installation.id.toString(),
+                    repositoryName: payload.repository.full_name,
+                    prNumber: payload.pull_request.number,
+                    prUrl: payload.pull_request.html_url,
                     eligibleForAnalysis: true,
                     status: "queued",
                     timestamp: new Date().toISOString()

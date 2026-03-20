@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import { responseWrapper } from "../../utilities/helper";
 import { STATUS_CODES } from "../../utilities/data";
 import { dataLogger } from "../../config/logger.config";
-import { backgroundJobService } from "../background-job.service";
+import { cloudTasksService } from "../cloud-tasks.service";
 
 interface PushCommit {
     added: string[];
@@ -47,7 +47,7 @@ export class PushWebhookService {
             });
 
             // Queue incremental indexing job
-            await backgroundJobService.addIncrementalIndexingJob(
+            await cloudTasksService.addIncrementalIndexingJob(
                 installationId,
                 repositoryName,
                 filesToIndex,

@@ -183,20 +183,18 @@ export const ENDPOINTS = {
         /** POST /sumsub - Sumsub webhook events */
         SUMSUB: "/sumsub"
     },
-    
-    /** Administrative endpoints */
-    ADMIN: {
-        PREFIX: "/admin",
-        /** Webhook-related admin endpoints */
-        WEBHOOK: {
-            /** GET /webhook/health - Health check endpoint */
-            HEALTH: "/webhook/health",
-            /** GET /webhook/jobs/:jobId - Get job information */
-            GET_JOB: "/webhook/jobs/:jobId",
-            /** GET /webhook/queue-stats - Get queue statistics */
-            QUEUE_STATS: "/webhook/queue-stats",
-            /** GET /webhook/workflow-status - Get workflow status */
-            WORKFLOW_STATUS: "/webhook/workflow-status"
+
+    /** Internal endpoints */
+    INTERNAL: {
+        PREFIX: "/internal",
+        /** Internal job endpoints */
+        JOBS: {
+            /** POST /jobs/pr-analysis - Handle PR analysis job */
+            PR_ANALYSIS: "/jobs/pr-analysis",
+            /** POST /jobs/repository-indexing - Handle repository indexing job */
+            REPOSITORY_INDEXING: "/jobs/repository-indexing",
+            /** POST /jobs/repository-incremental-indexing - Handle incremental repository indexing job */
+            INCREMENTAL_INDEXING: "/jobs/repository-incremental-indexing"
         }
     }
 };

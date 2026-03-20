@@ -1,9 +1,14 @@
 import { prisma } from "../config/database.config";
 import { firebaseAdmin } from "../config/firebase.config";
+import { OAuth2Client } from "google-auth-library";
 import { STATUS_CODES } from "../utilities/data";
 import { getFieldFromUnknownObject } from "../utilities/helper";
 import { Request, Response, NextFunction } from "express";
 import { AuthorizationError, ErrorClass, ValidationError } from "../models/error.model";
+import { dataLogger } from "../config/logger.config";
+
+// Google OAuth2 client used to verify OIDC tokens.
+const authClient = new OAuth2Client();
 
 /**
  * Middleware to validate user authorization token
@@ -83,15 +88,67 @@ export const validateUserInstallation = async (req: Request, res: Response, next
 };
 
 /**
- * Middleware to validate if the current user is a Firebase admin
+ * Middleware to validate OIDC tokens sent by Google Cloud Tasks.
  */
-export const validateAdmin = async (req: Request, res: Response, next: NextFunction) => {
-    const currentUser = res.locals.user;
-
-    // Check if user has admin privileges
-    if (!currentUser?.admin && !currentUser?.custom_claims?.admin) {
-        return next(new AuthorizationError("Access denied. Admin privileges required."));
+export const validateCloudTasksRequest = async (req: Request, _res: Response, next: NextFunction) => {
+    // Skip OIDC validation in development/test to allow local testing
+    if (process.env.NODE_ENV !== "production") {
+        return next();
     }
 
-    next();
+    // The service account email that Cloud Tasks uses to sign OIDC tokens.
+    // This must match the `oidcToken.serviceAccountEmail` configured in the Cloud Tasks service.
+    const CLOUD_TASKS_SERVICE_ACCOUNT_EMAIL = process.env.CLOUD_TASKS_SERVICE_ACCOUNT_EMAIL;
+
+    try {
+        // Extract the Bearer token from the Authorization header
+        const authHeader = req.headers.authorization;
+        if (!authHeader || !authHeader.startsWith("Bearer ")) {
+            throw new AuthorizationError("Missing or invalid authorization header on internal route");
+        }
+
+        const token = authHeader.split("Bearer ")[1];
+
+        // Verify the OIDC token with Google's public keys
+        const ticket = await authClient.verifyIdToken({
+            idToken: token,
+            audience: process.env.CLOUD_RUN_SERVICE_URL
+        });
+
+        const payload = ticket.getPayload();
+        if (!payload) {
+            throw new AuthorizationError("Invalid OIDC token: no payload");
+        }
+
+        // Verify the token was issued for the expected Cloud Tasks service account
+        if (payload.email !== CLOUD_TASKS_SERVICE_ACCOUNT_EMAIL) {
+            dataLogger.warn("OIDC token email mismatch on internal route", {
+                expected: CLOUD_TASKS_SERVICE_ACCOUNT_EMAIL,
+                received: payload.email,
+                path: req.path
+            });
+            throw new AuthorizationError("OIDC token email does not match expected service account");
+        }
+
+        // Verify the email is verified (should always be true for service accounts)
+        if (!payload.email_verified) {
+            throw new AuthorizationError("OIDC token email is not verified");
+        }
+
+        next();
+    } catch (error) {
+        if (error instanceof AuthorizationError) {
+            return next(error);
+        }
+
+        dataLogger.error("Failed to verify Cloud Tasks OIDC token", {
+            error,
+            path: req.path,
+            ip: req.ip
+        });
+
+        next(new AuthorizationError(
+            "Unauthorized: invalid Cloud Tasks OIDC token"
+        ));
+    }
 };

@@ -5,7 +5,6 @@ import { dataLogger } from "../../config/logger.config";
 import { STATUS_CODES } from "../../utilities/data";
 import { GitHubPullRequest, GitHubInstallation } from "../../models/ai-review.model";
 import { OctokitService } from "../../services/octokit.service";
-import { WorkflowIntegrationService } from "../../services/pr-review/workflow-integration.service";
 import { validateRequestParameters } from "../../middlewares/request.middleware";
 import {
     geminiChatSchema,
@@ -16,7 +15,8 @@ import {
 } from "./test.schema";
 import { ValidationError } from "../../models/error.model";
 import { VectorStoreService } from "../../services/pr-review/vector-store.service";
-import { backgroundJobService } from "../../services/background-job.service";
+import { cloudTasksService } from "../../services/cloud-tasks.service";
+import { orchestrationService } from "../../services/pr-review/orchestration.service";
 
 const router = Router();
 const geminiService = new GeminiAIService();
@@ -253,9 +253,8 @@ router.post("/github/manual-analysis",
                 { owner, repo }
             );
 
-            // Use the integrated workflow service for manual analysis
-            const workflowService = WorkflowIntegrationService.getInstance();
-            const result = await workflowService.processWebhookWorkflow({
+            // Trigger review background job
+            const result = await orchestrationService.triggerReviewBackgroundJob({
                 action: "opened",
                 number: prNumber,
                 pull_request: pull_request as GitHubPullRequest,
@@ -309,7 +308,7 @@ router.post(
                 throw new ValidationError("Missing required parameters");
             }
 
-            const jobId = await backgroundJobService.addRepositoryIndexingJob(
+            const jobId = await cloudTasksService.addRepositoryIndexingJob(
                 installationId,
                 repositoryName
             );

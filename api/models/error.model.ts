@@ -267,6 +267,20 @@ export class SumsubWebhookError extends AIReviewError {
 }
 
 /**
+ * Cloud Tasks related errors
+ */
+export class CloudTasksError extends ErrorClass {
+    constructor(message: string, details?: unknown) {
+        super(
+            "CLOUD_TASKS_ERROR",
+            details,
+            message,
+            STATUS_CODES.SERVER_ERROR
+        );
+    }
+}
+
+/**
  * PR analysis processing errors
  */
 export class PRAnalysisError extends AIReviewError {

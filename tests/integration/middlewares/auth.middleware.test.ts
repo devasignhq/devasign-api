@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import { DatabaseTestHelper } from "../../helpers/database-test-helper";
 import { TestDataFactory } from "../../helpers/test-data-factory";
 import { mockFirebaseAuth, FirebaseTestHelpers } from "../../mocks/firebase.service.mock";
-import { validateUser, validateUserInstallation, validateAdmin } from "../../../api/middlewares/auth.middleware";
+import { validateUser, validateUserInstallation, validateCloudTasksRequest } from "../../../api/middlewares/auth.middleware";
 import { STATUS_CODES } from "../../../api/utilities/data";
 
 // Mock Firebase admin for authentication
@@ -13,6 +13,15 @@ jest.mock("../../../api/config/firebase.config", () => {
         }
     };
 });
+
+// Mock google-auth-library for Cloud Tasks OIDC validation
+// Use a shared container so the mock fn is accessible both inside the factory (hoisted) and in tests.
+const googleAuthMocks = { verifyIdToken: jest.fn() };
+jest.mock("google-auth-library", () => ({
+    OAuth2Client: jest.fn().mockImplementation(() => ({
+        verifyIdToken: (...args: unknown[]) => googleAuthMocks.verifyIdToken(...args)
+    }))
+}));
 
 describe("Authentication Middleware", () => {
     let mockRequest: Partial<Request>;
@@ -354,249 +363,178 @@ describe("Authentication Middleware", () => {
         });
     });
 
-    describe("validateAdmin", () => {
-        describe("Admin Privilege Validation", () => {
-            it("should allow access when user has admin property set to true", async () => {
-                mockResponse.locals = {
-                    user: {
-                        uid: "admin-user-id",
-                        email: "admin@example.com",
-                        admin: true
-                    }
-                };
+    describe("validateCloudTasksRequest", () => {
+        const MOCK_SERVICE_ACCOUNT = "cloud-tasks@test-project.iam.gserviceaccount.com";
+        const MOCK_CLOUD_RUN_URL = "https://server-test.run.app";
+        const originalNodeEnv = process.env.NODE_ENV;
 
-                await validateAdmin(mockRequest as Request, mockResponse as Response, mockNext);
-
-                expect(mockNext).toHaveBeenCalled();
-                expect(mockResponse.status).not.toHaveBeenCalled();
-            });
-
-            it("should allow access when user has admin in custom_claims", async () => {
-                mockResponse.locals = {
-                    user: {
-                        uid: "admin-user-id",
-                        email: "admin@example.com",
-                        custom_claims: {
-                            admin: true
-                        }
-                    }
-                };
-
-                await validateAdmin(mockRequest as Request, mockResponse as Response, mockNext);
-
-                expect(mockNext).toHaveBeenCalled();
-                expect(mockResponse.status).not.toHaveBeenCalled();
-            });
-
-            it("should allow access when user has both admin property and custom_claims", async () => {
-                mockResponse.locals = {
-                    user: {
-                        uid: "admin-user-id",
-                        email: "admin@example.com",
-                        admin: true,
-                        custom_claims: {
-                            admin: true,
-                            role: "super-admin"
-                        }
-                    }
-                };
-
-                await validateAdmin(mockRequest as Request, mockResponse as Response, mockNext);
-
-                expect(mockNext).toHaveBeenCalled();
-                expect(mockResponse.status).not.toHaveBeenCalled();
-            });
+        beforeEach(() => {
+            googleAuthMocks.verifyIdToken.mockReset();
+            process.env.CLOUD_TASKS_SERVICE_ACCOUNT_EMAIL = MOCK_SERVICE_ACCOUNT;
+            process.env.CLOUD_RUN_SERVICE_URL = MOCK_CLOUD_RUN_URL;
         });
 
-        describe("Non-Admin Access Denial", () => {
-            it("should deny access when user has no admin privileges", async () => {
-                mockResponse.locals = {
-                    user: {
-                        uid: "regular-user-id",
-                        email: "user@example.com"
-                    }
-                };
-
-                await validateAdmin(mockRequest as Request, mockResponse as Response, mockNext);
-
-                expect(mockNext).toHaveBeenCalledWith(
-                    expect.objectContaining({
-                        code: "UNAUTHORIZED",
-                        status: STATUS_CODES.UNAUTHORIZED,
-                        message: "Access denied. Admin privileges required."
-                    })
-                );
-            });
-
-            it("should deny access when admin property is false", async () => {
-                mockResponse.locals = {
-                    user: {
-                        uid: "user-id",
-                        email: "user@example.com",
-                        admin: false
-                    }
-                };
-
-                await validateAdmin(mockRequest as Request, mockResponse as Response, mockNext);
-
-                expect(mockNext).toHaveBeenCalledWith(
-                    expect.objectContaining({
-                        code: "UNAUTHORIZED",
-                        status: STATUS_CODES.UNAUTHORIZED,
-                        message: "Access denied. Admin privileges required."
-                    })
-                );
-            });
-
-            it("should deny access when custom_claims.admin is false", async () => {
-                mockResponse.locals = {
-                    user: {
-                        uid: "user-id",
-                        email: "user@example.com",
-                        custom_claims: {
-                            admin: false,
-                            role: "user"
-                        }
-                    }
-                };
-
-                await validateAdmin(mockRequest as Request, mockResponse as Response, mockNext);
-
-                expect(mockNext).toHaveBeenCalledWith(
-                    expect.objectContaining({
-                        code: "UNAUTHORIZED",
-                        status: STATUS_CODES.UNAUTHORIZED,
-                        message: "Access denied. Admin privileges required."
-                    })
-                );
-            });
-
-            it("should deny access when currentUser is missing", async () => {
-                mockResponse.locals = {};
-
-                await validateAdmin(mockRequest as Request, mockResponse as Response, mockNext);
-
-                expect(mockNext).toHaveBeenCalledWith(
-                    expect.objectContaining({
-                        code: "UNAUTHORIZED",
-                        status: STATUS_CODES.UNAUTHORIZED,
-                        message: "Access denied. Admin privileges required."
-                    })
-                );
-            });
-
-            it("should deny access when currentUser is null", async () => {
-                mockResponse.locals = {
-                    user: null
-                };
-
-                await validateAdmin(mockRequest as Request, mockResponse as Response, mockNext);
-
-                expect(mockNext).toHaveBeenCalledWith(
-                    expect.objectContaining({
-                        code: "UNAUTHORIZED",
-                        status: STATUS_CODES.UNAUTHORIZED,
-                        message: "Access denied. Admin privileges required."
-                    })
-                );
-            });
-
-            it("should deny access when currentUser is undefined", async () => {
-                mockResponse.locals = {
-                    user: undefined
-                };
-
-                await validateAdmin(mockRequest as Request, mockResponse as Response, mockNext);
-
-                expect(mockNext).toHaveBeenCalledWith(
-                    expect.objectContaining({
-                        code: "UNAUTHORIZED",
-                        status: STATUS_CODES.UNAUTHORIZED,
-                        message: "Access denied. Admin privileges required."
-                    })
-                );
-            });
+        afterEach(() => {
+            process.env.NODE_ENV = originalNodeEnv;
         });
 
-        describe("Edge Cases", () => {
-            it("should deny access when custom_claims exists but admin is missing", async () => {
-                mockResponse.locals = {
-                    user: {
-                        uid: "user-id",
-                        email: "user@example.com",
-                        custom_claims: {
-                            role: "moderator",
-                            permissions: ["read", "write"]
-                        }
-                    }
-                };
+        it("should skip validation in non-production environments", async () => {
+            process.env.NODE_ENV = "development";
 
-                await validateAdmin(mockRequest as Request, mockResponse as Response, mockNext);
+            await validateCloudTasksRequest(mockRequest as Request, mockResponse as Response, mockNext);
 
-                expect(mockNext).toHaveBeenCalledWith(
-                    expect.objectContaining({
-                        code: "UNAUTHORIZED",
-                        status: STATUS_CODES.UNAUTHORIZED,
-                        message: "Access denied. Admin privileges required."
-                    })
-                );
+            expect(mockNext).toHaveBeenCalledWith();
+            expect(googleAuthMocks.verifyIdToken).not.toHaveBeenCalled();
+        });
+
+        it("should skip validation in test environment", async () => {
+            process.env.NODE_ENV = "test";
+
+            await validateCloudTasksRequest(mockRequest as Request, mockResponse as Response, mockNext);
+
+            expect(mockNext).toHaveBeenCalledWith();
+            expect(googleAuthMocks.verifyIdToken).not.toHaveBeenCalled();
+        });
+
+        it("should reject request with no authorization header in production", async () => {
+            process.env.NODE_ENV = "production";
+            mockRequest.headers = {};
+
+            await validateCloudTasksRequest(mockRequest as Request, mockResponse as Response, mockNext);
+
+            expect(mockNext).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    code: "UNAUTHORIZED",
+                    message: "Missing or invalid authorization header on internal route"
+                })
+            );
+        });
+
+        it("should reject request with non-Bearer authorization header in production", async () => {
+            process.env.NODE_ENV = "production";
+            mockRequest.headers = {
+                authorization: "Basic some-credentials"
+            };
+
+            await validateCloudTasksRequest(mockRequest as Request, mockResponse as Response, mockNext);
+
+            expect(mockNext).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    code: "UNAUTHORIZED",
+                    message: "Missing or invalid authorization header on internal route"
+                })
+            );
+        });
+
+        it("should reject request when OIDC token verification fails in production", async () => {
+            process.env.NODE_ENV = "production";
+            mockRequest.headers = {
+                authorization: "Bearer invalid-oidc-token"
+            };
+
+            googleAuthMocks.verifyIdToken.mockRejectedValueOnce(new Error("Token verification failed"));
+
+            await validateCloudTasksRequest(mockRequest as Request, mockResponse as Response, mockNext);
+
+            expect(googleAuthMocks.verifyIdToken).toHaveBeenCalledWith({
+                idToken: "invalid-oidc-token",
+                audience: MOCK_CLOUD_RUN_URL
+            });
+            expect(mockNext).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    code: "UNAUTHORIZED",
+                    message: "Unauthorized: invalid Cloud Tasks OIDC token"
+                })
+            );
+        });
+
+        it("should reject request when OIDC token has no payload in production", async () => {
+            process.env.NODE_ENV = "production";
+            mockRequest.headers = {
+                authorization: "Bearer valid-token"
+            };
+
+            googleAuthMocks.verifyIdToken.mockResolvedValueOnce({
+                getPayload: () => null
             });
 
-            it("should allow access when admin is truthy value", async () => {
-                mockResponse.locals = {
-                    user: {
-                        uid: "admin-user-id",
-                        email: "admin@example.com",
-                        admin: 1 // truthy value
-                    }
-                };
+            await validateCloudTasksRequest(mockRequest as Request, mockResponse as Response, mockNext);
 
-                await validateAdmin(mockRequest as Request, mockResponse as Response, mockNext);
+            expect(mockNext).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    code: "UNAUTHORIZED",
+                    message: "Invalid OIDC token: no payload"
+                })
+            );
+        });
 
-                expect(mockNext).toHaveBeenCalled();
-                expect(mockResponse.status).not.toHaveBeenCalled();
+        it("should reject request when service account email does not match in production", async () => {
+            process.env.NODE_ENV = "production";
+            mockRequest.headers = {
+                authorization: "Bearer valid-token"
+            };
+            Object.defineProperty(mockRequest, "path", { value: "/jobs/pr-analysis", writable: true });
+
+            googleAuthMocks.verifyIdToken.mockResolvedValueOnce({
+                getPayload: () => ({
+                    email: "wrong-account@test-project.iam.gserviceaccount.com",
+                    email_verified: true
+                })
             });
 
-            it("should deny access when admin is 0 (falsy)", async () => {
-                mockResponse.locals = {
-                    user: {
-                        uid: "user-id",
-                        email: "user@example.com",
-                        admin: 0
-                    }
-                };
+            await validateCloudTasksRequest(mockRequest as Request, mockResponse as Response, mockNext);
 
-                await validateAdmin(mockRequest as Request, mockResponse as Response, mockNext);
+            expect(mockNext).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    code: "UNAUTHORIZED",
+                    message: "OIDC token email does not match expected service account"
+                })
+            );
+        });
 
-                expect(mockNext).toHaveBeenCalledWith(
-                    expect.objectContaining({
-                        code: "UNAUTHORIZED",
-                        status: STATUS_CODES.UNAUTHORIZED,
-                        message: "Access denied. Admin privileges required."
-                    })
-                );
+        it("should reject request when email is not verified in production", async () => {
+            process.env.NODE_ENV = "production";
+            mockRequest.headers = {
+                authorization: "Bearer valid-token"
+            };
+
+            googleAuthMocks.verifyIdToken.mockResolvedValueOnce({
+                getPayload: () => ({
+                    email: MOCK_SERVICE_ACCOUNT,
+                    email_verified: false
+                })
             });
 
-            it("should preserve other request body properties", async () => {
-                const existingBody = {
-                    userId: "test-user-id",
-                    someData: "test-data"
-                };
-                mockResponse.locals = {
-                    user: {
-                        uid: "admin-user-id",
-                        email: "admin@example.com",
-                        admin: true
-                    }
-                };
+            await validateCloudTasksRequest(mockRequest as Request, mockResponse as Response, mockNext);
 
-                mockRequest.body = existingBody;
+            expect(mockNext).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    code: "UNAUTHORIZED",
+                    message: "OIDC token email is not verified"
+                })
+            );
+        });
 
-                await validateAdmin(mockRequest as Request, mockResponse as Response, mockNext);
+        it("should allow request with valid OIDC token in production", async () => {
+            process.env.NODE_ENV = "production";
+            mockRequest.headers = {
+                authorization: "Bearer valid-oidc-token"
+            };
 
-                expect(mockNext).toHaveBeenCalled();
-                expect(mockRequest.body).toEqual(existingBody);
+            googleAuthMocks.verifyIdToken.mockResolvedValueOnce({
+                getPayload: () => ({
+                    email: MOCK_SERVICE_ACCOUNT,
+                    email_verified: true
+                })
             });
+
+            await validateCloudTasksRequest(mockRequest as Request, mockResponse as Response, mockNext);
+
+            expect(googleAuthMocks.verifyIdToken).toHaveBeenCalledWith({
+                idToken: "valid-oidc-token",
+                audience: MOCK_CLOUD_RUN_URL
+            });
+            expect(mockNext).toHaveBeenCalledWith();
         });
     });
 });
