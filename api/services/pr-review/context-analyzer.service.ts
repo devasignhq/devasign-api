@@ -95,12 +95,6 @@ export class PullRequestContextAnalyzerService {
      * @returns A promise that resolves to an array of relevant code chunks
      */
     private async getRelevantCodeChunks(prData: PullRequestData): Promise<CodeChunkResult[]> {
-        // Skips retrieval
-        if (process.env.SKIP_CODE_CHUNKS === "true") {
-            messageLogger.info("Skipping relevant code chunk retrieval");
-            return [];
-        }
-
         try {
             // Construct a query from PR title, description, and git diff
             const linkedIssuesInfo = prData.linkedIssues.map(issue =>
@@ -123,7 +117,7 @@ export class PullRequestContextAnalyzerService {
                 embedding,
                 prData.installationId,
                 prData.repositoryName,
-                10, // Limit to 10 most relevant chunks
+                20, // Limit to 20 most relevant chunks
                 0.6 // Similarity threshold
             );
 
