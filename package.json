@@ -27,6 +27,7 @@
   "license": "ISC",
   "dependencies": {
     "@google-cloud/kms": "^5.2.1",
+    "@google-cloud/tasks": "^6.2.1",
     "@google-cloud/vertexai": "^1.10.0",
     "@langchain/community": "^1.1.23",
     "@langchain/core": "^1.1.32",
