@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import { DatabaseTestHelper } from "../../helpers/database-test-helper";
 import { TestDataFactory } from "../../helpers/test-data-factory";
 import { mockFirebaseAuth, FirebaseTestHelpers } from "../../mocks/firebase.service.mock";
-import { validateUser, validateUserInstallation } from "../../../api/middlewares/auth.middleware";
+import { validateUser, validateUserInstallation, validateCloudTasksRequest } from "../../../api/middlewares/auth.middleware";
 import { STATUS_CODES } from "../../../api/utilities/data";
 
 // Mock Firebase admin for authentication
@@ -13,6 +13,15 @@ jest.mock("../../../api/config/firebase.config", () => {
         }
     };
 });
+
+// Mock google-auth-library for Cloud Tasks OIDC validation
+// Use a shared container so the mock fn is accessible both inside the factory (hoisted) and in tests.
+const googleAuthMocks = { verifyIdToken: jest.fn() };
+jest.mock("google-auth-library", () => ({
+    OAuth2Client: jest.fn().mockImplementation(() => ({
+        verifyIdToken: (...args: unknown[]) => googleAuthMocks.verifyIdToken(...args)
+    }))
+}));
 
 describe("Authentication Middleware", () => {
     let mockRequest: Partial<Request>;
@@ -351,6 +360,173 @@ describe("Authentication Middleware", () => {
 
             // Reconnect for other tests
             await prisma.$connect();
+        });
+    });
+
+    describe("validateCloudTasksRequest", () => {
+        const MOCK_SERVICE_ACCOUNT = "cloud-tasks@test-project.iam.gserviceaccount.com";
+        const originalNodeEnv = process.env.NODE_ENV;
+
+        beforeEach(() => {
+            googleAuthMocks.verifyIdToken.mockReset();
+            process.env.CLOUD_TASKS_SERVICE_ACCOUNT_EMAIL = MOCK_SERVICE_ACCOUNT;
+        });
+
+        afterEach(() => {
+            process.env.NODE_ENV = originalNodeEnv;
+        });
+
+        it("should skip validation in non-production environments", async () => {
+            process.env.NODE_ENV = "development";
+
+            await validateCloudTasksRequest(mockRequest as Request, mockResponse as Response, mockNext);
+
+            expect(mockNext).toHaveBeenCalledWith();
+            expect(googleAuthMocks.verifyIdToken).not.toHaveBeenCalled();
+        });
+
+        it("should skip validation in test environment", async () => {
+            process.env.NODE_ENV = "test";
+
+            await validateCloudTasksRequest(mockRequest as Request, mockResponse as Response, mockNext);
+
+            expect(mockNext).toHaveBeenCalledWith();
+            expect(googleAuthMocks.verifyIdToken).not.toHaveBeenCalled();
+        });
+
+        it("should reject request with no authorization header in production", async () => {
+            process.env.NODE_ENV = "production";
+            mockRequest.headers = {};
+
+            await validateCloudTasksRequest(mockRequest as Request, mockResponse as Response, mockNext);
+
+            expect(mockNext).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    code: "UNAUTHORIZED",
+                    message: "Missing or invalid authorization header on internal route"
+                })
+            );
+        });
+
+        it("should reject request with non-Bearer authorization header in production", async () => {
+            process.env.NODE_ENV = "production";
+            mockRequest.headers = {
+                authorization: "Basic some-credentials"
+            };
+
+            await validateCloudTasksRequest(mockRequest as Request, mockResponse as Response, mockNext);
+
+            expect(mockNext).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    code: "UNAUTHORIZED",
+                    message: "Missing or invalid authorization header on internal route"
+                })
+            );
+        });
+
+        it("should reject request when OIDC token verification fails in production", async () => {
+            process.env.NODE_ENV = "production";
+            mockRequest.headers = {
+                authorization: "Bearer invalid-oidc-token"
+            };
+
+            googleAuthMocks.verifyIdToken.mockRejectedValueOnce(new Error("Token verification failed"));
+
+            await validateCloudTasksRequest(mockRequest as Request, mockResponse as Response, mockNext);
+
+            expect(googleAuthMocks.verifyIdToken).toHaveBeenCalledWith({ idToken: "invalid-oidc-token" });
+            expect(mockNext).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    code: "UNAUTHORIZED",
+                    message: "Unauthorized: invalid Cloud Tasks OIDC token"
+                })
+            );
+        });
+
+        it("should reject request when OIDC token has no payload in production", async () => {
+            process.env.NODE_ENV = "production";
+            mockRequest.headers = {
+                authorization: "Bearer valid-token"
+            };
+
+            googleAuthMocks.verifyIdToken.mockResolvedValueOnce({
+                getPayload: () => null
+            });
+
+            await validateCloudTasksRequest(mockRequest as Request, mockResponse as Response, mockNext);
+
+            expect(mockNext).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    code: "UNAUTHORIZED",
+                    message: "Invalid OIDC token: no payload"
+                })
+            );
+        });
+
+        it("should reject request when service account email does not match in production", async () => {
+            process.env.NODE_ENV = "production";
+            mockRequest.headers = {
+                authorization: "Bearer valid-token"
+            };
+            Object.defineProperty(mockRequest, "path", { value: "/jobs/pr-analysis", writable: true });
+
+            googleAuthMocks.verifyIdToken.mockResolvedValueOnce({
+                getPayload: () => ({
+                    email: "wrong-account@test-project.iam.gserviceaccount.com",
+                    email_verified: true
+                })
+            });
+
+            await validateCloudTasksRequest(mockRequest as Request, mockResponse as Response, mockNext);
+
+            expect(mockNext).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    code: "UNAUTHORIZED",
+                    message: "OIDC token email does not match expected service account"
+                })
+            );
+        });
+
+        it("should reject request when email is not verified in production", async () => {
+            process.env.NODE_ENV = "production";
+            mockRequest.headers = {
+                authorization: "Bearer valid-token"
+            };
+
+            googleAuthMocks.verifyIdToken.mockResolvedValueOnce({
+                getPayload: () => ({
+                    email: MOCK_SERVICE_ACCOUNT,
+                    email_verified: false
+                })
+            });
+
+            await validateCloudTasksRequest(mockRequest as Request, mockResponse as Response, mockNext);
+
+            expect(mockNext).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    code: "UNAUTHORIZED",
+                    message: "OIDC token email is not verified"
+                })
+            );
+        });
+
+        it("should allow request with valid OIDC token in production", async () => {
+            process.env.NODE_ENV = "production";
+            mockRequest.headers = {
+                authorization: "Bearer valid-oidc-token"
+            };
+
+            googleAuthMocks.verifyIdToken.mockResolvedValueOnce({
+                getPayload: () => ({
+                    email: MOCK_SERVICE_ACCOUNT,
+                    email_verified: true
+                })
+            });
+
+            await validateCloudTasksRequest(mockRequest as Request, mockResponse as Response, mockNext);
+
+            expect(googleAuthMocks.verifyIdToken).toHaveBeenCalledWith({ idToken: "valid-oidc-token" });
+            expect(mockNext).toHaveBeenCalledWith();
         });
     });
 });

@@ -6,7 +6,7 @@ import helmet from "helmet";
 import cors from "cors";
 import morgan from "morgan";
 import { prisma } from "./config/database.config";
-import { validateUser } from "./middlewares/auth.middleware";
+import { validateUser, validateCloudTasksRequest } from "./middlewares/auth.middleware";
 import { dynamicRoute, localhostOnly } from "./middlewares/request.middleware";
 import { errorHandler } from "./middlewares/error.middleware";
 import { apiLimiter, webhookLimiter } from "./middlewares/rate-limit.middleware";
@@ -113,6 +113,7 @@ app.use(
 app.use(
     ENDPOINTS.INTERNAL.PREFIX,
     dynamicRoute,
+    validateCloudTasksRequest,
     internalRoutes
 );
 
