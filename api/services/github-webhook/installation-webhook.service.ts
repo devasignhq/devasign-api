@@ -8,8 +8,8 @@ import { ContractService } from "../contract.service";
 import { KMSService } from "../kms.service";
 import { OctokitService } from "../octokit.service";
 import { TaskIssue } from "../../models/task.model";
-import { backgroundJobService } from "../background-job.service";
-import { IndexingService } from "../pr-review/indexing.service";
+import { indexingService } from "../pr-review/indexing.service";
+import { cloudTasksService } from "../cloud-tasks.service";
 
 export class InstallationWebhookService {
     /**
@@ -64,7 +64,7 @@ export class InstallationWebhookService {
                 for (const repo of repositories) {
                     if (repo && repo.full_name) {
                         try {
-                            await backgroundJobService.addRepositoryIndexingJob(installationId, repo.full_name);
+                            await cloudTasksService.addRepositoryIndexingJob(installationId, repo.full_name);
                         } catch (error) {
                             dataLogger.warn(`Failed to add indexing job for ${repo.full_name}:`, { error });
                         }
@@ -119,13 +119,12 @@ export class InstallationWebhookService {
 
             // Clear all indexed files across every installation repo
             if (action === "deleted") {
-                const indexingService = new IndexingService();
                 try {
                     await indexingService.clearInstallationData(installationId);
                     dataLogger.info(`Cleared indexing data for installation ${installationId}`);
                 } catch (error) {
                     dataLogger.warn(
-                        `Failed to clear indexed data for installation ${installationId}:`, 
+                        `Failed to clear indexed data for installation ${installationId}:`,
                         { error }
                     );
                 }
@@ -146,7 +145,7 @@ export class InstallationWebhookService {
                             taskRefunds.push({ task, refunded: true });
                         } catch (error) {
                             dataLogger.warn(
-                                `Failed to refund task ${task.id} during installation archive:`, 
+                                `Failed to refund task ${task.id} during installation archive:`,
                                 { error, installationId }
                             );
                             taskRefunds.push({ task, refunded: false });
@@ -154,7 +153,7 @@ export class InstallationWebhookService {
                     }
                 } catch (error) {
                     dataLogger.error(
-                        "Failed to decrypt wallet for refund during installation archive", 
+                        "Failed to decrypt wallet for refund during installation archive",
                         { error, installationId }
                     );
                 }
@@ -176,7 +175,7 @@ export class InstallationWebhookService {
             // Execute cleanup operations in the background
             for (const taskRefund of taskRefunds) {
                 const taskIssue = taskRefund.task.issue as TaskIssue;
-                
+
                 // Remove bounty label and delete bounty comment
                 OctokitService.removeBountyLabelAndDeleteBountyComment(
                     installationId,

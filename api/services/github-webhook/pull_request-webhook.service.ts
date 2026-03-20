@@ -1,6 +1,5 @@
 import { Request, Response, NextFunction } from "express";
 import { GitHubWebhookPayload } from "../../models/ai-review.model";
-import { WorkflowIntegrationService } from "../pr-review/workflow-integration.service";
 import { responseWrapper, stellarTimestampToDate } from "../../utilities/helper";
 import { STATUS_CODES } from "../../utilities/data";
 import { prisma } from "../../config/database.config";
@@ -10,6 +9,7 @@ import { TaskStatus } from "../../../prisma_client";
 import { ContractService } from "../contract.service";
 import { KMSService } from "../kms.service";
 import { FirebaseService } from "../firebase.service";
+import { orchestrationService } from "../pr-review/orchestration.service";
 
 export class PullRequestWebhookService {
     /**
@@ -52,9 +52,8 @@ export class PullRequestWebhookService {
         try {
             const payload: GitHubWebhookPayload = req.body;
 
-            // Use the integrated workflow service for complete end-to-end processing
-            const workflowService = WorkflowIntegrationService.getInstance();
-            const result = await workflowService.processWebhookWorkflow(payload);
+            // Trigger review background job
+            const result = await orchestrationService.triggerReviewBackgroundJob(payload);
 
             if (!result.success) {
                 dataLogger.error("Failed to process PR webhook", {
@@ -69,36 +68,16 @@ export class PullRequestWebhookService {
                 });
             }
 
-            // Handle case where PR is not eligible for analysis
-            if (result.reason && !result.jobId) {
-                dataLogger.info("PR is not eligible for analysis", {
-                    payload,
-                    result
-                });
-                return responseWrapper({
-                    res,
-                    status: STATUS_CODES.SUCCESS,
-                    data: {
-                        prNumber: payload.pull_request.number,
-                        repositoryName: payload.repository.full_name,
-                        timestamp: new Date().toISOString()
-                    },
-                    message: result.reason
-                });
-            }
-
             // Return success response with job information
             responseWrapper({
                 res,
                 status: STATUS_CODES.BACKGROUND_JOB,
                 data: {
                     jobId: result.jobId,
-                    installationId: result.prData?.installationId,
-                    repositoryName: result.prData?.repositoryName,
-                    prNumber: result.prData?.prNumber,
-                    prUrl: result.prData?.prUrl,
-                    linkedIssuesCount: result.prData?.linkedIssues.length || 0,
-                    changedFilesCount: result.prData?.changedFiles.length || 0,
+                    installationId: payload.installation.id.toString(),
+                    repositoryName: payload.repository.full_name,
+                    prNumber: payload.pull_request.number,
+                    prUrl: payload.pull_request.html_url,
                     eligibleForAnalysis: true,
                     status: "queued",
                     timestamp: new Date().toISOString()

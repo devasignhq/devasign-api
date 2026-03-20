@@ -2,8 +2,8 @@ import { Request, Response, NextFunction } from "express";
 import { responseWrapper } from "../../utilities/helper";
 import { STATUS_CODES } from "../../utilities/data";
 import { dataLogger } from "../../config/logger.config";
-import { backgroundJobService } from "../background-job.service";
-import { IndexingService } from "../pr-review/indexing.service";
+import { indexingService } from "../pr-review/indexing.service";
+import { cloudTasksService } from "../cloud-tasks.service";
 
 export class InstallationRepositoriesWebhookService {
     /**
@@ -17,19 +17,13 @@ export class InstallationRepositoriesWebhookService {
 
             dataLogger.info(`Handling installation_repositories event for installation: ${installationId}`, { action });
 
-            // Using new IndexingService instance for DB operations
-            const indexingService = new IndexingService();
-
             // Add indexing job for each added repository
             if (action === "added" && repositories_added && Array.isArray(repositories_added)) {
                 for (const repo of repositories_added) {
                     if (repo && repo.full_name) {
                         dataLogger.info(`Indexing added repository for installation ${installationId}: ${repo.full_name}`);
                         try {
-                            await backgroundJobService.addRepositoryIndexingJob(
-                                installationId,
-                                repo.full_name
-                            );
+                            await cloudTasksService.addRepositoryIndexingJob(installationId, repo.full_name);
                         } catch (error) {
                             dataLogger.warn(`Failed to add indexing job for added repository ${repo.full_name}:`, { error });
                         }
@@ -42,10 +36,7 @@ export class InstallationRepositoriesWebhookService {
                 for (const repo of repositories_removed) {
                     if (repo && repo.full_name) {
                         try {
-                            await indexingService.clearRepositoryData(
-                                installationId,
-                                repo.full_name
-                            );
+                            await indexingService.clearRepositoryData(installationId, repo.full_name);
                             dataLogger.info(`Cleared indexing data for removed repository ${installationId}: ${repo.full_name}`);
                         } catch (error) {
                             dataLogger.warn(`Failed to clear indexing data for removed repository ${repo.full_name}:`, { error });

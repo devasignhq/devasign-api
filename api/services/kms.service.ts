@@ -36,6 +36,7 @@ export class KMSService {
 
         let encryptedDEK;
         try {
+            // Encrypt the DEK using Google Cloud KMS
             const [encryptResponse] = await client.encrypt({
                 name: keyName,
                 plaintext: plaintextDEK
@@ -93,6 +94,7 @@ export class KMSService {
             throw new KmsServiceError("Failed to decrypt DEK", error);
         }
 
+        // Check if DEK was decrypted successfully
         if (!decryptResponse.plaintext) {
             throw new KmsServiceError("Failed to decrypt DEK");
         }
