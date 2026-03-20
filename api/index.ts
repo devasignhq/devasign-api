@@ -6,12 +6,11 @@ import helmet from "helmet";
 import cors from "cors";
 import morgan from "morgan";
 import { prisma } from "./config/database.config";
-import { validateAdmin, validateUser } from "./middlewares/auth.middleware";
+import { validateUser } from "./middlewares/auth.middleware";
 import { dynamicRoute, localhostOnly } from "./middlewares/request.middleware";
 import { errorHandler } from "./middlewares/error.middleware";
 import { apiLimiter, webhookLimiter } from "./middlewares/rate-limit.middleware";
 import {
-    adminRoutes,
     userRoutes,
     installationRoutes,
     taskRoutes,
@@ -22,13 +21,13 @@ import {
     aiServicesRoutes,
     contractRoutes,
     octokitTestRoutes,
-    publicTaskRoutes
+    publicTaskRoutes,
+    internalRoutes
 } from "./routes";
 import { ErrorHandlerService } from "./services/error-handler.service";
 import { dataLogger, messageLogger } from "./config/logger.config";
 import { ALLOWED_ORIGINS, ENDPOINTS, STATUS_CODES } from "./utilities/data";
 import { ErrorClass } from "./models/error.model";
-import { WorkflowIntegrationService } from "./services/pr-review/workflow-integration.service";
 import { statsigService } from "./services/statsig.service";
 
 const app = express();
@@ -70,15 +69,6 @@ app.use(
 app.use(apiLimiter);
 app.use(express.json());
 
-// Admin routes
-app.use(
-    ENDPOINTS.ADMIN.PREFIX,
-    dynamicRoute,
-    validateUser as RequestHandler,
-    validateAdmin as RequestHandler,
-    adminRoutes
-);
-
 // User routes
 app.use(
     ENDPOINTS.USER.PREFIX,
@@ -114,7 +104,17 @@ app.use(
     walletRoutes
 );
 // Webhook routes
-app.use(ENDPOINTS.WEBHOOK.PREFIX, webhookRoutes);
+app.use(
+    ENDPOINTS.WEBHOOK.PREFIX,
+    dynamicRoute,
+    webhookRoutes
+);
+// Internal Cloud Tasks routes
+app.use(
+    ENDPOINTS.INTERNAL.PREFIX,
+    dynamicRoute,
+    internalRoutes
+);
 
 /**
  * Internal/Test Routes
@@ -145,11 +145,6 @@ async function main() {
             dataLogger.error("Failed to initialize error handling system", { error });
         });
 
-        const workflowService = WorkflowIntegrationService.getInstance();
-        await workflowService.initialize().catch(error => {
-            dataLogger.error("Failed to initialize Workflow Integration Service", { error });
-        });
-
         await statsigService.initialize().catch(error => {
             dataLogger.error("Failed to initialize Statsig Service", { error });
         });
@@ -168,9 +163,6 @@ async function main() {
                 server.close(() => {
                     messageLogger.info("HTTP server closed");
                 });
-
-                // Shutdown workflow integration service
-                await workflowService.shutdown();
 
                 // Close database connection
                 await prisma.$disconnect();

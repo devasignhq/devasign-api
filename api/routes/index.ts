@@ -1,4 +1,3 @@
-export * from "./admin.route";
 export * from "./installation.route";
 export * from "./task.route";
 export * from "./user.route";
@@ -9,3 +8,4 @@ export * from "./_test_/contract.test.route";
 export * from "./_test_/general.test.route";
 export * from "./_test_/stellar.test.route";
 export * from "./_test_/octokit.test.route";
+export * from "./internal.route";
