@@ -2,26 +2,6 @@ import request from "supertest";
 import express from "express";
 import crypto from "crypto";
 
-// Mock BackgroundJobService to prevent open handles
-jest.mock("../../../../api/services/background-job.service", () => {
-    const mockBackgroundJobService = {
-        getInstance: jest.fn(),
-        stop: jest.fn(),
-        startCleanup: jest.fn(),
-        getJobData: jest.fn(),
-        getQueueStats: jest.fn(),
-        getActiveJobsCount: jest.fn(),
-        addPRAnalysisJob: jest.fn(),
-        addRepositoryIndexingJob: jest.fn(),
-        cancelJob: jest.fn()
-    };
-    mockBackgroundJobService.getInstance = jest.fn().mockReturnValue(mockBackgroundJobService);
-    return {
-        BackgroundJobService: mockBackgroundJobService,
-        backgroundJobService: mockBackgroundJobService
-    };
-});
-
 import { webhookRoutes } from "../../../../api/routes/webhook.route";
 import { errorHandler } from "../../../../api/middlewares/error.middleware";
 import { DatabaseTestHelper } from "../../../helpers/database-test-helper";
@@ -51,13 +31,6 @@ jest.mock("../../../../api/services/kms.service", () => ({ KMSService: {} }));
 jest.mock("../../../../api/services/octokit.service", () => ({
     OctokitService: {
         getDefaultBranch: jest.fn()
-    }
-}));
-
-// Mock external services that might be imported by webhook routes
-jest.mock("../../../../api/services/pr-review/workflow-integration.service", () => ({
-    WorkflowIntegrationService: {
-        getInstance: jest.fn()
     }
 }));
 

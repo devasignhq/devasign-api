@@ -20,9 +20,9 @@ jest.mock("../../../../api/config/firebase.config", () => {
 });
 
 // Mock external services
-jest.mock("../../../../api/services/pr-review/workflow-integration.service", () => ({
-    WorkflowIntegrationService: {
-        getInstance: jest.fn()
+jest.mock("../../../../api/services/pr-review/orchestration.service", () => ({
+    orchestrationService: {
+        triggerReviewBackgroundJob: jest.fn()
     }
 }));
 
@@ -39,19 +39,22 @@ jest.mock("../../../../api/services/firebase.service", () => ({
     }
 }));
 
-jest.mock("../../../../api/services/octokit.service", () => ({
-    OctokitService: {
-        getOctokit: jest.fn(),
-        getOwnerAndRepo: jest.fn(),
-        getDefaultBranch: jest.fn(),
-        removeBountyLabelAndDeleteBountyComment: jest.fn(),
-        getBountyLabel: jest.fn().mockResolvedValue({ id: "mock-label-id" }),
-        createBountyLabels: jest.fn().mockResolvedValue([{ name: BOUNTY_LABEL, id: "mock-label-id" }]),
-        customBountyMessage: jest.fn().mockReturnValue("mock-bounty-message"),
-        addBountyLabelAndCreateBountyComment: jest.fn().mockResolvedValue({ id: "mock-comment-id" }),
-        createComment: jest.fn()
-    }
-}));
+jest.mock("../../../../api/services/octokit.service", () => {
+    const { BOUNTY_LABEL } = jest.requireActual("../../../../api/models/github.model");
+    return {
+        OctokitService: {
+            getOctokit: jest.fn(),
+            getOwnerAndRepo: jest.fn(),
+            getDefaultBranch: jest.fn(),
+            removeBountyLabelAndDeleteBountyComment: jest.fn(),
+            getBountyLabel: jest.fn().mockResolvedValue({ id: "mock-label-id" }),
+            createBountyLabels: jest.fn().mockResolvedValue([{ name: BOUNTY_LABEL, id: "mock-label-id" }]),
+            customBountyMessage: jest.fn().mockReturnValue("mock-bounty-message"),
+            addBountyLabelAndCreateBountyComment: jest.fn().mockResolvedValue({ id: "mock-comment-id" }),
+            createComment: jest.fn()
+        }
+    };
+});
 
 jest.mock("../../../../api/services/contract.service", () => ({
     ContractService: {
@@ -71,14 +74,14 @@ jest.mock("../../../../api/services/kms.service", () => ({
 }));
 
 jest.mock("../../../../api/services/pr-review/indexing.service", () => ({
-    IndexingService: jest.fn().mockImplementation(() => ({
+    indexingService: {
         clearInstallationData: jest.fn().mockResolvedValue(true),
         clearRepositoryData: jest.fn().mockResolvedValue(true)
-    }))
+    }
 }));
 
-jest.mock("../../../../api/services/background-job.service", () => ({
-    backgroundJobService: {
+jest.mock("../../../../api/services/cloud-tasks.service", () => ({
+    cloudTasksService: {
         addRepositoryIndexingJob: jest.fn().mockResolvedValue("job-id-123")
     }
 }));
@@ -92,14 +95,14 @@ jest.mock("../../../../api/services/stellar.service", () => ({
 describe("Webhook API Integration Tests", () => {
     let app: express.Application;
     let prisma: any;
-    let mockWorkflowService: any;
+    let mockAIReviewOrchestrationService: any;
     let mockOctokitService: any;
 
     let mockPRAnalysisService: any;
     let mockContractService: any;
     let mockFirebaseService: any;
     let mockIndexingService: any;
-    let mockBackgroundJobService: any;
+    let mockCloudTasksService: any;
 
     const WEBHOOK_SECRET = "test-webhook-secret";
     const VALID_INSTALLATION_ID = "12345678";
@@ -124,14 +127,10 @@ describe("Webhook API Integration Tests", () => {
         app.use(errorHandler);
 
         // Setup mocks
-        const { WorkflowIntegrationService } = await import("../../../../api/services/pr-review/workflow-integration.service");
         const { OctokitService } = await import("../../../../api/services/octokit.service");
 
-        mockWorkflowService = {
-            getInstance: jest.fn().mockReturnThis(),
-            processWebhookWorkflow: jest.fn()
-        };
-        WorkflowIntegrationService.getInstance = jest.fn(() => mockWorkflowService);
+        const { orchestrationService } = await import("../../../../api/services/pr-review/orchestration.service");
+        mockAIReviewOrchestrationService = orchestrationService;
 
         mockOctokitService = {
             getOctokit: jest.fn(),
@@ -155,11 +154,11 @@ describe("Webhook API Integration Tests", () => {
         const { PRAnalysisService } = await import("../../../../api/services/pr-review/pr-analysis.service");
         mockPRAnalysisService = PRAnalysisService;
 
-        const { IndexingService } = await import("../../../../api/services/pr-review/indexing.service");
-        mockIndexingService = IndexingService;
+        const { indexingService } = await import("../../../../api/services/pr-review/indexing.service");
+        mockIndexingService = indexingService;
 
-        const { backgroundJobService } = await import("../../../../api/services/background-job.service");
-        mockBackgroundJobService = backgroundJobService;
+        const { cloudTasksService } = await import("../../../../api/services/cloud-tasks.service");
+        mockCloudTasksService = cloudTasksService;
     });
 
     beforeEach(async () => {
@@ -171,7 +170,7 @@ describe("Webhook API Integration Tests", () => {
         jest.clearAllMocks();
 
         // Setup default mock implementations
-        mockWorkflowService.processWebhookWorkflow.mockResolvedValue({
+        mockAIReviewOrchestrationService.triggerReviewBackgroundJob.mockResolvedValue({
             success: true,
             jobId: "test-job-123",
             prData: {
@@ -325,9 +324,9 @@ describe("Webhook API Integration Tests", () => {
                 data: { installationId: VALID_INSTALLATION_ID }
             });
 
-            expect(mockBackgroundJobService.addRepositoryIndexingJob).toHaveBeenCalledTimes(2);
-            expect(mockBackgroundJobService.addRepositoryIndexingJob).toHaveBeenCalledWith(VALID_INSTALLATION_ID, "test/repo-1");
-            expect(mockBackgroundJobService.addRepositoryIndexingJob).toHaveBeenCalledWith(VALID_INSTALLATION_ID, "test/repo-2");
+            expect(mockCloudTasksService.addRepositoryIndexingJob).toHaveBeenCalledTimes(2);
+            expect(mockCloudTasksService.addRepositoryIndexingJob).toHaveBeenCalledWith(VALID_INSTALLATION_ID, "test/repo-1");
+            expect(mockCloudTasksService.addRepositoryIndexingJob).toHaveBeenCalledWith(VALID_INSTALLATION_ID, "test/repo-2");
         });
 
         it("should archive installation and refund open tasks on delete", async () => {
@@ -400,8 +399,7 @@ describe("Webhook API Integration Tests", () => {
             expect(mockOctokitService.removeBountyLabelAndDeleteBountyComment).toHaveBeenCalled();
 
             // Verify indexing data is cleared
-            const mockIndexingServiceInstance = (mockIndexingService as jest.Mock).mock.results[0].value;
-            expect(mockIndexingServiceInstance.clearInstallationData).toHaveBeenCalledWith(VALID_INSTALLATION_ID);
+            expect(mockIndexingService.clearInstallationData).toHaveBeenCalledWith(VALID_INSTALLATION_ID);
         });
 
         it("should reactivate installation on unsuspend", async () => {
@@ -467,9 +465,9 @@ describe("Webhook API Integration Tests", () => {
                 data: { installationId: VALID_INSTALLATION_ID, action: "added" }
             });
 
-            expect(mockBackgroundJobService.addRepositoryIndexingJob).toHaveBeenCalledTimes(2);
-            expect(mockBackgroundJobService.addRepositoryIndexingJob).toHaveBeenCalledWith(VALID_INSTALLATION_ID, "test/repo-1");
-            expect(mockBackgroundJobService.addRepositoryIndexingJob).toHaveBeenCalledWith(VALID_INSTALLATION_ID, "test/repo-2");
+            expect(mockCloudTasksService.addRepositoryIndexingJob).toHaveBeenCalledTimes(2);
+            expect(mockCloudTasksService.addRepositoryIndexingJob).toHaveBeenCalledWith(VALID_INSTALLATION_ID, "test/repo-1");
+            expect(mockCloudTasksService.addRepositoryIndexingJob).toHaveBeenCalledWith(VALID_INSTALLATION_ID, "test/repo-2");
         });
 
         it("should process removed repositories", async () => {
@@ -492,8 +490,7 @@ describe("Webhook API Integration Tests", () => {
                 data: { installationId: VALID_INSTALLATION_ID, action: "removed" }
             });
 
-            const mockIndexingServiceInstance = mockIndexingService.mock.results[0].value;
-            expect(mockIndexingServiceInstance.clearRepositoryData).toHaveBeenCalledWith(VALID_INSTALLATION_ID, "test/repo-1");
+            expect(mockIndexingService.clearRepositoryData).toHaveBeenCalledWith(VALID_INSTALLATION_ID, "test/repo-1");
         });
     });
 
@@ -520,16 +517,14 @@ describe("Webhook API Integration Tests", () => {
                         installationId: VALID_INSTALLATION_ID,
                         repositoryName: VALID_REPO_NAME,
                         prNumber: 1,
-                        prUrl: "https://github.com/test/repo/pull/1",
-                        linkedIssuesCount: 1,
-                        changedFilesCount: 1,
+                        prUrl: payload.pull_request.html_url,
                         eligibleForAnalysis: true,
                         status: "queued",
                         timestamp: expect.any(String)
                     }
                 });
 
-                expect(mockWorkflowService.processWebhookWorkflow).toHaveBeenCalledWith(
+                expect(mockAIReviewOrchestrationService.triggerReviewBackgroundJob).toHaveBeenCalledWith(
                     expect.objectContaining({
                         action: "opened",
                         number: 1,
@@ -546,13 +541,7 @@ describe("Webhook API Integration Tests", () => {
                 );
             });
 
-            it("should handle PR not eligible for analysis", async () => {
-                mockWorkflowService.processWebhookWorkflow.mockResolvedValue({
-                    success: true,
-                    reason: "PR not eligible for analysis: No linked issues found",
-                    jobId: null
-                });
-
+            it("should handle PR without linked issues correctly as queued", async () => {
                 const payload = createWebhookPayload({
                     pull_request: {
                         ...createWebhookPayload().pull_request,
@@ -569,20 +558,21 @@ describe("Webhook API Integration Tests", () => {
                     .set("X-GitHub-Delivery", "test-delivery-123")
                     .set("Content-Type", "application/json")
                     .send(payloadString)
-                    .expect(STATUS_CODES.SUCCESS);
+                    .expect(STATUS_CODES.BACKGROUND_JOB);
 
                 expect(response.body).toMatchObject({
-                    message: "PR not eligible for analysis: No linked issues found",
+                    message: "PR webhook processed successfully - analysis queued",
                     data: {
                         prNumber: 1,
+                        prUrl: payload.pull_request.html_url,
                         repositoryName: VALID_REPO_NAME,
-                        timestamp: expect.any(String)
+                        status: "queued"
                     }
                 });
             });
 
             it("should handle workflow processing errors", async () => {
-                mockWorkflowService.processWebhookWorkflow.mockResolvedValue({
+                mockAIReviewOrchestrationService.triggerReviewBackgroundJob.mockResolvedValue({
                     success: false,
                     error: "GitHub API rate limit exceeded"
                 });
@@ -619,7 +609,7 @@ describe("Webhook API Integration Tests", () => {
                     .expect(STATUS_CODES.SERVER_ERROR);
 
                 expect(response.body.message).toBe("Invalid webhook signature");
-                expect(mockWorkflowService.processWebhookWorkflow).not.toHaveBeenCalled();
+                expect(mockAIReviewOrchestrationService.triggerReviewBackgroundJob).not.toHaveBeenCalled();
             });
 
             it("should reject webhook without signature", async () => {
@@ -634,7 +624,7 @@ describe("Webhook API Integration Tests", () => {
                     .expect(STATUS_CODES.SERVER_ERROR);
 
                 expect(response.body.message).toBe("Missing webhook signature");
-                expect(mockWorkflowService.processWebhookWorkflow).not.toHaveBeenCalled();
+                expect(mockAIReviewOrchestrationService.triggerReviewBackgroundJob).not.toHaveBeenCalled();
             });
 
             it("should skip non-PR events", async () => {
@@ -655,7 +645,7 @@ describe("Webhook API Integration Tests", () => {
                     meta: { eventType: "issues" }
                 });
 
-                expect(mockWorkflowService.processWebhookWorkflow).not.toHaveBeenCalled();
+                expect(mockAIReviewOrchestrationService.triggerReviewBackgroundJob).not.toHaveBeenCalled();
             });
 
             it("should skip non-relevant PR actions", async () => {
@@ -676,7 +666,7 @@ describe("Webhook API Integration Tests", () => {
                     data: { action: "closed" }
                 });
 
-                expect(mockWorkflowService.processWebhookWorkflow).not.toHaveBeenCalled();
+                expect(mockAIReviewOrchestrationService.triggerReviewBackgroundJob).not.toHaveBeenCalled();
             });
 
             it("should skip PRs not targeting default branch", async () => {
@@ -708,7 +698,7 @@ describe("Webhook API Integration Tests", () => {
                     }
                 });
 
-                expect(mockWorkflowService.processWebhookWorkflow).not.toHaveBeenCalled();
+                expect(mockAIReviewOrchestrationService.triggerReviewBackgroundJob).not.toHaveBeenCalled();
             });
 
             it("should handle malformed JSON payload", async () => {
@@ -741,7 +731,7 @@ describe("Webhook API Integration Tests", () => {
                     .expect(STATUS_CODES.BACKGROUND_JOB);
 
                 expect(response.body.message).toBe("PR webhook processed successfully - analysis queued");
-                expect(mockWorkflowService.processWebhookWorkflow).toHaveBeenCalledWith(
+                expect(mockAIReviewOrchestrationService.triggerReviewBackgroundJob).toHaveBeenCalledWith(
                     expect.objectContaining({
                         action: "synchronize"
                     })
@@ -763,7 +753,7 @@ describe("Webhook API Integration Tests", () => {
                     .expect(STATUS_CODES.BACKGROUND_JOB);
 
                 expect(response.body.message).toBe("PR webhook processed successfully - analysis queued");
-                expect(mockWorkflowService.processWebhookWorkflow).toHaveBeenCalledWith(
+                expect(mockAIReviewOrchestrationService.triggerReviewBackgroundJob).toHaveBeenCalledWith(
                     expect.objectContaining({
                         action: "ready_for_review"
                     })
@@ -1145,8 +1135,7 @@ describe("Webhook API Integration Tests", () => {
                     status: "queued"
                 });
 
-                // workflowService must be called with manualTrigger: true
-                expect(mockWorkflowService.processWebhookWorkflow).toHaveBeenCalledWith(
+                expect(mockAIReviewOrchestrationService.triggerReviewBackgroundJob).toHaveBeenCalledWith(
                     expect.objectContaining({
                         action: "opened",
                         number: PR_NUMBER,
@@ -1187,7 +1176,7 @@ describe("Webhook API Integration Tests", () => {
                     .expect(STATUS_CODES.SUCCESS);
 
                 expect(response.body.message).toBe("Comment is not on a pull request - skipping");
-                expect(mockWorkflowService.processWebhookWorkflow).not.toHaveBeenCalled();
+                expect(mockAIReviewOrchestrationService.triggerReviewBackgroundJob).not.toHaveBeenCalled();
             });
 
             it("should skip when comment body is not exactly 'review' and not a bounty command", async () => {
@@ -1204,7 +1193,7 @@ describe("Webhook API Integration Tests", () => {
                     .expect(STATUS_CODES.SUCCESS);
 
                 expect(response.body.message).toBe("Comment does not trigger any action - skipping");
-                expect(mockWorkflowService.processWebhookWorkflow).not.toHaveBeenCalled();
+                expect(mockAIReviewOrchestrationService.triggerReviewBackgroundJob).not.toHaveBeenCalled();
             });
 
             it("should skip when the commenter is not an authorized repo maintainer", async () => {
@@ -1223,7 +1212,7 @@ describe("Webhook API Integration Tests", () => {
                     .expect(STATUS_CODES.SUCCESS);
 
                 expect(response.body.message).toBe("User is not authorized to trigger review (association: CONTRIBUTOR) - skipping");
-                expect(mockWorkflowService.processWebhookWorkflow).not.toHaveBeenCalled();
+                expect(mockAIReviewOrchestrationService.triggerReviewBackgroundJob).not.toHaveBeenCalled();
             });
 
             it("should skip when the installation is not active", async () => {
@@ -1246,7 +1235,7 @@ describe("Webhook API Integration Tests", () => {
                     .expect(STATUS_CODES.SUCCESS);
 
                 expect(response.body.message).toBe("Installation is not active or not found - skipping");
-                expect(mockWorkflowService.processWebhookWorkflow).not.toHaveBeenCalled();
+                expect(mockAIReviewOrchestrationService.triggerReviewBackgroundJob).not.toHaveBeenCalled();
             });
 
             it("should skip draft PRs", async () => {
@@ -1266,7 +1255,7 @@ describe("Webhook API Integration Tests", () => {
                     .expect(STATUS_CODES.SUCCESS);
 
                 expect(response.body.message).toBe("Skipping draft PR");
-                expect(mockWorkflowService.processWebhookWorkflow).not.toHaveBeenCalled();
+                expect(mockAIReviewOrchestrationService.triggerReviewBackgroundJob).not.toHaveBeenCalled();
             });
 
             it("should skip PRs not targeting the default branch", async () => {
@@ -1294,11 +1283,11 @@ describe("Webhook API Integration Tests", () => {
                     defaultBranch: "main",
                     reason: "not_default_branch"
                 });
-                expect(mockWorkflowService.processWebhookWorkflow).not.toHaveBeenCalled();
+                expect(mockAIReviewOrchestrationService.triggerReviewBackgroundJob).not.toHaveBeenCalled();
             });
 
-            it("should return server error when workflow processing fails", async () => {
-                mockWorkflowService.processWebhookWorkflow.mockResolvedValue({
+            it("should return server error when triggerReviewBackgroundJob fails", async () => {
+                mockAIReviewOrchestrationService.triggerReviewBackgroundJob.mockResolvedValue({
                     success: false,
                     error: "GitHub API rate limit exceeded"
                 });
@@ -1333,7 +1322,7 @@ describe("Webhook API Integration Tests", () => {
                     .expect(STATUS_CODES.SUCCESS);
 
                 expect(response.body.message).toBe("Issue comment action not processed");
-                expect(mockWorkflowService.processWebhookWorkflow).not.toHaveBeenCalled();
+                expect(mockAIReviewOrchestrationService.triggerReviewBackgroundJob).not.toHaveBeenCalled();
             });
         });
 
@@ -1763,7 +1752,7 @@ describe("Webhook API Integration Tests", () => {
     describe("Error Handling and Retry Mechanisms", () => {
         it("should handle GitHub API errors gracefully", async () => {
             const { GitHubAPIError } = await import("../../../../api/models/error.model");
-            mockWorkflowService.processWebhookWorkflow.mockRejectedValue(
+            mockAIReviewOrchestrationService.triggerReviewBackgroundJob.mockRejectedValue(
                 new GitHubAPIError("API rate limit exceeded", null, 429, 0)
             );
 
@@ -1786,7 +1775,7 @@ describe("Webhook API Integration Tests", () => {
 
         it("should handle PR analysis errors with context", async () => {
             const { PRAnalysisError } = await import("../../../../api/models/error.model");
-            mockWorkflowService.processWebhookWorkflow.mockRejectedValue(
+            mockAIReviewOrchestrationService.triggerReviewBackgroundJob.mockRejectedValue(
                 new PRAnalysisError(1, VALID_REPO_NAME, "Failed to analyze PR changes", {})
             );
 
@@ -1810,7 +1799,7 @@ describe("Webhook API Integration Tests", () => {
         });
 
         it("should handle unexpected errors and pass to error middleware", async () => {
-            mockWorkflowService.processWebhookWorkflow.mockRejectedValue(
+            mockAIReviewOrchestrationService.triggerReviewBackgroundJob.mockRejectedValue(
                 new Error("Unexpected database connection error")
             );
 
@@ -1935,7 +1924,7 @@ describe("Webhook API Integration Tests", () => {
                 const payloadString = JSON.stringify(payload);
                 const signature = createWebhookSignature(payloadString);
 
-                mockWorkflowService.processWebhookWorkflow.mockResolvedValue({
+                mockAIReviewOrchestrationService.triggerReviewBackgroundJob.mockResolvedValue({
                     success: true,
                     jobId: `concurrent-job-${i + 1}`,
                     prData: {
@@ -1964,7 +1953,7 @@ describe("Webhook API Integration Tests", () => {
                 expect(response.body.message).toContain("PR webhook processed");
             });
 
-            expect(mockWorkflowService.processWebhookWorkflow).toHaveBeenCalledTimes(5);
+            expect(mockAIReviewOrchestrationService.triggerReviewBackgroundJob).toHaveBeenCalledTimes(5);
         });
     });
 });

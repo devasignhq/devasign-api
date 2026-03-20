@@ -63,8 +63,8 @@ jest.mock("../../../../api/services/kms.service", () => ({
 }));
 
 // Mock Background Job Service
-jest.mock("../../../../api/services/background-job.service", () => ({
-    backgroundJobService: {
+jest.mock("../../../../api/services/cloud-tasks.service", () => ({
+    cloudTasksService: {
         addRepositoryIndexingJob: jest.fn()
     }
 }));
@@ -75,7 +75,7 @@ describe("Installation GitHub API Integration Tests", () => {
     let mockFirebaseAuth: jest.Mock;
     let mockOctokitService: any;
     let mockPRAnalysisService: any;
-    let mockBackgroundJobService: any;
+    let mockCloudTasksService: any;
 
     beforeAll(async () => {
         prisma = await DatabaseTestHelper.setupTestDatabase();
@@ -107,8 +107,8 @@ describe("Installation GitHub API Integration Tests", () => {
         const { PRAnalysisService } = await import("../../../../api/services/pr-review/pr-analysis.service");
         mockPRAnalysisService = PRAnalysisService;
 
-        const { backgroundJobService } = await import("../../../../api/services/background-job.service");
-        mockBackgroundJobService = backgroundJobService;
+        const { cloudTasksService } = await import("../../../../api/services/cloud-tasks.service");
+        mockCloudTasksService = cloudTasksService;
     });
 
     beforeEach(async () => {
@@ -195,7 +195,7 @@ describe("Installation GitHub API Integration Tests", () => {
         mockPRAnalysisService.logExtractionResult.mockImplementation(() => { });
         mockPRAnalysisService.logAnalysisDecision.mockImplementation(() => { });
 
-        mockBackgroundJobService.addRepositoryIndexingJob.mockResolvedValue(undefined);
+        mockCloudTasksService.addRepositoryIndexingJob.mockResolvedValue(undefined);
 
         TestDataFactory.resetCounters();
     });
@@ -584,7 +584,7 @@ describe("Installation GitHub API Integration Tests", () => {
                 .get(getEndpointWithPrefix(["INSTALLATION", "GITHUB", "INDEX_REPOSITORIES"])
                     .replace(":installationId", "12345678"))
                 .set("x-test-user-id", "user-1")
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.BACKGROUND_JOB);
 
             expect(response.body).toMatchObject({
                 message: "Repository indexing triggered successfully",
@@ -594,7 +594,7 @@ describe("Installation GitHub API Integration Tests", () => {
             });
 
             expect(mockOctokitService.getInstallationRepositories).toHaveBeenCalledWith("12345678");
-            expect(mockBackgroundJobService.addRepositoryIndexingJob).toHaveBeenCalledWith("12345678", "test-repo");
+            expect(mockCloudTasksService.addRepositoryIndexingJob).toHaveBeenCalledWith("12345678", "test-repo");
         });
 
         it("should handle GitHub API errors gracefully", async () => {
