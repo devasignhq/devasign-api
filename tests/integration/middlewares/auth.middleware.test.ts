@@ -365,11 +365,13 @@ describe("Authentication Middleware", () => {
 
     describe("validateCloudTasksRequest", () => {
         const MOCK_SERVICE_ACCOUNT = "cloud-tasks@test-project.iam.gserviceaccount.com";
+        const MOCK_CLOUD_RUN_URL = "https://server-test.run.app";
         const originalNodeEnv = process.env.NODE_ENV;
 
         beforeEach(() => {
             googleAuthMocks.verifyIdToken.mockReset();
             process.env.CLOUD_TASKS_SERVICE_ACCOUNT_EMAIL = MOCK_SERVICE_ACCOUNT;
+            process.env.CLOUD_RUN_SERVICE_URL = MOCK_CLOUD_RUN_URL;
         });
 
         afterEach(() => {
@@ -434,7 +436,10 @@ describe("Authentication Middleware", () => {
 
             await validateCloudTasksRequest(mockRequest as Request, mockResponse as Response, mockNext);
 
-            expect(googleAuthMocks.verifyIdToken).toHaveBeenCalledWith({ idToken: "invalid-oidc-token" });
+            expect(googleAuthMocks.verifyIdToken).toHaveBeenCalledWith({
+                idToken: "invalid-oidc-token",
+                audience: MOCK_CLOUD_RUN_URL
+            });
             expect(mockNext).toHaveBeenCalledWith(
                 expect.objectContaining({
                     code: "UNAUTHORIZED",
@@ -525,7 +530,10 @@ describe("Authentication Middleware", () => {
 
             await validateCloudTasksRequest(mockRequest as Request, mockResponse as Response, mockNext);
 
-            expect(googleAuthMocks.verifyIdToken).toHaveBeenCalledWith({ idToken: "valid-oidc-token" });
+            expect(googleAuthMocks.verifyIdToken).toHaveBeenCalledWith({
+                idToken: "valid-oidc-token",
+                audience: MOCK_CLOUD_RUN_URL
+            });
             expect(mockNext).toHaveBeenCalledWith();
         });
     });

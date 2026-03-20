@@ -149,6 +149,9 @@ export class CloudTasksService {
         );
 
         // Resolve the invocation target endpoint
+        if (!this.config.cloudRunUrl) {
+            throw new CloudTasksError("CLOUD_RUN_SERVICE_URL is not configured");
+        }
         const baseUrl = this.config.cloudRunUrl.replace(/\/$/, "");
         const url = `${baseUrl}${this.config.endpoints[type]}`;
 
@@ -162,7 +165,8 @@ export class CloudTasksService {
                 },
                 body: Buffer.from(JSON.stringify(payload)).toString("base64"),
                 oidcToken: {
-                    serviceAccountEmail: this.config.cloudTasksServiceAccountEmail
+                    serviceAccountEmail: this.config.cloudTasksServiceAccountEmail,
+                    audience: this.config.cloudRunUrl
                 }
             },
             // Set dispatch deadline based on job type
