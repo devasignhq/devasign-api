@@ -117,7 +117,7 @@ export class PullRequestContextAnalyzerService {
                 embedding,
                 prData.installationId,
                 prData.repositoryName,
-                10, // Limit to 10 most relevant chunks
+                20, // Limit to 20 most relevant chunks
                 0.6 // Similarity threshold
             );
 
