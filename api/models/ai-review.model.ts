@@ -182,8 +182,7 @@ export interface GitHubWebhookPayload {
     pull_request: GitHubPullRequest;
     repository: GitHubRepository;
     installation: GitHubInstallation;
-    /** When true, this review was triggered manually (e.g. via a "review" comment) and
-     * should bypass the linked-issues eligibility check. */
+    /** When true, this review was triggered manually (e.g. via a "review" comment). */
     manualTrigger?: boolean;
 }
 

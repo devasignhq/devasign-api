@@ -23,20 +23,6 @@ export class PRAnalysisService {
     private static geminiService = new GeminiAIService();
 
     /**
-     * Determines if a PR should be analyzed
-     * @param prData - The PR data to check
-     * @returns True if the PR should be analyzed, false otherwise
-     */
-    public static shouldAnalyzePR(prData: PullRequestData): boolean {
-        // Must link to at least one issue
-        if (prData.linkedIssues.length === 0) {
-            return false;
-        }
-
-        return true;
-    }
-
-    /**
      * Extracts PR data from GitHub webhook payload
      * @param payload - The GitHub webhook payload
      * @returns A promise that resolves to the extracted PR data
@@ -224,18 +210,6 @@ export class PRAnalysisService {
         // Extract PR data from webhook payload
         const prData = await this.extractPRDataFromWebhook(payload);
 
-        // When this review was triggered manually via a "review" comment, skip the
-        // linked-issues requirement so any PR can be reviewed on demand.
-        if (!payload.manualTrigger && !this.shouldAnalyzePR(prData)) {
-            throw new PRAnalysisError(
-                prData.prNumber,
-                prData.repositoryName,
-                `PR #${prData.prNumber} is not eligible for analysis: PR does not link to any issues`,
-                null,
-                "PR_NOT_ELIGIBLE_ERROR"
-            );
-        }
-
         // Fetch additional data
         try {
             prData.changedFiles = await this.fetchChangedFiles(
@@ -332,38 +306,6 @@ ${codeChangesPreview}`;
         });
 
         return Array.from(extensions);
-    }
-
-    /**
-     * Logs PR analysis decision for monitoring
-     * @param prData - The PR data
-     * @param shouldAnalyze - Whether the PR should be analyzed
-     * @param reason - The reason for the decision
-     */
-    public static logAnalysisDecision(
-        prData: PullRequestData,
-        shouldAnalyze: boolean,
-        reason?: string
-    ): void {
-        const logData = {
-            installationId: prData.installationId,
-            repositoryName: prData.repositoryName,
-            prNumber: prData.prNumber,
-            prUrl: prData.prUrl,
-            author: prData.author,
-            isDraft: prData.isDraft,
-            linkedIssuesCount: prData.linkedIssues.length,
-            changedFilesCount: prData.changedFiles.length,
-            shouldAnalyze,
-            reason,
-            timestamp: new Date().toISOString()
-        };
-
-        if (shouldAnalyze) {
-            dataLogger.info("PR eligible for AI review", logData);
-        } else {
-            dataLogger.info("PR not eligible for AI review", logData);
-        }
     }
 
     /**
