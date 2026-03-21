@@ -316,55 +316,6 @@ ${codeChangesPreview}`;
             );
         }
 
-        // Check if PR is eligible for analysis
-        try {
-            if (!PRAnalysisService.shouldAnalyzePR(prData)) {
-                const reason = prData.isDraft ? "PR is in draft status" : "PR does not link to any issues";
-
-                PRAnalysisService.logAnalysisDecision(prData, false, reason);
-
-                // Return PR not eligible for analysis
-                return responseWrapper({
-                    res,
-                    status: STATUS_CODES.SERVER_ERROR,
-                    data: {
-                        installationId: prData.installationId,
-                        repositoryName: prData.repositoryName,
-                        prNumber: prData.prNumber,
-                        prUrl: prData.prUrl,
-                        isDraft: prData.isDraft,
-                        linkedIssuesCount: prData.linkedIssues.length,
-                        reason,
-                        timestamp: new Date().toISOString()
-                    },
-                    message: `PR not eligible for analysis: ${reason}`
-                });
-            }
-
-        } catch (error) {
-            // Handle PRAnalysisError specifically
-            if (error instanceof PRAnalysisError) {
-                PRAnalysisService.logAnalysisDecision(prData, false, error.message);
-
-                return responseWrapper({
-                    res,
-                    status: error.status,
-                    data: {
-                        installationId: prData.installationId,
-                        repositoryName: prData.repositoryName,
-                        prNumber: prData.prNumber,
-                        prUrl: prData.prUrl,
-                        timestamp: new Date().toISOString()
-                    },
-                    message: error.message
-                });
-            }
-            throw error;
-        }
-
-        // Log successful analysis decision
-        PRAnalysisService.logAnalysisDecision(prData, true, "Manual trigger");
-
         // TODO: In future tasks, this will trigger the complete AI analysis workflow
         // For now, we return success with PR data to confirm the trigger worked
         dataLogger.info("Manual PR analysis data prepared successfully", {

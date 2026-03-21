@@ -37,8 +37,7 @@ jest.mock("../../../../api/services/pr-review/pr-analysis.service", () => ({
         extractLinkedIssues: jest.fn(),
         fetchChangedFiles: jest.fn(),
         shouldAnalyzePR: jest.fn(),
-        logExtractionResult: jest.fn(),
-        logAnalysisDecision: jest.fn()
+        logExtractionResult: jest.fn()
     }
 }));
 
@@ -193,8 +192,6 @@ describe("Installation GitHub API Integration Tests", () => {
 
         mockPRAnalysisService.shouldAnalyzePR.mockReturnValue(true);
         mockPRAnalysisService.logExtractionResult.mockImplementation(() => { });
-        mockPRAnalysisService.logAnalysisDecision.mockImplementation(() => { });
-
         mockCloudTasksService.addRepositoryIndexingJob.mockResolvedValue(undefined);
 
         TestDataFactory.resetCounters();
@@ -505,34 +502,6 @@ describe("Installation GitHub API Integration Tests", () => {
 
             expect(response.body).toMatchObject({
                 message: expect.stringContaining("PR #999 not found")
-            });
-        });
-
-        it("should return error when PR is not eligible for analysis", async () => {
-            mockPRAnalysisService.shouldAnalyzePR.mockReturnValue(false);
-            mockOctokitService.getPRDetails.mockResolvedValue({
-                number: 1,
-                title: "Draft PR",
-                body: "",
-                html_url: "https://github.com/test-org/test-repo/pull/1",
-                user: { login: "test-user" },
-                draft: true
-            });
-
-            const analysisData = {
-                repositoryName: "test-org/test-repo",
-                prNumber: 1
-            };
-
-            const response = await request(app)
-                .post(getEndpointWithPrefix(["INSTALLATION", "GITHUB", "ANALYZE_PR"])
-                    .replace(":installationId", "12345678"))
-                .set("x-test-user-id", "user-1")
-                .send(analysisData)
-                .expect(STATUS_CODES.SERVER_ERROR);
-
-            expect(response.body).toMatchObject({
-                message: expect.stringContaining("PR not eligible for analysis")
             });
         });
 

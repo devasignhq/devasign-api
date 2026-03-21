@@ -10,8 +10,7 @@ import { getEndpointWithPrefix } from "../../../helpers/test-utils";
 // Mock services
 jest.mock("../../../../api/services/pr-review/pr-analysis.service", () => ({
     PRAnalysisService: {
-        createCompletePRData: jest.fn(),
-        logAnalysisDecision: jest.fn()
+        createCompletePRData: jest.fn()
     }
 }));
 
@@ -49,7 +48,6 @@ describe("Internal Routes API Integration Tests", () => {
 
     let mockPRAnalysisService: any;
     let mockOrchestrationService: any;
-    let mockAIReviewCommentService: any;
     let mockIndexingService: any;
     let mockDataLogger: any;
 
@@ -66,9 +64,6 @@ describe("Internal Routes API Integration Tests", () => {
 
         const { orchestrationService } = await import("../../../../api/services/pr-review/orchestration.service");
         mockOrchestrationService = orchestrationService;
-
-        const { AIReviewCommentService } = await import("../../../../api/services/pr-review/comment.service");
-        mockAIReviewCommentService = AIReviewCommentService;
 
         const { indexingService } = await import("../../../../api/services/pr-review/indexing.service");
         mockIndexingService = indexingService;
@@ -105,7 +100,6 @@ describe("Internal Routes API Integration Tests", () => {
             expect(response.body.data.success).toBe(true);
             expect(response.body.message).toBe("PR Analysis job completed");
             expect(mockPRAnalysisService.createCompletePRData).toHaveBeenCalledWith(payload.payload);
-            expect(mockPRAnalysisService.logAnalysisDecision).toHaveBeenCalledWith(mockPRData, true);
             expect(mockOrchestrationService.analyzePullRequest).toHaveBeenCalledWith(mockPRData);
             expect(mockOrchestrationService.updateExistingReview).not.toHaveBeenCalled();
         });
@@ -133,7 +127,6 @@ describe("Internal Routes API Integration Tests", () => {
             expect(response.body.data.success).toBe(true);
             expect(response.body.message).toBe("PR Analysis job completed");
             expect(mockPRAnalysisService.createCompletePRData).toHaveBeenCalledWith(payload.payload);
-            expect(mockPRAnalysisService.logAnalysisDecision).toHaveBeenCalledWith(mockPRData, true);
             expect(mockOrchestrationService.updateExistingReview).toHaveBeenCalledWith(mockPRData);
             expect(mockOrchestrationService.analyzePullRequest).not.toHaveBeenCalled();
         });
@@ -164,65 +157,8 @@ describe("Internal Routes API Integration Tests", () => {
             );
         });
 
-        it("should handle PR_NOT_ELIGIBLE_ERROR early return and post a comment if pendingCommentId exists", async () => {
-            const mockError = new PRAnalysisError(1, "test/repo", "Not eligible", null, "PR_NOT_ELIGIBLE_ERROR");
-            mockPRAnalysisService.createCompletePRData.mockRejectedValue(mockError);
-
-            const payload = {
-                payload: {
-                    pull_request: { number: 1 },
-                    repository: { full_name: "test/repo" },
-                    installation: { id: 1234 }
-                },
-                isActualFollowUp: false,
-                pendingCommentId: 456
-            };
-
-            const response = await request(app)
-                .post(route)
-                .send(payload)
-                .expect(STATUS_CODES.SUCCESS);
-
-            expect(response.body.data.success).toBe(true);
-            expect(response.body.data.reason).toBe("Not eligible");
-            expect(response.body.message).toBe("PR Analysis job completed early");
-
-            expect(mockAIReviewCommentService.postErrorComment).toHaveBeenCalledWith(
-                "1234",
-                "test/repo",
-                1,
-                "Not eligible",
-                456
-            );
-            expect(mockPRAnalysisService.logAnalysisDecision).not.toHaveBeenCalled();
-            expect(mockOrchestrationService.analyzePullRequest).not.toHaveBeenCalled();
-        });
-
-        it("should handle PR_NOT_ELIGIBLE_ERROR early return without comment if no pendingCommentId", async () => {
-            const mockError = new PRAnalysisError(1, "test/repo", "Not eligible", null, "PR_NOT_ELIGIBLE_ERROR");
-            mockPRAnalysisService.createCompletePRData.mockRejectedValue(mockError);
-
-            const payload = {
-                payload: {
-                    pull_request: { number: 1 },
-                    repository: { full_name: "test/repo" },
-                    installation: { id: 1234 }
-                },
-                isActualFollowUp: false
-            };
-
-            const response = await request(app)
-                .post(route)
-                .send(payload)
-                .expect(STATUS_CODES.SUCCESS);
-
-            expect(response.body.data.success).toBe(true);
-            expect(response.body.data.reason).toBe("Not eligible");
-            expect(mockAIReviewCommentService.postErrorComment).not.toHaveBeenCalled();
-        });
-
-        it("should re-throw PRAnalysisError with non-PR_NOT_ELIGIBLE_ERROR code", async () => {
-            const mockError = new PRAnalysisError(1, "test/repo", "Some other error", null, "PR_ANALYSIS_ERROR");
+        it("should throw error when createCompletePRData fails", async () => {
+            const mockError = new PRAnalysisError(1, "test/repo", "Some error", null, "PR_ANALYSIS_ERROR");
             mockPRAnalysisService.createCompletePRData.mockRejectedValue(mockError);
 
             const payload = {
@@ -239,7 +175,6 @@ describe("Internal Routes API Integration Tests", () => {
                 .send(payload)
                 .expect(STATUS_CODES.SERVER_ERROR);
 
-            expect(mockPRAnalysisService.logAnalysisDecision).not.toHaveBeenCalled();
             expect(mockOrchestrationService.analyzePullRequest).not.toHaveBeenCalled();
         });
 
