@@ -760,15 +760,15 @@ describe("Webhook API Integration Tests", () => {
 
         describe("Bounty Payout on PR Merge", () => {
             let mockCloudTasksService: any;
-            
+
             beforeAll(async () => {
                 const { cloudTasksService } = await import("../../../../api/services/cloud-tasks.service");
                 mockCloudTasksService = cloudTasksService;
             });
-            
+
             it("should enqueue bounty payout job when PR is merged", async () => {
                 mockCloudTasksService.addBountyPayoutJob.mockResolvedValue("job-123");
-                
+
                 const payload = createWebhookPayload({
                     action: "closed",
                     pull_request: {
@@ -796,10 +796,16 @@ describe("Webhook API Integration Tests", () => {
                         status: "queued"
                     }
                 });
-                
+
                 expect(mockCloudTasksService.addBountyPayoutJob).toHaveBeenCalledWith({
-                    ...payload,
-                    webhookMeta: expect.any(Object)
+                    pull_request: {
+                        number: payload.pull_request.number,
+                        html_url: payload.pull_request.html_url,
+                        body: payload.pull_request.body,
+                        user: { login: payload.pull_request.user.login }
+                    },
+                    repository: { full_name: payload.repository.full_name },
+                    installation: { id: payload.installation.id }
                 });
             });
 
