@@ -110,7 +110,7 @@ export const validateCloudTasksRequest = async (req: Request, _res: Response, ne
         const token = authHeader.split("Bearer ")[1];
 
         if (!process.env.CLOUD_RUN_SERVICE_URL) {
-            throw new AuthorizationError("Server misconfiguration: CLOUD_RUN_SERVICE_URL is missing");
+            throw new Error("Server misconfiguration: CLOUD_RUN_SERVICE_URL is missing");
         }
 
         // Verify the OIDC token with Google's public keys

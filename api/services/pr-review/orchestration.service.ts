@@ -368,10 +368,7 @@ export class AIReviewOrchestrationService {
         } catch (error) {
             dataLogger.error(
                 `Analysis failed for PR #${prData.prNumber} in ${prData.repositoryName}`,
-                {
-                    error,
-                    processingTime: Date.now() - startTime
-                }
+                { error, processingTime: Date.now() - startTime }
             );
 
             // Update review status to failed
