@@ -82,7 +82,8 @@ jest.mock("../../../../api/services/pr-review/indexing.service", () => ({
 
 jest.mock("../../../../api/services/cloud-tasks.service", () => ({
     cloudTasksService: {
-        addRepositoryIndexingJob: jest.fn().mockResolvedValue("job-id-123")
+        addRepositoryIndexingJob: jest.fn().mockResolvedValue("job-id-123"),
+        addBountyPayoutJob: jest.fn().mockResolvedValue("job-id-123")
     }
 }));
 
@@ -100,7 +101,6 @@ describe("Webhook API Integration Tests", () => {
 
     let mockPRAnalysisService: any;
     let mockContractService: any;
-    let mockFirebaseService: any;
     let mockIndexingService: any;
     let mockCloudTasksService: any;
 
@@ -147,9 +147,6 @@ describe("Webhook API Integration Tests", () => {
 
         const { ContractService } = await import("../../../../api/services/contract.service");
         mockContractService = ContractService;
-
-        const { FirebaseService } = await import("../../../../api/services/firebase.service");
-        mockFirebaseService = FirebaseService;
 
         const { PRAnalysisService } = await import("../../../../api/services/pr-review/pr-analysis.service");
         mockPRAnalysisService = PRAnalysisService;
@@ -762,64 +759,21 @@ describe("Webhook API Integration Tests", () => {
         });
 
         describe("Bounty Payout on PR Merge", () => {
-            let testTask: any;
-
-            beforeEach(async () => {
-                const creator = TestDataFactory.user({ userId: "task-creator" });
-                await prisma.user.create({
-                    data: { ...creator, contributionSummary: { create: {} } }
-                });
-
-                // Create test user with wallet
-                const contributor = TestDataFactory.user({ userId: "test-contributor", username: "test-contributor" });
-                await prisma.user.create({
-                    data: {
-                        ...contributor,
-                        wallet: TestDataFactory.createWalletRelation(),
-                        contributionSummary: { create: {} }
-                    }
-                });
-
-                // Create test installation with wallet and escrow
-                const installation = TestDataFactory.installation({ id: VALID_INSTALLATION_ID });
-                await prisma.installation.create({
-                    data: {
-                        ...installation,
-                        wallet: TestDataFactory.createWalletRelation()
-                    }
-                });
-
-                // Create test task
-                testTask = TestDataFactory.task({
-                    status: "MARKED_AS_COMPLETED",
-                    bounty: 100,
-                    issue: {
-                        number: 1,
-                        title: "Test Issue",
-                        url: "https://github.com/test/repo/issues/1"
-                    },
-                    contributorId: undefined,
-                    creatorId: undefined,
-                    installationId: undefined
-                });
-                testTask = await prisma.task.create({
-                    data: {
-                        ...testTask,
-                        creator: { connect: { userId: creator.userId } },
-                        contributor: { connect: { userId: contributor.userId } },
-                        installation: { connect: { id: VALID_INSTALLATION_ID } }
-                    }
-                });
+            let mockCloudTasksService: any;
+            
+            beforeAll(async () => {
+                const { cloudTasksService } = await import("../../../../api/services/cloud-tasks.service");
+                mockCloudTasksService = cloudTasksService;
             });
-
-            it("should process bounty payout when PR is merged", async () => {
+            
+            it("should enqueue bounty payout job when PR is merged", async () => {
+                mockCloudTasksService.addBountyPayoutJob.mockResolvedValue("job-123");
+                
                 const payload = createWebhookPayload({
                     action: "closed",
                     pull_request: {
                         ...createWebhookPayload().pull_request,
-                        merged: true,
-                        user: { login: "test-contributor" },
-                        body: "Closes #1"
+                        merged: true
                     }
                 });
                 const payloadString = JSON.stringify(payload);
@@ -831,166 +785,22 @@ describe("Webhook API Integration Tests", () => {
                     .set("X-Hub-Signature-256", signature)
                     .set("Content-Type", "application/json")
                     .send(payloadString)
-                    .expect(STATUS_CODES.SUCCESS);
+                    .expect(STATUS_CODES.BACKGROUND_JOB);
 
                 expect(response.body).toMatchObject({
-                    message: "PR merged - Payment processed successfully",
+                    message: "Bounty payout job queued",
                     data: {
+                        jobId: "job-123",
                         prNumber: 1,
                         repositoryName: VALID_REPO_NAME,
-                        linkedIssues: [1]
+                        status: "queued"
                     }
                 });
-
-                // Verify Contract service was called
-                expect(mockContractService.approveCompletion).toHaveBeenCalledTimes(1);
-                expect(mockFirebaseService.updateTaskStatus).toHaveBeenCalledTimes(1);
-                expect(mockFirebaseService.updateAppActivity).toHaveBeenCalledTimes(2);
-
-                // Verify task was updated
-                const updatedTask = await prisma.task.findUnique({
-                    where: { id: testTask.id }
+                
+                expect(mockCloudTasksService.addBountyPayoutJob).toHaveBeenCalledWith({
+                    ...payload,
+                    webhookMeta: expect.any(Object)
                 });
-                expect(updatedTask?.status).toBe("COMPLETED");
-                expect(updatedTask?.settled).toBe(true);
-                expect(updatedTask?.completedAt).toBeTruthy();
-
-                // Verify transaction was recorded
-                const transaction = await prisma.transaction.findFirst({
-                    where: { taskId: testTask.id }
-                });
-                expect(transaction).toBeTruthy();
-                expect(transaction?.category).toBe("BOUNTY");
-                expect(transaction?.amount).toBe(100);
-            });
-
-            it("should handle PR merge with no linked issues", async () => {
-                mockPRAnalysisService.extractLinkedIssues.mockResolvedValue([]);
-
-                const payload = createWebhookPayload({
-                    action: "closed",
-                    pull_request: {
-                        ...createWebhookPayload().pull_request,
-                        merged: true,
-                        body: "No issue links"
-                    }
-                });
-                const payloadString = JSON.stringify(payload);
-                const signature = createWebhookSignature(payloadString);
-
-                const response = await request(app)
-                    .post(getEndpointWithPrefix(["WEBHOOK", "GITHUB"]))
-                    .set("X-GitHub-Event", "pull_request")
-                    .set("X-Hub-Signature-256", signature)
-                    .set("Content-Type", "application/json")
-                    .send(payloadString)
-                    .expect(STATUS_CODES.SUCCESS);
-
-                expect(response.body).toMatchObject({
-                    message: "No linked issues found - no payment triggered"
-                });
-
-                expect(mockContractService.approveCompletion).not.toHaveBeenCalled();
-            });
-
-            it("should handle PR merge with no matching task", async () => {
-                const payload = createWebhookPayload({
-                    action: "closed",
-                    pull_request: {
-                        ...createWebhookPayload().pull_request,
-                        merged: true,
-                        user: { login: "different-user" },
-                        body: "Closes #999"
-                    }
-                });
-                const payloadString = JSON.stringify(payload);
-                const signature = createWebhookSignature(payloadString);
-
-                mockPRAnalysisService.extractLinkedIssues.mockResolvedValue([
-                    { number: 999, title: "Different Issue" }
-                ]);
-
-                const response = await request(app)
-                    .post(getEndpointWithPrefix(["WEBHOOK", "GITHUB"]))
-                    .set("X-GitHub-Event", "pull_request")
-                    .set("X-Hub-Signature-256", signature)
-                    .set("Content-Type", "application/json")
-                    .send(payloadString)
-                    .expect(STATUS_CODES.SUCCESS);
-
-                expect(response.body).toMatchObject({
-                    message: "No matching active or submitted task found"
-                });
-
-                expect(mockContractService.approveCompletion).not.toHaveBeenCalled();
-            });
-
-            it("should handle contributor without wallet address", async () => {
-                // Create user without wallet
-                const userWithoutWallet = TestDataFactory.user({
-                    userId: "no-wallet-user",
-                    username: "no-wallet-user"
-                });
-                // Don't create wallet relation for this user
-
-                await prisma.user.create({
-                    data: {
-                        ...userWithoutWallet,
-                        contributionSummary: { create: {} }
-                    }
-                });
-
-                // Create task for this user
-                const taskWithoutWallet = TestDataFactory.task({
-                    status: "MARKED_AS_COMPLETED",
-                    bounty: 50,
-                    issue: {
-                        number: 2,
-                        title: "Test Issue 2",
-                        url: "https://github.com/test/repo/issues/2"
-                    },
-                    contributorId: undefined,
-                    creatorId: undefined,
-                    installationId: undefined
-                });
-                await prisma.task.create({
-                    data: {
-                        ...taskWithoutWallet,
-                        creator: { connect: { userId: "task-creator" } },
-                        contributor: { connect: { userId: "no-wallet-user" } },
-                        installation: { connect: { id: VALID_INSTALLATION_ID } }
-                    }
-                });
-
-                mockPRAnalysisService.extractLinkedIssues.mockResolvedValue([
-                    { number: 2, title: "Test Issue 2" }
-                ]);
-
-                const payload = createWebhookPayload({
-                    action: "closed",
-                    pull_request: {
-                        ...createWebhookPayload().pull_request,
-                        merged: true,
-                        user: { login: "no-wallet-user" },
-                        body: "Closes #2"
-                    }
-                });
-                const payloadString = JSON.stringify(payload);
-                const signature = createWebhookSignature(payloadString);
-
-                const response = await request(app)
-                    .post(getEndpointWithPrefix(["WEBHOOK", "GITHUB"]))
-                    .set("X-GitHub-Event", "pull_request")
-                    .set("X-Hub-Signature-256", signature)
-                    .set("Content-Type", "application/json")
-                    .send(payloadString)
-                    .expect(STATUS_CODES.SUCCESS);
-
-                expect(response.body).toMatchObject({
-                    message: "No wallet address found for contributor"
-                });
-
-                expect(mockContractService.approveCompletion).not.toHaveBeenCalled();
             });
 
             it("should skip non-merged PR close events", async () => {
@@ -1017,7 +827,7 @@ describe("Webhook API Integration Tests", () => {
                     data: { action: "closed" }
                 });
 
-                expect(mockContractService.approveCompletion).not.toHaveBeenCalled();
+                expect(mockCloudTasksService.addBountyPayoutJob).not.toHaveBeenCalled();
             });
         });
     });

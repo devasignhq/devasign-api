@@ -194,7 +194,9 @@ export const ENDPOINTS = {
             /** POST /jobs/repository-indexing - Handle repository indexing job */
             REPOSITORY_INDEXING: "/jobs/repository-indexing",
             /** POST /jobs/repository-incremental-indexing - Handle incremental repository indexing job */
-            INCREMENTAL_INDEXING: "/jobs/repository-incremental-indexing"
+            INCREMENTAL_INDEXING: "/jobs/repository-incremental-indexing",
+            /** POST /jobs/bounty-payout - Handle bounty payout job */
+            BOUNTY_PAYOUT: "/jobs/bounty-payout"
         }
     }
 };

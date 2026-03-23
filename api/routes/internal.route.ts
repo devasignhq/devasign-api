@@ -2,7 +2,8 @@ import { Router, RequestHandler } from "express";
 import {
     handlePRAnalysisJob,
     handleRepositoryIndexingJob,
-    handleIncrementalIndexingJob
+    handleIncrementalIndexingJob,
+    handleBountyPayoutJob
 } from "../controllers/internal";
 import { ENDPOINTS } from "../utilities/data";
 
@@ -24,4 +25,10 @@ internalRoutes.post(
 internalRoutes.post(
     ENDPOINTS.INTERNAL.JOBS.INCREMENTAL_INDEXING,
     handleIncrementalIndexingJob as RequestHandler
+);
+
+// Run Bounty Payout
+internalRoutes.post(
+    ENDPOINTS.INTERNAL.JOBS.BOUNTY_PAYOUT,
+    handleBountyPayoutJob as RequestHandler
 );
