@@ -24,7 +24,17 @@ export class PullRequestWebhookService {
                 // Handle PR merged events for bounty payout
                 if (pull_request?.merged) {
                     try {
-                        const jobId = await cloudTasksService.addBountyPayoutJob(req.body);
+                        const payload = {
+                            pull_request: {
+                                number: pull_request.number,
+                                html_url: pull_request.html_url,
+                                body: pull_request.body,
+                                user: { login: pull_request.user.login }
+                            },
+                            repository: { full_name: req.body.repository?.full_name },
+                            installation: { id: req.body.installation?.id }
+                        };
+                        const jobId = await cloudTasksService.addBountyPayoutJob(payload);
 
                         responseWrapper({
                             res,
