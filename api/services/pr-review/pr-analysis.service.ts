@@ -353,12 +353,12 @@ ${codeChangesPreview}`;
         messageLogger.info(`Starting analysis for PR #${prData.prNumber} in ${prData.repositoryName}`);
 
         try {
+            // Build review context
+            const reviewContext = await this.contextAnalyzer.buildReviewContext(prData);
+
             // Execute workflow with timeout
             const review = await this.executeWithTimeout(
                 async () => {
-                    // Build review context
-                    const reviewContext = await this.contextAnalyzer.buildReviewContext(prData);
-
                     // Generate AI review with enhanced context
                     const aiReview = await this.geminiService.generateReview(reviewContext);
 
@@ -376,17 +376,16 @@ ${codeChangesPreview}`;
                     } as ReviewResult;
                 },
                 300000, // 5 minutes
-                "Pull request context analysis"
+                "Pull request analysis"
             );
 
             const processingTime = Date.now() - startTime;
-            messageLogger.info(`Pull request context analysis completed in ${processingTime}ms for PR #${prData.prNumber}`);
+            messageLogger.info(`Pull request analysis completed in ${processingTime}ms for PR #${prData.prNumber}`);
 
             return review;
 
         } catch (error) {
-            dataLogger.error("Pull request context analysis failed", { error });
-
+            dataLogger.error("Pull request analysis failed", { error });
             throw error;
         }
     }
@@ -431,12 +430,12 @@ ${codeChangesPreview}`;
         })();
 
         try {
+            // Build review context
+            const reviewContext = await this.contextAnalyzer.buildReviewContext(prData);
+            
             // Execute review with timeout
             const review = await this.executeWithTimeout(
                 async () => {
-                    // Build review context
-                    const reviewContext = await this.contextAnalyzer.buildReviewContext(prData);
-
                     // Build follow-up review context
                     const followUpContext: FollowUpReviewContext = {
                         ...reviewContext,
