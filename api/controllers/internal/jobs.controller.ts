@@ -4,7 +4,12 @@ import { PRAnalysisService } from "../../services/pr-review/pr-analysis.service"
 import { indexingService } from "../../services/pr-review/indexing.service";
 import { STATUS_CODES } from "../../utilities/data";
 import { dataLogger } from "../../config/logger.config";
-import { responseWrapper } from "../../utilities/helper";
+import { responseWrapper, stellarTimestampToDate } from "../../utilities/helper";
+import { prisma } from "../../config/database.config";
+import { TaskStatus } from "../../../prisma_client";
+import { KMSService } from "../../services/kms.service";
+import { ContractService } from "../../services/contract.service";
+import { FirebaseService } from "../../services/firebase.service";
 
 /**
  * Handles incoming Cloud Tasks jobs for PR Analysis
@@ -86,6 +91,214 @@ export const handleIncrementalIndexingJob = async (req: Request, res: Response, 
             data: { success: true },
             message: "Incremental Indexing job completed"
         });
+    } catch (error) {
+        next(error);
+    }
+};
+
+/**
+ * Handles incoming Cloud Tasks jobs for Bounty Payout
+ */
+export const handleBountyPayoutJob = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { pull_request, repository, installation } = req.body;
+
+        const prNumber = pull_request.number;
+        const prUrl = pull_request.html_url;
+        const repositoryName = repository.full_name;
+        const installationId = installation.id.toString();
+
+        // Extract linked issues from PR body
+        const linkedIssues = await PRAnalysisService.extractLinkedIssues(
+            pull_request.body || "",
+            installationId,
+            repositoryName
+        );
+
+        // No linked issues found
+        if (linkedIssues.length === 0) {
+            dataLogger.info("No linked issues found", {
+                prNumber,
+                repositoryName,
+                prUrl
+            });
+
+            return responseWrapper({
+                res,
+                status: STATUS_CODES.SUCCESS,
+                data: { prNumber, repositoryName, prUrl },
+                message: "No linked issues found - no payment triggered"
+            });
+        }
+
+        // Find related task for the merged PR
+        const relatedTask = await prisma.task.findFirst({
+            where: {
+                installationId,
+                status: {
+                    in: [TaskStatus.MARKED_AS_COMPLETED, TaskStatus.IN_PROGRESS]
+                },
+                contributor: {
+                    username: pull_request.user.login
+                },
+                issue: {
+                    path: ["number"],
+                    equals: linkedIssues[0].number
+                }
+            },
+            select: {
+                id: true,
+                bounty: true,
+                status: true,
+                issue: true,
+                creatorId: true,
+                contributor: {
+                    select: {
+                        userId: true,
+                        username: true,
+                        wallet: { select: { address: true } }
+                    }
+                },
+                installation: {
+                    select: {
+                        id: true,
+                        wallet: true
+                    }
+                }
+            }
+        });
+
+        // No matching task found
+        if (!relatedTask) {
+            dataLogger.info("No matching active or submitted task found", {
+                prNumber,
+                repositoryName,
+                prUrl,
+                linkedIssues: linkedIssues.map(i => i.number)
+            });
+
+            return responseWrapper({
+                res,
+                status: STATUS_CODES.SUCCESS,
+                data: { prNumber, repositoryName, prUrl, linkedIssues: linkedIssues.map(i => i.number) },
+                message: "No matching active or submitted task found"
+            });
+        }
+
+        // Verify contributor has a wallet
+        if (!relatedTask.contributor || !relatedTask.contributor.wallet || !relatedTask.contributor.wallet.address) {
+            return responseWrapper({
+                res,
+                status: STATUS_CODES.SUCCESS,
+                data: { prNumber, repositoryName, prUrl, linkedIssues: linkedIssues.map(i => i.number) },
+                message: "No wallet address found for contributor"
+            });
+        }
+
+        // Transfer bounty from escrow to contributor via smart contract
+        if (!relatedTask.installation.wallet) {
+            throw new Error("Installation wallet not found");
+        }
+
+        const decryptedWalletSecret = await KMSService.decryptWallet(relatedTask.installation.wallet);
+        const transactionResponse = await ContractService.approveCompletion(
+            decryptedWalletSecret,
+            relatedTask.id
+        );
+
+        try {
+            const [updatedTask] = await prisma.$transaction([
+                // Update task as completed and settled
+                prisma.task.update({
+                    where: { id: relatedTask.id },
+                    data: {
+                        status: "COMPLETED",
+                        completedAt: new Date(),
+                        settled: true,
+                        escrowTransactions: {
+                            push: { txHash: transactionResponse.txHash, method: "bounty_payout" }
+                        }
+                    },
+                    select: {
+                        status: true,
+                        completedAt: true,
+                        settled: true,
+                        updatedAt: true
+                    }
+                }),
+                // Record transaction for contributor
+                prisma.transaction.create({
+                    data: {
+                        txHash: transactionResponse.txHash,
+                        category: "BOUNTY",
+                        amount: parseFloat(relatedTask.bounty.toString()),
+                        task: { connect: { id: relatedTask.id } },
+                        user: { connect: { userId: relatedTask.contributor.userId } },
+                        doneAt: stellarTimestampToDate(transactionResponse.result.createdAt)
+                    }
+                }),
+                // Update contribution summary
+                prisma.contributionSummary.update({
+                    where: { userId: relatedTask.contributor.userId },
+                    data: {
+                        activeTasks: { decrement: 1 },
+                        tasksCompleted: { increment: 1 },
+                        totalEarnings: { increment: relatedTask.bounty }
+                    }
+                })
+            ]);
+
+            // Send success response
+            responseWrapper({
+                res,
+                status: STATUS_CODES.SUCCESS,
+                data: {
+                    prNumber,
+                    repositoryName,
+                    prUrl,
+                    linkedIssues: linkedIssues.map(i => i.number)
+                },
+                message: "PR merged - Payment processed successfully"
+            });
+
+            // Disable chat for the task
+            FirebaseService.updateTaskStatus(relatedTask.id).catch(
+                error => dataLogger.warn("Failed to disable chat", { taskId: relatedTask.id, error })
+            );
+
+            // Update contributor activity for live updates
+            FirebaseService.updateAppActivity({
+                userId: relatedTask.contributor.userId,
+                type: "contributor"
+            }).catch(
+                error => dataLogger.warn(
+                    "Failed to update contributor activity for live updates",
+                    { contributorId: relatedTask.contributor?.userId, error }
+                )
+            );
+            // Update installation activity for live updates
+            FirebaseService.updateAppActivity({
+                userId: relatedTask.creatorId,
+                type: "installation",
+                installationId: relatedTask.installation.id,
+                operation: "task_completed",
+                issueUrl: prUrl,
+                message: "PR merged - Payment processed successfully",
+                metadata: { taskId: relatedTask.id, ...updatedTask }
+            }).catch(
+                error => dataLogger.warn(
+                    "Failed to update installation activity for live updates",
+                    { installationId: installation.id, prUrl, error }
+                )
+            );
+        } catch (error) {
+            dataLogger.error("Contribution approved on smart contract but DB failed to update", {
+                taskId: relatedTask.id,
+                error
+            });
+            throw error;
+        }
+
     } catch (error) {
         next(error);
     }

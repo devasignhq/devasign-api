@@ -7,7 +7,7 @@ import { ENDPOINTS } from "../utilities/data";
 /**
  * Types of background jobs supported by the Cloud Tasks integration.
  */
-export type JobType = "pr-analysis" | "repository-indexing" | "repository-incremental-indexing";
+export type JobType = "pr-analysis" | "repository-indexing" | "repository-incremental-indexing" | "bounty-payout";
 
 /**
  * Payload interface for repository bulk indexing jobs.
@@ -52,12 +52,14 @@ export class CloudTasksService {
         queues: {
             "pr-analysis": process.env.CLOUD_TASKS_PR_ANALYSIS_QUEUE || "",
             "repository-indexing": process.env.CLOUD_TASKS_REPO_INDEXING_QUEUE || "",
-            "repository-incremental-indexing": process.env.CLOUD_TASKS_INCREMENTAL_INDEXING_QUEUE || ""
+            "repository-incremental-indexing": process.env.CLOUD_TASKS_INCREMENTAL_INDEXING_QUEUE || "",
+            "bounty-payout": process.env.CLOUD_TASKS_BOUNTY_PAYOUT_QUEUE || ""
         },
         endpoints: {
             "pr-analysis": ENDPOINTS.INTERNAL.PREFIX + ENDPOINTS.INTERNAL.JOBS.PR_ANALYSIS,
             "repository-indexing": ENDPOINTS.INTERNAL.PREFIX + ENDPOINTS.INTERNAL.JOBS.REPOSITORY_INDEXING,
-            "repository-incremental-indexing": ENDPOINTS.INTERNAL.PREFIX + ENDPOINTS.INTERNAL.JOBS.INCREMENTAL_INDEXING
+            "repository-incremental-indexing": ENDPOINTS.INTERNAL.PREFIX + ENDPOINTS.INTERNAL.JOBS.INCREMENTAL_INDEXING,
+            "bounty-payout": ENDPOINTS.INTERNAL.PREFIX + ENDPOINTS.INTERNAL.JOBS.BOUNTY_PAYOUT
         }
     };
 
@@ -69,7 +71,8 @@ export class CloudTasksService {
             "CLOUD_TASKS_SERVICE_ACCOUNT_EMAIL",
             "CLOUD_TASKS_PR_ANALYSIS_QUEUE",
             "CLOUD_TASKS_REPO_INDEXING_QUEUE",
-            "CLOUD_TASKS_INCREMENTAL_INDEXING_QUEUE"
+            "CLOUD_TASKS_INCREMENTAL_INDEXING_QUEUE",
+            "CLOUD_TASKS_BOUNTY_PAYOUT_QUEUE"
         ];
         const missing = requiredVars.filter(v => !process.env[v]);
         if (missing.length > 0) {
@@ -132,6 +135,16 @@ export class CloudTasksService {
             filesToIndex,
             filesToRemove
         });
+    }
+
+    /**
+     * Enqueues a task for PR merge bounty payout.
+     * @param payload - The pull request webhook payload
+     * @returns The ID of the enqueued task
+     */
+    public async addBountyPayoutJob(payload: Record<string, unknown>): Promise<string> {
+        // Dispatch to Cloud Tasks
+        return this.enqueueTask("bounty-payout", payload);
     }
 
     /**
