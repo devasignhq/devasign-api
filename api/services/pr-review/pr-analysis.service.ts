@@ -429,10 +429,10 @@ ${codeChangesPreview}`;
             return (typeof meta?.lastReviewDiff === "string" ? meta.lastReviewDiff : "");
         })();
 
-        // Build review context
-        const reviewContext = await this.contextAnalyzer.buildReviewContext(prData);
-
         try {
+            // Build review context
+            const reviewContext = await this.contextAnalyzer.buildReviewContext(prData);
+            
             // Execute review with timeout
             const review = await this.executeWithTimeout(
                 async () => {

@@ -32,7 +32,7 @@ export class PullRequestContextAnalyzerService {
             // Find Relevant Code Chunks using Vector Search
             const relevantChunks = await this.getRelevantCodeChunks(prData);
 
-            messageLogger.info("Context analysis completed.");
+            messageLogger.info(`Context analysis completed. Found ${relevantChunks.length} relevant chunks`);
 
             return {
                 prData,
