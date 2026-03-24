@@ -17,6 +17,7 @@ import { FirebaseService } from "../../services/firebase.service";
 import { ContractService } from "../../services/contract.service";
 import { KMSService } from "../../services/kms.service";
 import { dataLogger } from "../../config/logger.config";
+import { statsigService } from "../../services/statsig.service";
 
 type USDCBalance = HorizonApi.BalanceLineAsset<"credit_alphanum12">;
 
@@ -39,9 +40,9 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
     try {
         // Get installation and verify it exists
         const installation = await prisma.installation.findUnique({
-            where: { 
-                id: payload.installationId, 
-                users: { some: { userId } } 
+            where: {
+                id: payload.installationId,
+                users: { some: { userId } }
             },
             select: { wallet: true, status: true }
         });
@@ -122,7 +123,7 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
         } catch (error) {
             // If escrow creation fails, log, rollback task creation and throw error
             dataLogger.error(
-                "Failed to create escrow on smart contract", 
+                "Failed to create escrow on smart contract",
                 { issueId: payload.issue.id, installationId }
             );
 
@@ -130,7 +131,7 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
                 await prisma.task.delete({ where: { id: task.id } });
             } catch (error) {
                 dataLogger.error(
-                    "Failed to rollback task creation", 
+                    "Failed to rollback task creation",
                     { taskId: task.id, installationId, issueId: payload.issue.id, error }
                 );
             }
@@ -207,6 +208,14 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
             })
         ]);
 
+        // Log statsig event
+        statsigService.logEvent(
+            { userID: userId, email: res.locals.user.email },
+            "bounty_creation_manual_success",
+            parseFloat(payload.bounty),
+            { installationId, issueUrl: payload.issue.url }
+        );
+
         // Return task and notify user if bounty comment was not posted
         if (!postedComment) {
             return responseWrapper({
@@ -235,6 +244,17 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
                 );
             });
     } catch (error) {
+        // Log statsig event
+        statsigService.logEvent(
+            { userID: userId, email: res.locals.user.email },
+            "bounty_creation_manual_failed",
+            parseFloat(req.body?.payload?.bounty || 0),
+            {
+                error: error instanceof Error ? error.message : "Unknown error",
+                installationId: payload.installationId,
+                issueUrl: payload.issue.url
+            }
+        );
         next(error);
     }
 };
@@ -407,6 +427,7 @@ export const getTask = async (req: Request, res: Response, next: NextFunction) =
 export const deleteTask = async (req: Request, res: Response, next: NextFunction) => {
     const { taskId } = req.params;
     const { userId } = res.locals;
+    let installationId: string, issueUrl: string;
 
     try {
         // Fetch the task
@@ -446,6 +467,8 @@ export const deleteTask = async (req: Request, res: Response, next: NextFunction
         }
 
         const taskIssue = task.issue as TaskIssue;
+        installationId = task.installation.id;
+        issueUrl = taskIssue.url;
 
         // Return bounty to installation wallet
         if (!task.installation.wallet) {
@@ -475,6 +498,14 @@ export const deleteTask = async (req: Request, res: Response, next: NextFunction
             })
         ]);
 
+        // Log statsig event
+        statsigService.logEvent(
+            { userID: userId, email: res.locals.user.email },
+            "delete_bounty_success",
+            task.bounty.toString(),
+            { installationId: task.installation.id, issueUrl: taskIssue.url }
+        );
+
         try {
             // Remove bounty label from issue and delete bounty comment
             await OctokitService.removeBountyLabelAndDeleteBountyComment(
@@ -494,7 +525,6 @@ export const deleteTask = async (req: Request, res: Response, next: NextFunction
         } catch (error) {
             // Log error
             dataLogger.info("Failed to remove bounty label from issue or delete bounty comment", { error });
-
             // Return success response but notify user of partial failure
             responseWrapper({
                 res,
@@ -505,6 +535,17 @@ export const deleteTask = async (req: Request, res: Response, next: NextFunction
             });
         }
     } catch (error) {
+        // Log statsig event
+        statsigService.logEvent(
+            { userID: userId, email: res.locals.user.email },
+            "delete_bounty_failed",
+            undefined,
+            {
+                error: error instanceof Error ? error.message : "Unknown error",
+                installationId: installationId!,
+                issueUrl: issueUrl!
+            }
+        );
         next(error);
     }
 };

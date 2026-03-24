@@ -9,6 +9,7 @@ import { dataLogger } from "../../config/logger.config";
 import { Prisma } from "../../../prisma_client";
 import { KMSService } from "../../services/kms.service";
 import { OctokitService } from "../../services/octokit.service";
+import { statsigService } from "../../services/statsig.service";
 
 // User's address book
 export type AddressBook = {
@@ -41,6 +42,9 @@ export const createUser = async (req: Request, res: Response, next: NextFunction
             isMaintainerApp = false;
         }
     }
+
+    // Set statsig user
+    const statsigUser = { userID: userId, email: res.locals.user.email };
 
     try {
         // Check if user already exists
@@ -75,6 +79,14 @@ export const createUser = async (req: Request, res: Response, next: NextFunction
                 select
             });
 
+            // Log statsig event
+            statsigService.logEvent(
+                statsigUser,
+                "user_signup_success",
+                undefined,
+                { app: "maintainer", githubUsername }
+            );
+
             // Return user
             return responseWrapper({
                 res,
@@ -106,12 +118,20 @@ export const createUser = async (req: Request, res: Response, next: NextFunction
             select
         });
 
+        // Set statsig metadata
+        const statsigMetadata = { app: "contributor", githubUsername };
+
         try {
             // Add USDC trustline to wallet
             await stellarService.addTrustLineViaSponsor(
                 process.env.STELLAR_MASTER_SECRET_KEY!,
                 userWallet.secretKey
             );
+
+            // Log statsig events
+            statsigService.logEvent(statsigUser, "wallet_creation_success", undefined, statsigMetadata);
+            statsigService.logEvent(statsigUser, "usdc_trustline_success", undefined, statsigMetadata);
+            statsigService.logEvent(statsigUser, "user_signup_success", undefined, statsigMetadata);
 
             // Return user
             responseWrapper({
@@ -121,6 +141,16 @@ export const createUser = async (req: Request, res: Response, next: NextFunction
                 message: "User created successfully"
             });
         } catch (error) {
+            // Log statsig events
+            statsigService.logEvent(statsigUser, "wallet_creation_success", undefined, statsigMetadata);
+            statsigService.logEvent(
+                statsigUser,
+                "usdc_trustline_failed",
+                undefined,
+                { error: error instanceof Error ? error.message : "Unknown Error", ...statsigMetadata }
+            );
+            statsigService.logEvent(statsigUser, "user_signup_success", undefined, statsigMetadata);
+
             // Return user info and notify user USDC trustline addition failed
             responseWrapper({
                 res,
@@ -155,6 +185,17 @@ export const createUser = async (req: Request, res: Response, next: NextFunction
             });
         }
     } catch (error) {
+        // Log statsig event
+        statsigService.logEvent(
+            statsigUser,
+            "user_signup_failed",
+            undefined,
+            {
+                error: error instanceof Error ? error.message : "Unknown Error",
+                app: isMaintainerApp ? "maintainer" : "contributor",
+                githubUsername
+            }
+        );
         next(error);
     }
 };
@@ -183,6 +224,9 @@ export const getUser = async (req: Request, res: Response, next: NextFunction) =
             isContributorApp = false;
         }
     }
+
+    // Set statsig user
+    const statsigUser = { userID: userId, email: res.locals.user.email };
 
     try {
         // Base selection - always included
@@ -258,9 +302,29 @@ export const getUser = async (req: Request, res: Response, next: NextFunction) =
 
             user = updatedUser;
             walletStatus.wallet = true;
+
+            // Log statsig event
+            statsigService.logEvent(
+                statsigUser,
+                "wallet_creation_success",
+                undefined,
+                { operation: "get_user", githubUsername: user.username }
+            );
         } catch (error) {
+            // Log statsig event
+            statsigService.logEvent(
+                statsigUser,
+                "wallet_creation_failed",
+                undefined,
+                { 
+                    error: error instanceof Error ? error.message : "Unknown error", 
+                    operation: "get_user", 
+                    githubUsername: user.username 
+                }
+            );
+
+            // Log and return user info and notify user wallet creation failed
             dataLogger.warn("Failed to create wallet for existing user", { error });
-            // Return user info and notify user wallet creation failed
             return responseWrapper({
                 res,
                 status: STATUS_CODES.PARTIAL_SUCCESS,
@@ -277,10 +341,29 @@ export const getUser = async (req: Request, res: Response, next: NextFunction) =
                 userWallet.secretKey
             );
             walletStatus.usdcTrustline = true;
-        } catch (error) {
-            dataLogger.warn("Failed to add USDC trustline", { error });
 
-            // Return user info and notify user USDC trustline addition failed 
+            // Log statsig event
+            statsigService.logEvent(
+                statsigUser,
+                "usdc_trustline_success",
+                undefined,
+                { operation: "get_user", githubUsername: user.username }
+            );
+        } catch (error) {
+            // Log statsig event
+            statsigService.logEvent(
+                statsigUser,
+                "usdc_trustline_failed",
+                undefined,
+                { 
+                    error: error instanceof Error ? error.message : "Unknown error", 
+                    operation: "get_user", 
+                    githubUsername: user.username 
+                }
+            );
+            
+            // Log and return user info and notify user USDC trustline addition failed 
+            dataLogger.warn("Failed to add USDC trustline", { error });
             return responseWrapper({
                 res,
                 status: STATUS_CODES.PARTIAL_SUCCESS,

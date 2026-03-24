@@ -11,6 +11,7 @@ import { KMSService } from "../kms.service";
 import { HorizonApi } from "../../models/horizonapi.model";
 import { BOUNTY_LABEL, GitHubComment } from "../../models/github.model";
 import { orchestrationService } from "../pr-review/orchestration.service";
+import { statsigService } from "../statsig.service";
 
 export class IssueCommentWebhookService {
     private static readonly AUTHORIZED_ASSOCIATIONS = ["OWNER", "MEMBER", "COLLABORATOR"];
@@ -501,8 +502,24 @@ export class IssueCommentWebhookService {
                         "Bounty task created successfully",
                         { taskId: task.id, issueId: issue.id, installationId }
                     );
+                    statsigService.logEvent(
+                        { userID: creator.userId },
+                        "bounty_creation_github_success",
+                        amount,
+                        { installationId, issueUrl: issue.html_url }
+                    );
                 } catch (err) {
                     // Log error and post failure comment
+                    statsigService.logEvent(
+                        { userID: creator.userId },
+                        "bounty_creation_github_failed",
+                        amount,
+                        { 
+                            error: err instanceof Error ? err.message : "Unknown error", 
+                            installationId, 
+                            issueUrl: issue.html_url 
+                        }
+                    );
                     dataLogger.error(
                         "Error in async bounty task creation",
                         { error: err, issueId: issue.id, installationId }
