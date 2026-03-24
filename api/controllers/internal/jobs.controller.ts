@@ -75,7 +75,7 @@ export const handleIncrementalIndexingJob = async (req: Request, res: Response, 
         dataLogger.info("Received Incremental Indexing job from Cloud Tasks", {
             installationId, repositoryName,
             filesToIndex: filesToIndex?.length,
-            filesToRemove: filesToRemove?.length 
+            filesToRemove: filesToRemove?.length
         });
 
         await indexingService.indexChangedFiles(
@@ -248,6 +248,42 @@ export const handleBountyPayoutJob = async (req: Request, res: Response, next: N
                 })
             ]);
 
+            try {
+                // Disable chat for the task
+                await FirebaseService.updateTaskStatus(relatedTask.id).catch(
+                    error => dataLogger.warn("Failed to disable chat", { taskId: relatedTask.id, error })
+                );
+
+                // Update contributor activity for live updates
+                await FirebaseService.updateAppActivity({
+                    userId: relatedTask.contributor.userId,
+                    type: "contributor"
+                }).catch(
+                    error => dataLogger.warn(
+                        "Failed to update contributor activity for live updates",
+                        { contributorId: relatedTask.contributor?.userId, error }
+                    )
+                );
+                
+                // Update installation activity for live updates
+                await FirebaseService.updateAppActivity({
+                    userId: relatedTask.creatorId,
+                    type: "installation",
+                    installationId: relatedTask.installation.id,
+                    operation: "task_completed",
+                    issueUrl: prUrl,
+                    message: "PR merged - Payment processed successfully",
+                    metadata: { taskId: relatedTask.id, ...updatedTask }
+                }).catch(
+                    error => dataLogger.warn(
+                        "Failed to update installation activity for live updates",
+                        { installationId: installation.id, prUrl, error }
+                    )
+                );
+            } catch { 
+                // Ignore 
+            }
+
             // Send success response
             responseWrapper({
                 res,
@@ -260,37 +296,6 @@ export const handleBountyPayoutJob = async (req: Request, res: Response, next: N
                 },
                 message: "PR merged - Payment processed successfully"
             });
-
-            // Disable chat for the task
-            FirebaseService.updateTaskStatus(relatedTask.id).catch(
-                error => dataLogger.warn("Failed to disable chat", { taskId: relatedTask.id, error })
-            );
-
-            // Update contributor activity for live updates
-            FirebaseService.updateAppActivity({
-                userId: relatedTask.contributor.userId,
-                type: "contributor"
-            }).catch(
-                error => dataLogger.warn(
-                    "Failed to update contributor activity for live updates",
-                    { contributorId: relatedTask.contributor?.userId, error }
-                )
-            );
-            // Update installation activity for live updates
-            FirebaseService.updateAppActivity({
-                userId: relatedTask.creatorId,
-                type: "installation",
-                installationId: relatedTask.installation.id,
-                operation: "task_completed",
-                issueUrl: prUrl,
-                message: "PR merged - Payment processed successfully",
-                metadata: { taskId: relatedTask.id, ...updatedTask }
-            }).catch(
-                error => dataLogger.warn(
-                    "Failed to update installation activity for live updates",
-                    { installationId: installation.id, prUrl, error }
-                )
-            );
         } catch (error) {
             dataLogger.error("Contribution approved on smart contract but DB failed to update", {
                 taskId: relatedTask.id,
