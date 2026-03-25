@@ -138,7 +138,7 @@ export class IndexingService {
                 repositoryName,
                 filesIndexed: relevantFiles.length,
                 filesRemoved: filesToRemove.length,
-                duration
+                duration: this.formatDuration(duration)
             });
         } catch (error) {
             dataLogger.error("Incremental indexing failed", { error, installationId, repositoryName });
@@ -254,7 +254,10 @@ export class IndexingService {
             });
 
             const duration = Date.now() - startTime;
-            dataLogger.info("Repository indexing completed", { installationId, repositoryName, duration });
+            dataLogger.info(
+                "Repository indexing completed",
+                { installationId, repositoryName, duration: this.formatDuration(duration) }
+            );
 
         } catch (error) {
             dataLogger.error("Repository indexing failed", { error, installationId, repositoryName });
@@ -424,6 +427,18 @@ export class IndexingService {
         for (const [fileId, fileChunks] of Object.entries(chunksByFile)) {
             await this.vectorStoreService.upsertCodeChunks(fileId, fileChunks);
         }
+    }
+
+    /**
+     * Format duration in milliseconds to "X min Y sec"
+     * @param ms - duration in milliseconds
+     * @returns formatted duration string
+     */
+    private formatDuration(ms: number): string {
+        const totalSeconds = Math.floor(ms / 1000);
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = totalSeconds % 60;
+        return `${minutes} min ${seconds} sec`;
     }
 
     /**

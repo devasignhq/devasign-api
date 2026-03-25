@@ -585,6 +585,43 @@ describe("Internal Routes API Integration Tests", () => {
             expect(transaction?.amount).toBe(100);
         });
 
+        it("should not crash if FirebaseService fails", async () => {
+            mockPRAnalysisService.extractLinkedIssues.mockResolvedValue([
+                { number: 1, title: "Test Issue" }
+            ]);
+
+            mockFirebaseService.updateTaskStatus.mockRejectedValue(new Error("Firebase specific error"));
+
+            const payload = {
+                pull_request: {
+                    number: 1,
+                    html_url: "https://github.com/test/repo/pull/1",
+                    body: "Closes #1",
+                    user: { login: "test-contributor" }
+                },
+                repository: { full_name: VALID_REPO_NAME },
+                installation: { id: parseInt(VALID_INSTALLATION_ID) }
+            };
+
+            const response = await request(app)
+                .post(route)
+                .send(payload)
+                .expect(STATUS_CODES.SUCCESS);
+
+            expect(response.body).toMatchObject({
+                message: "PR merged - Payment processed successfully",
+                data: {
+                    prNumber: 1,
+                    repositoryName: VALID_REPO_NAME,
+                    linkedIssues: [1]
+                }
+            });
+
+            // Verify Contract service was called completely unaffected
+            expect(mockContractService.approveCompletion).toHaveBeenCalledTimes(1);
+            expect(mockFirebaseService.updateTaskStatus).toHaveBeenCalledTimes(1);
+        });
+
         it("should handle PR merge with no linked issues", async () => {
             mockPRAnalysisService.extractLinkedIssues.mockResolvedValue([]);
 

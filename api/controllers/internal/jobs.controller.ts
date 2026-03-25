@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { orchestrationService } from "../../services/pr-review/orchestration.service";
+import { statsigService } from "../../services/statsig.service";
 import { PRAnalysisService } from "../../services/pr-review/pr-analysis.service";
 import { indexingService } from "../../services/pr-review/indexing.service";
 import { STATUS_CODES } from "../../utilities/data";
@@ -10,15 +11,18 @@ import { TaskStatus } from "../../../prisma_client";
 import { KMSService } from "../../services/kms.service";
 import { ContractService } from "../../services/contract.service";
 import { FirebaseService } from "../../services/firebase.service";
+import { OctokitService } from "../../services/octokit.service";
+import { TaskIssue } from "../../models/task.model";
+import { SocketService } from "../../services/socket.service";
 
 /**
  * Handles incoming Cloud Tasks jobs for PR Analysis
  */
 export const handlePRAnalysisJob = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-        const { payload, isActualFollowUp, pendingCommentId } = req.body;
-        const { pull_request } = payload;
+    const { payload, isActualFollowUp, pendingCommentId } = req.body;
+    const { pull_request } = payload;
 
+    try {
         dataLogger.info("Received PR Analysis job from Cloud Tasks", { prNumber: pull_request?.number });
 
         // Extract and validate PR data
@@ -32,6 +36,14 @@ export const handlePRAnalysisJob = async (req: Request, res: Response, next: Nex
             await orchestrationService.analyzePullRequest(prData);
         }
 
+        // Log statsig event
+        statsigService.logEvent(
+            { userID: "system" },
+            isActualFollowUp ? "pr_review_followup_success" : "pr_review_success",
+            undefined,
+            { prNumber: pull_request?.number, installationId: payload.installation?.id?.toString() }
+        );
+
         responseWrapper({
             res,
             status: STATUS_CODES.SUCCESS,
@@ -39,6 +51,17 @@ export const handlePRAnalysisJob = async (req: Request, res: Response, next: Nex
             message: "PR Analysis job completed"
         });
     } catch (error) {
+        // Log statsig event
+        statsigService.logEvent(
+            { userID: "system" },
+            isActualFollowUp ? "pr_review_followup_failed" : "pr_review_failed",
+            undefined,
+            {
+                error: error instanceof Error ? error.message : "Unknown error",
+                prNumber: pull_request?.number,
+                installationId: payload.installation?.id?.toString()
+            }
+        );
         next(error);
     }
 };
@@ -47,12 +70,21 @@ export const handlePRAnalysisJob = async (req: Request, res: Response, next: Nex
  * Handles incoming Cloud Tasks jobs for Repository Indexing
  */
 export const handleRepositoryIndexingJob = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-        const { installationId, repositoryName } = req.body;
+    const { installationId, repositoryName } = req.body;
 
+    try {
         dataLogger.info("Received Repository Indexing job from Cloud Tasks", { installationId, repositoryName });
 
+        // Index the repository
         await indexingService.indexRepository(installationId, repositoryName);
+
+        // Log statsig event
+        statsigService.logEvent(
+            { userID: "system" },
+            "repository_indexing_success",
+            undefined,
+            { installationId, repositoryName }
+        );
 
         responseWrapper({
             res,
@@ -61,6 +93,17 @@ export const handleRepositoryIndexingJob = async (req: Request, res: Response, n
             message: "Repository Indexing job completed"
         });
     } catch (error) {
+        // Log statsig event
+        statsigService.logEvent(
+            { userID: "system" },
+            "repository_indexing_failed",
+            undefined,
+            {
+                error: error instanceof Error ? error.message : "Unknown error",
+                installationId,
+                repositoryName
+            }
+        );
         next(error);
     }
 };
@@ -69,20 +112,29 @@ export const handleRepositoryIndexingJob = async (req: Request, res: Response, n
  * Handles incoming Cloud Tasks jobs for Incremental Indexing
  */
 export const handleIncrementalIndexingJob = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-        const { installationId, repositoryName, filesToIndex, filesToRemove } = req.body;
+    const { installationId, repositoryName, filesToIndex, filesToRemove } = req.body;
 
+    try {
         dataLogger.info("Received Incremental Indexing job from Cloud Tasks", {
             installationId, repositoryName,
             filesToIndex: filesToIndex?.length,
-            filesToRemove: filesToRemove?.length 
+            filesToRemove: filesToRemove?.length
         });
 
+        // Index changed files
         await indexingService.indexChangedFiles(
             installationId,
             repositoryName,
             filesToIndex,
             filesToRemove
+        );
+
+        // Log statsig event
+        statsigService.logEvent(
+            { userID: "system" },
+            "incremental_indexing_success",
+            undefined,
+            { installationId, repositoryName }
         );
 
         responseWrapper({
@@ -92,6 +144,17 @@ export const handleIncrementalIndexingJob = async (req: Request, res: Response, 
             message: "Incremental Indexing job completed"
         });
     } catch (error) {
+        // Log statsig event
+        statsigService.logEvent(
+            { userID: "system" },
+            "incremental_indexing_failed",
+            undefined,
+            {
+                error: error instanceof Error ? error.message : "Unknown error",
+                installationId,
+                repositoryName
+            }
+        );
         next(error);
     }
 };
@@ -248,6 +311,57 @@ export const handleBountyPayoutJob = async (req: Request, res: Response, next: N
                 })
             ]);
 
+            // Execute post-payout side effects concurrently
+            await Promise.allSettled([
+                // Add bounty paid label to the issue
+                OctokitService.addBountyPaidLabel(
+                    relatedTask.installation.id,
+                    (relatedTask.issue as TaskIssue).id
+                ).catch(
+                    error => dataLogger.warn("Failed to add bounty paid label", { taskId: relatedTask.id, error })
+                ),
+
+                // Disable chat for the task
+                FirebaseService.updateTaskStatus(relatedTask.id).catch(
+                    error => dataLogger.warn("Failed to disable chat", { taskId: relatedTask.id, error })
+                ),
+
+                // Update contributor activity for live updates
+                SocketService.updateAppActivity({
+                    userId: relatedTask.contributor.userId,
+                    type: "contributor"
+                }).catch(
+                    (error: Error) => dataLogger.warn(
+                        "Failed to update contributor activity for live updates",
+                        { contributorId: relatedTask.contributor?.userId, error }
+                    )
+                ),
+
+                // Update installation activity for live updates
+                SocketService.updateAppActivity({
+                    userId: relatedTask.creatorId,
+                    type: "installation",
+                    installationId: relatedTask.installation.id,
+                    operation: "task_completed",
+                    issueUrl: prUrl,
+                    message: "PR merged - Payment processed successfully",
+                    metadata: { taskId: relatedTask.id, ...updatedTask }
+                }).catch(
+                    (error: Error) => dataLogger.warn(
+                        "Failed to update installation activity for live updates",
+                        { installationId: installation.id, prUrl, error }
+                    )
+                )
+            ]);
+
+            // Log statsig event
+            statsigService.logEvent(
+                { userID: "system" },
+                "bounty_payout_pr_merge_success",
+                relatedTask.bounty.toString(),
+                { installationId, repositoryName, prNumber: prNumber?.toString() }
+            );
+
             // Send success response
             responseWrapper({
                 res,
@@ -260,37 +374,6 @@ export const handleBountyPayoutJob = async (req: Request, res: Response, next: N
                 },
                 message: "PR merged - Payment processed successfully"
             });
-
-            // Disable chat for the task
-            FirebaseService.updateTaskStatus(relatedTask.id).catch(
-                error => dataLogger.warn("Failed to disable chat", { taskId: relatedTask.id, error })
-            );
-
-            // Update contributor activity for live updates
-            FirebaseService.updateAppActivity({
-                userId: relatedTask.contributor.userId,
-                type: "contributor"
-            }).catch(
-                error => dataLogger.warn(
-                    "Failed to update contributor activity for live updates",
-                    { contributorId: relatedTask.contributor?.userId, error }
-                )
-            );
-            // Update installation activity for live updates
-            FirebaseService.updateAppActivity({
-                userId: relatedTask.creatorId,
-                type: "installation",
-                installationId: relatedTask.installation.id,
-                operation: "task_completed",
-                issueUrl: prUrl,
-                message: "PR merged - Payment processed successfully",
-                metadata: { taskId: relatedTask.id, ...updatedTask }
-            }).catch(
-                error => dataLogger.warn(
-                    "Failed to update installation activity for live updates",
-                    { installationId: installation.id, prUrl, error }
-                )
-            );
         } catch (error) {
             dataLogger.error("Contribution approved on smart contract but DB failed to update", {
                 taskId: relatedTask.id,
@@ -300,6 +383,18 @@ export const handleBountyPayoutJob = async (req: Request, res: Response, next: N
         }
 
     } catch (error) {
+        // Log statsig event
+        statsigService.logEvent(
+            { userID: "system" },
+            "bounty_payout_pr_merge_failed",
+            undefined,
+            {
+                error: error instanceof Error ? error.message : "Unknown error",
+                installationId: req.body?.installation?.id?.toString(),
+                repositoryName: req.body?.repositoryName,
+                prNumber: req.body?.prNumber?.toString()
+            }
+        );
         next(error);
     }
 };

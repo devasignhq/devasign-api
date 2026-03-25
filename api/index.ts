@@ -2,6 +2,7 @@ import dotenv from "dotenv";
 dotenv.config();
 
 import express, { RequestHandler } from "express";
+import { createServer } from "http";
 import helmet from "helmet";
 import cors from "cors";
 import morgan from "morgan";
@@ -29,12 +30,21 @@ import { dataLogger, messageLogger } from "./config/logger.config";
 import { ALLOWED_ORIGINS, ENDPOINTS, STATUS_CODES } from "./utilities/data";
 import { ErrorClass } from "./models/error.model";
 import { statsigService } from "./services/statsig.service";
+import { SocketService } from "./services/socket.service";
 
+// Create HTTP server
 const app = express();
+const httpServer = createServer(app);
+
+// Initialize socket service
+SocketService.initialize(httpServer);
+
+// Define port
 const PORT = process.env.NODE_ENV === "development"
     ? 5000
     : (Number(process.env.PORT) || 8080);
 
+// Security middleware
 app.use(helmet());
 app.use(
     cors({
@@ -150,8 +160,8 @@ async function main() {
             dataLogger.error("Failed to initialize Statsig Service", { error });
         });
 
-        // Now start the server
-        const server = app.listen(PORT, "0.0.0.0", () => {
+        // Start the server
+        const server = httpServer.listen(PORT, "0.0.0.0", () => {
             messageLogger.info(`Server is running on port ${PORT}`);
         });
 

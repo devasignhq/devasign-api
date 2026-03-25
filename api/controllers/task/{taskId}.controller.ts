@@ -17,6 +17,8 @@ import {
 import { ContractService } from "../../services/contract.service";
 import { KMSService } from "../../services/kms.service";
 import { dataLogger } from "../../config/logger.config";
+import { statsigService } from "../../services/statsig.service";
+import { SocketService } from "../../services/socket.service";
 
 type USDCBalance = HorizonApi.BalanceLineAsset<"credit_alphanum12">;
 
@@ -380,7 +382,7 @@ export const submitTaskApplication = async (req: Request, res: Response, next: N
             throw new ValidationError("Cannot submit application for a task in an archived installation");
         }
         if (task.status !== "OPEN") {
-            throw new ValidationError("Task is not open");
+            throw new ValidationError("This task has already been delegated to someone else");
         }
 
         // Check if user has already applied
@@ -425,12 +427,12 @@ export const submitTaskApplication = async (req: Request, res: Response, next: N
         });
 
         // Update task activity for live updates
-        FirebaseService.updateAppActivity({
+        SocketService.updateAppActivity({
             userId: task.creatorId,
             type: "task",
             taskId
         }).catch(
-            error => dataLogger.warn(
+            (error: Error) => dataLogger.warn(
                 "Failed to update task activity for live updates",
                 { taskId, error }
             )
@@ -593,11 +595,11 @@ export const acceptTaskApplication = async (req: Request, res: Response, next: N
         }
 
         // Update task activity for live updates
-        FirebaseService.updateAppActivity({
+        SocketService.updateAppActivity({
             userId: contributorId,
             type: "contributor"
         }).catch(
-            error => dataLogger.warn(
+            (error: Error) => dataLogger.warn(
                 "Failed to update contributor activity for live updates",
                 { contributorId, error }
             )
@@ -902,7 +904,7 @@ export const markAsComplete = async (req: Request, res: Response, next: NextFunc
         });
 
         // Update task activity for live updates
-        FirebaseService.updateAppActivity({
+        SocketService.updateAppActivity({
             userId: task.creatorId,
             type: "task",
             taskId,
@@ -910,7 +912,7 @@ export const markAsComplete = async (req: Request, res: Response, next: NextFunc
                 status: TaskStatus.MARKED_AS_COMPLETED
             }
         }).catch(
-            error => dataLogger.warn(
+            (error: Error) => dataLogger.warn(
                 "Failed to update task activity for live updates",
                 { taskId, error }
             )
@@ -926,6 +928,7 @@ export const markAsComplete = async (req: Request, res: Response, next: NextFunc
 export const validateCompletion = async (req: Request, res: Response, next: NextFunction) => {
     const { taskId } = req.params;
     const { userId } = res.locals;
+    let installationId: string, issueUrl: string;
 
     try {
         // Fetch the task
@@ -974,6 +977,10 @@ export const validateCompletion = async (req: Request, res: Response, next: Next
         if (!task.installation.wallet) {
             throw new NotFoundError("Installation wallet not found");
         }
+
+        // Set installation id and issue url
+        installationId = task.installation.id;
+        issueUrl = (task.issue as TaskIssue).url;
 
         // Transfer bounty from escrow to contributor via smart contract
         const decryptedWalletSecret = await KMSService.decryptWallet(task.installation.wallet);
@@ -1037,43 +1044,68 @@ export const validateCompletion = async (req: Request, res: Response, next: Next
             dataLogger.warn("Failed to disable chat", { taskId, error });
         }
 
-        if (!chatDisabled) {
-            return responseWrapper({
+        let bountyPaidLabelAdded = false;
+        try {
+            // Add bounty paid label to the issue
+            await OctokitService.addBountyPaidLabel(
+                task.installation.id,
+                (task.issue as TaskIssue).id
+            );
+            bountyPaidLabelAdded = true;
+        } catch (error) {
+            dataLogger.warn("Failed to add bounty paid label", { taskId, error });
+        }
+
+        // Log statsig event
+        statsigService.logEvent(
+            { userID: userId, email: res.locals.user.email },
+            "bounty_payout_manual_success",
+            task.bounty.toString(),
+            { taskId, installationId, issueUrl }
+        );
+
+        if (!chatDisabled || !bountyPaidLabelAdded) {
+            // Return partial success response if chat failed to disable or bounty paid label failed to add
+            responseWrapper({
                 res,
                 status: STATUS_CODES.PARTIAL_SUCCESS,
-                data: { validated: true, task: updatedTask },
+                data: updatedTask,
                 message: "Task validated and completed",
-                warning: "Failed to disable chat for the task."
+                warning: !chatDisabled ? "Failed to disable chat for the task." : "Failed to add bounty paid label to the issue."
+            });
+        } else {
+            // Return success response
+            responseWrapper({
+                res,
+                status: STATUS_CODES.SUCCESS,
+                data: updatedTask,
+                message: "Task validated and completed"
             });
         }
 
-        // Return success response
-        responseWrapper({
-            res,
-            status: STATUS_CODES.SUCCESS,
-            data: updatedTask,
-            message: "Task validated and completed"
-        });
-
-        // Add bounty paid label to the issue
-        OctokitService.addBountyPaidLabel(
-            task.installation.id,
-            (task.issue as TaskIssue).id
-        ).catch(
-            error => dataLogger.warn("Failed to add bounty paid label", { taskId, error })
-        );
-
         // Update task activity for live updates
-        FirebaseService.updateAppActivity({
+        SocketService.updateAppActivity({
             userId: task.contributor.userId,
             type: "contributor"
         }).catch(
-            error => dataLogger.warn(
+            (error: Error) => dataLogger.warn(
                 "Failed to update contributor activity for live updates",
                 { contributorId: task.contributor?.userId, error }
             )
         );
     } catch (error) {
+        // Log statsig event
+        statsigService.logEvent(
+            { userID: userId, email: res.locals.user.email },
+            "bounty_payout_manual_failed",
+            undefined,
+            {
+                error: error instanceof Error ? error.message : "Unknown error",
+                taskId,
+                installationId: installationId!,
+                issueUrl: issueUrl!
+            }
+        );
         next(error);
     }
 };

@@ -185,7 +185,8 @@ export class CloudTasksService {
             // Set dispatch deadline based on job type
             dispatchDeadline: {
                 seconds: type === "pr-analysis" ? 600 // 10 minutes
-                    : 1800 // 30 minutes (indexing)
+                    : type === "bounty-payout" ? 300 // 5 minutes
+                        : 1800 // 30 minutes (indexing)
             }
         };
 

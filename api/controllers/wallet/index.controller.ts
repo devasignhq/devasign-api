@@ -8,6 +8,7 @@ import { usdcAssetId, xlmAssetId } from "../../config/stellar.config";
 import { stellarService } from "../../services/stellar.service";
 import { NotFoundError, ValidationError } from "../../models/error.model";
 import { KMSService } from "../../services/kms.service";
+import { statsigService } from "../../services/statsig.service";
 
 type USDCBalance = HorizonApi.BalanceLineAsset<"credit_alphanum12">;
 
@@ -168,6 +169,14 @@ export const withdrawAsset = async (req: Request, res: Response, next: NextFunct
 
         const transaction = await prisma.transaction.create({ data: transactionPayload });
 
+        // Log statsig event
+        statsigService.logEvent(
+            { userID: userId, email: res.locals.user.email },
+            "withdraw_success",
+            amount.toString(),
+            { installationId, assetType }
+        );
+
         // Return transaction details
         responseWrapper({
             res,
@@ -176,6 +185,13 @@ export const withdrawAsset = async (req: Request, res: Response, next: NextFunct
             message: "Withdrawal successful"
         });
     } catch (error) {
+        // Log statsig event
+        statsigService.logEvent(
+            { userID: userId, email: res.locals.user.email },
+            "withdraw_failed",
+            req.body?.amount?.toString(),
+            { error: error instanceof Error ? error.message : "Unknown error", installationId, assetType }
+        );
         next(error);
     }
 };
@@ -292,6 +308,14 @@ export const swapAsset = async (req: Request, res: Response, next: NextFunction)
             }
         });
 
+        // Log statsig event
+        statsigService.logEvent(
+            { userID: userId, email: res.locals.user.email },
+            "swap_success",
+            amount.toString(),
+            { installationId, toAssetType }
+        );
+
         // Return transaction details
         responseWrapper({
             res,
@@ -300,6 +324,13 @@ export const swapAsset = async (req: Request, res: Response, next: NextFunction)
             message: "Swap successful"
         });
     } catch (error) {
+        // Log statsig event
+        statsigService.logEvent(
+            { userID: userId, email: res.locals.user.email },
+            "swap_failed",
+            amount.toString(),
+            { error: error instanceof Error ? error.message : "Unknown error", installationId, toAssetType }
+        );
         next(error);
     }
 };

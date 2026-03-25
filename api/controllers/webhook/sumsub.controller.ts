@@ -3,6 +3,7 @@ import { STATUS_CODES } from "../../utilities/data";
 import { responseWrapper } from "../../utilities/helper";
 import { prisma } from "../../config/database.config";
 import { dataLogger } from "../../config/logger.config";
+import { statsigService } from "../../services/statsig.service";
 
 /**
  * Handle Sumsub webhook events
@@ -27,18 +28,20 @@ export const handleSumsubWebhook = async (req: Request, res: Response, next: Nex
 
         switch (type) {
             case "applicantReviewed":
-            // Check if review was successful (GREEN)
+                // Check if review was successful (GREEN)
                 if (reviewResult?.reviewAnswer === "GREEN") {
                     await prisma.user.update({
                         where: { userId: externalUserId },
                         data: { verified: true }
                     });
                     dataLogger.info(`User verified via Sumsub: ${externalUserId}`);
+                    statsigService.logEvent({ userID: externalUserId }, "kyc_success");
                 }
                 // Check if review requires retry (RED with RETRY type)
                 else if (reviewResult?.reviewAnswer === "RED" && reviewRejectType === "RETRY") {
-                // Log warning, client SDK should handle retry guidance automatically
+                    // Log warning, client SDK should handle retry guidance automatically
                     dataLogger.info(`User verification retry needed: ${externalUserId}`);
+                    statsigService.logEvent({ userID: externalUserId }, "kyc_retry");
                 }
                 // Check if review was rejected (RED without RETRY)
                 else if (reviewResult?.reviewAnswer === "RED") {
@@ -47,24 +50,26 @@ export const handleSumsubWebhook = async (req: Request, res: Response, next: Nex
                         data: { verified: false }
                     });
                     dataLogger.info(`User verification rejected via Sumsub: ${externalUserId}`);
+                    statsigService.logEvent({ userID: externalUserId }, "kyc_failed");
                 }
                 break;
 
             case "applicantActivated":
-            // Check if review was successful (GREEN)
+                // Check if review was successful (GREEN)
                 if (reviewResult?.reviewAnswer === "GREEN") {
                     await prisma.user.update({
                         where: { userId: externalUserId },
                         data: { verified: true }
                     });
                     dataLogger.info(`User verification activated via Sumsub: ${externalUserId}`);
+                    statsigService.logEvent({ userID: externalUserId }, "kyc_success");
                 }
                 break;
 
             case "applicantReset":
             case "applicantDeactivated":
             case "applicantDeleted":
-            // For these states, the user is not currently verified (reset or invalid)
+                // For these states, the user is not currently verified (reset or invalid)
                 await prisma.user.update({
                     where: { userId: externalUserId },
                     data: { verified: false }
