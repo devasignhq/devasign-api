@@ -7,25 +7,6 @@ export const messagesCollection = firestoreDB.collection("messages");
 export const tasksCollection = firestoreDB.collection("tasks");
 export const activityCollection = firestoreDB.collection("activity");
 
-/** 
- * Activity type for tracking user actions and system events.
- */
-type Activity = {
-    userId: string;
-    metadata?: unknown;
-} & ({
-    type: "task";
-    taskId: string;
-} | {
-    type: "contributor"
-} | {
-    type: "installation";
-    installationId: string;
-    operation: string;
-    issueUrl?: string;
-    message?: string;
-})
-
 /**
  * Service for managing Firebase Firestore operations.
  */
@@ -172,48 +153,4 @@ export class FirebaseService {
         return updateData;
     }
 
-    /**
-     * Update the last activity timestamp for live updates.
-     * @param activity - The activity to update
-     * @returns The updated activity
-     */
-    static async updateAppActivity(activity: Activity) {
-        // Get the reference to the activity document
-        const activityRef = this.getActivityRef(activity);
-        const lastActivityAt = Timestamp.now();
-
-        // Update the activity document
-        await activityRef.set(
-            { ...activity, lastActivityAt },
-            { merge: true }
-        );
-    }
-
-    /**
-     * Delete an activity from the Firestore collection.
-     * @param activity - The activity to delete
-     * @returns The deleted activity
-     */
-    static deleteAppActivity(activity: Partial<Activity>) {
-        const activityRef = this.getActivityRef(activity);
-        return activityRef!.delete();
-    }
-
-    /**
-     * Get the reference to the activity document.
-     * @param activity - The activity to get the reference to
-     * @returns The activity reference
-     */
-    private static getActivityRef(activity: Activity | Partial<Activity>) {
-        switch (activity.type) {
-            case "task":
-                return tasksCollection.doc(activity.taskId!);
-            case "installation":
-                return activityCollection.doc(activity.installationId!);
-            case "contributor":
-                return activityCollection.doc(activity.userId!);
-            default:
-                throw new Error("Invalid activity type");
-        };
-    }
 }

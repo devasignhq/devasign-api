@@ -18,6 +18,7 @@ import { ContractService } from "../../services/contract.service";
 import { KMSService } from "../../services/kms.service";
 import { dataLogger } from "../../config/logger.config";
 import { statsigService } from "../../services/statsig.service";
+import { SocketService } from "../../services/socket.service";
 
 type USDCBalance = HorizonApi.BalanceLineAsset<"credit_alphanum12">;
 
@@ -381,7 +382,7 @@ export const submitTaskApplication = async (req: Request, res: Response, next: N
             throw new ValidationError("Cannot submit application for a task in an archived installation");
         }
         if (task.status !== "OPEN") {
-            throw new ValidationError("Task is not open");
+            throw new ValidationError("This task has already been delegated to someone else");
         }
 
         // Check if user has already applied
@@ -426,12 +427,12 @@ export const submitTaskApplication = async (req: Request, res: Response, next: N
         });
 
         // Update task activity for live updates
-        FirebaseService.updateAppActivity({
+        SocketService.updateAppActivity({
             userId: task.creatorId,
             type: "task",
             taskId
         }).catch(
-            error => dataLogger.warn(
+            (error: Error) => dataLogger.warn(
                 "Failed to update task activity for live updates",
                 { taskId, error }
             )
@@ -594,11 +595,11 @@ export const acceptTaskApplication = async (req: Request, res: Response, next: N
         }
 
         // Update task activity for live updates
-        FirebaseService.updateAppActivity({
+        SocketService.updateAppActivity({
             userId: contributorId,
             type: "contributor"
         }).catch(
-            error => dataLogger.warn(
+            (error: Error) => dataLogger.warn(
                 "Failed to update contributor activity for live updates",
                 { contributorId, error }
             )
@@ -903,7 +904,7 @@ export const markAsComplete = async (req: Request, res: Response, next: NextFunc
         });
 
         // Update task activity for live updates
-        FirebaseService.updateAppActivity({
+        SocketService.updateAppActivity({
             userId: task.creatorId,
             type: "task",
             taskId,
@@ -911,7 +912,7 @@ export const markAsComplete = async (req: Request, res: Response, next: NextFunc
                 status: TaskStatus.MARKED_AS_COMPLETED
             }
         }).catch(
-            error => dataLogger.warn(
+            (error: Error) => dataLogger.warn(
                 "Failed to update task activity for live updates",
                 { taskId, error }
             )
@@ -1068,7 +1069,7 @@ export const validateCompletion = async (req: Request, res: Response, next: Next
             responseWrapper({
                 res,
                 status: STATUS_CODES.PARTIAL_SUCCESS,
-                data: { validated: true, task: updatedTask },
+                data: updatedTask,
                 message: "Task validated and completed",
                 warning: !chatDisabled ? "Failed to disable chat for the task." : "Failed to add bounty paid label to the issue."
             });
@@ -1083,11 +1084,11 @@ export const validateCompletion = async (req: Request, res: Response, next: Next
         }
 
         // Update task activity for live updates
-        FirebaseService.updateAppActivity({
+        SocketService.updateAppActivity({
             userId: task.contributor.userId,
             type: "contributor"
         }).catch(
-            error => dataLogger.warn(
+            (error: Error) => dataLogger.warn(
                 "Failed to update contributor activity for live updates",
                 { contributorId: task.contributor?.userId, error }
             )

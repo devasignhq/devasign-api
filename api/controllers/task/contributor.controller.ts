@@ -142,7 +142,7 @@ export const getContributorTasks = async (req: Request, res: Response, next: Nex
                 } : {})
             },
             orderBy: {
-                createdAt: (sort as "asc" | "desc") || "desc"
+                acceptedAt: (sort as "asc" | "desc") || "desc"
             },
             skip,
             take: take + 1 // Request one extra record beyond the limit

@@ -13,6 +13,7 @@ import { ContractService } from "../../services/contract.service";
 import { FirebaseService } from "../../services/firebase.service";
 import { OctokitService } from "../../services/octokit.service";
 import { TaskIssue } from "../../models/task.model";
+import { SocketService } from "../../services/socket.service";
 
 /**
  * Handles incoming Cloud Tasks jobs for PR Analysis
@@ -325,18 +326,18 @@ export const handleBountyPayoutJob = async (req: Request, res: Response, next: N
                 );
 
                 // Update contributor activity for live updates
-                await FirebaseService.updateAppActivity({
+                await SocketService.updateAppActivity({
                     userId: relatedTask.contributor.userId,
                     type: "contributor"
                 }).catch(
-                    error => dataLogger.warn(
+                    (error: Error) => dataLogger.warn(
                         "Failed to update contributor activity for live updates",
                         { contributorId: relatedTask.contributor?.userId, error }
                     )
                 );
 
                 // Update installation activity for live updates
-                await FirebaseService.updateAppActivity({
+                await SocketService.updateAppActivity({
                     userId: relatedTask.creatorId,
                     type: "installation",
                     installationId: relatedTask.installation.id,
@@ -345,7 +346,7 @@ export const handleBountyPayoutJob = async (req: Request, res: Response, next: N
                     message: "PR merged - Payment processed successfully",
                     metadata: { taskId: relatedTask.id, ...updatedTask }
                 }).catch(
-                    error => dataLogger.warn(
+                    (error: Error) => dataLogger.warn(
                         "Failed to update installation activity for live updates",
                         { installationId: installation.id, prUrl, error }
                     )

@@ -13,11 +13,11 @@ import {
     NotFoundError,
     ValidationError
 } from "../../models/error.model";
-import { FirebaseService } from "../../services/firebase.service";
 import { ContractService } from "../../services/contract.service";
 import { KMSService } from "../../services/kms.service";
 import { dataLogger } from "../../config/logger.config";
 import { statsigService } from "../../services/statsig.service";
+import { SocketService } from "../../services/socket.service";
 
 type USDCBalance = HorizonApi.BalanceLineAsset<"credit_alphanum12">;
 
@@ -61,8 +61,8 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
         }
 
         // Update activity: Preparing task creation
-        FirebaseService.updateAppActivity(activityData("Recording task details..."))
-            .catch((error) => {
+        SocketService.updateAppActivity(activityData("Recording task details..."))
+            .catch((error: Error) => {
                 dataLogger.error(
                     "Failed to update app activity (Recording task details...)",
                     { error }
@@ -103,8 +103,8 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
         });
 
         // Update activity: Creating escrow on smart contract
-        FirebaseService.updateAppActivity(activityData("Creating escrow on Stellar network..."))
-            .catch((error) => {
+        SocketService.updateAppActivity(activityData("Creating escrow on Stellar network..."))
+            .catch((error: Error) => {
                 dataLogger.error(
                     "Failed to update app activity (Creating escrow on Stellar network...)",
                     { taskId: task.id, error }
@@ -143,8 +143,8 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
         }
 
         // Update activity: Posting bounty details to GitHub
-        FirebaseService.updateAppActivity(activityData("Posting bounty details to GitHub..."))
-            .catch((error) => {
+        SocketService.updateAppActivity(activityData("Posting bounty details to GitHub..."))
+            .catch((error: Error) => {
                 dataLogger.error(
                     "Failed to update app activity (Posting bounty details to GitHub...)",
                     { taskId: task.id, error }
@@ -170,8 +170,8 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
         }
 
         // Update activity: Finalizing task creation
-        FirebaseService.updateAppActivity(activityData("Finalizing task setup..."))
-            .catch((error) => {
+        SocketService.updateAppActivity(activityData("Finalizing task setup..."))
+            .catch((error: Error) => {
                 dataLogger.error(
                     "Failed to update app activity (Finalizing task setup...)",
                     { taskId: task.id, error }
@@ -236,8 +236,8 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
         });
 
         // Delete app activity
-        FirebaseService.deleteAppActivity(activityData(""))
-            .catch((error) => {
+        SocketService.deleteAppActivity(activityData(""))
+            .catch((error: Error) => {
                 dataLogger.error(
                     "Failed to delete app activity",
                     { taskId: task.id, error }
