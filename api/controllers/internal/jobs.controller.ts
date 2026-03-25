@@ -311,22 +311,23 @@ export const handleBountyPayoutJob = async (req: Request, res: Response, next: N
                 })
             ]);
 
-            try {
+            // Execute post-payout side effects concurrently
+            await Promise.allSettled([
                 // Add bounty paid label to the issue
-                await OctokitService.addBountyPaidLabel(
+                OctokitService.addBountyPaidLabel(
                     relatedTask.installation.id,
                     (relatedTask.issue as TaskIssue).id
                 ).catch(
                     error => dataLogger.warn("Failed to add bounty paid label", { taskId: relatedTask.id, error })
-                );
+                ),
 
                 // Disable chat for the task
-                await FirebaseService.updateTaskStatus(relatedTask.id).catch(
+                FirebaseService.updateTaskStatus(relatedTask.id).catch(
                     error => dataLogger.warn("Failed to disable chat", { taskId: relatedTask.id, error })
-                );
+                ),
 
                 // Update contributor activity for live updates
-                await SocketService.updateAppActivity({
+                SocketService.updateAppActivity({
                     userId: relatedTask.contributor.userId,
                     type: "contributor"
                 }).catch(
@@ -334,10 +335,10 @@ export const handleBountyPayoutJob = async (req: Request, res: Response, next: N
                         "Failed to update contributor activity for live updates",
                         { contributorId: relatedTask.contributor?.userId, error }
                     )
-                );
+                ),
 
                 // Update installation activity for live updates
-                await SocketService.updateAppActivity({
+                SocketService.updateAppActivity({
                     userId: relatedTask.creatorId,
                     type: "installation",
                     installationId: relatedTask.installation.id,
@@ -350,10 +351,8 @@ export const handleBountyPayoutJob = async (req: Request, res: Response, next: N
                         "Failed to update installation activity for live updates",
                         { installationId: installation.id, prUrl, error }
                     )
-                );
-            } catch {
-                // Ignore 
-            }
+                )
+            ]);
 
             // Log statsig event
             statsigService.logEvent(
