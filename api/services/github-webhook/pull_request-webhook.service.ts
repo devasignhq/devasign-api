@@ -5,6 +5,9 @@ import { STATUS_CODES } from "../../utilities/data";
 import { dataLogger } from "../../config/logger.config";
 import { orchestrationService } from "../pr-review/orchestration.service";
 import { cloudTasksService } from "../cloud-tasks.service";
+import { TaskStatus } from "../../../prisma_client";
+import { prisma } from "../../config/database.config";
+import { PRAnalysisService } from "../pr-review/pr-analysis.service";
 
 export class PullRequestWebhookService {
     /**
@@ -23,35 +26,7 @@ export class PullRequestWebhookService {
             case "closed":
                 // Handle PR merged events for bounty payout
                 if (pull_request?.merged) {
-                    try {
-                        const payload = {
-                            pull_request: {
-                                number: pull_request.number,
-                                html_url: pull_request.html_url,
-                                body: pull_request.body,
-                                user: { login: pull_request.user.login }
-                            },
-                            repository: { full_name: req.body.repository?.full_name },
-                            installation: { id: req.body.installation?.id }
-                        };
-                        const jobId = await cloudTasksService.addBountyPayoutJob(payload);
-
-                        responseWrapper({
-                            res,
-                            status: STATUS_CODES.BACKGROUND_JOB,
-                            data: {
-                                jobId,
-                                prNumber: pull_request.number,
-                                prUrl: pull_request.html_url,
-                                repositoryName: req.body.repository?.full_name,
-                                status: "queued",
-                                timestamp: new Date().toISOString()
-                            },
-                            message: "Bounty payout job queued"
-                        });
-                    } catch (error) {
-                        next(error);
-                    }
+                    await PullRequestWebhookService.handleBountyPayout(req, res, next);
                     return;
                 }
                 break;
@@ -113,4 +88,129 @@ export class PullRequestWebhookService {
         }
     }
 
+    /**
+     * Handles GitHub PR bounty payout
+     */
+    static async handleBountyPayout(req: Request, res: Response, next: NextFunction) {
+        const { pull_request, repository, installation } = req.body;
+
+        const prNumber = pull_request.number;
+        const prUrl = pull_request.html_url;
+        const repositoryName = repository.full_name;
+        const installationId = installation.id.toString();
+
+        try {
+            // Extract linked issues from PR body
+            const linkedIssues = await PRAnalysisService.extractLinkedIssues(
+                pull_request.body || "",
+                installationId,
+                repositoryName
+            );
+
+            // No linked issues found
+            if (linkedIssues.length === 0) {
+                dataLogger.info("No linked issues found", {
+                    prNumber,
+                    repositoryName,
+                    prUrl
+                });
+
+                return responseWrapper({
+                    res,
+                    status: STATUS_CODES.SUCCESS,
+                    data: { prNumber, repositoryName, prUrl },
+                    message: "No linked issues found - no payment triggered"
+                });
+            }
+
+            // Find related task for the merged PR
+            const relatedTask = await prisma.task.findFirst({
+                where: {
+                    installationId,
+                    status: {
+                        in: [TaskStatus.MARKED_AS_COMPLETED, TaskStatus.IN_PROGRESS]
+                    },
+                    contributor: {
+                        username: pull_request.user.login
+                    },
+                    issue: {
+                        path: ["number"],
+                        equals: linkedIssues[0].number
+                    }
+                },
+                select: {
+                    id: true,
+                    bounty: true,
+                    status: true,
+                    issue: true,
+                    creatorId: true,
+                    contributor: {
+                        select: {
+                            userId: true,
+                            username: true,
+                            wallet: { select: { address: true } }
+                        }
+                    },
+                    installation: {
+                        select: {
+                            id: true,
+                            wallet: true
+                        }
+                    }
+                }
+            });
+
+            // No matching task found
+            if (!relatedTask) {
+                dataLogger.info("No matching active or submitted task found", {
+                    prNumber,
+                    repositoryName,
+                    prUrl,
+                    linkedIssues: linkedIssues.map(i => i.number)
+                });
+
+                return responseWrapper({
+                    res,
+                    status: STATUS_CODES.SUCCESS,
+                    data: { prNumber, repositoryName, prUrl, linkedIssues: linkedIssues.map(i => i.number) },
+                    message: "No matching active or submitted task found"
+                });
+            }
+
+            // Build payload for bounty payout job
+            const payload = {
+                relatedTask,
+                linkedIssues,
+                pull_request: {
+                    number: pull_request.number,
+                    html_url: pull_request.html_url,
+                    body: pull_request.body,
+                    user: { login: pull_request.user.login }
+                },
+                repository: { full_name: req.body.repository?.full_name },
+                installation: { id: req.body.installation?.id }
+            };
+
+            // Trigger bounty payout job
+            const jobId = await cloudTasksService.addBountyPayoutJob(payload);
+
+            // Return success response with job information
+            responseWrapper({
+                res,
+                status: STATUS_CODES.BACKGROUND_JOB,
+                data: {
+                    jobId,
+                    prNumber: pull_request.number,
+                    prUrl: pull_request.html_url,
+                    repositoryName: req.body.repository?.full_name,
+                    status: "queued",
+                    timestamp: new Date().toISOString()
+                },
+                message: "Bounty payout job queued"
+            });
+
+        } catch (error) {
+            next(error);
+        }
+    }
 }
