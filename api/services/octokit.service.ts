@@ -1498,9 +1498,13 @@ ${accepted ? "**This bounty has already been assigned.**" : `**To work on this t
             const batchPaths = filePaths.slice(i, i + maxFilesPerRequest);
 
             // Build individual file queries for this batch using GraphQL fragments
-            const fileQueries = batchPaths.map((path, index) => {
-                return `file${index}: object(expression: "${branch}:${path}") { ...FileContent }`;
+            const fileQueries = batchPaths.map((_, index) => {
+                return `file${index}: object(expression: $expr${index}) { ...FileContent }`;
             }).join("\n");
+
+            // Build variables declaration for query
+            const variableDecls = batchPaths.map((_, index) => `$expr${index}: String!`).join(", ");
+            const variableDeclsString = variableDecls ? `, ${variableDecls}` : "";
 
             // Build complete GraphQL query with fragment for file content
             const query = `
@@ -1510,7 +1514,7 @@ ${accepted ? "**This bounty has already been assigned.**" : `**To work on this t
                     isBinary
                     oid
                 }
-                query($owner: String!, $repo: String!) {
+                query($owner: String!, $repo: String!${variableDeclsString}) {
                     repository(owner: $owner, name: $repo) {
                         ${fileQueries}
                     }
@@ -1518,8 +1522,14 @@ ${accepted ? "**This bounty has already been assigned.**" : `**To work on this t
             `;
 
             try {
+                // Build the variables object
+                const variables: Record<string, unknown> = { owner, repo };
+                batchPaths.forEach((path, index) => {
+                    variables[`expr${index}`] = `${branch}:${path}`;
+                });
+
                 // Execute query to fetch all files in this batch
-                const response = await octokit.graphql(query, { owner, repo }) as {
+                const response = await octokit.graphql(query, variables) as {
                     repository: Record<string, { text: string; byteSize: number; isBinary: boolean; oid: string }>
                 };
 
