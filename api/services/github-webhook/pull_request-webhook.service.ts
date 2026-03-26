@@ -139,24 +139,7 @@ export class PullRequestWebhookService {
                     }
                 },
                 select: {
-                    id: true,
-                    bounty: true,
-                    status: true,
-                    issue: true,
-                    creatorId: true,
-                    contributor: {
-                        select: {
-                            userId: true,
-                            username: true,
-                            wallet: { select: { address: true } }
-                        }
-                    },
-                    installation: {
-                        select: {
-                            id: true,
-                            wallet: true
-                        }
-                    }
+                    id: true
                 }
             });
 
@@ -179,12 +162,11 @@ export class PullRequestWebhookService {
 
             // Build payload for bounty payout job
             const payload = {
-                relatedTask,
+                taskId: relatedTask.id,
                 linkedIssues,
                 pull_request: {
                     number: pull_request.number,
                     html_url: pull_request.html_url,
-                    body: pull_request.body,
                     user: { login: pull_request.user.login }
                 },
                 repository: { full_name: req.body.repository?.full_name },

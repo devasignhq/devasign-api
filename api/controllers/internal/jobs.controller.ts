@@ -7,7 +7,6 @@ import { STATUS_CODES } from "../../utilities/data";
 import { dataLogger } from "../../config/logger.config";
 import { responseWrapper, stellarTimestampToDate } from "../../utilities/helper";
 import { prisma } from "../../config/database.config";
-import { TaskStatus } from "../../../prisma_client";
 import { KMSService } from "../../services/kms.service";
 import { ContractService } from "../../services/contract.service";
 import { FirebaseService } from "../../services/firebase.service";
@@ -164,41 +163,49 @@ export const handleIncrementalIndexingJob = async (req: Request, res: Response, 
  * Handles incoming Cloud Tasks jobs for Bounty Payout
  */
 export const handleBountyPayoutJob = async (req: Request, res: Response, next: NextFunction) => {
-    const { pull_request, repository, installation } = req.body;
+    const { pull_request, repository, installation, taskId } = req.body;
 
-    const relatedTask: {
-        id: string;
-        contributor: {
-            wallet: {
-                address: string;
-            } | null;
-            userId: string;
-            username: string;
-        } | null;
-        installation: {
-            id: string;
-            wallet: {
-                installationId: string | null;
-                address: string;
-                encryptedDEK: string;
-                encryptedSecret: string;
-                iv: string;
-                authTag: string;
-                userId: string | null;
-            } | null;
-        };
-        issue: TaskIssue;
-        bounty: number;
-        status: TaskStatus;
-        creatorId: string;
-    } = req.body.relatedTask;
-    const linkedIssues: LinkedIssue[] = req.body.linkedIssues;
+    const linkedIssues: LinkedIssue[] = req.body.linkedIssues || [];
     const prNumber = pull_request.number;
     const prUrl = pull_request.html_url;
     const repositoryName = repository.full_name;
     const installationId = installation.id.toString();
 
     try {
+        // Fetch related task details securely within the job
+        const relatedTask = await prisma.task.findUnique({
+            where: { id: taskId },
+            select: {
+                id: true,
+                bounty: true,
+                status: true,
+                issue: true,
+                creatorId: true,
+                contributor: {
+                    select: {
+                        userId: true,
+                        username: true,
+                        wallet: { select: { address: true } }
+                    }
+                },
+                installation: {
+                    select: {
+                        id: true,
+                        wallet: true
+                    }
+                }
+            }
+        });
+
+        if (!relatedTask) {
+            return responseWrapper({
+                res,
+                status: STATUS_CODES.SUCCESS,
+                data: { prNumber, repositoryName, prUrl },
+                message: "Task not found"
+            });
+        }
+
         // Verify contributor has a wallet
         if (!relatedTask.contributor || !relatedTask.contributor.wallet || !relatedTask.contributor.wallet.address) {
             return responseWrapper({
