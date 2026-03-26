@@ -438,6 +438,14 @@ export const submitTaskApplication = async (req: Request, res: Response, next: N
             )
         );
 
+        // Update contributor activity for live updates
+        SocketService.updateAppActivity({ userId, type: "contributor" }).catch(
+            (error: Error) => dataLogger.warn(
+                "Failed to update contributor activity for live updates",
+                { contributorId: userId, error }
+            )
+        );
+
         // Update user tech stack if none was found
         if (taskActivity.user?.techStack && taskActivity.user.techStack.length === 0) {
             let techStack: string[] = [];
