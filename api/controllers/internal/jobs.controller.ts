@@ -7,13 +7,13 @@ import { STATUS_CODES } from "../../utilities/data";
 import { dataLogger } from "../../config/logger.config";
 import { responseWrapper, stellarTimestampToDate } from "../../utilities/helper";
 import { prisma } from "../../config/database.config";
-import { TaskStatus } from "../../../prisma_client";
 import { KMSService } from "../../services/kms.service";
 import { ContractService } from "../../services/contract.service";
 import { FirebaseService } from "../../services/firebase.service";
 import { OctokitService } from "../../services/octokit.service";
 import { TaskIssue } from "../../models/task.model";
 import { SocketService } from "../../services/socket.service";
+import { LinkedIssue } from "../../models/ai-review.model";
 
 /**
  * Handles incoming Cloud Tasks jobs for PR Analysis
@@ -163,52 +163,18 @@ export const handleIncrementalIndexingJob = async (req: Request, res: Response, 
  * Handles incoming Cloud Tasks jobs for Bounty Payout
  */
 export const handleBountyPayoutJob = async (req: Request, res: Response, next: NextFunction) => {
+    const { pull_request, repository, installation, taskId } = req.body;
+
+    const linkedIssues: LinkedIssue[] = req.body.linkedIssues || [];
+    const prNumber = pull_request.number;
+    const prUrl = pull_request.html_url;
+    const repositoryName = repository.full_name;
+    const installationId = installation.id.toString();
+
     try {
-        const { pull_request, repository, installation } = req.body;
-
-        const prNumber = pull_request.number;
-        const prUrl = pull_request.html_url;
-        const repositoryName = repository.full_name;
-        const installationId = installation.id.toString();
-
-        // Extract linked issues from PR body
-        const linkedIssues = await PRAnalysisService.extractLinkedIssues(
-            pull_request.body || "",
-            installationId,
-            repositoryName
-        );
-
-        // No linked issues found
-        if (linkedIssues.length === 0) {
-            dataLogger.info("No linked issues found", {
-                prNumber,
-                repositoryName,
-                prUrl
-            });
-
-            return responseWrapper({
-                res,
-                status: STATUS_CODES.SUCCESS,
-                data: { prNumber, repositoryName, prUrl },
-                message: "No linked issues found - no payment triggered"
-            });
-        }
-
-        // Find related task for the merged PR
-        const relatedTask = await prisma.task.findFirst({
-            where: {
-                installationId,
-                status: {
-                    in: [TaskStatus.MARKED_AS_COMPLETED, TaskStatus.IN_PROGRESS]
-                },
-                contributor: {
-                    username: pull_request.user.login
-                },
-                issue: {
-                    path: ["number"],
-                    equals: linkedIssues[0].number
-                }
-            },
+        // Fetch related task details securely within the job
+        const relatedTask = await prisma.task.findUnique({
+            where: { id: taskId },
             select: {
                 id: true,
                 bounty: true,
@@ -231,20 +197,12 @@ export const handleBountyPayoutJob = async (req: Request, res: Response, next: N
             }
         });
 
-        // No matching task found
         if (!relatedTask) {
-            dataLogger.info("No matching active or submitted task found", {
-                prNumber,
-                repositoryName,
-                prUrl,
-                linkedIssues: linkedIssues.map(i => i.number)
-            });
-
             return responseWrapper({
                 res,
                 status: STATUS_CODES.SUCCESS,
-                data: { prNumber, repositoryName, prUrl, linkedIssues: linkedIssues.map(i => i.number) },
-                message: "No matching active or submitted task found"
+                data: { prNumber, repositoryName, prUrl },
+                message: "Task not found"
             });
         }
 
@@ -263,7 +221,10 @@ export const handleBountyPayoutJob = async (req: Request, res: Response, next: N
             throw new Error("Installation wallet not found");
         }
 
+        // Decrypt installation wallet secret
         const decryptedWalletSecret = await KMSService.decryptWallet(relatedTask.installation.wallet);
+        
+        // Approve completion via smart contract
         const transactionResponse = await ContractService.approveCompletion(
             decryptedWalletSecret,
             relatedTask.id
