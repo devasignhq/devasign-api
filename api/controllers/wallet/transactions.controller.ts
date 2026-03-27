@@ -111,7 +111,13 @@ export const getInstallationTransactions = async (req: Request, res: Response, n
                     select: {
                         id: true,
                         issue: true,
-                        bounty: true
+                        bounty: true,
+                        contributor: {
+                            select: {
+                                userId: true,
+                                username: true
+                            }
+                        }
                     }
                 }
             }

@@ -172,6 +172,16 @@ export const handleBountyPayoutJob = async (req: Request, res: Response, next: N
     const installationId = installation.id.toString();
 
     try {
+        // Check if taskId is present in the payload
+        if (!taskId) {
+            return responseWrapper({
+                res,
+                status: STATUS_CODES.SERVER_ERROR,
+                data: { prNumber, repositoryName, prUrl },
+                message: "Task ID is missing from payload"
+            });
+        }
+
         // Fetch related task details securely within the job
         const relatedTask = await prisma.task.findUnique({
             where: { id: taskId },

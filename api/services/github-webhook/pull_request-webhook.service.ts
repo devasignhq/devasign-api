@@ -169,8 +169,8 @@ export class PullRequestWebhookService {
                     html_url: pull_request.html_url,
                     user: { login: pull_request.user.login }
                 },
-                repository: { full_name: req.body.repository?.full_name },
-                installation: { id: req.body.installation?.id }
+                repository: { full_name: repository?.full_name },
+                installation: { id: installation?.id }
             };
 
             // Trigger bounty payout job
