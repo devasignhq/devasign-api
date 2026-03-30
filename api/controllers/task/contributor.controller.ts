@@ -14,7 +14,6 @@ export const getContributorTasks = async (req: Request, res: Response, next: Nex
     const {
         installationId,
         status,
-        detailed,
         page = 1,
         limit = 10,
         sort,
@@ -45,33 +44,39 @@ export const getContributorTasks = async (req: Request, res: Response, next: Nex
                 status: { notIn: [TaskStatus.ARCHIVED, TaskStatus.PENDING_PAYMENT] },
                 contributorId: { equals: null }
             };
-        } else {
+        }
+        else if (status === "NOT_ACCEPTED") {
+            where = {
+                taskActivities: {
+                    some: {
+                        userId,
+                        taskSubmissionId: null
+                    }
+                },
+                status: { notIn: [TaskStatus.ARCHIVED, TaskStatus.PENDING_PAYMENT] },
+                contributorId: { not: userId },
+                NOT: { contributorId: null }
+            };
+        }
+        else {
             where = {
                 OR: [
                     { contributorId: userId },
-                    {
+                    ...(status ? [] : [{
                         taskActivities: {
                             some: {
                                 userId,
                                 taskSubmissionId: null
                             }
                         }
-                    }
+                    }])
                 ]
             };
 
             if (status) {
-                if (status === TaskStatus.PENDING_PAYMENT) {
-                    return responseWrapper({
-                        res,
-                        status: STATUS_CODES.SUCCESS,
-                        data: [],
-                        pagination: { hasMore: false }
-                    });
-                }
                 where.status = status as TaskStatus;
             } else {
-                where.status = { not: TaskStatus.PENDING_PAYMENT };
+                where.status = { notIn: [TaskStatus.ARCHIVED, TaskStatus.PENDING_PAYMENT] };
             }
         }
         if (installationId) {
@@ -123,23 +128,25 @@ export const getContributorTasks = async (req: Request, res: Response, next: Nex
                 creatorId: true,
                 createdAt: true,
                 updatedAt: true,
-                ...(detailed ? {
-                    installation: {
-                        select: { account: true }
-                    },
-                    creator: {
-                        select: {
-                            userId: true,
-                            username: true
-                        }
-                    },
-                    contributor: {
-                        select: {
-                            userId: true,
-                            username: true
-                        }
+                installation: {
+                    select: {
+                        id: true,
+                        account: true
                     }
-                } : {})
+                },
+                creator: {
+                    select: {
+                        userId: true,
+                        username: true
+                    }
+                },
+                contributor: {
+                    select: {
+                        userId: true,
+                        username: true
+                    }
+                },
+                escrowTransactions: true
             },
             orderBy: {
                 acceptedAt: (sort as "asc" | "desc") || "desc"
@@ -156,7 +163,25 @@ export const getContributorTasks = async (req: Request, res: Response, next: Nex
         responseWrapper({
             res,
             status: STATUS_CODES.SUCCESS,
-            data: results,
+            data: results.map((task) => {
+                if (task.contributorId !== userId) {
+                    return {
+                        id: task.id,
+                        issue: task.issue,
+                        bounty: task.bounty,
+                        timeline: task.timeline,
+                        status: task.status,
+                        installation: task.installation,
+                        creatorId: task.creatorId,
+                        contributorId: task.contributorId,
+                        creator: task.creator,
+                        escrowTransactions: task.escrowTransactions,
+                        createdAt: task.createdAt,
+                        updatedAt: task.updatedAt
+                    };
+                }
+                return task;
+            }),
             pagination: { hasMore }
         });
     } catch (error) {
@@ -218,6 +243,7 @@ export const getContributorTask = async (req: Request, res: Response, next: Next
                         username: true
                     }
                 },
+                escrowTransactions: true,
                 createdAt: true,
                 updatedAt: true
             }
@@ -225,6 +251,27 @@ export const getContributorTask = async (req: Request, res: Response, next: Next
 
         if (!task) {
             throw new NotFoundError("Task not found");
+        }
+
+        if (task.contributorId !== userId) {
+            return responseWrapper({
+                res,
+                status: STATUS_CODES.SUCCESS,
+                data: {
+                    id: task.id,
+                    issue: task.issue,
+                    bounty: task.bounty,
+                    timeline: task.timeline,
+                    status: task.status,
+                    installation: task.installation,
+                    creatorId: task.creatorId,
+                    contributorId: task.contributorId,
+                    creator: task.creator,
+                    escrowTransactions: task.escrowTransactions,
+                    createdAt: task.createdAt,
+                    updatedAt: task.updatedAt
+                }
+            });
         }
 
         // Return task

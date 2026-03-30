@@ -45,13 +45,13 @@ export const getInstallationTasksSchema = {
 export const getContributorTasksSchema = {
     query: z.object({
         ...paginationSchema.shape,
-        detailed: z.literal("true").optional(),
         status: z.enum([
             TaskStatus.OPEN,
             TaskStatus.IN_PROGRESS,
             TaskStatus.MARKED_AS_COMPLETED,
             TaskStatus.COMPLETED,
-            "APPLIED"
+            "APPLIED",
+            "NOT_ACCEPTED"
         ]).optional(),
         installationId: installationIdSchema.optional(),
         repoUrl: z.string().min(1).max(500, "Repository URL must be between 1 and 500 characters").optional(),
