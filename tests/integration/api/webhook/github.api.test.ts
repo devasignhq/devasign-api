@@ -19,13 +19,6 @@ jest.mock("../../../../api/config/firebase.config", () => {
     };
 });
 
-// Mock external services
-jest.mock("../../../../api/services/pr-review/orchestration.service", () => ({
-    orchestrationService: {
-        triggerReviewBackgroundJob: jest.fn()
-    }
-}));
-
 jest.mock("../../../../api/services/pr-review/pr-analysis.service", () => ({
     PRAnalysisService: {
         extractLinkedIssues: jest.fn()
@@ -75,6 +68,7 @@ jest.mock("../../../../api/services/kms.service", () => ({
 
 jest.mock("../../../../api/services/cloud-tasks.service", () => ({
     cloudTasksService: {
+        addPRAnalysisJob: jest.fn().mockResolvedValue("job-id-123"),
         addRepositoryIndexingJob: jest.fn().mockResolvedValue("job-id-123"),
         addBountyPayoutJob: jest.fn().mockResolvedValue("job-id-123"),
         addClearRepoJob: jest.fn().mockResolvedValue("job-id-123"),
@@ -91,9 +85,7 @@ jest.mock("../../../../api/services/stellar.service", () => ({
 describe("Webhook API Integration Tests", () => {
     let app: express.Application;
     let prisma: any;
-    let mockAIReviewOrchestrationService: any;
     let mockOctokitService: any;
-
     let mockPRAnalysisService: any;
     let mockContractService: any;
     let mockCloudTasksService: any;
@@ -122,9 +114,6 @@ describe("Webhook API Integration Tests", () => {
 
         // Setup mocks
         const { OctokitService } = await import("../../../../api/services/octokit.service");
-
-        const { orchestrationService } = await import("../../../../api/services/pr-review/orchestration.service");
-        mockAIReviewOrchestrationService = orchestrationService;
 
         mockOctokitService = {
             getOctokit: jest.fn(),
@@ -156,20 +145,6 @@ describe("Webhook API Integration Tests", () => {
 
         // Reset mocks
         jest.clearAllMocks();
-
-        // Setup default mock implementations
-        mockAIReviewOrchestrationService.triggerReviewBackgroundJob.mockResolvedValue({
-            success: true,
-            jobId: "test-job-123",
-            prData: {
-                installationId: VALID_INSTALLATION_ID,
-                repositoryName: VALID_REPO_NAME,
-                prNumber: 1,
-                prUrl: "https://github.com/test/repo/pull/1",
-                linkedIssues: [{ number: 1, title: "Test Issue" }],
-                changedFiles: [{ filename: "test.ts", status: "modified" }]
-            }
-        });
 
         mockOctokitService.getDefaultBranch.mockResolvedValue("main");
         mockOctokitService.getOwnerAndRepo.mockReturnValue(["test", "repo"]);
@@ -510,7 +485,7 @@ describe("Webhook API Integration Tests", () => {
                     }
                 });
 
-                expect(mockAIReviewOrchestrationService.triggerReviewBackgroundJob).toHaveBeenCalledWith(
+                expect(mockCloudTasksService.addPRAnalysisJob).toHaveBeenCalledWith(
                     expect.objectContaining({
                         action: "opened",
                         number: 1,
@@ -558,7 +533,7 @@ describe("Webhook API Integration Tests", () => {
             });
 
             it("should handle workflow processing errors", async () => {
-                mockAIReviewOrchestrationService.triggerReviewBackgroundJob.mockResolvedValue({
+                mockCloudTasksService.addPRAnalysisJob.mockResolvedValue({
                     success: false,
                     error: "GitHub API rate limit exceeded"
                 });
@@ -595,7 +570,7 @@ describe("Webhook API Integration Tests", () => {
                     .expect(STATUS_CODES.SERVER_ERROR);
 
                 expect(response.body.message).toBe("Invalid webhook signature");
-                expect(mockAIReviewOrchestrationService.triggerReviewBackgroundJob).not.toHaveBeenCalled();
+                expect(mockCloudTasksService.addPRAnalysisJob).not.toHaveBeenCalled();
             });
 
             it("should reject webhook without signature", async () => {
@@ -610,7 +585,7 @@ describe("Webhook API Integration Tests", () => {
                     .expect(STATUS_CODES.SERVER_ERROR);
 
                 expect(response.body.message).toBe("Missing webhook signature");
-                expect(mockAIReviewOrchestrationService.triggerReviewBackgroundJob).not.toHaveBeenCalled();
+                expect(mockCloudTasksService.addPRAnalysisJob).not.toHaveBeenCalled();
             });
 
             it("should skip non-PR events", async () => {
@@ -631,7 +606,7 @@ describe("Webhook API Integration Tests", () => {
                     meta: { eventType: "issues" }
                 });
 
-                expect(mockAIReviewOrchestrationService.triggerReviewBackgroundJob).not.toHaveBeenCalled();
+                expect(mockCloudTasksService.addPRAnalysisJob).not.toHaveBeenCalled();
             });
 
             it("should skip non-relevant PR actions", async () => {
@@ -652,7 +627,7 @@ describe("Webhook API Integration Tests", () => {
                     data: { action: "closed" }
                 });
 
-                expect(mockAIReviewOrchestrationService.triggerReviewBackgroundJob).not.toHaveBeenCalled();
+                expect(mockCloudTasksService.addPRAnalysisJob).not.toHaveBeenCalled();
             });
 
             it("should skip PRs not targeting default branch", async () => {
@@ -684,7 +659,7 @@ describe("Webhook API Integration Tests", () => {
                     }
                 });
 
-                expect(mockAIReviewOrchestrationService.triggerReviewBackgroundJob).not.toHaveBeenCalled();
+                expect(mockCloudTasksService.addPRAnalysisJob).not.toHaveBeenCalled();
             });
 
             it("should handle malformed JSON payload", async () => {
@@ -717,7 +692,7 @@ describe("Webhook API Integration Tests", () => {
                     .expect(STATUS_CODES.BACKGROUND_JOB);
 
                 expect(response.body.message).toBe("PR webhook processed successfully - analysis queued");
-                expect(mockAIReviewOrchestrationService.triggerReviewBackgroundJob).toHaveBeenCalledWith(
+                expect(mockCloudTasksService.addPRAnalysisJob).toHaveBeenCalledWith(
                     expect.objectContaining({
                         action: "synchronize"
                     })
@@ -739,7 +714,7 @@ describe("Webhook API Integration Tests", () => {
                     .expect(STATUS_CODES.BACKGROUND_JOB);
 
                 expect(response.body.message).toBe("PR webhook processed successfully - analysis queued");
-                expect(mockAIReviewOrchestrationService.triggerReviewBackgroundJob).toHaveBeenCalledWith(
+                expect(mockCloudTasksService.addPRAnalysisJob).toHaveBeenCalledWith(
                     expect.objectContaining({
                         action: "ready_for_review"
                     })
@@ -940,7 +915,7 @@ describe("Webhook API Integration Tests", () => {
                     status: "queued"
                 });
 
-                expect(mockAIReviewOrchestrationService.triggerReviewBackgroundJob).toHaveBeenCalledWith(
+                expect(mockCloudTasksService.addPRAnalysisJob).toHaveBeenCalledWith(
                     expect.objectContaining({
                         action: "opened",
                         number: PR_NUMBER,
@@ -981,7 +956,7 @@ describe("Webhook API Integration Tests", () => {
                     .expect(STATUS_CODES.SUCCESS);
 
                 expect(response.body.message).toBe("Comment is not on a pull request - skipping");
-                expect(mockAIReviewOrchestrationService.triggerReviewBackgroundJob).not.toHaveBeenCalled();
+                expect(mockCloudTasksService.addPRAnalysisJob).not.toHaveBeenCalled();
             });
 
             it("should skip when comment body is not exactly 'review' and not a bounty command", async () => {
@@ -998,7 +973,7 @@ describe("Webhook API Integration Tests", () => {
                     .expect(STATUS_CODES.SUCCESS);
 
                 expect(response.body.message).toBe("Comment does not trigger any action - skipping");
-                expect(mockAIReviewOrchestrationService.triggerReviewBackgroundJob).not.toHaveBeenCalled();
+                expect(mockCloudTasksService.addPRAnalysisJob).not.toHaveBeenCalled();
             });
 
             it("should skip when the commenter is not an authorized repo maintainer", async () => {
@@ -1017,7 +992,7 @@ describe("Webhook API Integration Tests", () => {
                     .expect(STATUS_CODES.SUCCESS);
 
                 expect(response.body.message).toBe("User is not authorized to trigger review (association: CONTRIBUTOR) - skipping");
-                expect(mockAIReviewOrchestrationService.triggerReviewBackgroundJob).not.toHaveBeenCalled();
+                expect(mockCloudTasksService.addPRAnalysisJob).not.toHaveBeenCalled();
             });
 
             it("should skip when the installation is not active", async () => {
@@ -1040,7 +1015,7 @@ describe("Webhook API Integration Tests", () => {
                     .expect(STATUS_CODES.SUCCESS);
 
                 expect(response.body.message).toBe("Installation is not active or not found - skipping");
-                expect(mockAIReviewOrchestrationService.triggerReviewBackgroundJob).not.toHaveBeenCalled();
+                expect(mockCloudTasksService.addPRAnalysisJob).not.toHaveBeenCalled();
             });
 
             it("should skip draft PRs", async () => {
@@ -1060,7 +1035,7 @@ describe("Webhook API Integration Tests", () => {
                     .expect(STATUS_CODES.SUCCESS);
 
                 expect(response.body.message).toBe("Skipping draft PR");
-                expect(mockAIReviewOrchestrationService.triggerReviewBackgroundJob).not.toHaveBeenCalled();
+                expect(mockCloudTasksService.addPRAnalysisJob).not.toHaveBeenCalled();
             });
 
             it("should skip PRs not targeting the default branch", async () => {
@@ -1088,28 +1063,7 @@ describe("Webhook API Integration Tests", () => {
                     defaultBranch: "main",
                     reason: "not_default_branch"
                 });
-                expect(mockAIReviewOrchestrationService.triggerReviewBackgroundJob).not.toHaveBeenCalled();
-            });
-
-            it("should return server error when triggerReviewBackgroundJob fails", async () => {
-                mockAIReviewOrchestrationService.triggerReviewBackgroundJob.mockResolvedValue({
-                    success: false,
-                    error: "GitHub API rate limit exceeded"
-                });
-
-                const payload = createIssueCommentPayload();
-                const payloadString = JSON.stringify(payload);
-                const signature = createWebhookSignature(payloadString);
-
-                const response = await request(app)
-                    .post(getEndpointWithPrefix(["WEBHOOK", "GITHUB"]))
-                    .set("X-GitHub-Event", "issue_comment")
-                    .set("X-Hub-Signature-256", signature)
-                    .set("Content-Type", "application/json")
-                    .send(payloadString)
-                    .expect(STATUS_CODES.SERVER_ERROR);
-
-                expect(response.body.message).toBe("GitHub API rate limit exceeded");
+                expect(mockCloudTasksService.addPRAnalysisJob).not.toHaveBeenCalled();
             });
 
             it("should skip non-created/edited comment actions (e.g. deleted)", async () => {
@@ -1127,7 +1081,7 @@ describe("Webhook API Integration Tests", () => {
                     .expect(STATUS_CODES.SUCCESS);
 
                 expect(response.body.message).toBe("Issue comment action not processed");
-                expect(mockAIReviewOrchestrationService.triggerReviewBackgroundJob).not.toHaveBeenCalled();
+                expect(mockCloudTasksService.addPRAnalysisJob).not.toHaveBeenCalled();
             });
         });
 
@@ -1557,7 +1511,7 @@ describe("Webhook API Integration Tests", () => {
     describe("Error Handling and Retry Mechanisms", () => {
         it("should handle GitHub API errors gracefully", async () => {
             const { GitHubAPIError } = await import("../../../../api/models/error.model");
-            mockAIReviewOrchestrationService.triggerReviewBackgroundJob.mockRejectedValue(
+            mockCloudTasksService.addPRAnalysisJob.mockRejectedValue(
                 new GitHubAPIError("API rate limit exceeded", null, 429, 0)
             );
 
@@ -1580,7 +1534,7 @@ describe("Webhook API Integration Tests", () => {
 
         it("should handle PR analysis errors with context", async () => {
             const { PRAnalysisError } = await import("../../../../api/models/error.model");
-            mockAIReviewOrchestrationService.triggerReviewBackgroundJob.mockRejectedValue(
+            mockCloudTasksService.addPRAnalysisJob.mockRejectedValue(
                 new PRAnalysisError(1, VALID_REPO_NAME, "Failed to analyze PR changes", {})
             );
 
@@ -1604,7 +1558,7 @@ describe("Webhook API Integration Tests", () => {
         });
 
         it("should handle unexpected errors and pass to error middleware", async () => {
-            mockAIReviewOrchestrationService.triggerReviewBackgroundJob.mockRejectedValue(
+            mockCloudTasksService.addPRAnalysisJob.mockRejectedValue(
                 new Error("Unexpected database connection error")
             );
 
@@ -1729,7 +1683,7 @@ describe("Webhook API Integration Tests", () => {
                 const payloadString = JSON.stringify(payload);
                 const signature = createWebhookSignature(payloadString);
 
-                mockAIReviewOrchestrationService.triggerReviewBackgroundJob.mockResolvedValue({
+                mockCloudTasksService.addPRAnalysisJob.mockResolvedValue({
                     success: true,
                     jobId: `concurrent-job-${i + 1}`,
                     prData: {
@@ -1758,7 +1712,7 @@ describe("Webhook API Integration Tests", () => {
                 expect(response.body.message).toContain("PR webhook processed");
             });
 
-            expect(mockAIReviewOrchestrationService.triggerReviewBackgroundJob).toHaveBeenCalledTimes(5);
+            expect(mockCloudTasksService.addPRAnalysisJob).toHaveBeenCalledTimes(5);
         });
     });
 });

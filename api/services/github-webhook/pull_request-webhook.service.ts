@@ -3,7 +3,6 @@ import { GitHubWebhookPayload } from "../../models/ai-review.model";
 import { responseWrapper } from "../../utilities/helper";
 import { STATUS_CODES } from "../../utilities/data";
 import { dataLogger } from "../../config/logger.config";
-import { orchestrationService } from "../pr-review/orchestration.service";
 import { cloudTasksService } from "../cloud-tasks.service";
 import { TaskStatus } from "../../../prisma_client";
 import { prisma } from "../../config/database.config";
@@ -51,18 +50,15 @@ export class PullRequestWebhookService {
             const payload: GitHubWebhookPayload = req.body;
 
             // Trigger review background job
-            const result = await orchestrationService.triggerReviewBackgroundJob(payload);
+            const jobId = await cloudTasksService.addPRAnalysisJob(payload);
 
-            if (!result.success) {
-                dataLogger.error("Failed to process PR webhook", {
-                    payload,
-                    result
-                });
+            if (!jobId) {
+                dataLogger.error("Failed to process PR webhook", { payload });
                 return responseWrapper({
                     res,
                     status: STATUS_CODES.SERVER_ERROR,
                     data: { timestamp: new Date().toISOString() },
-                    message: result.error || "Failed to process PR webhook"
+                    message: "Failed to process PR webhook"
                 });
             }
 
@@ -71,7 +67,7 @@ export class PullRequestWebhookService {
                 res,
                 status: STATUS_CODES.BACKGROUND_JOB,
                 data: {
-                    jobId: result.jobId,
+                    jobId,
                     installationId: payload.installation.id.toString(),
                     repositoryName: payload.repository.full_name,
                     prNumber: payload.pull_request.number,

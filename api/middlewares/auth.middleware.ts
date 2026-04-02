@@ -118,7 +118,7 @@ export const validateCloudTasksRequest = async (req: Request, _res: Response, ne
             );
         }
 
-        // Verify the OIDC token with Google's public keys
+        // Verify the OIDC token
         const ticket = await authClient.verifyIdToken({
             idToken: token,
             audience: process.env.CLOUD_RUN_SERVICE_URL

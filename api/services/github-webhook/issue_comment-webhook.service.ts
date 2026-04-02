@@ -10,8 +10,8 @@ import { ContractService } from "../contract.service";
 import { KMSService } from "../kms.service";
 import { HorizonApi } from "../../models/horizonapi.model";
 import { BOUNTY_LABEL, GitHubComment } from "../../models/github.model";
-import { orchestrationService } from "../pr-review/orchestration.service";
 import { statsigService } from "../statsig.service";
+import { cloudTasksService } from "../cloud-tasks.service";
 
 export class IssueCommentWebhookService {
     private static readonly AUTHORIZED_ASSOCIATIONS = ["OWNER", "MEMBER", "COLLABORATOR"];
@@ -198,16 +198,16 @@ export class IssueCommentWebhookService {
             };
 
             // Trigger review background job
-            const result = await orchestrationService.triggerReviewBackgroundJob(payload);
+            const jobId = await cloudTasksService.addPRAnalysisJob(payload);
 
             // If the workflow failed, return an error response
-            if (!result.success) {
-                dataLogger.error("Failed to process 'review' comment trigger", { payload, result });
+            if (!jobId) {
+                dataLogger.error("Failed to process 'review' comment trigger", { payload });
                 return responseWrapper({
                     res,
                     status: STATUS_CODES.SERVER_ERROR,
                     data: { timestamp: new Date().toISOString() },
-                    message: result.error || "Failed to process review trigger"
+                    message: "Failed to process review trigger"
                 });
             }
 
@@ -216,7 +216,7 @@ export class IssueCommentWebhookService {
                 res,
                 status: STATUS_CODES.BACKGROUND_JOB,
                 data: {
-                    jobId: result.jobId,
+                    jobId,
                     installationId: payload.installation.id.toString(),
                     repositoryName: payload.repository.full_name,
                     prNumber: payload.pull_request.number,

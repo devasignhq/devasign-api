@@ -98,6 +98,7 @@ export class CloudTasksService {
             "GCP_PROJECT_ID",
             "GCP_LOCATION_ID",
             "CLOUD_RUN_SERVICE_URL",
+            "CLOUD_RUN_PRIVATE_SERVICE_URL",
             "CLOUD_TASKS_SERVICE_ACCOUNT_EMAIL",
             "CLOUD_TASKS_PR_ANALYSIS_QUEUE",
             "CLOUD_TASKS_REPO_INDEXING_QUEUE",
@@ -192,20 +193,11 @@ export class CloudTasksService {
     /**
      * Enqueues a task for PR analysis.
      * @param payload - The pull request webhook payload to analyze
-     * @param isActualFollowUp - Flag indicating if this is a follow-up review
-     * @param pendingCommentId - The ID of the pending comment if posted
      * @returns The ID of the enqueued task 
      */
-    public async addPRAnalysisJob(
-        payload: GitHubWebhookPayload,
-        isActualFollowUp: boolean,
-        pendingCommentId?: number | string
-    ): Promise<string> {
-        // Construct task payload
-        const jobPayload: PRAnalysisJobData = { payload, isActualFollowUp, pendingCommentId };
-
+    public async addPRAnalysisJob(payload: GitHubWebhookPayload): Promise<string> {
         // Dispatch to Cloud Tasks
-        return this.enqueueTask("pr-analysis", jobPayload);
+        return this.enqueueTask("pr-analysis", payload);
     }
 
     /**

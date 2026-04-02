@@ -139,8 +139,18 @@ export class ErrorHandlerService {
             { keys: ["FIREBASE_PROJECT_ID", "FIREBASE_CLIENT_EMAIL", "FIREBASE_PRIVATE_KEY"], msg: "Firebase credentials not configured - Firebase integration will fail" },
             { keys: ["GCP_PROJECT_ID", "GCP_LOCATION_ID", "GCP_KEY_RING_ID", "GCP_KEY_ID"], msg: "GCP credentials not configured - wallet encryption will fail" },
             { keys: ["SUMSUB_APP_TOKEN", "SUMSUB_SECRET_KEY", "SUMSUB_LEVEL_NAME"], msg: "Sumsub misconfiguration" },
-            { keys: ["CLOUD_RUN_SERVICE_URL", "CLOUD_TASKS_SERVICE_ACCOUNT_EMAIL"], msg: "Cloud Tasks credentials not configured - background job dispatch will fail" },
-            { keys: ["CLOUD_TASKS_PR_ANALYSIS_QUEUE", "CLOUD_TASKS_REPO_INDEXING_QUEUE", "CLOUD_TASKS_INCREMENTAL_INDEXING_QUEUE"], msg: "Cloud Tasks queue names not configured - job routing will fail" }
+            { keys: ["CLOUD_RUN_SERVICE_URL", "CLOUD_RUN_PRIVATE_SERVICE_URL", "CLOUD_TASKS_SERVICE_ACCOUNT_EMAIL"], msg: "Cloud Tasks credentials not configured - background job dispatch will fail" },
+            { 
+                keys: [
+                    "CLOUD_TASKS_PR_ANALYSIS_QUEUE", 
+                    "CLOUD_TASKS_REPO_INDEXING_QUEUE", 
+                    "CLOUD_TASKS_INCREMENTAL_INDEXING_QUEUE", 
+                    "CLOUD_TASKS_BOUNTY_PAYOUT_QUEUE", 
+                    "CLOUD_TASKS_CLEAR_INSTALLATION_QUEUE", 
+                    "CLOUD_TASKS_CLEAR_REPO_QUEUE"
+                ], 
+                msg: "Cloud Tasks queue names not configured - job routing will fail" 
+            }
         ];
 
         const warningVars = [
