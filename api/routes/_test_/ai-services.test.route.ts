@@ -1,22 +1,16 @@
 import { Router, Request, Response, NextFunction, RequestHandler } from "express";
 import createError from "http-errors";
 import { GeminiAIService } from "../../services/pr-review/gemini-ai.service";
-import { dataLogger } from "../../config/logger.config";
-import { STATUS_CODES } from "../../utilities/data";
-import { GitHubPullRequest, GitHubInstallation } from "../../models/ai-review.model";
-import { OctokitService } from "../../services/octokit.service";
 import { validateRequestParameters } from "../../middlewares/request.middleware";
 import {
     geminiChatSchema,
     geminiCodeReviewSchema,
     geminiTestModelsSchema,
-    geminiTestJsonSchema,
-    manualAnalysisSchema
+    geminiTestJsonSchema
 } from "./test.schema";
 import { ValidationError } from "../../models/error.model";
 import { VectorStoreService } from "../../services/pr-review/vector-store.service";
 import { cloudTasksService } from "../../services/cloud-tasks.service";
-import { orchestrationService } from "../../services/pr-review/orchestration.service";
 
 const router = Router();
 const geminiService = new GeminiAIService();
@@ -217,81 +211,6 @@ Respond with ONLY the JSON object above, modified for the actual code analysis.`
         }
     }) as RequestHandler
 );
-
-// Trigger manual analysis
-router.post("/github/manual-analysis",
-    validateRequestParameters(manualAnalysisSchema),
-    (async (req: Request, res: Response, next: NextFunction) => {
-        try {
-            const { installationId, repositoryName, prNumber, reason } = req.body;
-
-            if (!installationId || !repositoryName || !prNumber) {
-                // Missing required fields
-                return res.status(STATUS_CODES.SERVER_ERROR).json({
-                    success: false,
-                    error: "Missing required fields: installationId, repositoryName, prNumber"
-                });
-            }
-
-            // Fetch PR details using Octokit
-            const octokit = await OctokitService.getOctokit(installationId);
-            const [owner, repo] = OctokitService.getOwnerAndRepo(repositoryName);
-
-            const { data: pull_request } = await octokit.rest.pulls.get({
-                owner,
-                repo,
-                pull_number: prNumber
-            });
-
-            const { data: installation } = await octokit.request(
-                "GET /app/installations/{installation_id}",
-                { installation_id: Number(installationId) }
-            );
-
-            const { data: repository } = await octokit.request(
-                "GET /repos/{owner}/{repo}",
-                { owner, repo }
-            );
-
-            // Trigger review background job
-            const result = await orchestrationService.triggerReviewBackgroundJob({
-                action: "opened",
-                number: prNumber,
-                pull_request: pull_request as GitHubPullRequest,
-                repository,
-                installation: installation as GitHubInstallation
-            });
-
-            if (!result.success) {
-                // Analysis could not be queued
-                return res.status(STATUS_CODES.UNKNOWN).json({
-                    success: false,
-                    error: result.error,
-                    timestamp: new Date().toISOString()
-                });
-            }
-
-            // Return success response
-            res.status(STATUS_CODES.BACKGROUND_JOB).json({
-                success: true,
-                message: "Manual analysis queued successfully",
-                data: {
-                    jobId: result.jobId,
-                    installationId,
-                    repositoryName,
-                    prNumber,
-                    status: "queued",
-                    reason: reason || "Manual trigger"
-                },
-                timestamp: new Date().toISOString()
-            });
-
-        } catch (error) {
-            // Log and pass error to middleware
-            dataLogger.error("Error in manual analysis trigger", { error });
-            next(error);
-        }
-    }) as RequestHandler);
 
 /**
  * Trigger repository indexing
