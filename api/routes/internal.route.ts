@@ -11,24 +11,24 @@ export const internalRoutes = Router();
 
 // Run PR Analysis
 internalRoutes.post(
-    ENDPOINTS.INTERNAL.JOBS.PR_ANALYSIS,
+    ENDPOINTS.INTERNAL.PR_ANALYSIS,
     handlePRAnalysisJob as RequestHandler
 );
 
 // Run Repository Indexing
 internalRoutes.post(
-    ENDPOINTS.INTERNAL.JOBS.REPOSITORY_INDEXING,
+    ENDPOINTS.INTERNAL.INDEXING.REPOSITORY,
     handleRepositoryIndexingJob as RequestHandler
 );
 
 // Run Incremental Repository Indexing
 internalRoutes.post(
-    ENDPOINTS.INTERNAL.JOBS.INCREMENTAL_INDEXING,
+    ENDPOINTS.INTERNAL.INDEXING.INCREMENTAL,
     handleIncrementalIndexingJob as RequestHandler
 );
 
 // Run Bounty Payout
 internalRoutes.post(
-    ENDPOINTS.INTERNAL.JOBS.BOUNTY_PAYOUT,
+    ENDPOINTS.INTERNAL.BOUNTY_PAYOUT,
     handleBountyPayoutJob as RequestHandler
 );
