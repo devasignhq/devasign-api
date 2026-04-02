@@ -73,17 +73,12 @@ jest.mock("../../../../api/services/kms.service", () => ({
     }
 }));
 
-jest.mock("../../../../api/services/pr-review/indexing.service", () => ({
-    indexingService: {
-        clearInstallationData: jest.fn().mockResolvedValue(true),
-        clearRepositoryData: jest.fn().mockResolvedValue(true)
-    }
-}));
-
 jest.mock("../../../../api/services/cloud-tasks.service", () => ({
     cloudTasksService: {
         addRepositoryIndexingJob: jest.fn().mockResolvedValue("job-id-123"),
-        addBountyPayoutJob: jest.fn().mockResolvedValue("job-id-123")
+        addBountyPayoutJob: jest.fn().mockResolvedValue("job-id-123"),
+        addClearRepoJob: jest.fn().mockResolvedValue("job-id-123"),
+        addClearInstallationJob: jest.fn().mockResolvedValue("job-id-123")
     }
 }));
 
@@ -101,7 +96,6 @@ describe("Webhook API Integration Tests", () => {
 
     let mockPRAnalysisService: any;
     let mockContractService: any;
-    let mockIndexingService: any;
     let mockCloudTasksService: any;
 
     const WEBHOOK_SECRET = "test-webhook-secret";
@@ -150,9 +144,6 @@ describe("Webhook API Integration Tests", () => {
 
         const { PRAnalysisService } = await import("../../../../api/services/pr-review/pr-analysis.service");
         mockPRAnalysisService = PRAnalysisService;
-
-        const { indexingService } = await import("../../../../api/services/pr-review/indexing.service");
-        mockIndexingService = indexingService;
 
         const { cloudTasksService } = await import("../../../../api/services/cloud-tasks.service");
         mockCloudTasksService = cloudTasksService;
@@ -394,9 +385,7 @@ describe("Webhook API Integration Tests", () => {
 
             expect(mockContractService.refund).toHaveBeenCalled();
             expect(mockOctokitService.removeBountyLabelAndDeleteBountyComment).toHaveBeenCalled();
-
-            // Verify indexing data is cleared
-            expect(mockIndexingService.clearInstallationData).toHaveBeenCalledWith(VALID_INSTALLATION_ID);
+            expect(mockCloudTasksService.addClearInstallationJob).toHaveBeenCalledWith(VALID_INSTALLATION_ID);
         });
 
         it("should reactivate installation on unsuspend", async () => {
@@ -487,7 +476,7 @@ describe("Webhook API Integration Tests", () => {
                 data: { installationId: VALID_INSTALLATION_ID, action: "removed" }
             });
 
-            expect(mockIndexingService.clearRepositoryData).toHaveBeenCalledWith(VALID_INSTALLATION_ID, "test/repo-1");
+            expect(mockCloudTasksService.addClearRepoJob).toHaveBeenCalledWith(VALID_INSTALLATION_ID, "test/repo-1");
         });
     });
 

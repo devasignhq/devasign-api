@@ -8,7 +8,6 @@ import { ContractService } from "../contract.service";
 import { KMSService } from "../kms.service";
 import { OctokitService } from "../octokit.service";
 import { TaskIssue } from "../../models/task.model";
-import { indexingService } from "../pr-review/indexing.service";
 import { cloudTasksService } from "../cloud-tasks.service";
 
 export class InstallationWebhookService {
@@ -117,14 +116,14 @@ export class InstallationWebhookService {
                 });
             }
 
-            // Clear all indexed files across every installation repo
+            // Add clear installation job for all installation repos
             if (action === "deleted") {
+                dataLogger.info(`Adding clear installation job for installation ${installationId}`);
                 try {
-                    await indexingService.clearInstallationData(installationId);
-                    dataLogger.info(`Cleared indexing data for installation ${installationId}`);
+                    await cloudTasksService.addClearInstallationJob(installationId);
                 } catch (error) {
                     dataLogger.warn(
-                        `Failed to clear indexed data for installation ${installationId}:`,
+                        `Failed to add clear installation job for installation ${installationId}:`,
                         { error }
                     );
                 }
