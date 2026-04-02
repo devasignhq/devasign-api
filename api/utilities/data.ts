@@ -187,16 +187,23 @@ export const ENDPOINTS = {
     /** Internal endpoints */
     INTERNAL: {
         PREFIX: "/internal",
-        /** Internal job endpoints */
-        JOBS: {
-            /** POST /jobs/pr-analysis - Handle PR analysis job */
-            PR_ANALYSIS: "/jobs/pr-analysis",
-            /** POST /jobs/repository-indexing - Handle repository indexing job */
-            REPOSITORY_INDEXING: "/jobs/repository-indexing",
-            /** POST /jobs/repository-incremental-indexing - Handle incremental repository indexing job */
-            INCREMENTAL_INDEXING: "/jobs/repository-incremental-indexing",
-            /** POST /jobs/bounty-payout - Handle bounty payout job */
-            BOUNTY_PAYOUT: "/jobs/bounty-payout"
-        }
+        
+        /** POST /pr-analysis - Handle PR analysis */
+        PR_ANALYSIS: "/pr-analysis",
+        
+        /** Indexing routes */
+        INDEXING: {
+            /** POST /indexing/repository - Handle repository indexing */
+            REPOSITORY: "/indexing/repository",
+            /** POST /indexing/incremental - Handle incremental repository indexing */
+            INCREMENTAL: "/indexing/incremental",
+            /** POST /indexing/clear-installation - Clear installation indexed data */
+            CLEAR_INSTALLATION: "/indexing/clear-installation",
+            /** POST /indexing/clear-repo - Clear repository indexed data */
+            CLEAR_REPO: "/indexing/clear-repo"
+        },
+        
+        /** POST /bounty-payout - Handle bounty payout */
+        BOUNTY_PAYOUT: "/bounty-payout"
     }
 };
