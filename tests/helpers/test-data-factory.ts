@@ -8,12 +8,10 @@ import {
     Transaction,
     TaskSubmission,
     TaskActivity,
-    AIReviewResult,
     ContributionSummary,
     Wallet,
     TaskStatus,
     TransactionCategory,
-    ReviewStatus,
     InstallationStatus
 } from "../../prisma_client";
 
@@ -222,47 +220,6 @@ export class TestDataFactory {
             viewed: false,
             userId: "test-user-1",
             taskSubmissionId: null,
-            ...overrides
-        };
-    }
-    
-    /**
-     * Create a test AI review result
-     */
-    static aiReviewResult(overrides: Partial<AIReviewResult> = {}): Omit<AIReviewResult, "id" | "createdAt" | "updatedAt"> {
-        return {
-            installationId: `12345${Math.random().toString().slice(-3)}`,
-            prNumber: 1,
-            prUrl: "https://github.com/test/repo/pull/1",
-            repositoryName: "test/repo",
-            mergeScore: 85,
-            rulesViolated: [
-                {
-                    ruleId: "test-rule-1",
-                    ruleName: "Code Quality",
-                    severity: "MEDIUM",
-                    message: "Found TODO comments in code"
-                }
-            ],
-            rulesPassed: [
-                {
-                    ruleId: "test-rule-2",
-                    ruleName: "Security Check",
-                    severity: "HIGH",
-                    message: "No security vulnerabilities found"
-                }
-            ],
-            suggestions: [
-                {
-                    file: "src/main.ts",
-                    line: 42,
-                    suggestion: "Consider removing TODO comment and implementing the feature",
-                    severity: "MEDIUM"
-                }
-            ],
-            reviewStatus: ReviewStatus.COMPLETED,
-            commentId: null,
-            contextMetrics: null,
             ...overrides
         };
     }

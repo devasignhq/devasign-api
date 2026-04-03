@@ -232,15 +232,168 @@ describe("Task Contributor API Integration Tests", () => {
             expect(response.body.data).toHaveLength(0);
         });
 
-        it("should sort tasks by creation date", async () => {
+        it("should sort tasks by acceptance date", async () => {
+            // Need to set acceptedAt to test sorting properly
+            const now = new Date();
+            const older = new Date(now.getTime() - 1000000);
+            const oldest = new Date(now.getTime() - 2000000);
+
+            // Update tasks in DB
+            const allTasks = await prisma.task.findMany({ select: { id: true } });
+            await prisma.task.update({ where: { id: allTasks[0].id }, data: { acceptedAt: now } });
+            await prisma.task.update({ where: { id: allTasks[1].id }, data: { acceptedAt: older } });
+            await prisma.task.update({ where: { id: allTasks[2].id }, data: { acceptedAt: oldest } });
+
             const response = await request(app)
                 .get(`${getEndpointWithPrefix(["TASK", "CONTRIBUTOR", "GET_TASKS"])}?sort=asc`)
                 .set("x-test-user-id", "contributor-user")
                 .expect(STATUS_CODES.SUCCESS);
 
-            const dates = response.body.data.map((task: any) => new Date(task.createdAt).getTime());
+            const dates = response.body.data.map((task: any) => new Date(task.acceptedAt).getTime());
             const sortedDates = [...dates].sort((a, b) => a - b);
             expect(dates).toEqual(sortedDates);
+        });
+
+        it("should handle status=APPLIED filter using taskActivities", async () => {
+            // Create a task that user has applied to
+            const task = await prisma.task.create({
+                data: {
+                    ...TestDataFactory.filterData(
+                        TestDataFactory.task({ status: "OPEN" }),
+                        ["creatorId", "installationId", "contributorId", "acceptedAt", "completedAt"]
+                    ),
+                    installation: { connect: { id: testInstallation.id } },
+                    creator: { connect: { userId: "creator-user" } }
+                }
+            });
+
+            await prisma.taskActivity.create({
+                data: {
+                    taskId: task.id,
+                    userId: "contributor-user",
+                    taskSubmissionId: null
+                }
+            });
+
+            const response = await request(app)
+                .get(`${getEndpointWithPrefix(["TASK", "CONTRIBUTOR", "GET_TASKS"])}?status=APPLIED`)
+                .set("x-test-user-id", "contributor-user")
+                .expect(STATUS_CODES.SUCCESS);
+
+            expect(response.body.data).toHaveLength(1);
+            expect(response.body.data[0].id).toBe(task.id);
+        });
+
+        it("should handle status=NOT_ACCEPTED filter using taskActivities", async () => {
+            // Create a task that user has applied to but assigned to someone else
+            const otherContributor = TestDataFactory.user({ userId: "other-contributor" });
+            await prisma.user.create({
+                data: { ...otherContributor, contributionSummary: { create: {} } }
+            });
+
+            const task = await prisma.task.create({
+                data: {
+                    ...TestDataFactory.filterData(
+                        TestDataFactory.task({ status: "IN_PROGRESS" }),
+                        ["creatorId", "installationId", "contributorId", "acceptedAt", "completedAt"]
+                    ),
+                    installation: { connect: { id: testInstallation.id } },
+                    creator: { connect: { userId: "creator-user" } },
+                    contributor: { connect: { userId: "other-contributor" } }
+                }
+            });
+
+            await prisma.taskActivity.create({
+                data: {
+                    taskId: task.id,
+                    userId: "contributor-user",
+                    taskSubmissionId: null
+                }
+            });
+
+            const response = await request(app)
+                .get(`${getEndpointWithPrefix(["TASK", "CONTRIBUTOR", "GET_TASKS"])}?status=NOT_ACCEPTED`)
+                .set("x-test-user-id", "contributor-user")
+                .expect(STATUS_CODES.SUCCESS);
+
+            expect(response.body.data).toHaveLength(1);
+            expect(response.body.data[0].id).toBe(task.id);
+        });
+
+        it("should filter by issueTitle (JSON case-insensitive contains)", async () => {
+            const response = await request(app)
+                .get(`${getEndpointWithPrefix(["TASK", "CONTRIBUTOR", "GET_TASKS"])}?issueTitle=GitHub`)
+                .set("x-test-user-id", "contributor-user")
+                .expect(STATUS_CODES.SUCCESS);
+
+            expect(response.body.data.length).toBeGreaterThan(0);
+            expect(response.body.data[0].issue.title).toContain("GitHub");
+        });
+
+        it("should filter by repoUrl", async () => {
+            const response = await request(app)
+                .get(`${getEndpointWithPrefix(["TASK", "CONTRIBUTOR", "GET_TASKS"])}?repoUrl=user/repo`)
+                .set("x-test-user-id", "contributor-user")
+                .expect(STATUS_CODES.SUCCESS);
+
+            expect(response.body.data.length).toBeGreaterThan(0);
+            expect(response.body.data[0].issue.repository.url).toContain("user/repo");
+        });
+
+        it("should filter by issueLabels", async () => {
+            const response = await request(app)
+                .get(`${getEndpointWithPrefix(["TASK", "CONTRIBUTOR", "GET_TASKS"])}?issueLabels=bug`)
+                .set("x-test-user-id", "contributor-user")
+                .expect(STATUS_CODES.SUCCESS);
+
+            expect(response.body.data.length).toBeGreaterThan(0);
+            const hasBug = response.body.data[0].issue.labels.some((l: any) => l.name === "bug");
+            expect(hasBug).toBe(true);
+        });
+
+        it("should indicate hasMore: true when limit is exceeded", async () => {
+            const response = await request(app)
+                .get(`${getEndpointWithPrefix(["TASK", "CONTRIBUTOR", "GET_TASKS"])}?limit=1`)
+                .set("x-test-user-id", "contributor-user")
+                .expect(STATUS_CODES.SUCCESS);
+
+            expect(response.body.data).toHaveLength(1);
+            expect(response.body.pagination.hasMore).toBe(true);
+        });
+
+        it("should omit specific fields for tasks not assigned to the user", async () => {
+            // Task assigned to someone else BUT user has applied
+            const otherTask = await prisma.task.create({
+                data: {
+                    ...TestDataFactory.filterData(
+                        TestDataFactory.task({ status: "IN_PROGRESS" }),
+                        ["creatorId", "installationId", "contributorId", "acceptedAt", "completedAt"]
+                    ),
+                    installation: { connect: { id: testInstallation.id } },
+                    creator: { connect: { userId: "creator-user" } },
+                    contributor: { connect: { userId: "creator-user" } } // Assigned to creator for simplicity
+                }
+            });
+
+            await prisma.taskActivity.create({
+                data: {
+                    taskId: otherTask.id,
+                    userId: "contributor-user",
+                    taskSubmissionId: null
+                }
+            });
+
+            const response = await request(app)
+                .get(`${getEndpointWithPrefix(["TASK", "CONTRIBUTOR", "GET_TASKS"])}`)
+                .set("x-test-user-id", "contributor-user")
+                .expect(STATUS_CODES.SUCCESS);
+
+            const fetchedOtherTask = response.body.data.find((t: any) => t.id === otherTask.id);
+            expect(fetchedOtherTask).toBeDefined();
+            expect(fetchedOtherTask.acceptedAt).toBeUndefined();
+            expect(fetchedOtherTask.completedAt).toBeUndefined();
+            expect(fetchedOtherTask.contributor).toBeUndefined();
+            expect(fetchedOtherTask.settled).toBeUndefined();
         });
     });
 
@@ -339,6 +492,34 @@ describe("Task Contributor API Integration Tests", () => {
                 createdAt: expect.any(String),
                 updatedAt: expect.any(String)
             });
+        });
+
+        it("should allow a user to see task details if they have applied even if not assigned", async () => {
+            const applicantUser = TestDataFactory.user({ userId: "applicant-user" });
+            await prisma.user.create({
+                data: { ...applicantUser, contributionSummary: { create: {} } }
+            });
+
+            await prisma.taskActivity.create({
+                data: {
+                    taskId: testTask.id,
+                    userId: "applicant-user",
+                    taskSubmissionId: null
+                }
+            });
+
+            const response = await request(app)
+                .get(getEndpointWithPrefix(["TASK", "CONTRIBUTOR", "GET_TASK"])
+                    .replace(":taskId", testTask.id))
+                .set("x-test-user-id", "applicant-user")
+                .expect(STATUS_CODES.SUCCESS);
+
+            expect(response.body.data.id).toBe(testTask.id);
+            // Verify privacy: fields should be omitted since they are not the contributor
+            expect(response.body.data.settled).toBeUndefined();
+            expect(response.body.data.acceptedAt).toBeUndefined();
+            expect(response.body.data.completedAt).toBeUndefined();
+            expect(response.body.data.contributor).toBeUndefined();
         });
     });
 });

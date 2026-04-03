@@ -70,11 +70,14 @@ export const getInstallationTasks = async (req: Request, res: Response, next: Ne
                 mode: "insensitive"
             });
         }
-        if (filters.issueLabels && filters.issueLabels.length > 0) {
-            issueFilters.push({
-                path: ["labels"],
-                array_contains: filters.issueLabels.map((label) => ({ name: label }))
-            });
+        if (filters.issueLabels) {
+            const labelsArray = Array.isArray(filters.issueLabels) ? filters.issueLabels : [filters.issueLabels as unknown as string];
+            if (labelsArray.length > 0) {
+                issueFilters.push({
+                    path: ["labels"],
+                    array_contains: labelsArray.map((label) => ({ name: label }))
+                });
+            }
         }
         if (issueFilters.length > 0) {
             where.AND = issueFilters.map(filter => ({ issue: filter }));
