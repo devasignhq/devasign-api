@@ -285,4 +285,4 @@ router.post("/escrow/refund",
     }
 );
 
-export const contractRoutes = router;
+export const contractTestRoutes = router;
