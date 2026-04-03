@@ -1269,6 +1269,9 @@ ${accepted ? "**This bounty has already been assigned.**" : `**To work on this t
         installationId: string,
         repositoryName: string
     ): Promise<LinkedIssue[]> {
+        if (!prBody) {
+            return [];
+        }
         const linkedIssues: LinkedIssue[] = [];
 
         // Regex patterns to match issue references
@@ -1310,8 +1313,7 @@ ${accepted ? "**This bounty has already been assigned.**" : `**To work on this t
                 if (repositoryPath) {
                     issueUrl = `https://github.com/${repositoryPath}/issues/${issueNumber}`;
                 } else {
-                    // Use placeholder for current repository (will be filled in by caller)
-                    issueUrl = `#${issueNumber}`;
+                    issueUrl = `https://github.com/${repositoryName}/issues/${issueNumber}`;
                 }
 
                 // Avoid duplicates
