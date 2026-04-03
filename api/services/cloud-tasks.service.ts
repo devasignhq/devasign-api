@@ -1,5 +1,5 @@
 import { CloudTasksClient } from "@google-cloud/tasks";
-import { GitHubWebhookPayload } from "../models/ai-review.model";
+import { GitHubWebhookPayload, LinkedIssue } from "../models/ai-review.model";
 import { dataLogger } from "../config/logger.config";
 import { CloudTasksError } from "../models/error.model";
 import { ENDPOINTS } from "../utilities/data";
@@ -242,7 +242,13 @@ export class CloudTasksService {
      * @param payload - The pull request webhook payload
      * @returns The ID of the enqueued task
      */
-    public async addBountyPayoutJob(payload: Record<string, unknown>): Promise<string> {
+    public async addBountyPayoutJob(payload: {
+        taskId: string;
+        linkedIssues: LinkedIssue[];
+        pull_request: Record<string, unknown>;
+        repository: Record<string, unknown>;
+        installation: Record<string, unknown>;
+    }): Promise<string> {
         // Dispatch to Cloud Tasks
         return this.enqueueTask("bounty-payout", payload);
     }

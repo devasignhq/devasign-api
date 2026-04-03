@@ -26,18 +26,7 @@ jest.mock("../../../../api/services/octokit.service", () => ({
         getRepoIssuesWithSearch: jest.fn(),
         getRepoLabelsAndMilestones: jest.fn(),
         getBountyLabel: jest.fn(),
-        createBountyLabels: jest.fn(),
-        getPRDetails: jest.fn()
-    }
-}));
-
-// Mock PR Analysis Service
-jest.mock("../../../../api/services/pr-review/pr-analysis.service", () => ({
-    PRAnalysisService: {
-        extractLinkedIssues: jest.fn(),
-        fetchChangedFiles: jest.fn(),
-        shouldAnalyzePR: jest.fn(),
-        logExtractionResult: jest.fn()
+        createBountyLabels: jest.fn()
     }
 }));
 
@@ -61,20 +50,11 @@ jest.mock("../../../../api/services/kms.service", () => ({
     }
 }));
 
-// Mock Background Job Service
-jest.mock("../../../../api/services/cloud-tasks.service", () => ({
-    cloudTasksService: {
-        addRepositoryIndexingJob: jest.fn()
-    }
-}));
-
 describe("Installation GitHub API Integration Tests", () => {
     let app: express.Application;
     let prisma: any;
     let mockFirebaseAuth: jest.Mock;
     let mockOctokitService: any;
-    let mockPRAnalysisService: any;
-    let mockCloudTasksService: any;
 
     beforeAll(async () => {
         prisma = await DatabaseTestHelper.setupTestDatabase();
@@ -102,12 +82,6 @@ describe("Installation GitHub API Integration Tests", () => {
 
         const { OctokitService } = await import("../../../../api/services/octokit.service");
         mockOctokitService = OctokitService;
-
-        const { PRAnalysisService } = await import("../../../../api/services/pr-review/pr-analysis.service");
-        mockPRAnalysisService = PRAnalysisService;
-
-        const { cloudTasksService } = await import("../../../../api/services/cloud-tasks.service");
-        mockCloudTasksService = cloudTasksService;
     });
 
     beforeEach(async () => {
@@ -159,40 +133,6 @@ describe("Installation GitHub API Integration Tests", () => {
             name: "bounty",
             color: "00ff00"
         });
-
-        mockOctokitService.getPRDetails.mockResolvedValue({
-            number: 1,
-            title: "Test PR",
-            body: "Fixes #1",
-            html_url: "https://github.com/test-org/test-repo/pull/1",
-            user: { login: "test-user" },
-            draft: false
-        });
-
-        mockPRAnalysisService.extractLinkedIssues.mockResolvedValue([
-            {
-                number: 1,
-                url: "https://github.com/test-org/test-repo/issues/1",
-                linkType: "fixes",
-                title: "Test Issue",
-                body: "Issue body",
-                labels: []
-            }
-        ]);
-
-        mockPRAnalysisService.fetchChangedFiles.mockResolvedValue([
-            {
-                filename: "test.ts",
-                status: "modified",
-                additions: 10,
-                deletions: 5,
-                patch: "@@ -1,5 +1,10 @@\n+new code"
-            }
-        ]);
-
-        mockPRAnalysisService.shouldAnalyzePR.mockReturnValue(true);
-        mockPRAnalysisService.logExtractionResult.mockImplementation(() => { });
-        mockCloudTasksService.addRepositoryIndexingJob.mockResolvedValue(undefined);
 
         TestDataFactory.resetCounters();
     });
@@ -428,155 +368,6 @@ describe("Installation GitHub API Integration Tests", () => {
         });
     });
 
-    describe(`POST ${getEndpointWithPrefix(["INSTALLATION", "GITHUB", "ANALYZE_PR"])} - Trigger Manual PR Analysis`, () => {
-        let testInstallation: any;
-
-        beforeEach(async () => {
-            const user = TestDataFactory.user({ userId: "user-1" });
-            await prisma.user.create({
-                data: { ...user, contributionSummary: { create: {} } }
-            });
-
-            testInstallation = TestDataFactory.installation({ id: "12345678" });
-            await prisma.installation.create({
-                data: {
-                    ...testInstallation,
-                    users: {
-                        connect: { userId: "user-1" }
-                    },
-                    wallet: TestDataFactory.createWalletRelation()
-                }
-            });
-        });
-
-        it("should trigger PR analysis successfully", async () => {
-            const analysisData = {
-                repositoryName: "test-org/test-repo",
-                prNumber: 1
-            };
-
-            const response = await request(app)
-                .post(getEndpointWithPrefix(["INSTALLATION", "GITHUB", "ANALYZE_PR"])
-                    .replace(":installationId", "12345678"))
-                .set("x-test-user-id", "user-1")
-                .send(analysisData)
-                .expect(STATUS_CODES.BACKGROUND_JOB);
-
-            expect(response.body).toMatchObject({
-                message: "PR analysis triggered successfully",
-                data: expect.objectContaining({
-                    installationId: "12345678",
-                    repositoryName: "test-org/test-repo",
-                    prNumber: 1,
-                    prUrl: "https://github.com/test-org/test-repo/pull/1",
-                    title: "Test PR",
-                    author: "test-user",
-                    isDraft: false,
-                    linkedIssuesCount: 1,
-                    changedFilesCount: 1,
-                    eligibleForAnalysis: true,
-                    triggerType: "manual",
-                    triggeredBy: "user-1"
-                })
-            });
-
-            expect(mockOctokitService.getPRDetails).toHaveBeenCalledWith("12345678", "test-org/test-repo", 1);
-            expect(mockPRAnalysisService.extractLinkedIssues).toHaveBeenCalled();
-            expect(mockPRAnalysisService.fetchChangedFiles).toHaveBeenCalled();
-        });
-
-        it("should return 404 when PR not found", async () => {
-            mockOctokitService.getPRDetails.mockResolvedValue(null);
-
-            const analysisData = {
-                repositoryName: "test-org/test-repo",
-                prNumber: 999
-            };
-
-            const response = await request(app)
-                .post(getEndpointWithPrefix(["INSTALLATION", "GITHUB", "ANALYZE_PR"])
-                    .replace(":installationId", "12345678"))
-                .set("x-test-user-id", "user-1")
-                .send(analysisData)
-                .expect(STATUS_CODES.NOT_FOUND);
-
-            expect(response.body).toMatchObject({
-                message: expect.stringContaining("PR #999 not found")
-            });
-        });
-
-        it("should handle GitHub API errors gracefully", async () => {
-            mockOctokitService.getPRDetails.mockRejectedValue({
-                status: 403,
-                message: "API rate limit exceeded"
-            });
-
-            const analysisData = {
-                repositoryName: "test-org/test-repo",
-                prNumber: 1
-            };
-
-            const response = await request(app)
-                .post(getEndpointWithPrefix(["INSTALLATION", "GITHUB", "ANALYZE_PR"])
-                    .replace(":installationId", "12345678"))
-                .set("x-test-user-id", "user-1")
-                .send(analysisData)
-                .expect(STATUS_CODES.SERVER_ERROR);
-
-            expect(response.body.meta.code).toBe("GITHUB_API_ERROR");
-        });
-    });
-
-    describe(`GET ${getEndpointWithPrefix(["INSTALLATION", "GITHUB", "INDEX_REPOSITORIES"])} - Index Installation Repositories`, () => {
-        let testInstallation: any;
-
-        beforeEach(async () => {
-            const user = TestDataFactory.user({ userId: "user-1" });
-            await prisma.user.create({
-                data: { ...user, contributionSummary: { create: {} } }
-            });
-
-            testInstallation = TestDataFactory.installation({ id: "12345678" });
-            await prisma.installation.create({
-                data: {
-                    ...testInstallation,
-                    users: {
-                        connect: { userId: "user-1" }
-                    },
-                    wallet: TestDataFactory.createWalletRelation()
-                }
-            });
-        });
-
-        it("should trigger repository indexing successfully", async () => {
-            const response = await request(app)
-                .get(getEndpointWithPrefix(["INSTALLATION", "GITHUB", "INDEX_REPOSITORIES"])
-                    .replace(":installationId", "12345678"))
-                .set("x-test-user-id", "user-1")
-                .expect(STATUS_CODES.BACKGROUND_JOB);
-
-            expect(response.body).toMatchObject({
-                message: "Repository indexing triggered successfully",
-                data: {
-                    installationId: "12345678"
-                }
-            });
-
-            expect(mockOctokitService.getInstallationRepositories).toHaveBeenCalledWith("12345678");
-            expect(mockCloudTasksService.addRepositoryIndexingJob).toHaveBeenCalledWith("12345678", "test-repo");
-        });
-
-        it("should handle GitHub API errors gracefully", async () => {
-            mockOctokitService.getInstallationRepositories.mockRejectedValue(new Error("API Error"));
-
-            await request(app)
-                .get(getEndpointWithPrefix(["INSTALLATION", "GITHUB", "INDEX_REPOSITORIES"])
-                    .replace(":installationId", "12345678"))
-                .set("x-test-user-id", "user-1")
-                .expect(STATUS_CODES.UNKNOWN);
-        });
-    });
-
     describe("Authentication and Authorization", () => {
         it("should require authentication for all GitHub endpoints", async () => {
             const appWithoutAuth = express();
@@ -607,17 +398,6 @@ describe("Installation GitHub API Integration Tests", () => {
             await request(appWithoutAuth)
                 .get(`${getEndpointWithPrefix(["INSTALLATION", "GITHUB", "SET_BOUNTY_LABEL"])
                     .replace(":installationId", "12345678")}?repositoryId=123`)
-                .expect(STATUS_CODES.UNAUTHENTICATED);
-
-            await request(appWithoutAuth)
-                .post(getEndpointWithPrefix(["INSTALLATION", "GITHUB", "ANALYZE_PR"])
-                    .replace(":installationId", "12345678"))
-                .send({ repositoryName: "test/repo", prNumber: 1 })
-                .expect(STATUS_CODES.UNAUTHENTICATED);
-
-            await request(appWithoutAuth)
-                .get(getEndpointWithPrefix(["INSTALLATION", "GITHUB", "INDEX_REPOSITORIES"])
-                    .replace(":installationId", "12345678"))
                 .expect(STATUS_CODES.UNAUTHENTICATED);
         });
     });

@@ -118,19 +118,3 @@ export const getOrCreateBountyLabelSchema = {
         repositoryId: z.string().min(1, "Repository ID cannot be empty")
     })
 };
-
-export const indexInstallationRepositoriesSchema = {
-    params: z.object({
-        installationId: installationIdSchema
-    })
-};
-
-export const triggerManualPRAnalysisSchema = {
-    params: z.object({
-        installationId: installationIdSchema
-    }),
-    body: z.object({
-        repositoryName: z.string().regex(/^[\w\-\.]+\/[\w\-\.]+$/, 'Repository name must be in format "owner/repo"'),
-        prNumber: z.coerce.number().int().min(1, "PR number must be a positive integer")
-    })
-};

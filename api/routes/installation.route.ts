@@ -10,9 +10,7 @@ import {
     getInstallationRepositories,
     getOrCreateBountyLabel,
     getRepositoryIssues,
-    getRepositoryResources,
-    triggerManualPRAnalysis,
-    indexInstallationRepositories
+    getRepositoryResources
 } from "../controllers/installation";
 import { validateUserInstallation } from "../middlewares/auth.middleware";
 import {
@@ -26,9 +24,7 @@ import {
     getInstallationRepositoriesSchema,
     getRepositoryIssuesSchema,
     getRepositoryResourcesSchema,
-    getOrCreateBountyLabelSchema,
-    triggerManualPRAnalysisSchema,
-    indexInstallationRepositoriesSchema
+    getOrCreateBountyLabelSchema
 } from "../schemas/installation.schema";
 import { ENDPOINTS } from "../utilities/data";
 import { validateRequestParameters } from "../middlewares/request.middleware";
@@ -123,20 +119,4 @@ installationRoutes.get(
     validateRequestParameters(getOrCreateBountyLabelSchema),
     validateUserInstallation as RequestHandler,
     getOrCreateBountyLabel as RequestHandler
-);
-
-// Index installation repositories
-installationRoutes.get(
-    ENDPOINTS.INSTALLATION.GITHUB.INDEX_REPOSITORIES,
-    validateRequestParameters(indexInstallationRepositoriesSchema),
-    validateUserInstallation as RequestHandler,
-    indexInstallationRepositories as RequestHandler
-);
-
-// Manual trigger for PR analysis
-installationRoutes.post(
-    ENDPOINTS.INSTALLATION.GITHUB.ANALYZE_PR,
-    validateRequestParameters(triggerManualPRAnalysisSchema),
-    validateUserInstallation as RequestHandler,
-    triggerManualPRAnalysis as RequestHandler
 );

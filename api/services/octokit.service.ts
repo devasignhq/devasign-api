@@ -13,6 +13,7 @@ import {
 import { getFieldFromUnknownObject, moneyFormat } from "../utilities/helper";
 import { GitHubAPIError } from "../models/error.model";
 import { dataLogger, messageLogger } from "../config/logger.config";
+import { LinkedIssue } from "../models/ai-review.model";
 
 const commentCTA = `${process.env.CONTRIBUTOR_APP_URL!}/application`;
 
@@ -1254,6 +1255,101 @@ ${accepted ? "**This bounty has already been assigned.**" : `**To work on this t
                 error
             );
         }
+    }
+
+    /**
+     * Extracts linked issues from PR body using keywords
+     * @param prBody - The body of the PR
+     * @param installationId - The ID of the installation
+     * @param repositoryName - The name of the repository
+     * @returns A promise that resolves to an array of linked issues
+     */
+    public static async extractLinkedIssues(
+        prBody: string,
+        installationId: string,
+        repositoryName: string
+    ): Promise<LinkedIssue[]> {
+        const linkedIssues: LinkedIssue[] = [];
+
+        // Regex patterns to match issue references
+        const patterns = [
+            // "closes #123", "fixes #456"
+            /(?:closes|resolves|fixes|close|resolve|fix)\s+#(\d+)/gi,
+            // "closes https://github.com/owner/repo/issues/123"
+            /(?:closes|resolves|fixes|close|resolve|fix)\s+https:\/\/github\.com\/([^\/]+)\/([^\/]+)\/issues\/(\d+)/gi
+        ];
+
+        // Find all matches in PR body
+        for (const pattern of patterns) {
+            let match;
+            while ((match = pattern.exec(prBody)) !== null) {
+                let issueNumber: number;
+                let repositoryPath = "";
+
+                if (match.length === 2) {
+                    // Pattern: "closes #123"
+                    issueNumber = parseInt(match[1]);
+                } else if (match.length === 4) {
+                    // Pattern: "closes https://github.com/owner/repo/issues/123" or "closes owner/repo#123"
+                    issueNumber = parseInt(match[3]);
+                    repositoryPath = `${match[1]}/${match[2]}`;
+                } else {
+                    continue;
+                }
+
+                const linkTypeRaw = match[0].toLowerCase().split(/\s+/)[0];
+
+                // Normalize link type
+                const normalizedLinkType = linkTypeRaw === "close" ? "closes" :
+                    linkTypeRaw === "resolve" ? "resolves" :
+                        linkTypeRaw === "fix" ? "fixes" :
+                            linkTypeRaw as "closes" | "resolves" | "fixes";
+
+                // Build issue URL
+                let issueUrl: string;
+                if (repositoryPath) {
+                    issueUrl = `https://github.com/${repositoryPath}/issues/${issueNumber}`;
+                } else {
+                    // Use placeholder for current repository (will be filled in by caller)
+                    issueUrl = `#${issueNumber}`;
+                }
+
+                // Avoid duplicates
+                if (!linkedIssues.some(issue => issue.number === issueNumber && issue.url === issueUrl)) {
+                    // Fetch issue details from GitHub
+                    const issueDetails = await this.fetchIssueDetails(
+                        installationId,
+                        repositoryName,
+                        issueNumber
+                    );
+
+                    // Add issue to linked issues
+                    if (!issueDetails) {
+                        linkedIssues.push({
+                            number: issueNumber,
+                            title: "",
+                            body: "",
+                            url: issueUrl,
+                            linkType: normalizedLinkType,
+                            labels: [],
+                            comments: []
+                        });
+                    } else {
+                        linkedIssues.push({
+                            number: issueNumber,
+                            title: issueDetails.title,
+                            body: issueDetails.body || "",
+                            url: issueDetails.url,
+                            linkType: normalizedLinkType,
+                            labels: issueDetails.labels,
+                            comments: issueDetails.comments
+                        });
+                    }
+                }
+            }
+        }
+
+        return linkedIssues;
     }
 
     /**
