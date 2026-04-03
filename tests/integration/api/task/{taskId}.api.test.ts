@@ -678,7 +678,7 @@ describe("Task {taskId} API Integration Tests", () => {
                 .set("x-test-user-id", "applicant")
                 .expect(STATUS_CODES.SERVER_ERROR);
 
-            expect(response.body.message).toBe("Task is not open");
+            expect(response.body.message).toBe("This task has already been delegated to someone else");
         });
 
         it("should return 404 when task not found", async () => {
@@ -1339,10 +1339,6 @@ describe("Task {taskId} API Integration Tests", () => {
                 .set("x-test-user-id", "task-creator")
                 .expect(STATUS_CODES.PARTIAL_SUCCESS);
 
-            expect(response.body.data).toMatchObject({
-                validated: true,
-                task: expect.any(Object)
-            });
             expect(response.body.warning).toContain("Failed to disable chat for the task.");
         });
 

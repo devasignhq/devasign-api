@@ -264,8 +264,7 @@ docker run -d --name devasign-api -p 8080:8080 --env-file .env.production devasi
 #### GitHub App Integration
 1. Go to developer settings on your GitHub account
 2. Create and configure a new GitHub App with the following settings:
-   - **Webhook URL**: `https://your-domain.com/api/webhook/github/pr-review` (for PR reviews)
-   - **Webhook URL**: `https://your-domain.com/api/webhook/github/pr-merged` (for automatic payments)
+   - **Webhook URL**: `https://your-domain.com/api/webhook/github`
    - **Webhook Events**: Subscribe to `pull_request` events
    - **Permissions**: 
      - Repository permissions: Read & Write access to pull requests, issues, and contents

@@ -18,42 +18,9 @@ jest.mock("../../../../api/config/logger.config", () => ({
     }
 }));
 
-// Mock Firebase admin
-jest.mock("../../../../api/config/firebase.config", () => ({
-    firebaseAdmin: { auth: () => ({ verifyIdToken: jest.fn() }) }
-}));
-
 // Mock Stellar service and KMS
 jest.mock("../../../../api/services/stellar.service", () => ({ stellarService: {} }));
 jest.mock("../../../../api/services/kms.service", () => ({ KMSService: {} }));
-
-// Mock OctokitService (used in webhook controller)
-jest.mock("../../../../api/services/octokit.service", () => ({
-    OctokitService: {
-        getDefaultBranch: jest.fn()
-    }
-}));
-
-jest.mock("../../../../api/services/pr-review/pr-analysis.service", () => ({
-    PRAnalysisService: {
-        extractLinkedIssues: jest.fn()
-    }
-}));
-
-// Mock Firebase service for task messaging
-jest.mock("../../../../api/services/firebase.service", () => ({
-    FirebaseService: {
-        updateTaskStatus: jest.fn().mockResolvedValue(true)
-    }
-}));
-
-// Mock Contract service
-jest.mock("../../../../api/services/contract.service", () => ({
-    ContractService: {
-        approveCompletion: jest.fn(),
-        refund: jest.fn()
-    }
-}));
 
 describe("Sumsub Webhook API Integration Tests", () => {
     let app: express.Application;

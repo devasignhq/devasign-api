@@ -165,10 +165,6 @@ export class DatabaseTestHelper {
             await client.wallet.deleteMany();
             await client.permission.deleteMany();
             await client.subscriptionPackage.deleteMany();
-            await client.aIReviewResult.deleteMany();
-            await client.codeFile.deleteMany();
-            await client.codeChunk.deleteMany();
-            await client.repositoryIndexingState.deleteMany();
 
             console.log("✅ Database reset completed");
         } catch (error) {

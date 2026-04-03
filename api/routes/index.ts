@@ -3,7 +3,6 @@ export * from "./task.route";
 export * from "./user.route";
 export * from "./wallet.route";
 export * from "./webhook.route";
-export * from "./_test_/ai-services.test.route";
 export * from "./_test_/contract.test.route";
 export * from "./_test_/general.test.route";
 export * from "./_test_/stellar.test.route";

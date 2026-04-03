@@ -19,8 +19,7 @@ import {
     webhookRoutes,
     stellarRoutes,
     testRoutes,
-    aiServicesRoutes,
-    contractRoutes,
+    contractTestRoutes,
     octokitTestRoutes,
     publicTaskRoutes,
     internalRoutes
@@ -138,8 +137,7 @@ if (process.env.NODE_ENV !== "production") {
 
     app.use("/stellar", internalMiddlware, stellarRoutes);
     app.use("/test", internalMiddlware, testRoutes);
-    app.use("/ai-services", internalMiddlware, aiServicesRoutes);
-    app.use("/contract", internalMiddlware, contractRoutes);
+    app.use("/contract", internalMiddlware, contractTestRoutes);
     app.use("/octokit", internalMiddlware, octokitTestRoutes);
 }
 

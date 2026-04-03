@@ -56,44 +56,6 @@ export const getAccountInfoSchema = {
     })
 };
 
-// AI Services test schemas
-export const geminiChatSchema = {
-    body: z.object({
-        message: z.string().min(1, "Message is required"),
-        model: z.string().optional()
-    })
-};
-
-export const geminiCodeReviewSchema = {
-    body: z.object({
-        code: z.string().min(1, "Code content is required"),
-        language: z.string().optional(),
-        filename: z.string().optional()
-    })
-};
-
-export const geminiTestModelsSchema = {
-    body: z.object({
-        prompt: z.string().min(1, "Prompt is required"),
-        models: z.array(z.string()).optional()
-    })
-};
-
-export const geminiTestJsonSchema = {
-    body: z.object({
-        testPrompt: z.string().optional()
-    })
-};
-
-export const manualAnalysisSchema = {
-    body: z.object({
-        installationId: z.string().min(1, "Installation ID is required"),
-        repositoryName: z.string().min(1, "Repository name is required"),
-        prNumber: z.number().int().min(1, "PR number must be a positive integer"),
-        reason: z.string().optional()
-    })
-};
-
 // General test schemas
 export const createTestUserSchema = {
     params: z.object({

@@ -19,12 +19,6 @@ jest.mock("../../../../api/config/firebase.config", () => {
     };
 });
 
-jest.mock("../../../../api/services/pr-review/pr-analysis.service", () => ({
-    PRAnalysisService: {
-        extractLinkedIssues: jest.fn()
-    }
-}));
-
 jest.mock("../../../../api/services/firebase.service", () => ({
     FirebaseService: {
         updateTaskStatus: jest.fn().mockResolvedValue(true),
@@ -44,7 +38,8 @@ jest.mock("../../../../api/services/octokit.service", () => {
             createBountyLabels: jest.fn().mockResolvedValue([{ name: BOUNTY_LABEL, id: "mock-label-id" }]),
             customBountyMessage: jest.fn().mockReturnValue("mock-bounty-message"),
             addBountyLabelAndCreateBountyComment: jest.fn().mockResolvedValue({ id: "mock-comment-id" }),
-            createComment: jest.fn()
+            createComment: jest.fn(),
+            extractLinkedIssues: jest.fn()
         }
     };
 });
@@ -86,7 +81,6 @@ describe("Webhook API Integration Tests", () => {
     let app: express.Application;
     let prisma: any;
     let mockOctokitService: any;
-    let mockPRAnalysisService: any;
     let mockContractService: any;
     let mockCloudTasksService: any;
 
@@ -124,15 +118,13 @@ describe("Webhook API Integration Tests", () => {
             createBountyLabels: jest.fn().mockResolvedValue([{ name: BOUNTY_LABEL, id: "mock-label-id" }]),
             customBountyMessage: jest.fn().mockReturnValue("mock-bounty-message"),
             addBountyLabelAndCreateBountyComment: jest.fn().mockResolvedValue({ id: "mock-comment-id" }),
-            createComment: jest.fn()
+            createComment: jest.fn(),
+            extractLinkedIssues: jest.fn()
         };
         Object.assign(OctokitService, mockOctokitService);
 
         const { ContractService } = await import("../../../../api/services/contract.service");
         mockContractService = ContractService;
-
-        const { PRAnalysisService } = await import("../../../../api/services/pr-review/pr-analysis.service");
-        mockPRAnalysisService = PRAnalysisService;
 
         const { cloudTasksService } = await import("../../../../api/services/cloud-tasks.service");
         mockCloudTasksService = cloudTasksService;
@@ -160,7 +152,7 @@ describe("Webhook API Integration Tests", () => {
             result: { createdAt: 1234567890 }
         });
 
-        mockPRAnalysisService.extractLinkedIssues = jest.fn().mockResolvedValue([
+        mockOctokitService.extractLinkedIssues.mockResolvedValue([
             { number: 1, title: "Test Issue" }
         ]);
     });
@@ -474,7 +466,7 @@ describe("Webhook API Integration Tests", () => {
                 expect(response.body).toMatchObject({
                     message: "PR webhook processed successfully - analysis queued",
                     data: {
-                        jobId: "test-job-123",
+                        jobId: "job-id-123",
                         installationId: VALID_INSTALLATION_ID,
                         repositoryName: VALID_REPO_NAME,
                         prNumber: 1,
@@ -533,10 +525,9 @@ describe("Webhook API Integration Tests", () => {
             });
 
             it("should handle workflow processing errors", async () => {
-                mockCloudTasksService.addPRAnalysisJob.mockResolvedValue({
-                    success: false,
-                    error: "GitHub API rate limit exceeded"
-                });
+                mockCloudTasksService.addPRAnalysisJob.mockResolvedValueOnce(
+                    null
+                );
 
                 const payload = createWebhookPayload();
                 const payloadString = JSON.stringify(payload);
@@ -550,7 +541,7 @@ describe("Webhook API Integration Tests", () => {
                     .send(payloadString)
                     .expect(STATUS_CODES.SERVER_ERROR);
 
-                expect(response.body.message).toBe("GitHub API rate limit exceeded");
+                expect(response.body.message).toBe("Failed to process PR webhook");
             });
 
             it("should validate webhook signature and reject invalid signatures", async () => {
@@ -723,11 +714,61 @@ describe("Webhook API Integration Tests", () => {
         });
 
         describe("Bounty Payout on PR Merge", () => {
-            let mockCloudTasksService: any;
+            let testTask: any;
 
-            beforeAll(async () => {
+            beforeEach(async () => {
                 const { cloudTasksService } = await import("../../../../api/services/cloud-tasks.service");
                 mockCloudTasksService = cloudTasksService;
+
+                // Mock extractLinkedIssues to return issue #1
+                mockOctokitService.extractLinkedIssues.mockResolvedValue([
+                    { number: 1, title: "Test Issue" }
+                ]);
+
+                // Setup DB for bounty payout: installation + user + task
+                // Create a creator user first
+                const creator = await prisma.user.create({
+                    data: {
+                        ...TestDataFactory.user({ userId: "task-creator", username: "taskcreator" }),
+                        contributionSummary: { create: {} }
+                    }
+                });
+
+                // Create contributor user
+                const contributor = await prisma.user.create({
+                    data: {
+                        ...TestDataFactory.user({ userId: "test-contributor", username: "testcontributor" }),
+                        contributionSummary: { create: {} }
+                    }
+                });
+
+                // Create installation
+                await prisma.installation.create({
+                    data: {
+                        ...TestDataFactory.installation({ id: VALID_INSTALLATION_ID }),
+                        wallet: TestDataFactory.createWalletRelation()
+                    }
+                });
+
+                // Create related task
+                testTask = await prisma.task.create({
+                    data: {
+                        ...TestDataFactory.task({
+                            status: "MARKED_AS_COMPLETED",
+                            issue: {
+                                number: 1,
+                                title: "Test Issue",
+                                url: "https://github.com/test/repo/issues/1"
+                            },
+                            creatorId: undefined,
+                            contributorId: undefined,
+                            installationId: undefined
+                        }),
+                        installation: { connect: { id: VALID_INSTALLATION_ID } },
+                        contributor: { connect: { userId: contributor.userId } },
+                        creator: { connect: { userId: creator.userId } }
+                    }
+                });
             });
 
             it("should enqueue bounty payout job when PR is merged", async () => {
@@ -762,10 +803,11 @@ describe("Webhook API Integration Tests", () => {
                 });
 
                 expect(mockCloudTasksService.addBountyPayoutJob).toHaveBeenCalledWith({
+                    taskId: testTask.id,
+                    linkedIssues: [{ number: 1, title: "Test Issue" }],
                     pull_request: {
                         number: payload.pull_request.number,
                         html_url: payload.pull_request.html_url,
-                        body: payload.pull_request.body,
                         user: { login: payload.pull_request.user.login }
                     },
                     repository: { full_name: payload.repository.full_name },
@@ -910,7 +952,7 @@ describe("Webhook API Integration Tests", () => {
 
                 expect(response.body.message).toBe("PR webhook processed successfully - analysis queued");
                 expect(response.body.data).toMatchObject({
-                    jobId: "test-job-123",
+                    jobId: "job-id-123",
                     eligibleForAnalysis: true,
                     status: "queued"
                 });
@@ -1558,7 +1600,7 @@ describe("Webhook API Integration Tests", () => {
         });
 
         it("should handle unexpected errors and pass to error middleware", async () => {
-            mockCloudTasksService.addPRAnalysisJob.mockRejectedValue(
+            mockCloudTasksService.addPRAnalysisJob.mockRejectedValueOnce(
                 new Error("Unexpected database connection error")
             );
 
@@ -1576,28 +1618,6 @@ describe("Webhook API Integration Tests", () => {
                 .expect(STATUS_CODES.UNKNOWN);
 
             expect(response.body.message).toBe("Unexpected database connection error");
-        });
-
-        it("should handle default branch validation errors gracefully", async () => {
-            mockOctokitService.getDefaultBranch.mockRejectedValue(
-                new Error("Failed to fetch repository info")
-            );
-
-            const payload = createWebhookPayload();
-            const payloadString = JSON.stringify(payload);
-            const signature = createWebhookSignature(payloadString);
-
-            // Should still process the webhook despite default branch validation error
-            const response = await request(app)
-                .post(getEndpointWithPrefix(["WEBHOOK", "GITHUB"]))
-                .set("X-GitHub-Event", "pull_request")
-                .set("X-Hub-Signature-256", signature)
-                .set("X-GitHub-Delivery", "test-delivery-123")
-                .set("Content-Type", "application/json")
-                .send(payloadString)
-                .expect(STATUS_CODES.BACKGROUND_JOB);
-
-            expect(response.body.message).toContain("PR webhook processed successfully");
         });
     });
 

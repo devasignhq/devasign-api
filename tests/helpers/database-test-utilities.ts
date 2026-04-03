@@ -63,9 +63,6 @@ export class DatabaseTestUtilities {
             // Create transactions
             const transactions = await this.createTransactions(users, tasks, installations);
 
-            // Create AI review results
-            const aiReviewResults = await this.createAIReviewResults(installations);
-
             // Create contribution summaries
             const contributionSummaries = await this.createContributionSummaries(users);
 
@@ -80,7 +77,6 @@ export class DatabaseTestUtilities {
                 tasks,
                 taskSubmissions,
                 transactions,
-                aiReviewResults,
                 contributionSummaries
             };
         } catch (error) {
@@ -430,46 +426,6 @@ export class DatabaseTestUtilities {
     }
 
     /**
-     * Create AI review results
-     */
-    private async createAIReviewResults(installations: any[]) {
-        const aiReviewResults = [];
-
-        for (const installation of installations) {
-            const results = [
-                TestDataFactory.aiReviewResult({
-                    installationId: installation.id,
-                    prNumber: 1,
-                    repositoryName: `${installation.account.login}/repo`,
-                    mergeScore: 85
-                }),
-                TestDataFactory.aiReviewResult({
-                    installationId: installation.id,
-                    prNumber: 2,
-                    repositoryName: `${installation.account.login}/repo`,
-                    mergeScore: 92,
-                    reviewStatus: "COMPLETED"
-                })
-            ];
-
-            for (const resultData of results) {
-                const result = await this.client.aIReviewResult.create({
-                    data: {
-                        ...resultData,
-                        rulesViolated: resultData.rulesViolated as Prisma.InputJsonValue,
-                        rulesPassed: resultData.rulesPassed as Prisma.InputJsonValue,
-                        suggestions: resultData.suggestions as Prisma.InputJsonValue,
-                        contextMetrics: resultData.contextMetrics as Prisma.InputJsonValue
-                    }
-                });
-                aiReviewResults.push(result);
-            }
-        }
-
-        return aiReviewResults;
-    }
-
-    /**
      * Create contribution summaries for users
      */
     private async createContributionSummaries(users: any[]) {
@@ -502,7 +458,6 @@ export class DatabaseTestUtilities {
             await this.client.taskActivity.deleteMany();
             await this.client.taskSubmission.deleteMany();
             await this.client.transaction.deleteMany();
-            await this.client.aIReviewResult.deleteMany();
             await this.client.userInstallationPermission.deleteMany();
             await this.client.task.deleteMany();
             await this.client.contributionSummary.deleteMany();
@@ -668,8 +623,7 @@ export class DatabaseTestUtilities {
                 subscriptionPackages: await this.client.subscriptionPackage.count(),
                 permissions: await this.client.permission.count(),
                 transactions: await this.client.transaction.count(),
-                taskSubmissions: await this.client.taskSubmission.count(),
-                aiReviewResults: await this.client.aIReviewResult.count()
+                taskSubmissions: await this.client.taskSubmission.count()
             };
 
             console.log("📊 Database Statistics:", stats);
@@ -691,7 +645,6 @@ export interface SeedData {
     tasks: any[];
     taskSubmissions: any[];
     transactions: any[];
-    aiReviewResults: any[];
     contributionSummaries: any[];
 }
 
@@ -712,5 +665,4 @@ export interface DatabaseStats {
     permissions: number;
     transactions: number;
     taskSubmissions: number;
-    aiReviewResults: number;
 }

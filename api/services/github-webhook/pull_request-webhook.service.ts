@@ -6,7 +6,7 @@ import { dataLogger } from "../../config/logger.config";
 import { cloudTasksService } from "../cloud-tasks.service";
 import { TaskStatus } from "../../../prisma_client";
 import { prisma } from "../../config/database.config";
-import { PRAnalysisService } from "../pr-review/pr-analysis.service";
+import { OctokitService } from "../octokit.service";
 
 export class PullRequestWebhookService {
     /**
@@ -97,7 +97,7 @@ export class PullRequestWebhookService {
 
         try {
             // Extract linked issues from PR body
-            const linkedIssues = await PRAnalysisService.extractLinkedIssues(
+            const linkedIssues = await OctokitService.extractLinkedIssues(
                 pull_request.body || "",
                 installationId,
                 repositoryName
