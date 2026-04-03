@@ -88,9 +88,6 @@ model Installation {
     userInstallationPermissions UserInstallationPermission[]
     transactions                Transaction[]
     taskSubmissions             TaskSubmission[]
-    aiReviewResult              AIReviewResult[]
-    codeFiles                   CodeFile[]
-    repositoryIndexingStates    RepositoryIndexingState[]
 
     @@index([createdAt])
 }
@@ -243,80 +240,4 @@ model Transaction {
 
     @@index([installationId, category])
     @@index([userId, category])
-}
-
-enum ReviewStatus {
-    PENDING
-    IN_PROGRESS
-    COMPLETED
-    FAILED
-}
-
-model AIReviewResult {
-    id             String       @id @default(cuid())
-    installation   Installation @relation(fields: [installationId], references: [id], onDelete: Cascade)
-    installationId String
-    prNumber       Int
-    prUrl          String
-    repositoryName String
-    mergeScore     Int // 0-100
-    rulesViolated  Json // Array of violated rules
-    rulesPassed    Json // Array of passed rules
-    suggestions    Json // Array of code suggestions
-    reviewStatus   ReviewStatus
-    commentId      String? // GitHub comment ID
-    contextMetrics Json? // ContextMetrics object
-    createdAt      DateTime     @default(now())
-    updatedAt      DateTime     @updatedAt
-
-    @@index([installationId, prNumber, repositoryName])
-    @@index([installationId, reviewStatus])
-}
-
-model CodeFile {
-    id             String       @id @default(cuid())
-    installation   Installation @relation(fields: [installationId], references: [id], onDelete: Cascade)
-    installationId String
-    repositoryName String
-    filePath       String
-    fileHash       String // To detect changes
-    lastIndexedAt  DateTime     @default(now())
-    chunks         CodeChunk[]
-
-    @@unique([installationId, repositoryName, filePath])
-    @@index([installationId, repositoryName])
-}
-
-model CodeChunk {
-    id         String                       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-    codeFile   CodeFile                     @relation(fields: [codeFileId], references: [id], onDelete: Cascade)
-    codeFileId String
-    chunkIndex Int
-    content    String
-    embedding  Unsupported("vector(1024)")?
-
-    @@unique([codeFileId, chunkIndex])
-    @@index([codeFileId])
-}
-
-enum IndexingStatus {
-    PENDING
-    IN_PROGRESS
-    COMPLETED
-    FAILED
-}
-
-model RepositoryIndexingState {
-    id             String       @id @default(cuid())
-    installation   Installation @relation(fields: [installationId], references: [id], onDelete: Cascade)
-    installationId String
-    repositoryName String
-
-    lastIndexedFilePath String?
-    status              IndexingStatus @default(PENDING)
-
-    startedAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
-
-    @@unique([installationId, repositoryName])
 }
