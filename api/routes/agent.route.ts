@@ -12,10 +12,7 @@ const facilitatorUrl = process.env.X402_FACILITATOR_URL;
 const payTo = process.env.X402_PAYEE_ADDRESS;
 const facilitatorApiKey = process.env.X402_API_KEY;
 
-if (!facilitatorUrl || !payTo || !facilitatorApiKey) {
-    throw new Error("Missing required x402 environment variables");
-}
-
+// Initialize x402 facilitator client
 const facilitatorClient = new HTTPFacilitatorClient({
     url: facilitatorUrl,
     createAuthHeaders: async () => {
@@ -53,12 +50,14 @@ agentRoutes.post(
         try {
             const { prUrl } = req.body;
 
-            const githubPrRegex = /^https?:\/\/(www\.)?github\.com\/[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+\/pull\/\d+\/?.*$/;
-            if (!prUrl || !githubPrRegex.test(prUrl)) {
+            // Validate PR URL
+            const match = prUrl.match(/^https?:\/\/(?:www\.)?github\.com\/([a-zA-Z0-9_.-]+)\/([a-zA-Z0-9_.-]+)\/pull\/(\d+)/);
+            if (!match) {
                 throw new ValidationError("Please provide a valid GitHub Pull Request URL.");
             }
-
-            const taskId = await cloudTasksService.addManualPRAnalysisJob(prUrl);
+            // Optionally reconstruct a clean URL to pass to the job
+            const cleanPrUrl = match[0];
+            const taskId = await cloudTasksService.addManualPRAnalysisJob(cleanPrUrl);
 
             responseWrapper({
                 res,
