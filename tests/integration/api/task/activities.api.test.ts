@@ -66,7 +66,7 @@ describe("Task Activities API Integration Tests", () => {
         app.use(errorHandler);
 
         // Setup mocks
-        const { firebaseAdmin } = await import("../../../../api/config/firebase.config");
+        const { firebaseAdmin } = await import("../../../../api/config/firebase.config.js");
         mockFirebaseAuth = firebaseAdmin.auth().verifyIdToken as jest.Mock;
     });
 

@@ -35,7 +35,7 @@ describe("Authentication Middleware", () => {
         prisma = await DatabaseTestHelper.setupTestDatabase();
 
         // Setup mocks
-        const { firebaseAdmin } = await import("../../../api/config/firebase.config");
+        const { firebaseAdmin } = await import("../../../api/config/firebase.config.js");
         mockFirebaseAuth = firebaseAdmin.auth().verifyIdToken as jest.Mock;
     });
 

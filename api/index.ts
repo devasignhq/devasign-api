@@ -22,7 +22,8 @@ import {
     contractTestRoutes,
     octokitTestRoutes,
     publicTaskRoutes,
-    internalRoutes
+    internalRoutes,
+    agentRoutes
 } from "./routes";
 import { ErrorHandlerService } from "./services/error-handler.service";
 import { dataLogger, messageLogger } from "./config/logger.config";
@@ -58,7 +59,8 @@ app.use(
                 "Not allowed by CORS",
                 STATUS_CODES.UNAUTHORIZED
             ));
-        }
+        },
+        exposedHeaders: ["Payment-Required"]
     })
 );
 app.use(morgan("dev"));
@@ -124,6 +126,12 @@ app.use(
     dynamicRoute,
     validateCloudTasksRequest,
     internalRoutes
+);
+// Agent routes
+app.use(
+    ENDPOINTS.AGENT.PREFIX,
+    dynamicRoute,
+    agentRoutes
 );
 
 /**

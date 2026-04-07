@@ -8,6 +8,7 @@ import { ENDPOINTS } from "../utilities/data";
  * Types of background jobs supported by the Cloud Tasks integration.
  */
 export type JobType = "pr-analysis" 
+    | "manual-pr-analysis"
     | "repository-indexing" 
     | "repository-incremental-indexing" 
     | "bounty-payout" 
@@ -57,6 +58,13 @@ export interface PRAnalysisJobData {
 }
 
 /**
+ * Payload interface for manual pull request AI analysis jobs.
+ */
+export interface ManualPRAnalysisData {
+    prUrl: string;
+}
+
+/**
  * Service for enqueueing background jobs to Google Cloud Tasks.
  */
 export class CloudTasksService {
@@ -72,6 +80,7 @@ export class CloudTasksService {
         cloudTasksServiceAccountEmail: process.env.CLOUD_TASKS_SERVICE_ACCOUNT_EMAIL!,
         queues: {
             "pr-analysis": process.env.CLOUD_TASKS_PR_ANALYSIS_QUEUE || "",
+            "manual-pr-analysis": process.env.CLOUD_TASKS_MANUAL_PR_ANALYSIS_QUEUE || "",
             "repository-indexing": process.env.CLOUD_TASKS_REPO_INDEXING_QUEUE || "",
             "repository-incremental-indexing": process.env.CLOUD_TASKS_INCREMENTAL_INDEXING_QUEUE || "",
             "bounty-payout": process.env.CLOUD_TASKS_BOUNTY_PAYOUT_QUEUE || "",
@@ -80,6 +89,7 @@ export class CloudTasksService {
         },
         endpoints: {
             "pr-analysis": ENDPOINTS.INTERNAL.PREFIX + ENDPOINTS.INTERNAL.PR_ANALYSIS,
+            "manual-pr-analysis": ENDPOINTS.INTERNAL.PREFIX + ENDPOINTS.INTERNAL.MANUAL_PR_ANALYSIS,
             "repository-indexing": ENDPOINTS.INTERNAL.PREFIX + ENDPOINTS.INTERNAL.INDEXING.REPOSITORY,
             "repository-incremental-indexing": ENDPOINTS.INTERNAL.PREFIX + ENDPOINTS.INTERNAL.INDEXING.INCREMENTAL,
             "bounty-payout": ENDPOINTS.INTERNAL.PREFIX + ENDPOINTS.INTERNAL.BOUNTY_PAYOUT,
@@ -165,7 +175,7 @@ export class CloudTasksService {
             },
             // Set dispatch deadline based on job type
             dispatchDeadline: {
-                seconds: type === "pr-analysis" ? 600 // 10 minutes
+                seconds: (type === "pr-analysis" || type === "manual-pr-analysis") ? 600 // 10 minutes
                     : type === "bounty-payout"
                             || type === "clear-installation"
                             || type === "clear-repo"
@@ -198,6 +208,15 @@ export class CloudTasksService {
     public async addPRAnalysisJob(payload: GitHubWebhookPayload): Promise<string> {
         // Dispatch to Cloud Tasks
         return this.enqueueTask("pr-analysis", payload);
+    }
+
+    /**
+     * Enqueues a task for Manual PR analysis.
+     * @param prUrl - The pull request url to analyze
+     * @returns The ID of the enqueued task 
+     */
+    public async addManualPRAnalysisJob(prUrl: string): Promise<string> {
+        return this.enqueueTask("manual-pr-analysis", { prUrl });
     }
 
     /**

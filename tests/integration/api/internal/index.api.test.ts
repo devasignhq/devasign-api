@@ -58,16 +58,16 @@ describe("Internal Routes API Integration Tests", () => {
         app.use(ENDPOINTS.INTERNAL.PREFIX, internalRoutes);
         app.use(errorHandler);
 
-        const { OctokitService } = await import("../../../../api/services/octokit.service");
+        const { OctokitService } = await import("../../../../api/services/octokit.service.js");
         mockOctokitService = OctokitService;
 
-        const { ContractService } = await import("../../../../api/services/contract.service");
+        const { ContractService } = await import("../../../../api/services/contract.service.js");
         mockContractService = ContractService;
 
-        const { FirebaseService } = await import("../../../../api/services/firebase.service");
+        const { FirebaseService } = await import("../../../../api/services/firebase.service.js");
         mockFirebaseService = FirebaseService;
 
-        const { SocketService } = await import("../../../../api/services/socket.service");
+        const { SocketService } = await import("../../../../api/services/socket.service.js");
         mockSocketService = SocketService;
     });
 

@@ -107,7 +107,7 @@ describe("Webhook API Integration Tests", () => {
         app.use(errorHandler);
 
         // Setup mocks
-        const { OctokitService } = await import("../../../../api/services/octokit.service");
+        const { OctokitService } = await import("../../../../api/services/octokit.service.js");
 
         mockOctokitService = {
             getOctokit: jest.fn(),
@@ -123,10 +123,10 @@ describe("Webhook API Integration Tests", () => {
         };
         Object.assign(OctokitService, mockOctokitService);
 
-        const { ContractService } = await import("../../../../api/services/contract.service");
+        const { ContractService } = await import("../../../../api/services/contract.service.js");
         mockContractService = ContractService;
 
-        const { cloudTasksService } = await import("../../../../api/services/cloud-tasks.service");
+        const { cloudTasksService } = await import("../../../../api/services/cloud-tasks.service.js");
         mockCloudTasksService = cloudTasksService;
     });
 
@@ -717,7 +717,7 @@ describe("Webhook API Integration Tests", () => {
             let testTask: any;
 
             beforeEach(async () => {
-                const { cloudTasksService } = await import("../../../../api/services/cloud-tasks.service");
+                const { cloudTasksService } = await import("../../../../api/services/cloud-tasks.service.js");
                 mockCloudTasksService = cloudTasksService;
 
                 // Mock extractLinkedIssues to return issue #1
@@ -1341,9 +1341,9 @@ describe("Webhook API Integration Tests", () => {
                 let stellarServiceMock: any;
 
                 beforeAll(async () => {
-                    const { OctokitService } = await import("../../../../api/services/octokit.service");
+                    const { OctokitService } = await import("../../../../api/services/octokit.service.js");
                     OctokitServiceMock = OctokitService;
-                    const { stellarService } = await import("../../../../api/services/stellar.service");
+                    const { stellarService } = await import("../../../../api/services/stellar.service.js");
                     stellarServiceMock = stellarService;
                 });
 
@@ -1552,7 +1552,7 @@ describe("Webhook API Integration Tests", () => {
 
     describe("Error Handling and Retry Mechanisms", () => {
         it("should handle GitHub API errors gracefully", async () => {
-            const { GitHubAPIError } = await import("../../../../api/models/error.model");
+            const { GitHubAPIError } = await import("../../../../api/models/error.model.js");
             mockCloudTasksService.addPRAnalysisJob.mockRejectedValue(
                 new GitHubAPIError("API rate limit exceeded", null, 429, 0)
             );
@@ -1575,7 +1575,7 @@ describe("Webhook API Integration Tests", () => {
         });
 
         it("should handle PR analysis errors with context", async () => {
-            const { PRAnalysisError } = await import("../../../../api/models/error.model");
+            const { PRAnalysisError } = await import("../../../../api/models/error.model.js");
             mockCloudTasksService.addPRAnalysisJob.mockRejectedValue(
                 new PRAnalysisError(1, VALID_REPO_NAME, "Failed to analyze PR changes", {})
             );

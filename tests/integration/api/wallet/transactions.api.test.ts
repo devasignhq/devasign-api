@@ -50,7 +50,7 @@ describe("Wallet API Integration Tests", () => {
         app.use(errorHandler);
 
         // Setup mocks
-        const { stellarService } = await import("../../../../api/services/stellar.service");
+        const { stellarService } = await import("../../../../api/services/stellar.service.js");
         mockStellarService = stellarService;
     });
 

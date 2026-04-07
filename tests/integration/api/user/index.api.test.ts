@@ -75,13 +75,13 @@ describe("User API Integration Tests", () => {
         app.use(errorHandler);
 
         // Setup mocks
-        const { firebaseAdmin } = await import("../../../../api/config/firebase.config");
+        const { firebaseAdmin } = await import("../../../../api/config/firebase.config.js");
         mockFirebaseAuth = firebaseAdmin.auth().verifyIdToken as jest.Mock;
 
-        const { stellarService } = await import("../../../../api/services/stellar.service");
+        const { stellarService } = await import("../../../../api/services/stellar.service.js");
         mockStellarService = stellarService;
 
-        const { OctokitService } = await import("../../../../api/services/octokit.service");
+        const { OctokitService } = await import("../../../../api/services/octokit.service.js");
         mockOctokitService = OctokitService;
     });
 

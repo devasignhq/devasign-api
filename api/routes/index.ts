@@ -8,3 +8,4 @@ export * from "./_test_/general.test.route";
 export * from "./_test_/stellar.test.route";
 export * from "./_test_/octokit.test.route";
 export * from "./internal.route";
+export * from "./agent.route";
