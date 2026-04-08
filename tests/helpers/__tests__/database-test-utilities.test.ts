@@ -1,6 +1,7 @@
-import { DatabaseTestHelper } from "../database-test-helper";
-import { DatabaseTestUtilities } from "../database-test-utilities";
-import { TestDataFactory } from "../test-data-factory";
+import { vi, describe, it, expect, beforeAll, beforeEach, afterAll } from "vitest";
+import { DatabaseTestHelper } from "../database-test-helper.js";
+import { DatabaseTestUtilities } from "../database-test-utilities.js";
+import { TestDataFactory } from "../test-data-factory.js";
 
 describe("DatabaseTestUtilities", () => {
     let dbUtils: DatabaseTestUtilities;

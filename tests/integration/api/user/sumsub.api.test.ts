@@ -1,58 +1,58 @@
-
+import { vi, describe, it, expect, beforeAll, beforeEach, afterAll } from "vitest";
 import request from "supertest";
 import express from "express";
 import axios from "axios";
-import { statsigService } from "../../../../api/services/statsig.service";
-import { userRoutes } from "../../../../api/routes/user.route";
-import { errorHandler } from "../../../../api/middlewares/error.middleware";
-import { DatabaseTestHelper } from "../../../helpers/database-test-helper";
-import { ENDPOINTS, STATUS_CODES } from "../../../../api/utilities/data";
-import { TestDataFactory } from "../../../helpers/test-data-factory";
-import { getEndpointWithPrefix } from "../../../helpers/test-utils";
+import { statsigService } from "../../../../api/services/statsig.service.js";
+import { userRoutes } from "../../../../api/routes/user.route.js";
+import { errorHandler } from "../../../../api/middlewares/error.middleware.js";
+import { DatabaseTestHelper } from "../../../helpers/database-test-helper.js";
+import { ENDPOINTS, STATUS_CODES } from "../../../../api/utilities/data.js";
+import { TestDataFactory } from "../../../helpers/test-data-factory.js";
+import { getEndpointWithPrefix } from "../../../helpers/test-utils.js";
 
 // Mock logger
-jest.mock("../../../../api/config/logger.config", () => ({
+vi.mock("../../../../api/config/logger.config", () => ({
     dataLogger: {
-        info: jest.fn(),
-        warn: jest.fn(),
-        error: jest.fn()
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn()
     }
 }));
 
 // Mock Statsig service
-jest.mock("../../../../api/services/statsig.service", () => ({
+vi.mock("../../../../api/services/statsig.service", () => ({
     statsigService: {
-        checkGate: jest.fn().mockResolvedValue(true)
+        checkGate: vi.fn().mockResolvedValue(true)
     }
 }));
 
 // Mock Firebase admin for authentication
-jest.mock("../../../../api/config/firebase.config", () => ({
+vi.mock("../../../../api/config/firebase.config", () => ({
     firebaseAdmin: {
         auth: () => ({
-            verifyIdToken: jest.fn()
+            verifyIdToken: vi.fn()
         })
     }
 }));
 
 // Mock Stellar service
-jest.mock("../../../../api/services/stellar.service", () => ({
+vi.mock("../../../../api/services/stellar.service", () => ({
     stellarService: {
-        getAccountInfo: jest.fn()
+        getAccountInfo: vi.fn()
     }
 }));
 
 // Mock KMS service
-jest.mock("../../../../api/services/kms.service", () => ({
+vi.mock("../../../../api/services/kms.service", () => ({
     KMSService: {
-        encryptWallet: jest.fn(),
-        decryptWallet: jest.fn()
+        encryptWallet: vi.fn(),
+        decryptWallet: vi.fn()
     }
 }));
 
 // Mock axios
-jest.mock("axios");
-const mockedAxios = axios as jest.Mocked<typeof axios>;
+vi.mock("axios");
+const mockedAxios = axios as any;
 
 describe("User Sumsub API Integration Tests", () => {
     let app: express.Application;
@@ -83,7 +83,7 @@ describe("User Sumsub API Integration Tests", () => {
             data: TestDataFactory.user({ userId: TEST_USER_ID })
         });
 
-        jest.clearAllMocks();
+        vi.clearAllMocks();
 
         // Setup default env vars for Sumsub
         process.env.SUMSUB_APP_TOKEN = "test-app-token";
@@ -102,7 +102,7 @@ describe("User Sumsub API Integration Tests", () => {
 
     describe(`GET ${getEndpointWithPrefix(["USER", "SUMSUB_TOKEN"])}`, () => {
         it("should return early with success if require_kyc gate is disabled", async () => {
-            (statsigService.checkGate as jest.Mock).mockResolvedValueOnce(false);
+            (statsigService.checkGate as any).mockResolvedValueOnce(false);
 
             const response = await request(app)
                 .get(getEndpointWithPrefix(["USER", "SUMSUB_TOKEN"]))

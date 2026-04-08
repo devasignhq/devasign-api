@@ -1,5 +1,5 @@
-import { Prisma, PrismaClient } from "../../prisma_client";
-import { TestDataFactory } from "./test-data-factory";
+import { Prisma, PrismaClient } from "../../prisma_client/index.js";
+import { TestDataFactory } from "./test-data-factory.js";
 
 /**
  * DatabaseTestUtilities provides utilities for database seeding, cleanup, and transaction management

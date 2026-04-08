@@ -1,30 +1,30 @@
+import { vi, describe, it, expect, beforeAll, beforeEach, afterAll } from "vitest";
 import request from "supertest";
 import express from "express";
 import crypto from "crypto";
 
-import { webhookRoutes } from "../../../../api/routes/webhook.route";
-import { errorHandler } from "../../../../api/middlewares/error.middleware";
-import { DatabaseTestHelper } from "../../../helpers/database-test-helper";
-import { ENDPOINTS, STATUS_CODES } from "../../../../api/utilities/data";
-import { TestDataFactory } from "../../../helpers/test-data-factory";
-import { getEndpointWithPrefix } from "../../../helpers/test-utils";
+import { webhookRoutes } from "../../../../api/routes/webhook.route.js";
+import { errorHandler } from "../../../../api/middlewares/error.middleware.js";
+import { DatabaseTestHelper } from "../../../helpers/database-test-helper.js";
+import { ENDPOINTS, STATUS_CODES } from "../../../../api/utilities/data.js";
+import { TestDataFactory } from "../../../helpers/test-data-factory.js";
+import { getEndpointWithPrefix } from "../../../helpers/test-utils.js";
 
 // Mock logger
-jest.mock("../../../../api/config/logger.config", () => ({
+vi.mock("../../../../api/config/logger.config", () => ({
     dataLogger: {
-        info: jest.fn(),
-        warn: jest.fn(),
-        error: jest.fn()
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn()
     }
 }));
 
 // Mock Stellar service and KMS
-jest.mock("../../../../api/services/stellar.service", () => ({ stellarService: {} }));
-jest.mock("../../../../api/services/kms.service", () => ({ KMSService: {} }));
+vi.mock("../../../../api/services/stellar.service", () => ({ stellarService: {} }));
+vi.mock("../../../../api/services/kms.service", () => ({ KMSService: {} }));
 
 describe("Sumsub Webhook API Integration Tests", () => {
     let app: express.Application;
-    let server: any;
     let prisma: any;
     const SUMSUB_SECRET = "test-sumsub-secret";
     const TEST_USER_ID = "test-user-id";
@@ -50,19 +50,16 @@ describe("Sumsub Webhook API Integration Tests", () => {
 
         app.use(ENDPOINTS.WEBHOOK.PREFIX, webhookRoutes);
         app.use(errorHandler);
-
-        server = app.listen();
     });
 
     beforeEach(async () => {
         await DatabaseTestHelper.resetDatabase(prisma);
         process.env.SUMSUB_WEBHOOK_SECRET = SUMSUB_SECRET;
-        jest.clearAllMocks();
+        vi.clearAllMocks();
     });
 
     afterAll(async () => {
         await prisma.$disconnect();
-        if (server) server.close();
         delete process.env.SUMSUB_WEBHOOK_SECRET;
     });
 
@@ -85,7 +82,7 @@ describe("Sumsub Webhook API Integration Tests", () => {
                 reviewResult: { reviewAnswer: "GREEN" }
             };
 
-            await request(server)
+            await request(app)
                 .post(getEndpointWithPrefix(["WEBHOOK", "SUMSUB"]))
                 .set("x-payload-digest", signPayload(payload))
                 .set("Content-Type", "application/json")
@@ -106,7 +103,7 @@ describe("Sumsub Webhook API Integration Tests", () => {
                 reviewRejectType: "FINAL"
             };
 
-            await request(server)
+            await request(app)
                 .post(getEndpointWithPrefix(["WEBHOOK", "SUMSUB"]))
                 .set("x-payload-digest", signPayload(payload))
                 .set("Content-Type", "application/json")
@@ -127,7 +124,7 @@ describe("Sumsub Webhook API Integration Tests", () => {
                 reviewRejectType: "RETRY"
             };
 
-            await request(server)
+            await request(app)
                 .post(getEndpointWithPrefix(["WEBHOOK", "SUMSUB"]))
                 .set("x-payload-digest", signPayload(payload))
                 .set("Content-Type", "application/json")
@@ -147,7 +144,7 @@ describe("Sumsub Webhook API Integration Tests", () => {
                 reviewResult: { reviewAnswer: "GREEN" }
             };
 
-            await request(server)
+            await request(app)
                 .post(getEndpointWithPrefix(["WEBHOOK", "SUMSUB"]))
                 .set("x-payload-digest", signPayload(payload))
                 .set("Content-Type", "application/json")
@@ -166,7 +163,7 @@ describe("Sumsub Webhook API Integration Tests", () => {
                 externalUserId: TEST_USER_ID
             };
 
-            await request(server)
+            await request(app)
                 .post(getEndpointWithPrefix(["WEBHOOK", "SUMSUB"]))
                 .set("x-payload-digest", signPayload(payload))
                 .set("Content-Type", "application/json")
@@ -184,7 +181,7 @@ describe("Sumsub Webhook API Integration Tests", () => {
                 // No externalUserId
             };
 
-            await request(server)
+            await request(app)
                 .post(getEndpointWithPrefix(["WEBHOOK", "SUMSUB"]))
                 .set("x-payload-digest", signPayload(payload))
                 .set("Content-Type", "application/json")
@@ -198,7 +195,7 @@ describe("Sumsub Webhook API Integration Tests", () => {
                 externalUserId: TEST_USER_ID
             };
 
-            const response = await request(server)
+            const response = await request(app)
                 .post(getEndpointWithPrefix(["WEBHOOK", "SUMSUB"]))
                 .set("x-payload-digest", "invalid-signature")
                 .set("Content-Type", "application/json")

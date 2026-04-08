@@ -1,14 +1,11 @@
+import { describe, it, expect, beforeEach } from "vitest";
 import request from "supertest";
 import express, { Request, Response } from "express";
-import { apiLimiter, webhookLimiter } from "../../../api/middlewares/rate-limit.middleware";
-import { STATUS_CODES, ENDPOINTS } from "../../../api/utilities/data";
+import { apiLimiter, webhookLimiter } from "../../../api/middlewares/rate-limit.middleware.js";
+import { STATUS_CODES, ENDPOINTS } from "../../../api/utilities/data.js";
 
 describe("Rate Limit Middleware", () => {
     let app: express.Application;
-
-    beforeAll(() => {
-        // Any global setup
-    });
 
     beforeEach(() => {
         app = express();
@@ -18,7 +15,7 @@ describe("Rate Limit Middleware", () => {
     describe("API Rate Limiter", () => {
         it("should allow requests under the limit", async () => {
             app.use("/api/test-under", apiLimiter);
-            app.get("/api/test-under", (req: Request, res: Response) => { res.status(200).json({ message: "success" }); });
+            app.get("/api/test-under", (_req: Request, res: Response) => { res.status(200).json({ message: "success" }); });
 
             for (let i = 0; i < 5; i++) {
                 await request(app)
@@ -29,7 +26,7 @@ describe("Rate Limit Middleware", () => {
 
         it("should skip rate limiting for webhook endpoints", async () => {
             app.use(apiLimiter);
-            app.get(`${ENDPOINTS.WEBHOOK.PREFIX}/test-skip`, (req: Request, res: Response) => { res.status(200).json({ message: "success" }); });
+            app.get(`${ENDPOINTS.WEBHOOK.PREFIX}/test-skip`, (_req: Request, res: Response) => { res.status(200).json({ message: "success" }); });
 
             const checks = [];
             for (let i = 0; i < 20; i++) {
@@ -46,10 +43,9 @@ describe("Rate Limit Middleware", () => {
             // Use a unique path to avoid interference from previous tests if state persists
             const path = "/api/test-over-limit";
             app.use(path, apiLimiter);
-            app.get(path, (req: Request, res: Response) => { res.status(200).json({ message: "success" }); });
+            app.get(path, (_req: Request, res: Response) => { res.status(200).json({ message: "success" }); });
 
             // Limit is 300.
-            // We'll send requests in batches of 20 to avoid overwhelm.
             const limit = 310;
             let blocked = false;
 
@@ -84,10 +80,9 @@ describe("Rate Limit Middleware", () => {
         it("should enforce webhook specific limits", async () => {
             const path = "/webhook/test-limit";
             app.use(path, webhookLimiter);
-            app.post(path, (req: Request, res: Response) => { res.status(200).json({ message: "success" }); });
+            app.post(path, (_req: Request, res: Response) => { res.status(200).json({ message: "success" }); });
 
             // Limit is 300.
-            // We need to hit > 300.
             const limit = 310;
             let blocked = false;
 

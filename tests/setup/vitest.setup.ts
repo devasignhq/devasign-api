@@ -1,3 +1,4 @@
+import { vi, beforeAll, afterAll } from "vitest";
 import dotenv from "dotenv";
 import path from "path";
 
@@ -5,7 +6,7 @@ import path from "path";
 dotenv.config({ path: path.resolve(__dirname, "../../.env.test") });
 
 // Set test timeout
-jest.setTimeout(180000); // 3 minutes
+vi.setConfig({ testTimeout: 180000 }); // 3 minutes
 
 // Mock console methods to reduce noise during tests
 const originalConsoleLog = console.log;
@@ -14,8 +15,8 @@ const originalConsoleError = console.error;
 beforeAll(() => {
     // Only show console output if TEST_VERBOSE is set
     if (!process.env.TEST_VERBOSE) {
-        console.log = jest.fn();
-        console.error = jest.fn();
+        console.log = vi.fn();
+        console.error = vi.fn();
     }
 });
 

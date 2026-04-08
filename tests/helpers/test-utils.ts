@@ -1,5 +1,6 @@
+import { vi, Mock, expect } from "vitest";
 import { Request, Response } from "express";
-import { ENDPOINTS } from "../../api/utilities/data";
+import { ENDPOINTS } from "../../api/utilities/data.js";
 
 /**
  * Creates a mock Express request object for testing
@@ -22,13 +23,13 @@ export function createMockRequest(overrides: Partial<Request> = {}): Partial<Req
  */
 export function createMockResponse(): Partial<Response> {
     const res: Partial<Response> = {
-        status: jest.fn().mockReturnThis(),
-        json: jest.fn().mockReturnThis(),
-        send: jest.fn().mockReturnThis(),
-        end: jest.fn().mockReturnThis(),
-        setHeader: jest.fn().mockReturnThis(),
-        cookie: jest.fn().mockReturnThis(),
-        clearCookie: jest.fn().mockReturnThis()
+        status: vi.fn().mockReturnThis(),
+        json: vi.fn().mockReturnThis(),
+        send: vi.fn().mockReturnThis(),
+        end: vi.fn().mockReturnThis(),
+        setHeader: vi.fn().mockReturnThis(),
+        cookie: vi.fn().mockReturnThis(),
+        clearCookie: vi.fn().mockReturnThis()
     };
     return res;
 }
@@ -36,8 +37,8 @@ export function createMockResponse(): Partial<Response> {
 /**
  * Creates a mock next function for middleware testing
  */
-export function createMockNext(): jest.Mock {
-    return jest.fn();
+export function createMockNext(): Mock {
+    return vi.fn();
 }
 
 /**
@@ -157,10 +158,10 @@ export function suppressConsole(): { restore: () => void } {
         info: console.info
     };
 
-    console.log = jest.fn();
-    console.error = jest.fn();
-    console.warn = jest.fn();
-    console.info = jest.fn();
+    console.log = vi.fn();
+    console.error = vi.fn();
+    console.warn = vi.fn();
+    console.info = vi.fn();
 
     return {
         restore: () => {

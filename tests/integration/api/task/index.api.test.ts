@@ -1,18 +1,19 @@
+import { vi, describe, it, expect, beforeAll, beforeEach, afterAll } from "vitest";
 import request from "supertest";
 import express, { RequestHandler } from "express";
-import { TestDataFactory } from "../../../helpers/test-data-factory";
-import { taskRoutes, publicTaskRoutes } from "../../../../api/routes/task.route";
-import { errorHandler } from "../../../../api/middlewares/error.middleware";
-import { validateUser } from "../../../../api/middlewares/auth.middleware";
-import { DatabaseTestHelper } from "../../../helpers/database-test-helper";
-import { ENDPOINTS, STATUS_CODES } from "../../../../api/utilities/data";
-import { mockFirebaseAuth } from "../../../mocks/firebase.service.mock";
-import { getEndpointWithPrefix } from "../../../helpers/test-utils";
-import { dataLogger } from "../../../../api/config/logger.config";
-import { apiLimiter } from "../../../../api/middlewares/rate-limit.middleware";
+import { TestDataFactory } from "../../../helpers/test-data-factory.js";
+import { taskRoutes, publicTaskRoutes } from "../../../../api/routes/task.route.js";
+import { errorHandler } from "../../../../api/middlewares/error.middleware.js";
+import { validateUser } from "../../../../api/middlewares/auth.middleware.js";
+import { DatabaseTestHelper } from "../../../helpers/database-test-helper.js";
+import { ENDPOINTS, STATUS_CODES } from "../../../../api/utilities/data.js";
+import { mockFirebaseAuth } from "../../../mocks/firebase.service.mock.js";
+import { getEndpointWithPrefix } from "../../../helpers/test-utils.js";
+import { dataLogger } from "../../../../api/config/logger.config.js";
+import { apiLimiter } from "../../../../api/middlewares/rate-limit.middleware.js";
 
 // Mock Firebase admin for authentication
-jest.mock("../../../../api/config/firebase.config", () => {
+vi.mock("../../../../api/config/firebase.config", () => {
     return {
         firebaseAdmin: {
             auth: () => (mockFirebaseAuth)
@@ -21,55 +22,62 @@ jest.mock("../../../../api/config/firebase.config", () => {
 });
 
 // Mock Stellar service for wallet operations
-jest.mock("../../../../api/services/stellar.service", () => ({
-    stellarService: {
-        getAccountInfo: jest.fn(),
-        transferAsset: jest.fn(),
-        addTrustLineViaSponsor: jest.fn()
+const { mockStellarService } = vi.hoisted(() => ({
+    mockStellarService: {
+        getAccountInfo: vi.fn(),
+        transferAsset: vi.fn(),
+        addTrustLineViaSponsor: vi.fn()
     }
+}));
+vi.mock("../../../../api/services/stellar.service", () => ({
+    stellarService: mockStellarService
 }));
 
 // Mock Contract service for smart contract operations
-jest.mock("../../../../api/services/contract.service", () => ({
-    ContractService: {
-        createEscrow: jest.fn(),
-        refund: jest.fn()
+const { mockContractService } = vi.hoisted(() => ({
+    mockContractService: {
+        createEscrow: vi.fn(),
+        refund: vi.fn()
     }
+}));
+vi.mock("../../../../api/services/contract.service", () => ({
+    ContractService: mockContractService
 }));
 
 // Mock Firebase service for task messaging
-jest.mock("../../../../api/services/firebase.service", () => ({
-    FirebaseService: {
-        createTask: jest.fn(),
-        updateTaskStatus: jest.fn(),
-        updateAppActivity: jest.fn()
+const { mockFirebaseService } = vi.hoisted(() => ({
+    mockFirebaseService: {
+        createTask: vi.fn(),
+        updateTaskStatus: vi.fn(),
+        updateAppActivity: vi.fn()
     }
+}));
+vi.mock("../../../../api/services/firebase.service", () => ({
+    FirebaseService: mockFirebaseService
 }));
 
 // Mock Octokit service for GitHub operations
-jest.mock("../../../../api/services/octokit.service", () => ({
-    OctokitService: {
-        addBountyLabelAndCreateBountyComment: jest.fn(),
-        removeBountyLabelAndDeleteBountyComment: jest.fn(),
-        customBountyMessage: jest.fn(),
-        getOwnerAndRepo: jest.fn()
+const { mockOctokitService } = vi.hoisted(() => ({
+    mockOctokitService: {
+        addBountyLabelAndCreateBountyComment: vi.fn(),
+        removeBountyLabelAndDeleteBountyComment: vi.fn(),
+        customBountyMessage: vi.fn(),
+        getOwnerAndRepo: vi.fn()
     }
 }));
+vi.mock("../../../../api/services/octokit.service", () => ({
+    OctokitService: mockOctokitService
+}));
 
-jest.mock("../../../../api/services/kms.service", () => ({
+vi.mock("../../../../api/services/kms.service", () => ({
     KMSService: {
-        decryptWallet: jest.fn().mockResolvedValue("STEST1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12")
+        decryptWallet: vi.fn().mockResolvedValue("STEST1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12")
     }
 }));
 
 describe("Task API Integration Tests", () => {
     let app: express.Application;
     let prisma: any;
-    let mockFirebaseAuth: jest.Mock;
-    let mockStellarService: any;
-    let mockFirebaseService: any;
-    let mockOctokitService: any;
-    let mockContractService: any;
 
     beforeAll(async () => {
         prisma = await DatabaseTestHelper.setupTestDatabase();
@@ -96,31 +104,15 @@ describe("Task API Integration Tests", () => {
 
         app.use(ENDPOINTS.TASK.PREFIX, taskRoutes);
         app.use(errorHandler);
-
-        // Setup mocks
-        const { firebaseAdmin } = await import("../../../../api/config/firebase.config.js");
-        mockFirebaseAuth = firebaseAdmin.auth().verifyIdToken as jest.Mock;
-
-        const { stellarService } = await import("../../../../api/services/stellar.service.js");
-        mockStellarService = stellarService;
-
-        const { FirebaseService } = await import("../../../../api/services/firebase.service.js");
-        mockFirebaseService = FirebaseService;
-
-        const { OctokitService } = await import("../../../../api/services/octokit.service.js");
-        mockOctokitService = OctokitService;
-
-        const { ContractService } = await import("../../../../api/services/contract.service.js");
-        mockContractService = ContractService;
     });
 
     beforeEach(async () => {
         await DatabaseTestHelper.resetDatabase(prisma);
         await DatabaseTestHelper.seedDatabase(prisma);
-        jest.clearAllMocks();
+        vi.clearAllMocks();
 
         // Setup default mock implementations
-        mockFirebaseAuth.mockResolvedValue({
+        (mockFirebaseAuth as any).verifyIdToken = vi.fn().mockResolvedValue({
             uid: "test-user-1",
             admin: false
         });
@@ -511,7 +503,6 @@ describe("Task API Integration Tests", () => {
                 .get(`${publicPrefix}${ENDPOINTS.TASK.GET_ALL}?installationId=${installation.id}`)
                 .expect(STATUS_CODES.SUCCESS);
 
-            dataLogger.info("should filter tasks by installation ID", response.body.data);
             const validResult = (response.body.data as any[]).every(
                 task => task.installationId === installation.id
             );
@@ -523,7 +514,6 @@ describe("Task API Integration Tests", () => {
                 .get(`${publicPrefix}${ENDPOINTS.TASK.GET_ALL}?detailed=true`)
                 .expect(STATUS_CODES.SUCCESS);
 
-            dataLogger.info("should return detailed view when requested", response.body.data);
             const validResult = (response.body.data as any[]).every(
                 task => task.creator.userId === "user-1"
             );
@@ -536,7 +526,7 @@ describe("Task API Integration Tests", () => {
                 .expect(STATUS_CODES.SUCCESS);
 
             const dates = response.body.data.map((task: any) => new Date(task.createdAt).getTime());
-            const sortedDates = [...dates].sort((a, b) => a - b);
+            const sortedDates = [...dates].sort((a, b) => (a as any) - (b as any));
             expect(dates).toEqual(sortedDates);
         });
     });
@@ -653,8 +643,8 @@ describe("Task API Integration Tests", () => {
                 }
             });
             expect(refundDbTx).toBeTruthy();
-            expect(refundDbTx.amount).toBe(100);
-            expect(refundDbTx.sourceAddress).toBe("Escrow Refunds");
+            expect(refundDbTx!.amount).toBe(100);
+            expect(refundDbTx!.sourceAddress).toBe("Escrow Refunds");
         });
 
         it("should return error when user is not the creator", async () => {

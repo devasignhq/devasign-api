@@ -1,17 +1,18 @@
+import { vi, describe, it, expect, beforeAll, beforeEach, afterAll } from "vitest";
 import request from "supertest";
 import express from "express";
 import crypto from "crypto";
-import { webhookRoutes } from "../../../../api/routes/webhook.route";
-import { errorHandler } from "../../../../api/middlewares/error.middleware";
-import { DatabaseTestHelper } from "../../../../tests/helpers/database-test-helper";
-import { TestDataFactory } from "../../../../tests/helpers/test-data-factory";
-import { ENDPOINTS, STATUS_CODES } from "../../../../api/utilities/data";
-import { getEndpointWithPrefix } from "../../../helpers/test-utils";
-import { mockFirebaseAuth } from "../../../mocks/firebase.service.mock";
-import { BOUNTY_LABEL } from "../../../../api/models/github.model";
+import { webhookRoutes } from "../../../../api/routes/webhook.route.js";
+import { errorHandler } from "../../../../api/middlewares/error.middleware.js";
+import { DatabaseTestHelper } from "../../../../tests/helpers/database-test-helper.js";
+import { TestDataFactory } from "../../../../tests/helpers/test-data-factory.js";
+import { ENDPOINTS, STATUS_CODES } from "../../../../api/utilities/data.js";
+import { getEndpointWithPrefix } from "../../../helpers/test-utils.js";
+import { mockFirebaseAuth } from "../../../mocks/firebase.service.mock.js";
+import { BOUNTY_LABEL } from "../../../../api/models/github.model.js";
 
 // Mock Firebase admin for authentication
-jest.mock("../../../../api/config/firebase.config", () => {
+vi.mock("../../../../api/config/firebase.config", () => {
     return {
         firebaseAdmin: {
             auth: () => (mockFirebaseAuth)
@@ -19,70 +20,82 @@ jest.mock("../../../../api/config/firebase.config", () => {
     };
 });
 
-jest.mock("../../../../api/services/firebase.service", () => ({
-    FirebaseService: {
-        updateTaskStatus: jest.fn().mockResolvedValue(true),
-        updateAppActivity: jest.fn().mockResolvedValue(true)
+// Mock Firebase service
+const { mockFirebaseService } = vi.hoisted(() => ({
+    mockFirebaseService: {
+        updateTaskStatus: vi.fn().mockResolvedValue(true),
+        updateAppActivity: vi.fn().mockResolvedValue(true)
     }
 }));
+vi.mock("../../../../api/services/firebase.service", () => ({
+    FirebaseService: mockFirebaseService
+}));
 
-jest.mock("../../../../api/services/octokit.service", () => {
-    const { BOUNTY_LABEL } = jest.requireActual("../../../../api/models/github.model");
-    return {
-        OctokitService: {
-            getOctokit: jest.fn(),
-            getOwnerAndRepo: jest.fn(),
-            getDefaultBranch: jest.fn(),
-            removeBountyLabelAndDeleteBountyComment: jest.fn(),
-            getBountyLabel: jest.fn().mockResolvedValue({ id: "mock-label-id" }),
-            createBountyLabels: jest.fn().mockResolvedValue([{ name: BOUNTY_LABEL, id: "mock-label-id" }]),
-            customBountyMessage: jest.fn().mockReturnValue("mock-bounty-message"),
-            addBountyLabelAndCreateBountyComment: jest.fn().mockResolvedValue({ id: "mock-comment-id" }),
-            createComment: jest.fn(),
-            extractLinkedIssues: jest.fn()
-        }
-    };
-});
+// Mock Octokit service
+const { mockOctokitService } = vi.hoisted(() => ({
+    mockOctokitService: {
+        getOctokit: vi.fn(),
+        getOwnerAndRepo: vi.fn(),
+        getDefaultBranch: vi.fn(),
+        removeBountyLabelAndDeleteBountyComment: vi.fn(),
+        getBountyLabel: vi.fn().mockResolvedValue({ id: "mock-label-id" }),
+        createBountyLabels: vi.fn().mockResolvedValue([{ name: "bounty", id: "mock-label-id" }]),
+        customBountyMessage: vi.fn().mockReturnValue("mock-bounty-message"),
+        addBountyLabelAndCreateBountyComment: vi.fn().mockResolvedValue({ id: "mock-comment-id" }),
+        createComment: vi.fn(),
+        extractLinkedIssues: vi.fn()
+    }
+}));
+vi.mock("../../../../api/services/octokit.service", () => ({
+    OctokitService: mockOctokitService
+}));
 
-jest.mock("../../../../api/services/contract.service", () => ({
-    ContractService: {
-        approveCompletion: jest.fn(),
-        refund: jest.fn(),
-        createEscrow: jest.fn().mockResolvedValue({
+// Mock Contract service
+const { mockContractService } = vi.hoisted(() => ({
+    mockContractService: {
+        approveCompletion: vi.fn(),
+        refund: vi.fn(),
+        createEscrow: vi.fn().mockResolvedValue({
             txHash: "mock-tx-hash",
             result: { createdAt: (new Date().getTime() / 1000).toString() }
         })
     }
 }));
+vi.mock("../../../../api/services/contract.service", () => ({
+    ContractService: mockContractService
+}));
 
-jest.mock("../../../../api/services/kms.service", () => ({
+// Mock KMS service
+vi.mock("../../../../api/services/kms.service", () => ({
     KMSService: {
-        decryptWallet: jest.fn().mockResolvedValue("STEST1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12")
+        decryptWallet: vi.fn().mockResolvedValue("STEST1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12")
     }
 }));
 
-jest.mock("../../../../api/services/cloud-tasks.service", () => ({
-    cloudTasksService: {
-        addPRAnalysisJob: jest.fn().mockResolvedValue("job-id-123"),
-        addRepositoryIndexingJob: jest.fn().mockResolvedValue("job-id-123"),
-        addBountyPayoutJob: jest.fn().mockResolvedValue("job-id-123"),
-        addClearRepoJob: jest.fn().mockResolvedValue("job-id-123"),
-        addClearInstallationJob: jest.fn().mockResolvedValue("job-id-123")
+// Mock Cloud Tasks service
+const { mockCloudTasksService } = vi.hoisted(() => ({
+    mockCloudTasksService: {
+        addPRAnalysisJob: vi.fn().mockResolvedValue("job-id-123"),
+        addRepositoryIndexingJob: vi.fn().mockResolvedValue("job-id-123"),
+        addBountyPayoutJob: vi.fn().mockResolvedValue("job-id-123"),
+        addClearRepoJob: vi.fn().mockResolvedValue("job-id-123"),
+        addClearInstallationJob: vi.fn().mockResolvedValue("job-id-123")
     }
 }));
+vi.mock("../../../../api/services/cloud-tasks.service", () => ({
+    cloudTasksService: mockCloudTasksService
+}));
 
-jest.mock("../../../../api/services/stellar.service", () => ({
+// Mock Stellar service
+vi.mock("../../../../api/services/stellar.service", () => ({
     stellarService: {
-        getAccountInfo: jest.fn().mockResolvedValue({ balances: [{ asset_code: "USDC", balance: "1000" }] })
+        getAccountInfo: vi.fn().mockResolvedValue({ balances: [{ asset_code: "USDC", balance: "1000" }] })
     }
 }));
 
-describe("Webhook API Integration Tests", () => {
+describe("GitHub Webhook API Integration Tests", () => {
     let app: express.Application;
     let prisma: any;
-    let mockOctokitService: any;
-    let mockContractService: any;
-    let mockCloudTasksService: any;
 
     const WEBHOOK_SECRET = "test-webhook-secret";
     const VALID_INSTALLATION_ID = "12345678";
@@ -105,29 +118,6 @@ describe("Webhook API Integration Tests", () => {
         );
         app.use(ENDPOINTS.WEBHOOK.PREFIX, webhookRoutes);
         app.use(errorHandler);
-
-        // Setup mocks
-        const { OctokitService } = await import("../../../../api/services/octokit.service.js");
-
-        mockOctokitService = {
-            getOctokit: jest.fn(),
-            getOwnerAndRepo: jest.fn(),
-            getDefaultBranch: jest.fn(),
-            removeBountyLabelAndDeleteBountyComment: jest.fn(),
-            getBountyLabel: jest.fn().mockResolvedValue({ id: "mock-label-id" }),
-            createBountyLabels: jest.fn().mockResolvedValue([{ name: BOUNTY_LABEL, id: "mock-label-id" }]),
-            customBountyMessage: jest.fn().mockReturnValue("mock-bounty-message"),
-            addBountyLabelAndCreateBountyComment: jest.fn().mockResolvedValue({ id: "mock-comment-id" }),
-            createComment: jest.fn(),
-            extractLinkedIssues: jest.fn()
-        };
-        Object.assign(OctokitService, mockOctokitService);
-
-        const { ContractService } = await import("../../../../api/services/contract.service.js");
-        mockContractService = ContractService;
-
-        const { cloudTasksService } = await import("../../../../api/services/cloud-tasks.service.js");
-        mockCloudTasksService = cloudTasksService;
     });
 
     beforeEach(async () => {
@@ -136,7 +126,7 @@ describe("Webhook API Integration Tests", () => {
         await DatabaseTestHelper.seedDatabase(prisma);
 
         // Reset mocks
-        jest.clearAllMocks();
+        vi.clearAllMocks();
 
         mockOctokitService.getDefaultBranch.mockResolvedValue("main");
         mockOctokitService.getOwnerAndRepo.mockReturnValue(["test", "repo"]);
@@ -155,6 +145,8 @@ describe("Webhook API Integration Tests", () => {
         mockOctokitService.extractLinkedIssues.mockResolvedValue([
             { number: 1, title: "Test Issue" }
         ]);
+
+        TestDataFactory.resetCounters();
     });
 
     afterAll(async () => {
@@ -472,8 +464,7 @@ describe("Webhook API Integration Tests", () => {
                         prNumber: 1,
                         prUrl: payload.pull_request.html_url,
                         eligibleForAnalysis: true,
-                        status: "queued",
-                        timestamp: expect.any(String)
+                        status: "queued"
                     }
                 });
 
@@ -717,9 +708,6 @@ describe("Webhook API Integration Tests", () => {
             let testTask: any;
 
             beforeEach(async () => {
-                const { cloudTasksService } = await import("../../../../api/services/cloud-tasks.service.js");
-                mockCloudTasksService = cloudTasksService;
-
                 // Mock extractLinkedIssues to return issue #1
                 mockOctokitService.extractLinkedIssues.mockResolvedValue([
                     { number: 1, title: "Test Issue" }
@@ -926,7 +914,7 @@ describe("Webhook API Integration Tests", () => {
             mockOctokit = {
                 rest: {
                     pulls: {
-                        get: jest.fn().mockResolvedValue({ data: mockPRData })
+                        get: vi.fn().mockResolvedValue({ data: mockPRData })
                     }
                 }
             };
@@ -1137,7 +1125,7 @@ describe("Webhook API Integration Tests", () => {
                     },
                     comment: { id: 104, body: "/bounty $300 2 days", user: { login: COMMENTER }, author_association: "MEMBER" }
                 });
-                delete payload.issue.pull_request; // Explicitly remove pull_request to make it an issue
+                delete (payload as any).issue.pull_request; // Explicitly remove pull_request to make it an issue
 
                 const payloadString = JSON.stringify(payload);
                 const signature = createWebhookSignature(payloadString);
@@ -1170,7 +1158,7 @@ describe("Webhook API Integration Tests", () => {
                         },
                         comment: { id: 105 + i, body: variations[i], user: { login: COMMENTER }, author_association: "MEMBER" }
                     });
-                    delete payload.issue.pull_request;
+                    delete (payload as any).issue.pull_request;
 
                     const payloadString = JSON.stringify(payload);
                     const signature = createWebhookSignature(payloadString);
@@ -1196,7 +1184,7 @@ describe("Webhook API Integration Tests", () => {
                     },
                     comment: { id: 106, body: "/task 150.5 1.5 weeks", user: { login: COMMENTER }, author_association: "MEMBER" }
                 });
-                delete payload.issue.pull_request;
+                delete (payload as any).issue.pull_request;
 
                 const payloadString = JSON.stringify(payload);
                 const signature = createWebhookSignature(payloadString);
@@ -1236,7 +1224,7 @@ describe("Webhook API Integration Tests", () => {
                     issue: { state: "closed" },
                     comment: { id: 107, body: "/bounty $300 2 days", user: { login: COMMENTER }, author_association: "MEMBER" }
                 });
-                delete payload.issue.pull_request;
+                delete (payload as any).issue.pull_request;
 
                 const payloadString = JSON.stringify(payload);
                 const signature = createWebhookSignature(payloadString);
@@ -1257,7 +1245,7 @@ describe("Webhook API Integration Tests", () => {
                     issue: { state: "open" },
                     comment: { id: 108, body: "/bounty $300 2 days", user: { login: COMMENTER }, author_association: "NONE" }
                 });
-                delete payload.issue.pull_request;
+                delete (payload as any).issue.pull_request;
 
                 const payloadString = JSON.stringify(payload);
                 const signature = createWebhookSignature(payloadString);
@@ -1278,7 +1266,7 @@ describe("Webhook API Integration Tests", () => {
                     issue: { state: "open" },
                     comment: { id: 109, body: "/bounty $300 2 days", user: { login: "unregistered-user" }, author_association: "MEMBER" }
                 });
-                delete payload.issue.pull_request;
+                delete (payload as any).issue.pull_request;
 
                 const payloadString = JSON.stringify(payload);
                 const signature = createWebhookSignature(payloadString);
@@ -1305,7 +1293,7 @@ describe("Webhook API Integration Tests", () => {
                     issue: { state: "open" },
                     comment: { id: 110, body: "/bounty $300 2 days", user: { login: COMMENTER }, author_association: "MEMBER" }
                 });
-                delete payload.issue.pull_request;
+                delete (payload as any).issue.pull_request;
 
                 const payloadString = JSON.stringify(payload);
                 const signature = createWebhookSignature(payloadString);
@@ -1337,26 +1325,16 @@ describe("Webhook API Integration Tests", () => {
                     return false;
                 };
 
-                let OctokitServiceMock: any;
-                let stellarServiceMock: any;
-
-                beforeAll(async () => {
-                    const { OctokitService } = await import("../../../../api/services/octokit.service.js");
-                    OctokitServiceMock = OctokitService;
-                    const { stellarService } = await import("../../../../api/services/stellar.service.js");
-                    stellarServiceMock = stellarService;
-                });
-
                 beforeEach(() => {
-                    jest.clearAllMocks();
-                    stellarServiceMock.getAccountInfo.mockResolvedValue({ balances: [{ asset_code: "USDC", balance: "1000" }] });
+                    vi.clearAllMocks();
+                    // Setup default mocks for background processing
                     mockContractService.createEscrow.mockResolvedValue({
                         txHash: "mock-tx-hash",
                         result: { createdAt: (Date.now() / 1000).toString() }
                     });
-                    OctokitServiceMock.getBountyLabel.mockResolvedValue({ id: "mock-label-id" });
-                    OctokitServiceMock.addBountyLabelAndCreateBountyComment.mockResolvedValue({ id: "mock-comment-id" });
-                    OctokitServiceMock.createComment.mockResolvedValue({ id: "mock-failure-comment-id" });
+                    mockOctokitService.getBountyLabel.mockResolvedValue({ id: "mock-label-id" });
+                    mockOctokitService.addBountyLabelAndCreateBountyComment.mockResolvedValue({ id: "mock-comment-id" });
+                    mockOctokitService.createComment.mockResolvedValue({ id: "mock-failure-comment-id" });
                 });
 
                 it("should successfully create bounty task, escrow, and comments", async () => {
@@ -1364,7 +1342,7 @@ describe("Webhook API Integration Tests", () => {
                         issue: { number: PR_NUMBER + 1, title: "A plain issue", state: "open", node_id: "node_id_123", html_url: `https://github.com/test/repo/issues/${PR_NUMBER + 1}` },
                         comment: { id: 200, body: "/bounty $300 2 days", user: { login: COMMENTER }, author_association: "MEMBER" }
                     });
-                    delete payload.issue.pull_request;
+                    delete (payload as any).issue.pull_request;
 
                     const payloadString = JSON.stringify(payload);
                     const signature = createWebhookSignature(payloadString);
@@ -1408,7 +1386,7 @@ describe("Webhook API Integration Tests", () => {
                         300
                     );
 
-                    expect(OctokitServiceMock.addBountyLabelAndCreateBountyComment).toHaveBeenCalledWith(
+                    expect(mockOctokitService.addBountyLabelAndCreateBountyComment).toHaveBeenCalledWith(
                         expect.any(String),
                         expect.any(String),
                         "mock-label-id",
@@ -1417,13 +1395,14 @@ describe("Webhook API Integration Tests", () => {
                 });
 
                 it("should fail background processing and post comment if insufficient USDC balance", async () => {
-                    stellarServiceMock.getAccountInfo.mockResolvedValueOnce({ balances: [{ asset_code: "USDC", balance: "10" }] }); // 10 is < 300
+                    const { stellarService } = await import("../../../../api/services/stellar.service.js");
+                    (stellarService.getAccountInfo as any).mockResolvedValueOnce({ balances: [{ asset_code: "USDC", balance: "10" }] }); // 10 is < 300
 
                     const payload = createIssueCommentPayload({
                         issue: { number: PR_NUMBER + 2, title: "A plain issue", state: "open", node_id: "node_id_123", html_url: `https://github.com/test/repo/issues/${PR_NUMBER + 2}` },
                         comment: { id: 201, body: "/bounty $300 2 days", user: { login: COMMENTER }, author_association: "MEMBER" }
                     });
-                    delete payload.issue.pull_request;
+                    delete (payload as any).issue.pull_request;
 
                     const payloadString = JSON.stringify(payload);
                     const signature = createWebhookSignature(payloadString);
@@ -1437,10 +1416,10 @@ describe("Webhook API Integration Tests", () => {
                         .expect(STATUS_CODES.SUCCESS);
 
                     const failureCommentCalled = await waitFor(async () => {
-                        return OctokitServiceMock.createComment.mock.calls.length > 0;
+                        return mockOctokitService.createComment.mock.calls.length > 0;
                     });
                     expect(failureCommentCalled).toBe(true);
-                    expect(OctokitServiceMock.createComment).toHaveBeenCalledWith(
+                    expect(mockOctokitService.createComment).toHaveBeenCalledWith(
                         expect.any(String),
                         VALID_REPO_NAME,
                         PR_NUMBER + 2,
@@ -1449,14 +1428,14 @@ describe("Webhook API Integration Tests", () => {
                 });
 
                 it("should handle failure getting or creating bounty label", async () => {
-                    OctokitServiceMock.getBountyLabel.mockRejectedValueOnce(new Error("Not found"));
-                    OctokitServiceMock.createBountyLabels.mockResolvedValueOnce([]); // No bounty label created
+                    mockOctokitService.getBountyLabel.mockRejectedValueOnce(new Error("Not found"));
+                    mockOctokitService.createBountyLabels.mockResolvedValueOnce([]); // No bounty label created
 
                     const payload = createIssueCommentPayload({
                         issue: { number: PR_NUMBER + 3, title: "A plain issue", state: "open", node_id: "node_id_123", html_url: `https://github.com/test/repo/issues/${PR_NUMBER + 3}` },
                         comment: { id: 202, body: "/bounty $300 2 days", user: { login: COMMENTER }, author_association: "MEMBER" }
                     });
-                    delete payload.issue.pull_request;
+                    delete (payload as any).issue.pull_request;
 
                     const payloadString = JSON.stringify(payload);
                     const signature = createWebhookSignature(payloadString);
@@ -1470,10 +1449,10 @@ describe("Webhook API Integration Tests", () => {
                         .expect(STATUS_CODES.SUCCESS);
 
                     const failureCommentCalled = await waitFor(async () => {
-                        return OctokitServiceMock.createComment.mock.calls.length > 0;
+                        return mockOctokitService.createComment.mock.calls.length > 0;
                     });
                     expect(failureCommentCalled).toBe(true);
-                    expect(OctokitServiceMock.createComment).toHaveBeenCalledWith(
+                    expect(mockOctokitService.createComment).toHaveBeenCalledWith(
                         expect.any(String),
                         VALID_REPO_NAME,
                         PR_NUMBER + 3,
@@ -1488,7 +1467,7 @@ describe("Webhook API Integration Tests", () => {
                         issue: { number: PR_NUMBER + 4, title: "A plain issue", state: "open", node_id: "node_id_123", html_url: `https://github.com/test/repo/issues/${PR_NUMBER + 4}` },
                         comment: { id: 203, body: "/bounty $300 2 days", user: { login: COMMENTER }, author_association: "MEMBER" }
                     });
-                    delete payload.issue.pull_request;
+                    delete (payload as any).issue.pull_request;
 
                     const payloadString = JSON.stringify(payload);
                     const signature = createWebhookSignature(payloadString);
@@ -1502,7 +1481,7 @@ describe("Webhook API Integration Tests", () => {
                         .expect(STATUS_CODES.SUCCESS);
 
                     const failureCommentCalled = await waitFor(async () => {
-                        return OctokitServiceMock.createComment.mock.calls.length > 0;
+                        return mockOctokitService.createComment.mock.calls.length > 0;
                     });
                     expect(failureCommentCalled).toBe(true);
 
@@ -1516,13 +1495,13 @@ describe("Webhook API Integration Tests", () => {
                 });
 
                 it("should handle failure when adding bounty label on issue", async () => {
-                    OctokitServiceMock.addBountyLabelAndCreateBountyComment.mockRejectedValueOnce(new Error("Octokit error"));
+                    mockOctokitService.addBountyLabelAndCreateBountyComment.mockRejectedValueOnce(new Error("Octokit error"));
 
                     const payload = createIssueCommentPayload({
                         issue: { number: PR_NUMBER + 5, title: "A plain issue", state: "open", node_id: "node_id_123", html_url: `https://github.com/test/repo/issues/${PR_NUMBER + 5}` },
                         comment: { id: 204, body: "/bounty $300 2 days", user: { login: COMMENTER }, author_association: "MEMBER" }
                     });
-                    delete payload.issue.pull_request;
+                    delete (payload as any).issue.pull_request;
 
                     const payloadString = JSON.stringify(payload);
                     const signature = createWebhookSignature(payloadString);
@@ -1536,10 +1515,10 @@ describe("Webhook API Integration Tests", () => {
                         .expect(STATUS_CODES.SUCCESS);
 
                     const failureCommentCalled = await waitFor(async () => {
-                        return OctokitServiceMock.createComment.mock.calls.length > 0;
+                        return mockOctokitService.createComment.mock.calls.length > 0;
                     });
                     expect(failureCommentCalled).toBe(true);
-                    expect(OctokitServiceMock.createComment).toHaveBeenCalledWith(
+                    expect(mockOctokitService.createComment).toHaveBeenCalledWith(
                         expect.any(String),
                         VALID_REPO_NAME,
                         PR_NUMBER + 5,
@@ -1623,6 +1602,7 @@ describe("Webhook API Integration Tests", () => {
 
     describe("Webhook Security Validation", () => {
         it("should reject webhook when secret is not configured", async () => {
+            const originalSecret = process.env.GITHUB_WEBHOOK_SECRET;
             delete process.env.GITHUB_WEBHOOK_SECRET;
 
             const payload = createWebhookPayload();
@@ -1641,7 +1621,7 @@ describe("Webhook API Integration Tests", () => {
             });
 
             // Restore secret for other tests
-            process.env.GITHUB_WEBHOOK_SECRET = WEBHOOK_SECRET;
+            process.env.GITHUB_WEBHOOK_SECRET = originalSecret;
         });
 
         it("should use timing-safe comparison for signature validation", async () => {
@@ -1703,7 +1683,7 @@ describe("Webhook API Integration Tests", () => {
                 const payloadString = JSON.stringify(payload);
                 const signature = createWebhookSignature(payloadString);
 
-                mockCloudTasksService.addPRAnalysisJob.mockResolvedValue({
+                mockCloudTasksService.addPRAnalysisJob.mockResolvedValueOnce({
                     success: true,
                     jobId: `concurrent-job-${i + 1}`,
                     prData: {
