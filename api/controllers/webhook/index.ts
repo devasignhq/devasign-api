@@ -1,3 +1,3 @@
-export * from "./github.controller";
-export * from "./sumsub.controller";
+export * from "./github.controller.js";
+export * from "./sumsub.controller.js";
 

@@ -1,23 +1,23 @@
 import { NextFunction, Request, Response } from "express";
-import { prisma } from "../../config/database.config";
-import { stellarService } from "../../services/stellar.service";
-import { responseWrapper, stellarTimestampToDate } from "../../utilities/helper";
-import { STATUS_CODES } from "../../utilities/data";
-import { CreateTask, TaskIssue, FilterTasks } from "../../models/task.model";
-import { HorizonApi } from "../../models/horizonapi.model";
-import { Prisma, TaskStatus, TransactionCategory } from "../../../prisma_client";
-import { OctokitService } from "../../services/octokit.service";
+import { prisma } from "../../config/database.config.js";
+import { stellarService } from "../../services/stellar.service.js";
+import { responseWrapper, stellarTimestampToDate } from "../../utilities/helper.js";
+import { STATUS_CODES } from "../../utilities/data.js";
+import { CreateTask, TaskIssue, FilterTasks } from "../../models/task.model.js";
+import { HorizonApi } from "../../models/horizonapi.model.js";
+import { Prisma, TaskStatus, TransactionCategory } from "../../../prisma_client/index.js";
+import { OctokitService } from "../../services/octokit.service.js";
 import {
     AuthorizationError,
     EscrowContractError,
     NotFoundError,
     ValidationError
-} from "../../models/error.model";
-import { ContractService } from "../../services/contract.service";
-import { KMSService } from "../../services/kms.service";
-import { dataLogger } from "../../config/logger.config";
-import { statsigService } from "../../services/statsig.service";
-import { SocketService } from "../../services/socket.service";
+} from "../../models/error.model.js";
+import { ContractService } from "../../services/contract.service.js";
+import { KMSService } from "../../services/kms.service.js";
+import { dataLogger } from "../../config/logger.config.js";
+import { statsigService } from "../../services/statsig.service.js";
+import { SocketService } from "../../services/socket.service.js";
 
 type USDCBalance = HorizonApi.BalanceLineAsset<"credit_alphanum12">;
 

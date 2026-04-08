@@ -4,10 +4,10 @@ import {
     updateAddressBook,
     getUser,
     generateSumsubSdkToken
-} from "../controllers/user";
-import { createUserSchema, updateAddressBookSchema } from "../schemas/user.schema";
-import { ENDPOINTS } from "../utilities/data";
-import { validateRequestParameters } from "../middlewares/request.middleware";
+} from "../controllers/user/index.js";
+import { createUserSchema, updateAddressBookSchema } from "../schemas/user.schema.js";
+import { ENDPOINTS } from "../utilities/data.js";
+import { validateRequestParameters } from "../middlewares/request.middleware.js";
 
 export const userRoutes = Router();
 

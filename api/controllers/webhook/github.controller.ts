@@ -1,12 +1,12 @@
 import { Request, Response, NextFunction } from "express";
-import { responseWrapper } from "../../utilities/helper";
-import { STATUS_CODES } from "../../utilities/data";
-import { dataLogger } from "../../config/logger.config";
-import { PullRequestWebhookService } from "../../services/github-webhook/pull_request-webhook.service";
-import { InstallationWebhookService } from "../../services/github-webhook/installation-webhook.service";
-import { IssueCommentWebhookService } from "../../services/github-webhook/issue_comment-webhook.service";
-import { InstallationRepositoriesWebhookService } from "../../services/github-webhook/installation_repositories-webhook.service";
-import { PushWebhookService } from "../../services/github-webhook/push-webhook.service";
+import { responseWrapper } from "../../utilities/helper.js";
+import { STATUS_CODES } from "../../utilities/data.js";
+import { dataLogger } from "../../config/logger.config.js";
+import { PullRequestWebhookService } from "../../services/github-webhook/pull_request-webhook.service.js";
+import { InstallationWebhookService } from "../../services/github-webhook/installation-webhook.service.js";
+import { IssueCommentWebhookService } from "../../services/github-webhook/issue_comment-webhook.service.js";
+import { InstallationRepositoriesWebhookService } from "../../services/github-webhook/installation_repositories-webhook.service.js";
+import { PushWebhookService } from "../../services/github-webhook/push-webhook.service.js";
 
 /**
  * Handles GitHub webhook events

@@ -1,4 +1,4 @@
-import { IssueDto, IssueLabel } from "./github.model";
+import { IssueDto, IssueLabel } from "./github.model.js";
 
 /**
  * Message types in task conversations

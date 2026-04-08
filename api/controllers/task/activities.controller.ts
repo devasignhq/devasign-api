@@ -1,8 +1,8 @@
 import { NextFunction, Request, Response } from "express";
-import { prisma } from "../../config/database.config";
-import { responseWrapper } from "../../utilities/helper";
-import { STATUS_CODES } from "../../utilities/data";
-import { NotFoundError } from "../../models/error.model";
+import { prisma } from "../../config/database.config.js";
+import { responseWrapper } from "../../utilities/helper.js";
+import { STATUS_CODES } from "../../utilities/data.js";
+import { NotFoundError } from "../../models/error.model.js";
 
 /**
  * Get task activities (applications, submissions, etc.) with pagination

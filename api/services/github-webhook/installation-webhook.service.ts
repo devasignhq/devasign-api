@@ -1,14 +1,14 @@
 import { Request, Response, NextFunction } from "express";
-import { responseWrapper } from "../../utilities/helper";
-import { STATUS_CODES } from "../../utilities/data";
-import { prisma } from "../../config/database.config";
-import { dataLogger } from "../../config/logger.config";
-import { Task } from "../../../prisma_client";
-import { ContractService } from "../contract.service";
-import { KMSService } from "../kms.service";
-import { OctokitService } from "../octokit.service";
-import { TaskIssue } from "../../models/task.model";
-import { cloudTasksService } from "../cloud-tasks.service";
+import { responseWrapper } from "../../utilities/helper.js";
+import { STATUS_CODES } from "../../utilities/data.js";
+import { prisma } from "../../config/database.config.js";
+import { dataLogger } from "../../config/logger.config.js";
+import { Task } from "../../../prisma_client/index.js";
+import { ContractService } from "../contract.service.js";
+import { KMSService } from "../kms.service.js";
+import { OctokitService } from "../octokit.service.js";
+import { TaskIssue } from "../../models/task.model.js";
+import { cloudTasksService } from "../cloud-tasks.service.js";
 
 export class InstallationWebhookService {
     /**

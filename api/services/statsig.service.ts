@@ -1,5 +1,5 @@
-import statsig, { StatsigUser } from "statsig-node";
-import { dataLogger } from "../config/logger.config";
+import { Statsig, StatsigUser } from "statsig-node";
+import { dataLogger } from "../config/logger.config.js";
 
 /**
  * Statsig service to check feature gates
@@ -28,7 +28,7 @@ class StatsigService {
 
         try {
             // Initialize Statsig
-            await statsig.initialize(serverSecret);
+            await Statsig.initialize(serverSecret);
             this.isInitialized = true;
             dataLogger.info("Statsig initialized successfully");
         } catch (error) {
@@ -52,7 +52,7 @@ class StatsigService {
         }
 
         // Check if the feature gate is enabled for the user
-        return statsig.checkGate(user, gateName);
+        return Statsig.checkGate(user, gateName);
     }
 
     /**
@@ -75,7 +75,7 @@ class StatsigService {
             return;
         }
 
-        statsig.logEvent(user, eventName, value ?? null, metadata ?? null);
+        Statsig.logEvent(user, eventName, value ?? null, metadata ?? null);
     }
 
     /**
@@ -91,7 +91,7 @@ class StatsigService {
             return null;
         }
 
-        return statsig.getConfig(user, configName);
+        return Statsig.getConfig(user, configName);
     }
 
     /**
@@ -107,7 +107,7 @@ class StatsigService {
             return null;
         }
 
-        return statsig.getExperiment(user, experimentName);
+        return Statsig.getExperiment(user, experimentName);
     }
 }
 

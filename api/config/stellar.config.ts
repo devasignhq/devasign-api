@@ -6,12 +6,13 @@ import {
     IssuedAssetId,
     NativeAssetId
 } from "@stellar/typescript-wallet-sdk";
-import axios, { AxiosInstance } from "axios";
+import axios from "axios";
 
-const customClient: AxiosInstance = axios.create({
+const customClient = axios.create({
     timeout: 20000
 });
-const appConfig = new ApplicationConfiguration(DefaultSigner, customClient);
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const appConfig = new ApplicationConfiguration(DefaultSigner, customClient as any);
 
 export const wallet = new Wallet({
     stellarConfiguration: process.env.STELLAR_NETWORK === "public" 

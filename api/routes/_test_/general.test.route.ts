@@ -1,16 +1,16 @@
 import { Router, Request, Response, NextFunction, RequestHandler } from "express";
 import createError from "http-errors";
-import { validateRequestParameters } from "../../middlewares/request.middleware";
+import { validateRequestParameters } from "../../middlewares/request.middleware.js";
 import {
     createTestUserSchema,
     encryptionSchema,
     decryptionSchema
-} from "./test.schema";
-import { KMSService } from "../../services/kms.service";
-import { prisma } from "../../config/database.config";
-import { STATUS_CODES } from "../../utilities/data";
-import { responseWrapper } from "../../utilities/helper";
-import { dataLogger } from "../../config/logger.config";
+} from "./test.schema.js";
+import { KMSService } from "../../services/kms.service.js";
+import { prisma } from "../../config/database.config.js";
+import { STATUS_CODES } from "../../utilities/data.js";
+import { responseWrapper } from "../../utilities/helper.js";
+import { dataLogger } from "../../config/logger.config.js";
 
 const router = Router();
 

@@ -1,10 +1,10 @@
 import { Request, Response, NextFunction } from "express";
 import crypto from "crypto";
-import { GitHubWebhookError, SumsubWebhookError } from "../models/error.model";
-import { OctokitService } from "../services/octokit.service";
-import { STATUS_CODES } from "../utilities/data";
-import { dataLogger } from "../config/logger.config";
-import { responseWrapper } from "../utilities/helper";
+import { GitHubWebhookError, SumsubWebhookError } from "../models/error.model.js";
+import { OctokitService } from "../services/octokit.service.js";
+import { STATUS_CODES } from "../utilities/data.js";
+import { dataLogger } from "../config/logger.config.js";
+import { responseWrapper } from "../utilities/helper.js";
 
 /**
  * Middleware to validate GitHub webhook signatures

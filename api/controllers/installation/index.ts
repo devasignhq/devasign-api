@@ -1,3 +1,3 @@
-export * from "./index.controller";
-export * from "./team.controller";
-export * from "./github.controller";
+export * from "./index.controller.js";
+export * from "./team.controller.js";
+export * from "./github.controller.js";

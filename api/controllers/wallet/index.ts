@@ -1,2 +1,2 @@
-export * from "./index.controller";
-export * from "./transactions.controller";
+export * from "./index.controller.js";
+export * from "./transactions.controller.js";

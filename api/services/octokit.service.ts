@@ -9,11 +9,11 @@ import {
     IssueLabel,
     IssueMilestone,
     RepositoryDto
-} from "../models/github.model";
-import { getFieldFromUnknownObject, moneyFormat } from "../utilities/helper";
-import { GitHubAPIError } from "../models/error.model";
-import { dataLogger, messageLogger } from "../config/logger.config";
-import { LinkedIssue } from "../models/ai-review.model";
+} from "../models/github.model.js";
+import { getFieldFromUnknownObject, moneyFormat } from "../utilities/helper.js";
+import { GitHubAPIError } from "../models/error.model.js";
+import { dataLogger, messageLogger } from "../config/logger.config.js";
+import { LinkedIssue } from "../models/ai-review.model.js";
 
 const commentCTA = `${process.env.CONTRIBUTOR_APP_URL!}/application`;
 

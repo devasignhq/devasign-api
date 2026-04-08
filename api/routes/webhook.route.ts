@@ -1,8 +1,8 @@
 import { Router, RequestHandler } from "express";
-import { handleGitHubWebhook, handleSumsubWebhook } from "../controllers/webhook";
-import { validateGitHubWebhook, validateGitHubWebhookEvent, validateSumsubWebhook } from "../middlewares/webhook.middleware";
+import { handleGitHubWebhook, handleSumsubWebhook } from "../controllers/webhook/index.js";
+import { validateGitHubWebhook, validateGitHubWebhookEvent, validateSumsubWebhook } from "../middlewares/webhook.middleware.js";
 
-import { ENDPOINTS } from "../utilities/data";
+import { ENDPOINTS } from "../utilities/data.js";
 
 export const webhookRoutes = Router();
 

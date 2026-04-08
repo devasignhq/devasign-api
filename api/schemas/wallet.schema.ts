@@ -1,6 +1,6 @@
 import * as z from "zod";
-import { installationIdSchema, paginationSchema } from "./index.schema";
-import { TransactionCategory } from "../../prisma_client";
+import { installationIdSchema, paginationSchema } from "./index.schema.js";
+import { TransactionCategory } from "../../prisma_client/index.js";
 
 export const walletInstallationIdSchema = {
     query: z.object({

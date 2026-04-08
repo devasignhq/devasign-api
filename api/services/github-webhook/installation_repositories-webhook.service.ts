@@ -1,8 +1,8 @@
 import { Request, Response, NextFunction } from "express";
-import { responseWrapper } from "../../utilities/helper";
-import { STATUS_CODES } from "../../utilities/data";
-import { dataLogger } from "../../config/logger.config";
-import { cloudTasksService } from "../cloud-tasks.service";
+import { responseWrapper } from "../../utilities/helper.js";
+import { STATUS_CODES } from "../../utilities/data.js";
+import { dataLogger } from "../../config/logger.config.js";
+import { cloudTasksService } from "../cloud-tasks.service.js";
 
 export class InstallationRepositoriesWebhookService {
     /**

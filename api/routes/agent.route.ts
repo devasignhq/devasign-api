@@ -1,11 +1,11 @@
 import { Request, Response, Router, RequestHandler, NextFunction } from "express";
-import { cloudTasksService } from "../services/cloud-tasks.service";
+import { cloudTasksService } from "../services/cloud-tasks.service.js";
 import { paymentMiddlewareFromConfig } from "@x402/express";
 import { HTTPFacilitatorClient, RoutesConfig } from "@x402/core/server";
 import { ExactStellarScheme } from "@x402/stellar/exact/server";
-import { ENDPOINTS, STATUS_CODES } from "../utilities/data";
-import { responseWrapper } from "../utilities/helper";
-import { ValidationError } from "../models/error.model";
+import { ENDPOINTS, STATUS_CODES } from "../utilities/data.js";
+import { responseWrapper } from "../utilities/helper.js";
+import { ValidationError } from "../models/error.model.js";
 
 const network = `stellar:${process.env.STELLAR_NETWORK === "testnet" ? "testnet" : "pubnet"}` as `${string}:${string}`;
 const facilitatorUrl = process.env.X402_FACILITATOR_URL;

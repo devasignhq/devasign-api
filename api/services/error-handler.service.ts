@@ -1,4 +1,4 @@
-import { dataLogger, messageLogger } from "../config/logger.config";
+import { dataLogger, messageLogger } from "../config/logger.config.js";
 
 /**
  * Sets up and configures all error handling components for the AI Review System

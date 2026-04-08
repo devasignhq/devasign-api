@@ -9,7 +9,7 @@ import {
     nativeToScVal,
     scValToNative
 } from "@stellar/stellar-sdk";
-import { EscrowContractError } from "../models/error.model";
+import { EscrowContractError } from "../models/error.model.js";
 
 /**
  * Service for interacting with the task escrow smart contract.

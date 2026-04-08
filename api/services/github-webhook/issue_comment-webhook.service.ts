@@ -1,17 +1,17 @@
 import { Request, Response, NextFunction } from "express";
-import { GitHubWebhookPayload } from "../../models/ai-review.model";
-import { responseWrapper, stellarTimestampToDate } from "../../utilities/helper";
-import { STATUS_CODES } from "../../utilities/data";
-import { prisma } from "../../config/database.config";
-import { dataLogger } from "../../config/logger.config";
-import { OctokitService } from "../octokit.service";
-import { stellarService } from "../stellar.service";
-import { ContractService } from "../contract.service";
-import { KMSService } from "../kms.service";
-import { HorizonApi } from "../../models/horizonapi.model";
-import { BOUNTY_LABEL, GitHubComment } from "../../models/github.model";
-import { statsigService } from "../statsig.service";
-import { cloudTasksService } from "../cloud-tasks.service";
+import { GitHubWebhookPayload } from "../../models/ai-review.model.js";
+import { responseWrapper, stellarTimestampToDate } from "../../utilities/helper.js";
+import { STATUS_CODES } from "../../utilities/data.js";
+import { prisma } from "../../config/database.config.js";
+import { dataLogger } from "../../config/logger.config.js";
+import { OctokitService } from "../octokit.service.js";
+import { stellarService } from "../stellar.service.js";
+import { ContractService } from "../contract.service.js";
+import { KMSService } from "../kms.service.js";
+import { HorizonApi } from "../../models/horizonapi.model.js";
+import { BOUNTY_LABEL, GitHubComment } from "../../models/github.model.js";
+import { statsigService } from "../statsig.service.js";
+import { cloudTasksService } from "../cloud-tasks.service.js";
 
 export class IssueCommentWebhookService {
     private static readonly AUTHORIZED_ASSOCIATIONS = ["OWNER", "MEMBER", "COLLABORATOR"];

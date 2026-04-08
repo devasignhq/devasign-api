@@ -1,7 +1,7 @@
 import { Server as SocketIOServer } from "socket.io";
 import { Server as HttpServer } from "http";
-import { ALLOWED_ORIGINS } from "../utilities/data";
-import { messageLogger } from "../config/logger.config";
+import { ALLOWED_ORIGINS } from "../utilities/data.js";
+import { messageLogger } from "../config/logger.config.js";
 
 /**
  * Represents an activity event in the application.

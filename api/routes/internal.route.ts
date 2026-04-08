@@ -1,6 +1,6 @@
 import { Router, RequestHandler } from "express";
-import { handleBountyPayoutJob } from "../controllers/internal";
-import { ENDPOINTS } from "../utilities/data";
+import { handleBountyPayoutJob } from "../controllers/internal/index.js";
+import { ENDPOINTS } from "../utilities/data.js";
 
 export const internalRoutes = Router();
 

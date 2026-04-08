@@ -13,12 +13,12 @@
         "moduleResolution": "NodeNext",
         "resolveJsonModule": true,
         "types": [
-            "node",
-            "jest"
+            "node"
         ],
         "allowSyntheticDefaultImports": true,
         "experimentalDecorators": true,
-        "emitDecoratorMetadata": true
+        "emitDecoratorMetadata": true,
+        "isolatedModules": true
     },
     "include": [
         "api/**/*",
@@ -28,5 +28,8 @@
         "node_modules",
         "dist",
         "coverage"
-    ]
+    ],
+    "ts-node": {
+        "esm": true
+    }
 }

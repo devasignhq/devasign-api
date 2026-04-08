@@ -1,4 +1,4 @@
-import { IssueLabel, GitHubComment } from "./github.model";
+import { IssueLabel, GitHubComment } from "./github.model.js";
 
 // ============================================================================
 // Core Data Transfer Objects for PR Analysis Workflow

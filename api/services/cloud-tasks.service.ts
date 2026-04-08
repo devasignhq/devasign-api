@@ -1,8 +1,8 @@
 import { CloudTasksClient } from "@google-cloud/tasks";
-import { GitHubWebhookPayload, LinkedIssue } from "../models/ai-review.model";
-import { dataLogger } from "../config/logger.config";
-import { CloudTasksError } from "../models/error.model";
-import { ENDPOINTS } from "../utilities/data";
+import { GitHubWebhookPayload, LinkedIssue } from "../models/ai-review.model.js";
+import { dataLogger } from "../config/logger.config.js";
+import { CloudTasksError } from "../models/error.model.js";
+import { ENDPOINTS } from "../utilities/data.js";
 
 /**
  * Types of background jobs supported by the Cloud Tasks integration.

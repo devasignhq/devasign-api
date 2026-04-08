@@ -6,16 +6,16 @@ import {
     recordWalletTopups,
     getInstallationTransactions,
     getUserTransactions
-} from "../controllers/wallet";
+} from "../controllers/wallet/index.js";
 import {
     withdrawAssetSchema,
     swapAssetSchema,
     walletInstallationIdSchema,
     getInstallationTransactionsSchema,
     getUserTransactionsSchema
-} from "../schemas/wallet.schema";
-import { ENDPOINTS } from "../utilities/data";
-import { validateRequestParameters } from "../middlewares/request.middleware";
+} from "../schemas/wallet.schema.js";
+import { ENDPOINTS } from "../utilities/data.js";
+import { validateRequestParameters } from "../middlewares/request.middleware.js";
 
 export const walletRoutes = Router();
 

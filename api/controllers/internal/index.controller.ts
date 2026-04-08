@@ -1,16 +1,16 @@
 import { Request, Response, NextFunction } from "express";
-import { statsigService } from "../../services/statsig.service";
-import { STATUS_CODES } from "../../utilities/data";
-import { dataLogger } from "../../config/logger.config";
-import { responseWrapper, stellarTimestampToDate } from "../../utilities/helper";
-import { prisma } from "../../config/database.config";
-import { KMSService } from "../../services/kms.service";
-import { ContractService } from "../../services/contract.service";
-import { FirebaseService } from "../../services/firebase.service";
-import { OctokitService } from "../../services/octokit.service";
-import { TaskIssue } from "../../models/task.model";
-import { SocketService } from "../../services/socket.service";
-import { LinkedIssue } from "../../models/ai-review.model";
+import { statsigService } from "../../services/statsig.service.js";
+import { STATUS_CODES } from "../../utilities/data.js";
+import { dataLogger } from "../../config/logger.config.js";
+import { responseWrapper, stellarTimestampToDate } from "../../utilities/helper.js";
+import { prisma } from "../../config/database.config.js";
+import { KMSService } from "../../services/kms.service.js";
+import { ContractService } from "../../services/contract.service.js";
+import { FirebaseService } from "../../services/firebase.service.js";
+import { OctokitService } from "../../services/octokit.service.js";
+import { TaskIssue } from "../../models/task.model.js";
+import { SocketService } from "../../services/socket.service.js";
+import { LinkedIssue } from "../../models/ai-review.model.js";
 
 /**
  * Handles incoming Cloud Tasks jobs for Bounty Payout
