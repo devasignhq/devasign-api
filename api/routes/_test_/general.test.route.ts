@@ -97,6 +97,7 @@ router.post("/create-packages", async (_, res: Response, next: NextFunction) => 
         const packages = await prisma.subscriptionPackage.createMany({
             data: [
                 {
+                    id: process.env.DEFAULT_SUBSCRIPTION_PACKAGE_ID || "cml9shfp300001jfka71z28ay",
                     name: "Free",
                     description: "Basic plan for personal use",
                     maxTasks: 5,

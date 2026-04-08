@@ -24,6 +24,27 @@ if (facilitatorUrl && payTo && facilitatorApiKey) {
         }
     });
 
+    // Validate PR URL before payment middleware is executed
+    agentRoutes.post(
+        ENDPOINTS.AGENT.REVIEW,
+        ((req: Request, res: Response, next: NextFunction) => {
+            const { prUrl } = req.body;
+
+            // Validate PR URL
+            const match = prUrl?.match(/^https?:\/\/(?:www\.)?github\.com\/([a-zA-Z0-9_.-]+)\/([a-zA-Z0-9_.-]+)\/pull\/(\d+)/);
+            if (!match) {
+                return next(new ValidationError("Please provide a valid GitHub Pull Request URL."));
+            }
+
+            // Store clean URL in locals for the later handler
+            res.locals.cleanPrUrl = match[0];
+
+            // TODO: add checks for: public repo, not forked, not archived, not empty
+
+            next();
+        }) as RequestHandler
+    );
+
     // Setup x402 payment middleware for the review agent endpoint
     agentRoutes.use(
         paymentMiddlewareFromConfig(
@@ -49,15 +70,7 @@ if (facilitatorUrl && payTo && facilitatorApiKey) {
         ENDPOINTS.AGENT.REVIEW,
         (async (req: Request, res: Response, next: NextFunction) => {
             try {
-                const { prUrl } = req.body;
-
-                // Validate PR URL
-                const match = prUrl.match(/^https?:\/\/(?:www\.)?github\.com\/([a-zA-Z0-9_.-]+)\/([a-zA-Z0-9_.-]+)\/pull\/(\d+)/);
-                if (!match) {
-                    throw new ValidationError("Please provide a valid GitHub Pull Request URL.");
-                }
-                // Optionally reconstruct a clean URL to pass to the job
-                const cleanPrUrl = match[0];
+                const { cleanPrUrl } = res.locals;
                 const taskId = await cloudTasksService.addManualPRAnalysisJob(cleanPrUrl);
 
                 responseWrapper({
