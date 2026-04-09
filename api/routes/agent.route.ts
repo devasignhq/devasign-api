@@ -7,7 +7,8 @@ import { ENDPOINTS, STATUS_CODES } from "../utilities/data.js";
 import { responseWrapper } from "../utilities/helper.js";
 import { ValidationError } from "../models/error.model.js";
 
-const network = `stellar:${process.env.STELLAR_NETWORK === "testnet" ? "testnet" : "pubnet"}` as `${string}:${string}`;
+// const network = `stellar:${process.env.STELLAR_NETWORK === "testnet" ? "testnet" : "pubnet"}` as `${string}:${string}`;
+const network = "stellar:testnet" as `${string}:${string}`;
 const facilitatorUrl = process.env.X402_FACILITATOR_URL;
 const payTo = process.env.X402_PAYEE_ADDRESS;
 const facilitatorApiKey = process.env.X402_API_KEY;
