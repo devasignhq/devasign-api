@@ -12,7 +12,7 @@
         "dev": "nodemon -L -e ts,js,json --exec \"jiti api/index.ts\"",
         "dev:once": "jiti api/index.ts",
         "start": "node dist/index.js",
-        "build": "tsc",
+        "build": "tsc -p tsconfig.build.json",
         "lint": "eslint . --ext .ts,.js",
         "lint:fix": "eslint . --ext .ts,.js --fix",
         "lint:check": "eslint . --ext .ts,.js --max-warnings 0",

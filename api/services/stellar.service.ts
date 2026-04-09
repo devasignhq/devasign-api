@@ -1,10 +1,7 @@
-import {
-    AccountKeypair,
-    Keypair,
-    StellarAssetId,
-    NativeAssetId,
-    IssuedAssetId,
-    SponsoringBuilder
+import swSdk, {
+    type AccountKeypair,
+    type StellarAssetId,
+    type SponsoringBuilder
 } from "@stellar/typescript-wallet-sdk";
 import {
     stellar,
@@ -41,8 +38,8 @@ export class StellarService {
 
         try {
             // Create keypair from the master secret key
-            const keypair = Keypair.fromSecret(process.env.STELLAR_MASTER_SECRET_KEY);
-            this.masterAccount = new AccountKeypair(keypair);
+            const keypair = swSdk.Keypair.fromSecret(process.env.STELLAR_MASTER_SECRET_KEY);
+            this.masterAccount = new swSdk.AccountKeypair(keypair);
         } catch (error) {
             throw new StellarServiceError("Invalid Stellar master account credentials", error);
         }
@@ -57,12 +54,12 @@ export class StellarService {
      */
     private isSameAsset(asset1: StellarAssetId, asset2: StellarAssetId): boolean {
         // Both assets are native XLM
-        if (asset1 instanceof NativeAssetId && asset2 instanceof NativeAssetId) {
+        if (asset1 instanceof swSdk.NativeAssetId && asset2 instanceof swSdk.NativeAssetId) {
             return true;
         }
 
         // Both assets are issued assets - compare code and issuer
-        if (asset1 instanceof IssuedAssetId && asset2 instanceof IssuedAssetId) {
+        if (asset1 instanceof swSdk.IssuedAssetId && asset2 instanceof swSdk.IssuedAssetId) {
             return asset1.code === asset2.code && asset1.issuer === asset2.issuer;
         }
 
@@ -163,18 +160,18 @@ export class StellarService {
     async createWalletViaSponsor(sponsorSecret: string) {
         try {
             // Create keypairs for both sponsor and new account
-            const sponsorKeyPair = Keypair.fromSecret(sponsorSecret);
+            const sponsorKeyPair = swSdk.Keypair.fromSecret(sponsorSecret);
             const accountKeyPair = account.createKeypair();
 
             // Build the sponsored transaction
             const txBuilder = await stellar.transaction({
-                sourceAddress: new AccountKeypair(sponsorKeyPair)
+                sourceAddress: new swSdk.AccountKeypair(sponsorKeyPair)
             });
 
             // Define the sponsoring operation
             const buildingFunction = (bldr: SponsoringBuilder) => bldr.createAccount(accountKeyPair);
             const txCreateAccount = txBuilder
-                .sponsoring(new AccountKeypair(sponsorKeyPair), buildingFunction, accountKeyPair)
+                .sponsoring(new swSdk.AccountKeypair(sponsorKeyPair), buildingFunction, accountKeyPair)
                 .build();
 
             // Sign with both the new account and sponsor
@@ -241,11 +238,11 @@ export class StellarService {
     async addTrustLine(sourceSecret: string, assetId: StellarAssetId = usdcAssetId) {
         try {
             // Create keypair from the source secret
-            const sourceKeypair = Keypair.fromSecret(sourceSecret);
+            const sourceKeypair = swSdk.Keypair.fromSecret(sourceSecret);
 
             // Build the transaction to add asset support
             const assetTxBuilder = await stellar.transaction({
-                sourceAddress: new AccountKeypair(sourceKeypair)
+                sourceAddress: new swSdk.AccountKeypair(sourceKeypair)
             });
             const txAddAssetSupport = assetTxBuilder.addAssetSupport(assetId).build();
 
@@ -292,21 +289,21 @@ export class StellarService {
     ) {
         try {
             // Create keypairs for both sponsor and account
-            const sponsorKeyPair = Keypair.fromSecret(sponsorSecret);
-            const accountKeyPair = Keypair.fromSecret(accountSecret);
+            const sponsorKeyPair = swSdk.Keypair.fromSecret(sponsorSecret);
+            const accountKeyPair = swSdk.Keypair.fromSecret(accountSecret);
 
             // Build the sponsored transaction
             const txBuilder = await stellar.transaction({
-                sourceAddress: new AccountKeypair(sponsorKeyPair)
+                sourceAddress: new swSdk.AccountKeypair(sponsorKeyPair)
             });
 
             // Define the sponsoring operation
             const buildingFunction = (bldr: SponsoringBuilder) => bldr.addAssetSupport(assetId);
             const txAddAssetSupport = txBuilder
                 .sponsoring(
-                    new AccountKeypair(sponsorKeyPair),
+                    new swSdk.AccountKeypair(sponsorKeyPair),
                     buildingFunction,
-                    new AccountKeypair(accountKeyPair)
+                    new swSdk.AccountKeypair(accountKeyPair)
                 )
                 .build();
 
@@ -360,11 +357,11 @@ export class StellarService {
     ) {
         try {
             // Derive the source keypair from the provided secret.
-            const sourceKeypair = Keypair.fromSecret(sourceSecret);
+            const sourceKeypair = swSdk.Keypair.fromSecret(sourceSecret);
 
             // Initialize a transaction builder for the source account.
             const txBuilder = await stellar.transaction({
-                sourceAddress: new AccountKeypair(sourceKeypair)
+                sourceAddress: new swSdk.AccountKeypair(sourceKeypair)
             });
 
             let transaction;
@@ -443,12 +440,12 @@ export class StellarService {
     ) {
         try {
             // Derive the sponsor and account keypair from the provided secret.
-            const sponsorKeyPair = Keypair.fromSecret(sponsorSecret);
-            const accountKeyPair = Keypair.fromSecret(accountSecret);
+            const sponsorKeyPair = swSdk.Keypair.fromSecret(sponsorSecret);
+            const accountKeyPair = swSdk.Keypair.fromSecret(accountSecret);
 
             // Initialize a transaction builder for the source account.
             const txBuilder = await stellar.transaction({
-                sourceAddress: new AccountKeypair(accountKeyPair)
+                sourceAddress: new swSdk.AccountKeypair(accountKeyPair)
             });
 
             let transaction;
@@ -482,7 +479,7 @@ export class StellarService {
 
             // Create a fee-bump transaction with the sponsor paying the fees.
             const feeBump = stellar.makeFeeBump({
-                feeAddress: new AccountKeypair(sponsorKeyPair),
+                feeAddress: new swSdk.AccountKeypair(sponsorKeyPair),
                 transaction
             });
 
@@ -534,11 +531,11 @@ export class StellarService {
     ) {
         try {
             // Create a keypair from the source secret.
-            const sourceKeypair = Keypair.fromSecret(sourceSecret);
+            const sourceKeypair = swSdk.Keypair.fromSecret(sourceSecret);
 
             // Initialize a transaction builder for the source account.
             const txBuilder = await stellar.transaction({
-                sourceAddress: new AccountKeypair(sourceKeypair)
+                sourceAddress: new swSdk.AccountKeypair(sourceKeypair)
             });
 
             // Build the swap transaction.
@@ -561,9 +558,9 @@ export class StellarService {
             const creditEffect = effects.records.find((effect: any) => {
                 if (effect.type !== "account_credited") return false;
 
-                if (toAssetId instanceof NativeAssetId) {
+                if (toAssetId instanceof swSdk.NativeAssetId) {
                     return effect.asset_type === "native";
-                } else if (toAssetId instanceof IssuedAssetId) {
+                } else if (toAssetId instanceof swSdk.IssuedAssetId) {
                     return effect.asset_code === toAssetId.code && effect.asset_issuer === toAssetId.issuer;
                 }
                 return false;

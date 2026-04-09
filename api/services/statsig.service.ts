@@ -1,4 +1,5 @@
-import { Statsig, StatsigUser } from "statsig-node";
+import statsig, { type StatsigUser } from "statsig-node";
+const { Statsig } = statsig;
 import { dataLogger } from "../config/logger.config.js";
 
 /**
