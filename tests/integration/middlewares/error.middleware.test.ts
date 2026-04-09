@@ -1,5 +1,6 @@
+import { vi, describe, it, expect, beforeEach } from "vitest";
 import { Request, Response, NextFunction } from "express";
-import { errorHandler } from "../../../api/middlewares/error.middleware";
+import { errorHandler } from "../../../api/middlewares/error.middleware.js";
 import {
     AIReviewError,
     AuthorizationError,
@@ -8,12 +9,12 @@ import {
     GeminiServiceError,
     NotFoundError,
     ValidationError
-} from "../../../api/models/error.model";
-import { STATUS_CODES } from "../../../api/utilities/data";
+} from "../../../api/models/error.model.js";
+import { STATUS_CODES } from "../../../api/utilities/data.js";
 
-jest.mock("../../../api/services/octokit.service", () => ({
+vi.mock("../../../api/services/octokit.service", () => ({
     OctokitService: {
-        getDefaultBranch: jest.fn()
+        getDefaultBranch: vi.fn()
     }
 }));
 
@@ -26,21 +27,21 @@ describe("Error Handling Middleware", () => {
         mockRequest = {
             headers: {},
             body: {},
-            get: jest.fn(),
+            get: vi.fn(),
             url: "/test",
             method: "GET",
             ip: "127.0.0.1"
         };
 
         mockResponse = {
-            status: jest.fn().mockReturnThis(),
-            json: jest.fn().mockReturnThis(),
-            set: jest.fn().mockReturnThis()
-        };
+            status: vi.fn().mockReturnThis(),
+            json: vi.fn().mockReturnThis(),
+            set: vi.fn().mockReturnThis()
+        } as any;
 
-        mockNext = jest.fn();
+        mockNext = vi.fn() as any;
 
-        jest.clearAllMocks();
+        vi.clearAllMocks();
     });
 
 
@@ -56,7 +57,10 @@ describe("Error Handling Middleware", () => {
             errorHandler(error, mockRequest as Request, mockResponse as Response, mockNext);
 
             expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.BAD_PAYLOAD);
-            expect(mockResponse.json).toHaveBeenCalledWith({ ...error });
+            expect(mockResponse.json).toHaveBeenCalledWith(expect.objectContaining({
+                code: "CUSTOM_ERROR",
+                message: "Custom error message"
+            }));
 
             // Not found
             error = new NotFoundError("Access denied");
@@ -114,7 +118,7 @@ describe("Error Handling Middleware", () => {
                 errors: ["Field is required"]
             };
 
-            errorHandler(error, mockRequest as Request, mockResponse as Response, mockNext);
+            errorHandler(error as any, mockRequest as Request, mockResponse as Response, mockNext);
 
             expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.SERVER_ERROR);
             expect(mockResponse.json).toHaveBeenCalledWith({

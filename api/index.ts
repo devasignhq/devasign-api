@@ -6,11 +6,11 @@ import { createServer } from "http";
 import helmet from "helmet";
 import cors from "cors";
 import morgan from "morgan";
-import { prisma } from "./config/database.config";
-import { validateUser, validateCloudTasksRequest } from "./middlewares/auth.middleware";
-import { dynamicRoute, localhostOnly } from "./middlewares/request.middleware";
-import { errorHandler } from "./middlewares/error.middleware";
-import { apiLimiter, webhookLimiter } from "./middlewares/rate-limit.middleware";
+import { prisma } from "./config/database.config.js";
+import { validateUser, validateCloudTasksRequest } from "./middlewares/auth.middleware.js";
+import { dynamicRoute, localhostOnly } from "./middlewares/request.middleware.js";
+import { errorHandler } from "./middlewares/error.middleware.js";
+import { apiLimiter, webhookLimiter } from "./middlewares/rate-limit.middleware.js";
 import {
     userRoutes,
     installationRoutes,
@@ -22,14 +22,15 @@ import {
     contractTestRoutes,
     octokitTestRoutes,
     publicTaskRoutes,
-    internalRoutes
-} from "./routes";
-import { ErrorHandlerService } from "./services/error-handler.service";
-import { dataLogger, messageLogger } from "./config/logger.config";
-import { ALLOWED_ORIGINS, ENDPOINTS, STATUS_CODES } from "./utilities/data";
-import { ErrorClass } from "./models/error.model";
-import { statsigService } from "./services/statsig.service";
-import { SocketService } from "./services/socket.service";
+    internalRoutes,
+    agentRoutes
+} from "./routes/index.js";
+import { ErrorHandlerService } from "./services/error-handler.service.js";
+import { dataLogger, messageLogger } from "./config/logger.config.js";
+import { ALLOWED_ORIGINS, ENDPOINTS, STATUS_CODES } from "./utilities/data.js";
+import { ErrorClass } from "./models/error.model.js";
+import { statsigService } from "./services/statsig.service.js";
+import { SocketService } from "./services/socket.service.js";
 
 // Create HTTP server
 const app = express();
@@ -58,7 +59,8 @@ app.use(
                 "Not allowed by CORS",
                 STATUS_CODES.UNAUTHORIZED
             ));
-        }
+        },
+        exposedHeaders: ["Payment-Required"]
     })
 );
 app.use(morgan("dev"));
@@ -124,6 +126,12 @@ app.use(
     dynamicRoute,
     validateCloudTasksRequest,
     internalRoutes
+);
+// Agent routes
+app.use(
+    ENDPOINTS.AGENT.PREFIX,
+    dynamicRoute,
+    agentRoutes
 );
 
 /**

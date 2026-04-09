@@ -1,6 +1,6 @@
 import { Router, Request, Response, NextFunction } from "express";
-import { ContractService } from "../../services/contract.service";
-import { validateRequestParameters } from "../../middlewares/request.middleware";
+import { ContractService } from "../../services/contract.service.js";
+import { validateRequestParameters } from "../../middlewares/request.middleware.js";
 import {
     createEscrowSchema,
     getEscrowSchema,
@@ -11,7 +11,7 @@ import {
     disputeTaskSchema,
     resolveDisputeSchema,
     refundSchema
-} from "./test.schema";
+} from "./test.schema.js";
 
 const router = Router();
 

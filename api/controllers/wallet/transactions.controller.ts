@@ -1,12 +1,12 @@
 import { NextFunction, Request, Response } from "express";
-import { prisma } from "../../config/database.config";
-import { responseWrapper } from "../../utilities/helper";
-import { STATUS_CODES } from "../../utilities/data";
-import { HorizonApi } from "../../models/horizonapi.model";
-import { Prisma, TransactionCategory } from "../../../prisma_client";
-import { stellarService } from "../../services/stellar.service";
-import { AuthorizationError, NotFoundError } from "../../models/error.model";
-import { dataLogger } from "../../config/logger.config";
+import { prisma } from "../../config/database.config.js";
+import { responseWrapper } from "../../utilities/helper.js";
+import { STATUS_CODES } from "../../utilities/data.js";
+import { HorizonApi } from "../../models/horizonapi.model.js";
+import { Prisma, TransactionCategory } from "../../../prisma_client/index.js";
+import { stellarService } from "../../services/stellar.service.js";
+import { AuthorizationError, NotFoundError } from "../../models/error.model.js";
+import { dataLogger } from "../../config/logger.config.js";
 
 /**
  * Get user transactions.

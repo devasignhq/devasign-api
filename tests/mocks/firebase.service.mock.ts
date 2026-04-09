@@ -1,306 +1,212 @@
-import { Timestamp } from "firebase-admin/firestore";
-import { MessageType, Message } from "../../api/models/task.model";
+import { vi } from "vitest";
+import { MessageType, Message } from "../../api/models/task.model.js";
 
 /**
  * Provides comprehensive mocks for FirebaseService methods
  */
 
-// Mock data storage
-const mockMessages: any[] = [];
-const mockTasks: any[] = [];
-const mockCollections = new Map<string, any[]>();
-
-// Mock Firestore collections
-export const mockMessagesCollection = {
-    doc: jest.fn((id?: string) => ({
-        id: id || `mock_message_${Date.now()}`,
-        get: jest.fn().mockResolvedValue({
-            exists: true,
-            id: id || `mock_message_${Date.now()}`,
-            data: () => mockMessages.find(m => m.id === id) || {}
-        }),
-        set: jest.fn().mockResolvedValue(undefined),
-        update: jest.fn().mockResolvedValue(undefined)
-    })),
-    where: jest.fn().mockReturnThis(),
-    orderBy: jest.fn().mockReturnThis(),
-    get: jest.fn().mockResolvedValue({
-        docs: mockMessages.map(msg => ({
-            id: msg.id,
-            data: () => msg
-        }))
-    })
-};
-
-export const mockTasksCollection = {
-    doc: jest.fn((id?: string) => ({
-        id: id || `mock_task_${Date.now()}`,
-        get: jest.fn().mockResolvedValue({
-            exists: true,
-            id: id || `mock_task_${Date.now()}`,
-            data: () => mockTasks.find(t => t.id === id) || {}
-        }),
-        set: jest.fn().mockResolvedValue(undefined),
-        update: jest.fn().mockResolvedValue(undefined)
-    }))
-};
-
-/**
- * Simulates Firestore operations with realistic behavior
- */
-export class MockFirebaseService {
-    /**
-     * Simulates message creation in Firestore
-     */
-    static async createMessage({
-        userId,
-        taskId,
-        type = MessageType.GENERAL,
-        body,
-        metadata = {} as any,
-        attachments = []
-    }: Message) {
-        const messageId = `mock_message_${Date.now()}_${Math.random()}`;
-        const timestamp = Timestamp.now();
-
-        const messageData = {
-            id: messageId,
-            userId,
-            taskId,
-            type,
-            body,
-            metadata,
-            attachments,
-            createdAt: timestamp,
-            updatedAt: timestamp
-        };
-
-        // Store in mock data
-        mockMessages.push(messageData);
-
-        return messageData;
-    }
-
-    /**
-     * Simulates message updates in Firestore
-     */
-    static async updateMessage(messageId: string, data: Partial<Message>) {
-        const messageIndex = mockMessages.findIndex(m => m.id === messageId);
-
-        if (messageIndex === -1) {
-            throw new Error("Message not found");
-        }
-
-        const updateData = {
-            ...data,
-            updatedAt: Timestamp.now()
-        };
-
-        // Update mock data
-        mockMessages[messageIndex] = {
-            ...mockMessages[messageIndex],
-            ...updateData
-        };
-
-        return {
-            id: messageId,
-            ...mockMessages[messageIndex]
-        };
-    }
-
-    /**
-     * Simulates retrieving messages for a task
-     */
-    static async getTaskMessages(taskId: string) {
-        const taskMessages = mockMessages
-            .filter(msg => msg.taskId === taskId)
-            .sort((a, b) => b.createdAt.seconds - a.createdAt.seconds);
-
-        return taskMessages.map(msg => ({ id: msg.id, ...msg }));
-    }
-
-    /**
-     * Simulates task creation in Firestore
-     */
-    static async createTask(
-        taskId: string,
-        creatorId: string,
-        contributorId: string
-    ) {
-        // Check if task already exists
-        const existingTask = mockTasks.find(t => t.id === taskId);
-        if (existingTask) return existingTask;
-
-        const timestamp = Timestamp.now();
-
-        const taskData = {
-            id: taskId,
-            creatorId,
-            contributorId,
-            conversationStatus: "OPEN",
-            createdAt: timestamp,
-            updatedAt: timestamp
-        };
-
-        // Store in mock data
-        mockTasks.push(taskData);
-
-        return taskData;
-    }
-
-    /**
-     * Simulates task status updates in Firestore
-     */
-    static async updateTaskStatus(taskId: string) {
-        const taskIndex = mockTasks.findIndex(t => t.id === taskId);
-
-        if (taskIndex === -1) {
-            throw new Error("Task not found in Firebase");
-        }
-
-        const updateData = {
-            conversationStatus: "CLOSED",
-            updatedAt: Timestamp.now()
-        };
-
-        // Update mock data
-        mockTasks[taskIndex] = {
-            ...mockTasks[taskIndex],
-            ...updateData
-        };
-
-        return updateData;
-    }
-
-    /**
-     * Utility methods for test setup and cleanup
-     */
-    static clearMockData() {
-        mockMessages.length = 0;
-        mockTasks.length = 0;
-        mockCollections.clear();
-    }
-
-    static getMockMessages() {
-        return [...mockMessages];
-    }
-
-    static getMockTasks() {
-        return [...mockTasks];
-    }
-
-    static setMockMessages(messages: any[]) {
-        mockMessages.length = 0;
-        mockMessages.push(...messages);
-    }
-
-    static setMockTasks(tasks: any[]) {
-        mockTasks.length = 0;
-        mockTasks.push(...tasks);
-    }
-}
-
-/**
- * Creates comprehensive mocks with realistic Firebase response simulation
- */
-export const createFirebaseServiceMock = () => {
-    return {
-        createMessage: jest.fn().mockImplementation(MockFirebaseService.createMessage),
-        updateMessage: jest.fn().mockImplementation(MockFirebaseService.updateMessage),
-        getTaskMessages: jest.fn().mockImplementation(MockFirebaseService.getTaskMessages),
-        createTask: jest.fn().mockImplementation(MockFirebaseService.createTask),
-        updateTaskStatus: jest.fn().mockImplementation(MockFirebaseService.updateTaskStatus)
-    };
-};
 
 /**
  * Simulates Firebase Admin SDK behavior
  */
-export const mockFirestoreDB = {
-    collection: jest.fn((collectionName: string) => {
-        switch (collectionName) {
-            case "messages":
-                return mockMessagesCollection;
-            case "tasks":
-                return mockTasksCollection;
-            default:
-                return {
-                    doc: jest.fn(() => ({
-                        get: jest.fn().mockResolvedValue({ exists: false }),
-                        set: jest.fn().mockResolvedValue(undefined),
-                        update: jest.fn().mockResolvedValue(undefined)
-                    })),
-                    where: jest.fn().mockReturnThis(),
-                    orderBy: jest.fn().mockReturnThis(),
-                    get: jest.fn().mockResolvedValue({ docs: [] })
-                };
-        }
-    })
-};
+const hoisted = vi.hoisted(() => {
+    const mockMessages: any[] = [];
+    const mockTasks: any[] = [];
 
-/**
- * Simulates Firebase Timestamp behavior
- */
-export const mockTimestamp = {
-    now: jest.fn(() => ({
-        seconds: Math.floor(Date.now() / 1000),
-        nanoseconds: (Date.now() % 1000) * 1000000,
-        toDate: () => new Date(),
-        toMillis: () => Date.now()
-    })),
-    fromDate: jest.fn((date: Date) => ({
-        seconds: Math.floor(date.getTime() / 1000),
-        nanoseconds: (date.getTime() % 1000) * 1000000,
-        toDate: () => date,
-        toMillis: () => date.getTime()
-    }))
-};
+    const messagesCol = {
+        doc: vi.fn((id?: string) => ({
+            id: id || `mock_message_${Date.now()}`,
+            get: vi.fn().mockResolvedValue({
+                exists: true,
+                id: id || `mock_message_${Date.now()}`,
+                data: () => mockMessages.find(m => m.id === id) || {}
+            }),
+            set: vi.fn().mockResolvedValue(undefined),
+            update: vi.fn().mockResolvedValue(undefined)
+        })),
+        where: vi.fn().mockReturnThis(),
+        orderBy: vi.fn().mockReturnThis(),
+        get: vi.fn().mockResolvedValue({
+            docs: mockMessages.map(msg => ({
+                id: msg.id,
+                data: () => msg
+            }))
+        })
+    };
 
-/**
- * Simulates Firebase Admin SDK authentication
- */
-export const mockFirebaseAuth = {
-    verifyIdToken: jest.fn((token: string, overrides?: any) => {
-        // Simulate invalid token
-        if (token === "invalid_token" || token === "expired_token" || !token) {
-            throw new Error("Invalid or expired token");
-        }
+    const tasksCol = {
+        doc: vi.fn((id?: string) => ({
+            id: id || `mock_task_${Date.now()}`,
+            get: vi.fn().mockResolvedValue({
+                exists: true,
+                id: id || `mock_task_${Date.now()}`,
+                data: () => mockTasks.find(t => t.id === id) || {}
+            }),
+            set: vi.fn().mockResolvedValue(undefined),
+            update: vi.fn().mockResolvedValue(undefined)
+        }))
+    };
 
-        // Return mock decoded token
-        return {
-            uid: "test_user_123",
-            email: "test@example.com",
-            email_verified: true,
-            name: "Test User",
-            picture: "https://example.com/avatar.jpg",
-            iss: "https://securetoken.google.com/test-project",
-            aud: "test-project",
-            auth_time: Math.floor(Date.now() / 1000),
-            user_id: "test_user_123",
-            sub: "test_user_123",
-            iat: Math.floor(Date.now() / 1000),
-            exp: Math.floor(Date.now() / 1000) + 3600,
-            firebase: {
-                identities: {
-                    email: ["test@example.com"]
+    const firestoreDB = {
+        collection: vi.fn((collectionName: string) => {
+            switch (collectionName) {
+                case "messages":
+                    return messagesCol;
+                case "tasks":
+                    return tasksCol;
+                default:
+                    return {
+                        doc: vi.fn(() => ({
+                            get: vi.fn().mockResolvedValue({ exists: false }),
+                            set: vi.fn().mockResolvedValue(undefined),
+                            update: vi.fn().mockResolvedValue(undefined)
+                        })),
+                        where: vi.fn().mockReturnThis(),
+                        orderBy: vi.fn().mockReturnThis(),
+                        get: vi.fn().mockResolvedValue({ docs: [] })
+                    };
+            }
+        })
+    };
+
+    const timestamp = {
+        now: vi.fn(() => ({
+            seconds: Math.floor(Date.now() / 1000),
+            nanoseconds: (Date.now() % 1000) * 1000000,
+            toDate: () => new Date(),
+            toMillis: () => Date.now()
+        })),
+        fromDate: vi.fn((date: Date) => ({
+            seconds: Math.floor(date.getTime() / 1000),
+            nanoseconds: (date.getTime() % 1000) * 1000000,
+            toDate: () => date,
+            toMillis: () => date.getTime()
+        }))
+    };
+
+    const firebaseAuth = {
+        verifyIdToken: vi.fn((token: string, overrides?: any) => {
+            if (token === "invalid_token" || token === "expired_token" || !token) {
+                throw new Error("Invalid or expired token");
+            }
+            return {
+                uid: "test_user_123",
+                email: "test@example.com",
+                email_verified: true,
+                name: "Test User",
+                picture: "https://example.com/avatar.jpg",
+                iss: "https://securetoken.google.com/test-project",
+                aud: "test-project",
+                auth_time: Math.floor(Date.now() / 1000),
+                user_id: "test_user_123",
+                sub: "test_user_123",
+                iat: Math.floor(Date.now() / 1000),
+                exp: Math.floor(Date.now() / 1000) + 3600,
+                firebase: {
+                    identities: {
+                        email: ["test@example.com"]
+                    },
+                    sign_in_provider: "password"
                 },
-                sign_in_provider: "password"
-            },
-            ...overrides
-        };
-    })
-};
+                ...overrides
+            };
+        })
+    };
 
-/**
- * Simulates Firebase Admin SDK
- */
-export const mockFirebaseAdmin = {
-    auth: () => mockFirebaseAuth,
-    firestore: () => mockFirestoreDB,
-    credential: {
-        cert: () => jest.fn()
+    const firebaseAdmin = {
+        auth: () => firebaseAuth,
+        firestore: () => firestoreDB,
+        credential: {
+            cert: () => vi.fn()
+        }
+    };
+
+    class serviceMock {
+        static async createMessage({ userId, taskId, type, body, metadata = {}, attachments = [] }: any) {
+            const messageId = `mock_message_${Date.now()}_${Math.random()}`;
+            const ts = timestamp.now();
+            const messageData = { id: messageId, userId, taskId, type, body, metadata, attachments, createdAt: ts, updatedAt: ts };
+            mockMessages.push(messageData);
+            return messageData;
+        }
+        static async updateMessage(messageId: string, data: any) {
+            const index = mockMessages.findIndex(m => m.id === messageId);
+            if (index === -1) throw new Error("Message not found");
+            const updateData = { ...data, updatedAt: timestamp.now() };
+            mockMessages[index] = { ...mockMessages[index], ...updateData };
+            return { id: messageId, ...mockMessages[index] };
+        }
+        static async getTaskMessages(taskId: string) {
+            return mockMessages.filter(msg => msg.taskId === taskId)
+                .sort((a, b) => b.createdAt.seconds - a.createdAt.seconds)
+                .map(msg => ({ id: msg.id, ...msg }));
+        }
+        static async createTask(taskId: string, creatorId: string, contributorId: string) {
+            const existingTask = mockTasks.find(t => t.id === taskId);
+            if (existingTask) return existingTask;
+            const ts = timestamp.now();
+            const taskData = { id: taskId, creatorId, contributorId, conversationStatus: "OPEN", createdAt: ts, updatedAt: ts };
+            mockTasks.push(taskData);
+            return taskData;
+        }
+        static async updateTaskStatus(taskId: string) {
+            const index = mockTasks.findIndex(t => t.id === taskId);
+            if (index === -1) throw new Error("Task not found in Firebase");
+            const updateData = { conversationStatus: "CLOSED", updatedAt: timestamp.now() };
+            mockTasks[index] = { ...mockTasks[index], ...updateData };
+            return updateData;
+        }
+        static clearMockData() {
+            mockMessages.length = 0;
+            mockTasks.length = 0;
+        }
+        static getMockMessages() { return [...mockMessages]; }
+        static getMockTasks() { return [...mockTasks]; }
+        static setMockMessages(messages: any[]) { mockMessages.length = 0; mockMessages.push(...messages); }
+        static setMockTasks(tasks: any[]) { mockTasks.length = 0; mockTasks.push(...tasks); }
     }
-};
+
+    const createServiceMock = () => ({
+        createMessage: vi.fn().mockImplementation(serviceMock.createMessage),
+        updateMessage: vi.fn().mockImplementation(serviceMock.updateMessage),
+        getTaskMessages: vi.fn().mockImplementation(serviceMock.getTaskMessages),
+        createTask: vi.fn().mockImplementation(serviceMock.createTask),
+        updateTaskStatus: vi.fn().mockImplementation(serviceMock.updateTaskStatus)
+    });
+
+    return {
+        mockMessagesCollection: messagesCol,
+        mockTasksCollection: tasksCol,
+        mockFirestoreDB: firestoreDB,
+        mockTimestamp: timestamp,
+        mockFirebaseAuth: firebaseAuth,
+        mockFirebaseAdmin: firebaseAdmin,
+        MockFirebaseService: serviceMock,
+        createFirebaseServiceMock: createServiceMock
+    };
+});
+
+export const {
+    mockMessagesCollection,
+    mockTasksCollection,
+    mockFirestoreDB,
+    mockTimestamp,
+    mockFirebaseAuth,
+    mockFirebaseAdmin,
+    MockFirebaseService,
+    createFirebaseServiceMock
+} = hoisted;
+
+// Mock Firebase Admin SDK
+vi.mock("firebase-admin/firestore", () => ({
+    Timestamp: mockTimestamp
+}));
+
+// Mock Firebase config
+vi.mock("../../api/config/firebase.config.js", () => ({
+    firestoreDB: mockFirestoreDB,
+    firebaseAdmin: mockFirebaseAdmin
+}));
 
 /**
  * Test helper functions for Firebase mocking
@@ -354,12 +260,12 @@ export const FirebaseTestHelpers = {
      */
     setupFirebaseMocks: () => {
         // Mock Firebase Admin SDK
-        jest.mock("firebase-admin/firestore", () => ({
+        vi.mock("firebase-admin/firestore", () => ({
             Timestamp: mockTimestamp
         }));
 
         // Mock Firebase config
-        jest.mock("../../api/config/firebase.config", () => ({
+        vi.mock("../../api/config/firebase.config.js", () => ({
             firestoreDB: mockFirestoreDB,
             firebaseAdmin: mockFirebaseAdmin
         }));
@@ -379,7 +285,7 @@ export const FirebaseTestHelpers = {
      */
     resetFirebaseMocks: () => {
         MockFirebaseService.clearMockData();
-        jest.clearAllMocks();
+        vi.clearAllMocks();
     },
 
     /**

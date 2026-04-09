@@ -13,7 +13,7 @@ import {
     TaskStatus,
     TransactionCategory,
     InstallationStatus
-} from "../../prisma_client";
+} from "../../prisma_client/index.js";
 
 /**
  * TestDataFactory provides factory methods for creating test data objects

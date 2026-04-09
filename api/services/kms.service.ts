@@ -1,7 +1,7 @@
 import { KeyManagementServiceClient } from "@google-cloud/kms";
 import crypto from "crypto";
-import { Wallet } from "../../prisma_client";
-import { KmsServiceError } from "../models/error.model";
+import { Wallet } from "../../prisma_client/index.js";
+import { KmsServiceError } from "../models/error.model.js";
 
 // Verify required environment variables are present
 if (!process.env.GCP_PROJECT_ID || !process.env.GCP_LOCATION_ID || !process.env.GCP_KEY_RING_ID || !process.env.GCP_KEY_ID) {

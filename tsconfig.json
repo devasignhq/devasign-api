@@ -1,7 +1,7 @@
 {
     "compilerOptions": {
         "target": "ES2020",
-        "module": "CommonJS",
+        "module": "NodeNext",
         "lib": [
             "ES2020"
         ],
@@ -10,15 +10,15 @@
         "esModuleInterop": true,
         "skipLibCheck": true,
         "forceConsistentCasingInFileNames": true,
-        "moduleResolution": "node",
+        "moduleResolution": "NodeNext",
         "resolveJsonModule": true,
         "types": [
-            "node",
-            "jest"
+            "node"
         ],
         "allowSyntheticDefaultImports": true,
         "experimentalDecorators": true,
-        "emitDecoratorMetadata": true
+        "emitDecoratorMetadata": true,
+        "isolatedModules": true
     },
     "include": [
         "api/**/*",
@@ -28,5 +28,8 @@
         "node_modules",
         "dist",
         "coverage"
-    ]
+    ],
+    "ts-node": {
+        "esm": true
+    }
 }

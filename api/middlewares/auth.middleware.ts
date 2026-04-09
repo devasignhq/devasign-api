@@ -1,11 +1,11 @@
-import { prisma } from "../config/database.config";
-import { firebaseAdmin } from "../config/firebase.config";
+import { prisma } from "../config/database.config.js";
+import { firebaseAdmin } from "../config/firebase.config.js";
 import { OAuth2Client } from "google-auth-library";
-import { STATUS_CODES } from "../utilities/data";
-import { getFieldFromUnknownObject } from "../utilities/helper";
+import { STATUS_CODES } from "../utilities/data.js";
+import { getFieldFromUnknownObject } from "../utilities/helper.js";
 import { Request, Response, NextFunction } from "express";
-import { AuthorizationError, ErrorClass, ValidationError } from "../models/error.model";
-import { dataLogger } from "../config/logger.config";
+import { AuthorizationError, ErrorClass, ValidationError } from "../models/error.model.js";
+import { dataLogger } from "../config/logger.config.js";
 
 // Google OAuth2 client used to verify OIDC tokens.
 const authClient = new OAuth2Client();

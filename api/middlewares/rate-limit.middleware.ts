@@ -1,6 +1,6 @@
 import rateLimit from "express-rate-limit";
-import { STATUS_CODES, ENDPOINTS } from "../utilities/data";
-import { messageLogger } from "../config/logger.config";
+import { STATUS_CODES, ENDPOINTS } from "../utilities/data.js";
+import { messageLogger } from "../config/logger.config.js";
 
 /**
  * General API rate limiter

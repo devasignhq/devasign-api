@@ -1,17 +1,18 @@
+import { vi, describe, it, expect, beforeAll, beforeEach, afterAll } from "vitest";
 import request from "supertest";
 import express, { RequestHandler } from "express";
-import { TestDataFactory } from "../../../helpers/test-data-factory";
-import { installationRoutes } from "../../../../api/routes/installation.route";
-import { errorHandler } from "../../../../api/middlewares/error.middleware";
-import { validateUser } from "../../../../api/middlewares/auth.middleware";
-import { DatabaseTestHelper } from "../../../helpers/database-test-helper";
-import { ENDPOINTS, STATUS_CODES } from "../../../../api/utilities/data";
-import { mockFirebaseAuth } from "../../../mocks/firebase.service.mock";
-import { getEndpointWithPrefix } from "../../../helpers/test-utils";
-import { apiLimiter } from "../../../../api/middlewares/rate-limit.middleware";
+import { TestDataFactory } from "../../../helpers/test-data-factory.js";
+import { installationRoutes } from "../../../../api/routes/installation.route.js";
+import { errorHandler } from "../../../../api/middlewares/error.middleware.js";
+import { validateUser } from "../../../../api/middlewares/auth.middleware.js";
+import { DatabaseTestHelper } from "../../../helpers/database-test-helper.js";
+import { ENDPOINTS, STATUS_CODES } from "../../../../api/utilities/data.js";
+import { mockFirebaseAuth } from "../../../mocks/firebase.service.mock.js";
+import { getEndpointWithPrefix } from "../../../helpers/test-utils.js";
+import { apiLimiter } from "../../../../api/middlewares/rate-limit.middleware.js";
 
 // Mock Firebase admin for authentication
-jest.mock("../../../../api/config/firebase.config", () => {
+vi.mock("../../../../api/config/firebase.config", () => {
     return {
         firebaseAdmin: {
             auth: () => (mockFirebaseAuth)
@@ -20,44 +21,47 @@ jest.mock("../../../../api/config/firebase.config", () => {
 });
 
 // Mock Stellar service for wallet operations
-jest.mock("../../../../api/services/stellar.service", () => ({
-    stellarService: {
-        createWallet: jest.fn(),
-        addTrustLineViaSponsor: jest.fn()
+const { mockStellarService } = vi.hoisted(() => ({
+    mockStellarService: {
+        createWallet: vi.fn(),
+        addTrustLineViaSponsor: vi.fn()
     }
+}));
+vi.mock("../../../../api/services/stellar.service", () => ({
+    stellarService: mockStellarService
 }));
 
 // Mock Octokit service for GitHub operations
-jest.mock("../../../../api/services/octokit.service", () => ({
-    OctokitService: {
-        getInstallationDetails: jest.fn()
+const { mockOctokitService } = vi.hoisted(() => ({
+    mockOctokitService: {
+        getInstallationDetails: vi.fn()
     }
 }));
+vi.mock("../../../../api/services/octokit.service", () => ({
+    OctokitService: mockOctokitService
+}));
 
-jest.mock("../../../../api/services/kms.service", () => ({
+vi.mock("../../../../api/services/kms.service", () => ({
     KMSService: {
-        encryptWallet: jest.fn().mockResolvedValue({
+        encryptWallet: vi.fn().mockResolvedValue({
             encryptedDEK: "mockEncryptedDEK",
             encryptedSecret: "mockEncryptedSecret",
             iv: "mockIV",
             authTag: "mockAuthTag"
         }),
-        decryptWallet: jest.fn().mockResolvedValue("SD2H7VGPX5X5X5X5X5X5X5X5X5X5X5X5X5X5X5X5X5X5X5X5X5X5X5X5")
+        decryptWallet: vi.fn().mockResolvedValue("SD2H7VGPX5X5X5X5X5X5X5X5X5X5X5X5X5X5X5X5X5X5X5X5X5X5X5X5")
     }
 }));
 
-jest.mock("../../../../api/services/contract.service", () => ({
+vi.mock("../../../../api/services/contract.service", () => ({
     ContractService: {
-        refund: jest.fn().mockResolvedValue("mockTxHash")
+        refund: vi.fn().mockResolvedValue("mockTxHash")
     }
 }));
 
 describe("Installation API Integration Tests", () => {
     let app: express.Application;
     let prisma: any;
-    let mockFirebaseAuth: jest.Mock;
-    let mockStellarService: any;
-    let mockOctokitService: any;
 
     beforeAll(async () => {
         prisma = await DatabaseTestHelper.setupTestDatabase();
@@ -78,25 +82,15 @@ describe("Installation API Integration Tests", () => {
 
         app.use(ENDPOINTS.INSTALLATION.PREFIX, installationRoutes);
         app.use(errorHandler);
-
-        // Setup mocks
-        const { firebaseAdmin } = await import("../../../../api/config/firebase.config");
-        mockFirebaseAuth = firebaseAdmin.auth().verifyIdToken as jest.Mock;
-
-        const { stellarService } = await import("../../../../api/services/stellar.service");
-        mockStellarService = stellarService;
-
-        const { OctokitService } = await import("../../../../api/services/octokit.service");
-        mockOctokitService = OctokitService;
     });
 
     beforeEach(async () => {
         await DatabaseTestHelper.resetDatabase(prisma);
         await DatabaseTestHelper.seedDatabase(prisma);
-        jest.clearAllMocks();
+        vi.clearAllMocks();
 
         // Setup default mock implementations
-        mockFirebaseAuth.mockResolvedValue({
+        (mockFirebaseAuth as any).verifyIdToken = vi.fn().mockResolvedValue({
             uid: "test-user-1",
             admin: false
         });

@@ -1,5 +1,6 @@
-import { testConfig } from "../helpers/test-config";
-import { generateRandomString, createMockRequest, createMockResponse } from "../helpers/test-utils";
+import { vi, describe, it, expect } from "vitest";
+import { testConfig } from "../helpers/test-config.js";
+import { generateRandomString, createMockRequest, createMockResponse } from "../helpers/test-utils.js";
 
 describe("Test Infrastructure Setup", () => {
     describe("Environment Configuration", () => {
@@ -45,12 +46,7 @@ describe("Test Infrastructure Setup", () => {
         });
     });
 
-    describe("Jest Configuration", () => {
-        it("should have proper test timeout configured", () => {
-            // Verify that Jest timeout is set correctly
-            expect(typeof jest.setTimeout).toBe("function");
-        });
-
+    describe("Vitest Configuration", () => {
         it("should be running with correct test environment", () => {
             expect(process.env.NODE_ENV).toBe("test");
         });
@@ -59,14 +55,14 @@ describe("Test Infrastructure Setup", () => {
     describe("Mock Services", () => {
         it("should be able to mock functions", () => {
             // Basic mock functionality test
-            const mockFn = jest.fn();
+            const mockFn = vi.fn();
             mockFn("test");
             expect(mockFn).toHaveBeenCalledWith("test");
         });
 
         it("should clear mocks between tests", () => {
             // This verifies that clearMocks is working
-            const mockFn = jest.fn();
+            const mockFn = vi.fn();
             expect(mockFn).not.toHaveBeenCalled();
         });
     });

@@ -1,14 +1,14 @@
 import { NextFunction, Request, Response } from "express";
-import { prisma } from "../../config/database.config";
-import { responseWrapper } from "../../utilities/helper";
-import { STATUS_CODES } from "../../utilities/data";
-import { HorizonApi } from "../../models/horizonapi.model";
-import { TransactionCategory } from "../../../prisma_client";
-import { usdcAssetId, xlmAssetId } from "../../config/stellar.config";
-import { stellarService } from "../../services/stellar.service";
-import { NotFoundError, ValidationError } from "../../models/error.model";
-import { KMSService } from "../../services/kms.service";
-import { statsigService } from "../../services/statsig.service";
+import { prisma } from "../../config/database.config.js";
+import { responseWrapper } from "../../utilities/helper.js";
+import { STATUS_CODES } from "../../utilities/data.js";
+import { HorizonApi } from "../../models/horizonapi.model.js";
+import { TransactionCategory } from "../../../prisma_client/index.js";
+import { usdcAssetId, xlmAssetId } from "../../config/stellar.config.js";
+import { stellarService } from "../../services/stellar.service.js";
+import { NotFoundError, ValidationError } from "../../models/error.model.js";
+import { KMSService } from "../../services/kms.service.js";
+import { statsigService } from "../../services/statsig.service.js";
 
 type USDCBalance = HorizonApi.BalanceLineAsset<"credit_alphanum12">;
 

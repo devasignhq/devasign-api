@@ -1,8 +1,8 @@
 import { Router, Request, Response, NextFunction, RequestHandler } from "express";
-import { prisma } from "../../config/database.config";
-import { xlmAssetId, usdcAssetId } from "../../config/stellar.config";
-import { stellarService } from "../../services/stellar.service";
-import { validateRequestParameters } from "../../middlewares/request.middleware";
+import { prisma } from "../../config/database.config.js";
+import { xlmAssetId, usdcAssetId } from "../../config/stellar.config.js";
+import { stellarService } from "../../services/stellar.service.js";
+import { validateRequestParameters } from "../../middlewares/request.middleware.js";
 import {
     createWalletViaSponsorSchema,
     addTrustLineSchema,
@@ -12,8 +12,8 @@ import {
     transferAssetViaSponsorSchema,
     swapAssetSchema,
     getAccountInfoSchema
-} from "./test.schema";
-import { KMSService } from "../../services/kms.service";
+} from "./test.schema.js";
+import { KMSService } from "../../services/kms.service.js";
 
 const router = Router();
 

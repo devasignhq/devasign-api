@@ -1,15 +1,15 @@
 import { NextFunction, Request, Response } from "express";
-import { prisma } from "../../config/database.config";
+import { prisma } from "../../config/database.config.js";
 import { InputJsonValue } from "@prisma/client/runtime/library";
-import { stellarService } from "../../services/stellar.service";
-import { responseWrapper } from "../../utilities/helper";
-import { STATUS_CODES } from "../../utilities/data";
-import { NotFoundError, ValidationError } from "../../models/error.model";
-import { dataLogger } from "../../config/logger.config";
-import { Prisma } from "../../../prisma_client";
-import { KMSService } from "../../services/kms.service";
-import { OctokitService } from "../../services/octokit.service";
-import { statsigService } from "../../services/statsig.service";
+import { stellarService } from "../../services/stellar.service.js";
+import { responseWrapper } from "../../utilities/helper.js";
+import { STATUS_CODES } from "../../utilities/data.js";
+import { NotFoundError, ValidationError } from "../../models/error.model.js";
+import { dataLogger } from "../../config/logger.config.js";
+import { Prisma } from "../../../prisma_client/index.js";
+import { KMSService } from "../../services/kms.service.js";
+import { OctokitService } from "../../services/octokit.service.js";
+import { statsigService } from "../../services/statsig.service.js";
 
 // User's address book
 export type AddressBook = {

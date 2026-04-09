@@ -1,52 +1,60 @@
+import { vi, describe, it, expect, beforeAll, beforeEach, afterAll } from "vitest";
 import request from "supertest";
 import express from "express";
-import { internalRoutes } from "../../../../api/routes/internal.route";
-import { errorHandler } from "../../../../api/middlewares/error.middleware";
-import { ENDPOINTS, STATUS_CODES } from "../../../../api/utilities/data";
-import { getEndpointWithPrefix } from "../../../helpers/test-utils";
-import { DatabaseTestHelper } from "../../../helpers/database-test-helper";
-import { TestDataFactory } from "../../../helpers/test-data-factory";
+import { internalRoutes } from "../../../../api/routes/internal.route.js";
+import { errorHandler } from "../../../../api/middlewares/error.middleware.js";
+import { ENDPOINTS, STATUS_CODES } from "../../../../api/utilities/data.js";
+import { getEndpointWithPrefix } from "../../../helpers/test-utils.js";
+import { DatabaseTestHelper } from "../../../helpers/database-test-helper.js";
+import { TestDataFactory } from "../../../helpers/test-data-factory.js";
 
 // Mock services
-jest.mock("../../../../api/services/octokit.service", () => ({
-    OctokitService: {
-        extractLinkedIssues: jest.fn(),
-        addBountyPaidLabel: jest.fn().mockResolvedValue(true)
+const { mockOctokitService } = vi.hoisted(() => ({
+    mockOctokitService: {
+        extractLinkedIssues: vi.fn(),
+        addBountyPaidLabel: vi.fn().mockResolvedValue(true)
     }
 }));
-
-jest.mock("../../../../api/services/firebase.service", () => ({
-    FirebaseService: {
-        updateTaskStatus: jest.fn().mockResolvedValue(true),
-        updateAppActivity: jest.fn().mockResolvedValue(true)
-    }
+vi.mock("../../../../api/services/octokit.service", () => ({
+    OctokitService: mockOctokitService
 }));
 
-jest.mock("../../../../api/services/contract.service", () => ({
-    ContractService: {
-        approveCompletion: jest.fn()
+const { mockFirebaseService } = vi.hoisted(() => ({
+    mockFirebaseService: {
+        updateTaskStatus: vi.fn().mockResolvedValue(true),
+        updateAppActivity: vi.fn().mockResolvedValue(true)
     }
 }));
+vi.mock("../../../../api/services/firebase.service", () => ({
+    FirebaseService: mockFirebaseService
+}));
 
-jest.mock("../../../../api/services/kms.service", () => ({
+const { mockContractService } = vi.hoisted(() => ({
+    mockContractService: {
+        approveCompletion: vi.fn()
+    }
+}));
+vi.mock("../../../../api/services/contract.service", () => ({
+    ContractService: mockContractService
+}));
+
+vi.mock("../../../../api/services/kms.service", () => ({
     KMSService: {
-        decryptWallet: jest.fn().mockResolvedValue("STEST1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12")
+        decryptWallet: vi.fn().mockResolvedValue("STEST1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12")
     }
 }));
 
-jest.mock("../../../../api/services/socket.service", () => ({
-    SocketService: {
-        updateAppActivity: jest.fn().mockResolvedValue(true)
+const { mockSocketService } = vi.hoisted(() => ({
+    mockSocketService: {
+        updateAppActivity: vi.fn().mockResolvedValue(true)
     }
+}));
+vi.mock("../../../../api/services/socket.service", () => ({
+    SocketService: mockSocketService
 }));
 
 describe("Internal Routes API Integration Tests", () => {
     let app: express.Application;
-
-    let mockOctokitService: any;
-    let mockContractService: any;
-    let mockFirebaseService: any;
-    let mockSocketService: any;
     let prisma: any;
 
     beforeAll(async () => {
@@ -57,23 +65,11 @@ describe("Internal Routes API Integration Tests", () => {
         // Mount internal routes
         app.use(ENDPOINTS.INTERNAL.PREFIX, internalRoutes);
         app.use(errorHandler);
-
-        const { OctokitService } = await import("../../../../api/services/octokit.service");
-        mockOctokitService = OctokitService;
-
-        const { ContractService } = await import("../../../../api/services/contract.service");
-        mockContractService = ContractService;
-
-        const { FirebaseService } = await import("../../../../api/services/firebase.service");
-        mockFirebaseService = FirebaseService;
-
-        const { SocketService } = await import("../../../../api/services/socket.service");
-        mockSocketService = SocketService;
     });
 
     beforeEach(async () => {
         await DatabaseTestHelper.resetDatabase(prisma);
-        jest.clearAllMocks();
+        vi.clearAllMocks();
     });
 
     afterAll(async () => {

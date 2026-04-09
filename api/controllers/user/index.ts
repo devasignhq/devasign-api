@@ -1,3 +1,3 @@
-export * from "./index.controller";
-export * from "./sumsub.controller";
+export * from "./index.controller.js";
+export * from "./sumsub.controller.js";
 

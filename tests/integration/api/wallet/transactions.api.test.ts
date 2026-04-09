@@ -1,26 +1,27 @@
+import { vi, describe, it, expect, beforeAll, beforeEach, afterAll } from "vitest";
 import request from "supertest";
 import express from "express";
-import { TestDataFactory } from "../../../helpers/test-data-factory";
-import { walletRoutes } from "../../../../api/routes/wallet.route";
-import { errorHandler } from "../../../../api/middlewares/error.middleware";
-import { DatabaseTestHelper } from "../../../helpers/database-test-helper";
-import { ENDPOINTS, STATUS_CODES } from "../../../../api/utilities/data";
-import { TransactionCategory } from "../../../../prisma_client";
-import { getEndpointWithPrefix } from "../../../helpers/test-utils";
+import { TestDataFactory } from "../../../helpers/test-data-factory.js";
+import { walletRoutes } from "../../../../api/routes/wallet.route.js";
+import { errorHandler } from "../../../../api/middlewares/error.middleware.js";
+import { DatabaseTestHelper } from "../../../helpers/database-test-helper.js";
+import { ENDPOINTS, STATUS_CODES } from "../../../../api/utilities/data.js";
+import { TransactionCategory } from "../../../../prisma_client/index.js";
+import { getEndpointWithPrefix } from "../../../helpers/test-utils.js";
 
 // Mock Firebase admin for authentication
-jest.mock("../../../../api/config/firebase.config", () => ({
+vi.mock("../../../../api/config/firebase.config", () => ({
     firebaseAdmin: {
         auth: () => ({
-            verifyIdToken: jest.fn()
+            verifyIdToken: vi.fn()
         })
     }
 }));
 
 // Mock Stellar service for wallet operations
-jest.mock("../../../../api/services/stellar.service", () => ({
+vi.mock("../../../../api/services/stellar.service", () => ({
     stellarService: {
-        getTopUpTransactions: jest.fn()
+        getTopUpTransactions: vi.fn()
     }
 }));
 
@@ -50,7 +51,7 @@ describe("Wallet API Integration Tests", () => {
         app.use(errorHandler);
 
         // Setup mocks
-        const { stellarService } = await import("../../../../api/services/stellar.service");
+        const { stellarService } = await import("../../../../api/services/stellar.service.js");
         mockStellarService = stellarService;
     });
 
@@ -60,7 +61,7 @@ describe("Wallet API Integration Tests", () => {
         await DatabaseTestHelper.seedDatabase(prisma);
 
         // Reset mocks
-        jest.clearAllMocks();
+        vi.clearAllMocks();
 
         mockStellarService.getTopUpTransactions.mockResolvedValue([]);
 

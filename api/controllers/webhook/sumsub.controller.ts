@@ -1,9 +1,9 @@
 import { Request, Response, NextFunction } from "express";
-import { STATUS_CODES } from "../../utilities/data";
-import { responseWrapper } from "../../utilities/helper";
-import { prisma } from "../../config/database.config";
-import { dataLogger } from "../../config/logger.config";
-import { statsigService } from "../../services/statsig.service";
+import { STATUS_CODES } from "../../utilities/data.js";
+import { responseWrapper } from "../../utilities/helper.js";
+import { prisma } from "../../config/database.config.js";
+import { dataLogger } from "../../config/logger.config.js";
+import { statsigService } from "../../services/statsig.service.js";
 
 /**
  * Handle Sumsub webhook events

@@ -19,7 +19,7 @@ export default async function globalSetup() {
     // Setup mock services
     if (process.env.MOCK_EXTERNAL_SERVICES === "true") {
         console.log("🎭 Configuring mock services...");
-        // Mock service configuration will be handled in jest.setup.ts
+        // Mock service configuration will be handled in vitest.setup.ts
     }
 
     console.log("✅ Global test setup completed");

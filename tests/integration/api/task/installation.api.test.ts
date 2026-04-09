@@ -1,15 +1,16 @@
+import { describe, it, expect, beforeAll, beforeEach, afterAll, vi } from "vitest";
 import request from "supertest";
 import express from "express";
-import { TestDataFactory } from "../../../helpers/test-data-factory";
-import { taskRoutes } from "../../../../api/routes/task.route";
-import { errorHandler } from "../../../../api/middlewares/error.middleware";
-import { DatabaseTestHelper } from "../../../helpers/database-test-helper";
-import { ENDPOINTS, STATUS_CODES } from "../../../../api/utilities/data";
-import { mockFirebaseAuth } from "../../../mocks/firebase.service.mock";
-import { getEndpointWithPrefix, generateRandomCUID } from "../../../helpers/test-utils";
+import { TestDataFactory } from "../../../helpers/test-data-factory.js";
+import { taskRoutes } from "../../../../api/routes/task.route.js";
+import { errorHandler } from "../../../../api/middlewares/error.middleware.js";
+import { DatabaseTestHelper } from "../../../helpers/database-test-helper.js";
+import { ENDPOINTS, STATUS_CODES } from "../../../../api/utilities/data.js";
+import { mockFirebaseAuth } from "../../../mocks/firebase.service.mock.js";
+import { getEndpointWithPrefix, generateRandomCUID } from "../../../helpers/test-utils.js";
 
 // Mock Firebase admin for authentication
-jest.mock("../../../../api/config/firebase.config", () => {
+vi.mock("../../../../api/config/firebase.config", () => {
     return {
         firebaseAdmin: {
             auth: () => (mockFirebaseAuth)
@@ -18,35 +19,35 @@ jest.mock("../../../../api/config/firebase.config", () => {
 });
 
 // Mock Stellar service for wallet operations
-jest.mock("../../../../api/services/stellar.service", () => ({
+vi.mock("../../../../api/services/stellar.service", () => ({
     stellarService: {
-        getAccountInfo: jest.fn(),
-        transferAsset: jest.fn(),
-        addTrustLineViaSponsor: jest.fn()
+        getAccountInfo: vi.fn(),
+        transferAsset: vi.fn(),
+        addTrustLineViaSponsor: vi.fn()
     }
 }));
 
 // Mock Firebase service for task messaging
-jest.mock("../../../../api/services/firebase.service", () => ({
+vi.mock("../../../../api/services/firebase.service", () => ({
     FirebaseService: {
-        createTask: jest.fn(),
-        updateTaskStatus: jest.fn()
+        createTask: vi.fn(),
+        updateTaskStatus: vi.fn()
     }
 }));
 
 // Mock Octokit service for GitHub operations
-jest.mock("../../../../api/services/octokit.service", () => ({
+vi.mock("../../../../api/services/octokit.service", () => ({
     OctokitService: {
-        addBountyLabelAndCreateBountyComment: jest.fn(),
-        removeBountyLabelAndDeleteBountyComment: jest.fn(),
-        customBountyMessage: jest.fn()
+        addBountyLabelAndCreateBountyComment: vi.fn(),
+        removeBountyLabelAndDeleteBountyComment: vi.fn(),
+        customBountyMessage: vi.fn()
     }
 }));
 
 describe("Task Installation API Integration Tests", () => {
     let app: express.Application;
     let prisma: any;
-    let mockFirebaseAuth: jest.Mock;
+    let mockFirebaseAuth: any;
 
     beforeAll(async () => {
         prisma = await DatabaseTestHelper.setupTestDatabase();
@@ -69,14 +70,14 @@ describe("Task Installation API Integration Tests", () => {
         app.use(errorHandler);
 
         // Setup mocks
-        const { firebaseAdmin } = await import("../../../../api/config/firebase.config");
-        mockFirebaseAuth = firebaseAdmin.auth().verifyIdToken as jest.Mock;
+        const { firebaseAdmin } = await import("../../../../api/config/firebase.config.js");
+        mockFirebaseAuth = firebaseAdmin.auth().verifyIdToken;
     });
 
     beforeEach(async () => {
         await DatabaseTestHelper.resetDatabase(prisma);
         await DatabaseTestHelper.seedDatabase(prisma);
-        jest.clearAllMocks();
+        vi.clearAllMocks();
 
         mockFirebaseAuth.mockResolvedValue({
             uid: "test-user-1",

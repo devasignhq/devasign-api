@@ -7,7 +7,7 @@ export const BOUNTY_PAID_LABEL = "Bounty Paid ✅";
 export type InstallationOctokit = Octokit & {
     paginate: import("@octokit/plugin-paginate-rest").PaginateInterface;
 } & {
-    graphql: import("@octokit/graphql/dist-types/types.js").graphql & {
+    graphql: import("@octokit/graphql/types").graphql & {
         paginate: (<ResponseType_1 extends object = any>(query: string, initialParameters?: Record<string, any>) => Promise<ResponseType_1>) & {
             iterator: <ResponseType_2 = any>(query: string, initialParameters?: Record<string, any>) => {
                 [Symbol.asyncIterator]: () => {

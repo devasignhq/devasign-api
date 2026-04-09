@@ -1,10 +1,10 @@
 import { Request, Response, NextFunction } from "express";
 import axios from "axios";
 import crypto from "crypto-js";
-import { STATUS_CODES } from "../../utilities/data";
-import { responseWrapper } from "../../utilities/helper";
-import { ErrorClass } from "../../models/error.model";
-import { statsigService } from "../../services/statsig.service";
+import { STATUS_CODES } from "../../utilities/data.js";
+import { responseWrapper } from "../../utilities/helper.js";
+import { ErrorClass } from "../../models/error.model.js";
+import { statsigService } from "../../services/statsig.service.js";
 
 /**
  * Generate Sumsub SDK access token

@@ -1,8 +1,9 @@
+import { vi, describe, it, expect, beforeEach } from "vitest";
 import { Request, Response, NextFunction } from "express";
 import * as z from "zod";
-import { dynamicRoute, localhostOnly, validateRequestParameters } from "../../../api/middlewares/request.middleware";
-import { ValidationError } from "../../../api/models/error.model";
-import { STATUS_CODES } from "../../../api/utilities/data";
+import { dynamicRoute, localhostOnly, validateRequestParameters } from "../../../api/middlewares/request.middleware.js";
+import { ValidationError } from "../../../api/models/error.model.js";
+import { STATUS_CODES } from "../../../api/utilities/data.js";
 
 describe("Request Middleware", () => {
     let mockRequest: Partial<Request>;
@@ -15,17 +16,17 @@ describe("Request Middleware", () => {
             body: {},
             params: {},
             query: {},
-            get: jest.fn()
+            get: vi.fn()
         };
 
         mockResponse = {
-            status: jest.fn().mockReturnThis(),
-            json: jest.fn().mockReturnThis(),
-            set: jest.fn().mockReturnThis()
-        };
+            status: vi.fn().mockReturnThis(),
+            json: vi.fn().mockReturnThis(),
+            set: vi.fn().mockReturnThis()
+        } as any;
 
-        mockNext = jest.fn();
-        jest.clearAllMocks();
+        mockNext = vi.fn() as any;
+        vi.clearAllMocks();
     });
 
     describe("dynamicRoute", () => {
@@ -101,7 +102,7 @@ describe("Request Middleware", () => {
             it("should log unauthorized access attempts", () => {
                 (mockRequest as any).ip = "8.8.8.8";
                 (mockRequest as any).path = "/test-path";
-                (mockRequest.get as jest.Mock).mockReturnValue("1.1.1.1"); // cf-connecting-ip
+                (mockRequest.get as any).mockReturnValue("1.1.1.1"); // cf-connecting-ip
 
                 localhostOnly(mockRequest as Request, mockResponse as Response, mockNext);
 
@@ -156,7 +157,7 @@ describe("Request Middleware", () => {
                 middleware(mockRequest as Request, mockResponse as Response, mockNext);
 
                 expect(mockNext).toHaveBeenCalledWith();
-                expect(mockRequest.params.page).toBe(5);
+                expect(mockRequest.params?.page).toBe(5);
             });
         });
 
@@ -344,7 +345,7 @@ describe("Request Middleware", () => {
                 const middleware = validateRequestParameters({ body: bodySchema });
                 middleware(mockRequest as Request, mockResponse as Response, mockNext);
 
-                const error = (mockNext as jest.Mock).mock.calls[0][0];
+                const error = (mockNext as any).mock.calls[0][0];
                 expect(error).toBeInstanceOf(ValidationError);
                 expect(error.message).toBe("Invalid request body");
                 expect(error.details).toBeDefined();

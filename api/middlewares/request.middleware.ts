@@ -1,9 +1,9 @@
 import { Request, Response, NextFunction } from "express";
-import { STATUS_CODES } from "../utilities/data";
+import { STATUS_CODES } from "../utilities/data.js";
 import * as z from "zod";
-import { ValidationError } from "../models/error.model";
-import { dataLogger } from "../config/logger.config";
-import { responseWrapper } from "../utilities/helper";
+import { ValidationError } from "../models/error.model.js";
+import { dataLogger } from "../config/logger.config.js";
+import { responseWrapper } from "../utilities/helper.js";
 
 /**
  * Middleware to prevent caching on dynamic routes

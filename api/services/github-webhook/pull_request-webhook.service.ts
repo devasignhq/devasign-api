@@ -1,12 +1,12 @@
 import { Request, Response, NextFunction } from "express";
-import { GitHubWebhookPayload } from "../../models/ai-review.model";
-import { responseWrapper } from "../../utilities/helper";
-import { STATUS_CODES } from "../../utilities/data";
-import { dataLogger } from "../../config/logger.config";
-import { cloudTasksService } from "../cloud-tasks.service";
-import { TaskStatus } from "../../../prisma_client";
-import { prisma } from "../../config/database.config";
-import { OctokitService } from "../octokit.service";
+import { GitHubWebhookPayload } from "../../models/ai-review.model.js";
+import { responseWrapper } from "../../utilities/helper.js";
+import { STATUS_CODES } from "../../utilities/data.js";
+import { dataLogger } from "../../config/logger.config.js";
+import { cloudTasksService } from "../cloud-tasks.service.js";
+import { TaskStatus } from "../../../prisma_client/index.js";
+import { prisma } from "../../config/database.config.js";
+import { OctokitService } from "../octokit.service.js";
 
 export class PullRequestWebhookService {
     /**

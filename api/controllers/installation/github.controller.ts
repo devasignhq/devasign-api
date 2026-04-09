@@ -1,8 +1,8 @@
 import { Request, Response, NextFunction } from "express";
-import { OctokitService } from "../../services/octokit.service";
-import { IssueFilters } from "../../models/github.model";
-import { responseWrapper } from "../../utilities/helper";
-import { STATUS_CODES } from "../../utilities/data";
+import { OctokitService } from "../../services/octokit.service.js";
+import { IssueFilters } from "../../models/github.model.js";
+import { responseWrapper } from "../../utilities/helper.js";
+import { STATUS_CODES } from "../../utilities/data.js";
 
 /**
  * Retrieves repositories accessible by a specific GitHub App installation.

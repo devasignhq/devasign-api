@@ -1,9 +1,9 @@
 import { NextFunction, Request, Response } from "express";
-import { prisma } from "../../config/database.config";
-import { responseWrapper } from "../../utilities/helper";
-import { STATUS_CODES } from "../../utilities/data";
-import { AuthorizationError, NotFoundError } from "../../models/error.model";
-import { OctokitService } from "../../services/octokit.service";
+import { prisma } from "../../config/database.config.js";
+import { responseWrapper } from "../../utilities/helper.js";
+import { STATUS_CODES } from "../../utilities/data.js";
+import { AuthorizationError, NotFoundError } from "../../models/error.model.js";
+import { OctokitService } from "../../services/octokit.service.js";
 
 /**
  * Add a user to the installation team.

@@ -11,10 +11,10 @@ import {
     account,
     usdcAssetId,
     xlmAssetId
-} from "../config/stellar.config";
+} from "../config/stellar.config.js";
 import { Memo } from "@stellar/stellar-sdk";
-import { HorizonApi } from "../models/horizonapi.model";
-import { StellarServiceError } from "../models/error.model";
+import { HorizonApi } from "../models/horizonapi.model.js";
+import { StellarServiceError } from "../models/error.model.js";
 
 /**
  * Service for managing Stellar blockchain operations.

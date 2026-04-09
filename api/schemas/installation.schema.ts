@@ -3,7 +3,7 @@ import {
     installationIdSchema,
     paginationSchema,
     userIdSchema
-} from "./index.schema";
+} from "./index.schema.js";
 
 export const getInstallationsSchema = {
     query: z.object({

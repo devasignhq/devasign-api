@@ -5,8 +5,11 @@ export const ALLOWED_ORIGINS = [
     "https://devasign.com",
     "https://app.devasign.com",
     "https://contributor.devasign.com",
-    "http://localhost:3000",
-    "http://localhost:4000"
+    ...(process.env.NODE_ENV === "development" ? [
+        "http://localhost:3000",
+        "http://localhost:4000",
+        "http://localhost:3001"
+    ] : [])
 ];
 
 /**
@@ -180,12 +183,22 @@ export const ENDPOINTS = {
         SUMSUB: "/sumsub"
     },
 
+    /** Agent endpoints */
+    AGENT: {
+        PREFIX: "/agent",
+        /** POST /review - PR Review agent endpoint */
+        REVIEW: "/review"
+    },
+
     /** Internal endpoints */
     INTERNAL: {
         PREFIX: "/internal",
         
         /** POST /pr-analysis - Handle PR analysis */
         PR_ANALYSIS: "/pr-analysis",
+
+        /** POST /manual-pr-analysis - Handle manual PR analysis from x402 integration */
+        MANUAL_PR_ANALYSIS: "/manual-pr-analysis",
         
         /** Indexing routes */
         INDEXING: {

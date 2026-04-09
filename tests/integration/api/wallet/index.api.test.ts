@@ -1,48 +1,54 @@
+import { vi, describe, it, expect, beforeAll, beforeEach, afterAll } from "vitest";
 import request from "supertest";
 import express from "express";
-import { TestDataFactory } from "../../../helpers/test-data-factory";
-import { walletRoutes } from "../../../../api/routes/wallet.route";
-import { errorHandler } from "../../../../api/middlewares/error.middleware";
-import { DatabaseTestHelper } from "../../../helpers/database-test-helper";
-import { ENDPOINTS, STATUS_CODES } from "../../../../api/utilities/data";
-import { TransactionCategory } from "../../../../prisma_client";
-import { getEndpointWithPrefix } from "../../../helpers/test-utils";
+import { TestDataFactory } from "../../../helpers/test-data-factory.js";
+import { walletRoutes } from "../../../../api/routes/wallet.route.js";
+import { errorHandler } from "../../../../api/middlewares/error.middleware.js";
+import { DatabaseTestHelper } from "../../../helpers/database-test-helper.js";
+import { ENDPOINTS, STATUS_CODES } from "../../../../api/utilities/data.js";
+import { TransactionCategory } from "../../../../prisma_client/index.js";
+import { getEndpointWithPrefix } from "../../../helpers/test-utils.js";
 
 // Mock Firebase admin for authentication
-jest.mock("../../../../api/config/firebase.config", () => ({
+const { mockFirebaseAuth } = vi.hoisted(() => ({
+    mockFirebaseAuth: {
+        verifyIdToken: vi.fn()
+    }
+}));
+vi.mock("../../../../api/config/firebase.config", () => ({
     firebaseAdmin: {
-        auth: () => ({
-            verifyIdToken: jest.fn()
-        })
+        auth: () => mockFirebaseAuth
     }
 }));
 
 // Mock Stellar service for wallet operations
-jest.mock("../../../../api/services/stellar.service", () => ({
-    stellarService: {
-        getAccountInfo: jest.fn(),
-        transferAsset: jest.fn(),
-        transferAssetViaSponsor: jest.fn(),
-        swapAsset: jest.fn()
+const { mockStellarService } = vi.hoisted(() => ({
+    mockStellarService: {
+        getAccountInfo: vi.fn(),
+        transferAsset: vi.fn(),
+        transferAssetViaSponsor: vi.fn(),
+        swapAsset: vi.fn()
     }
 }));
+vi.mock("../../../../api/services/stellar.service", () => ({
+    stellarService: mockStellarService
+}));
 
-jest.mock("../../../../api/services/kms.service", () => ({
+vi.mock("../../../../api/services/kms.service", () => ({
     KMSService: {
-        encryptWallet: jest.fn().mockResolvedValue({
+        encryptWallet: vi.fn().mockResolvedValue({
             encryptedDEK: "mockEncryptedDEK",
             encryptedSecret: "mockEncryptedSecret",
             iv: "mockIV",
             authTag: "mockAuthTag"
         }),
-        decryptWallet: jest.fn().mockResolvedValue("STEST1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12")
+        decryptWallet: vi.fn().mockResolvedValue("STEST1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12")
     }
 }));
 
 describe("Wallet API Integration Tests", () => {
     let app: express.Application;
     let prisma: any;
-    let mockStellarService: any;
 
     beforeAll(async () => {
         prisma = await DatabaseTestHelper.setupTestDatabase();
@@ -63,10 +69,6 @@ describe("Wallet API Integration Tests", () => {
 
         app.use(ENDPOINTS.WALLET.PREFIX, walletRoutes);
         app.use(errorHandler);
-
-        // Setup mocks
-        const { stellarService } = await import("../../../../api/services/stellar.service");
-        mockStellarService = stellarService;
     });
 
     beforeEach(async () => {
@@ -75,7 +77,7 @@ describe("Wallet API Integration Tests", () => {
         await DatabaseTestHelper.seedDatabase(prisma);
 
         // Reset mocks
-        jest.clearAllMocks();
+        vi.clearAllMocks();
 
         mockStellarService.getAccountInfo.mockResolvedValue({
             subentry_count: 0,
@@ -246,7 +248,6 @@ describe("Wallet API Integration Tests", () => {
                 .send(withdrawData)
                 .expect(STATUS_CODES.SUCCESS);
 
-            // Add assertion to verify memo is passed
             expect(mockStellarService.transferAssetViaSponsor).toHaveBeenCalledWith(
                 expect.any(String),
                 expect.any(String),
@@ -269,7 +270,7 @@ describe("Wallet API Integration Tests", () => {
                 where: { userId: "test-user-1", category: TransactionCategory.WITHDRAWAL }
             });
             expect(transaction).toBeTruthy();
-            expect(transaction?.amount).toBe(100);
+            expect(transaction!.amount).toBe(100);
 
             // User wallet withdrawals should use sponsored transfer
             expect(mockStellarService.transferAssetViaSponsor).toHaveBeenCalled();

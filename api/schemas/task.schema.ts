@@ -1,11 +1,11 @@
 import * as z from "zod";
-import { TaskStatus } from "../../prisma_client";
+import { TaskStatus } from "../../prisma_client/index.js";
 import {
     cuidSchema,
     installationIdSchema,
     paginationSchema,
     userIdSchema
-} from "./index.schema";
+} from "./index.schema.js";
 
 export const taskIdSchema = z.object({
     taskId: cuidSchema

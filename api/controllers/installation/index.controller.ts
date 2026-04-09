@@ -1,15 +1,15 @@
 import { NextFunction, Request, Response } from "express";
-import { prisma } from "../../config/database.config";
-import { stellarService } from "../../services/stellar.service";
-import { responseWrapper } from "../../utilities/helper";
-import { STATUS_CODES } from "../../utilities/data";
-import { OctokitService } from "../../services/octokit.service";
-import { NotFoundError, ValidationError } from "../../models/error.model";
-import { ContractService } from "../../services/contract.service";
-import { dataLogger } from "../../config/logger.config";
-import { KMSService } from "../../services/kms.service";
-import { InstallationStatus, Task } from "../../../prisma_client";
-import { TaskIssue } from "../../models/task.model";
+import { prisma } from "../../config/database.config.js";
+import { stellarService } from "../../services/stellar.service.js";
+import { responseWrapper } from "../../utilities/helper.js";
+import { STATUS_CODES } from "../../utilities/data.js";
+import { OctokitService } from "../../services/octokit.service.js";
+import { NotFoundError, ValidationError } from "../../models/error.model.js";
+import { ContractService } from "../../services/contract.service.js";
+import { dataLogger } from "../../config/logger.config.js";
+import { KMSService } from "../../services/kms.service.js";
+import { InstallationStatus, Task } from "../../../prisma_client/index.js";
+import { TaskIssue } from "../../models/task.model.js";
 
 /**
  * Create a new installation.

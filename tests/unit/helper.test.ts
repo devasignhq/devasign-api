@@ -1,4 +1,5 @@
-import { moneyFormat, getFieldFromUnknownObject, stellarTimestampToDate } from "../../api/utilities/helper";
+import { describe, it, expect } from "vitest";
+import { moneyFormat, getFieldFromUnknownObject, stellarTimestampToDate } from "../../api/utilities/helper.js";
 
 describe("Helper Functions Unit Tests", () => {
     describe("moneyFormat", () => {

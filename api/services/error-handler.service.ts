@@ -1,4 +1,4 @@
-import { dataLogger, messageLogger } from "../config/logger.config";
+import { dataLogger, messageLogger } from "../config/logger.config.js";
 
 /**
  * Sets up and configures all error handling components for the AI Review System
@@ -143,6 +143,7 @@ export class ErrorHandlerService {
             { 
                 keys: [
                     "CLOUD_TASKS_PR_ANALYSIS_QUEUE", 
+                    "CLOUD_TASKS_MANUAL_PR_ANALYSIS_QUEUE",
                     "CLOUD_TASKS_REPO_INDEXING_QUEUE", 
                     "CLOUD_TASKS_INCREMENTAL_INDEXING_QUEUE", 
                     "CLOUD_TASKS_BOUNTY_PAYOUT_QUEUE", 
@@ -150,7 +151,8 @@ export class ErrorHandlerService {
                     "CLOUD_TASKS_CLEAR_REPO_QUEUE"
                 ], 
                 msg: "Cloud Tasks queue names not configured - job routing will fail" 
-            }
+            },
+            { keys: ["X402_FACILITATOR_URL", "X402_PAYEE_ADDRESS", "X402_API_KEY"], msg: "x402 misconfiguration" }
         ];
 
         const warningVars = [

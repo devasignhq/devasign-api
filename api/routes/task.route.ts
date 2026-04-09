@@ -22,7 +22,7 @@ import {
     getContributorTasks,
     getContributorTask,
     markActivityAsViewed
-} from "../controllers/task";
+} from "../controllers/task/index.js";
 import {
     getTasksSchema,
     getTaskSchema,
@@ -43,9 +43,9 @@ import {
     getContributorTasksSchema,
     getContributorTaskSchema,
     markActivityAsViewedSchema
-} from "../schemas/task.schema";
-import { ENDPOINTS } from "../utilities/data";
-import { validateRequestParameters } from "../middlewares/request.middleware";
+} from "../schemas/task.schema.js";
+import { ENDPOINTS } from "../utilities/data.js";
+import { validateRequestParameters } from "../middlewares/request.middleware.js";
 
 export const taskRoutes = Router();
 export const publicTaskRoutes = Router();

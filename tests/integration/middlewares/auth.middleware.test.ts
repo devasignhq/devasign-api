@@ -1,12 +1,13 @@
+import { vi, describe, it, expect, beforeAll, beforeEach, afterAll, afterEach } from "vitest";
 import { Request, Response, NextFunction } from "express";
-import { DatabaseTestHelper } from "../../helpers/database-test-helper";
-import { TestDataFactory } from "../../helpers/test-data-factory";
-import { mockFirebaseAuth, FirebaseTestHelpers } from "../../mocks/firebase.service.mock";
-import { validateUser, validateUserInstallation, validateCloudTasksRequest } from "../../../api/middlewares/auth.middleware";
-import { STATUS_CODES } from "../../../api/utilities/data";
+import { DatabaseTestHelper } from "../../helpers/database-test-helper.js";
+import { TestDataFactory } from "../../helpers/test-data-factory.js";
+import { mockFirebaseAuth, FirebaseTestHelpers } from "../../mocks/firebase.service.mock.js";
+import { validateUser, validateUserInstallation, validateCloudTasksRequest } from "../../../api/middlewares/auth.middleware.js";
+import { STATUS_CODES } from "../../../api/utilities/data.js";
 
 // Mock Firebase admin for authentication
-jest.mock("../../../api/config/firebase.config", () => {
+vi.mock("../../../api/config/firebase.config", () => {
     return {
         firebaseAdmin: {
             auth: () => (mockFirebaseAuth)
@@ -15,18 +16,19 @@ jest.mock("../../../api/config/firebase.config", () => {
 });
 
 // Mock google-auth-library for Cloud Tasks OIDC validation
-// Use a shared container so the mock fn is accessible both inside the factory (hoisted) and in tests.
-const googleAuthMocks = { verifyIdToken: jest.fn() };
-jest.mock("google-auth-library", () => ({
-    OAuth2Client: jest.fn().mockImplementation(() => ({
-        verifyIdToken: (...args: unknown[]) => googleAuthMocks.verifyIdToken(...args)
-    }))
+const { googleAuthMocks } = vi.hoisted(() => ({
+    googleAuthMocks: { verifyIdToken: vi.fn() }
+}));
+vi.mock("google-auth-library", () => ({
+    OAuth2Client: vi.fn().mockImplementation(function (this: any) {
+        this.verifyIdToken = (...args: any[]) => googleAuthMocks.verifyIdToken(...args);
+    })
 }));
 
 describe("Authentication Middleware", () => {
     let mockRequest: Partial<Request>;
     let mockResponse: Partial<Response>;
-    let mockFirebaseAuth: jest.Mock;
+    let mockFirebaseAuth: any;
     let mockNext: NextFunction;
     let prisma: any;
 
@@ -35,14 +37,14 @@ describe("Authentication Middleware", () => {
         prisma = await DatabaseTestHelper.setupTestDatabase();
 
         // Setup mocks
-        const { firebaseAdmin } = await import("../../../api/config/firebase.config");
-        mockFirebaseAuth = firebaseAdmin.auth().verifyIdToken as jest.Mock;
+        const { firebaseAdmin } = await import("../../../api/config/firebase.config.js");
+        mockFirebaseAuth = firebaseAdmin.auth().verifyIdToken;
     });
 
     beforeEach(async () => {
         await DatabaseTestHelper.resetDatabase(prisma);
         await DatabaseTestHelper.seedDatabase(prisma);
-        jest.clearAllMocks();
+        vi.clearAllMocks();
 
         mockRequest = {
             headers: {},
@@ -51,12 +53,12 @@ describe("Authentication Middleware", () => {
         };
 
         mockResponse = {
-            status: jest.fn().mockReturnThis(),
-            json: jest.fn().mockReturnThis(),
+            status: vi.fn().mockReturnThis(),
+            json: vi.fn().mockReturnThis(),
             locals: {}
-        };
+        } as any;
 
-        mockNext = jest.fn();
+        mockNext = vi.fn() as any;
 
         TestDataFactory.resetCounters();
         FirebaseTestHelpers.resetFirebaseMocks();
@@ -112,8 +114,6 @@ describe("Authentication Middleware", () => {
                     })
                 );
             });
-
-
         });
 
         describe("Unauthorized Access Handling", () => {
@@ -335,9 +335,8 @@ describe("Authentication Middleware", () => {
             mockResponse.locals = { userId: "test-user-id" };
 
             // We expect validateUserInstallation to call next with ValidationError
-            // The validationError usually has code 400
-            const nextSpy = jest.fn();
-            await validateUserInstallation(mockRequest as Request, mockResponse as Response, nextSpy);
+            const nextSpy = vi.fn();
+            await validateUserInstallation(mockRequest as Request, mockResponse as Response, nextSpy as any);
 
             expect(nextSpy).toHaveBeenCalledWith(
                 expect.objectContaining({

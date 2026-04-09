@@ -11,8 +11,8 @@ import {
     getOrCreateBountyLabel,
     getRepositoryIssues,
     getRepositoryResources
-} from "../controllers/installation";
-import { validateUserInstallation } from "../middlewares/auth.middleware";
+} from "../controllers/installation/index.js";
+import { validateUserInstallation } from "../middlewares/auth.middleware.js";
 import {
     getInstallationsSchema,
     getInstallationSchema,
@@ -25,9 +25,9 @@ import {
     getRepositoryIssuesSchema,
     getRepositoryResourcesSchema,
     getOrCreateBountyLabelSchema
-} from "../schemas/installation.schema";
-import { ENDPOINTS } from "../utilities/data";
-import { validateRequestParameters } from "../middlewares/request.middleware";
+} from "../schemas/installation.schema.js";
+import { ENDPOINTS } from "../utilities/data.js";
+import { validateRequestParameters } from "../middlewares/request.middleware.js";
 
 export const installationRoutes = Router();
 
