@@ -58,6 +58,9 @@ COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
 COPY --from=builder --chown=nodejs:nodejs /app/prisma_client ./prisma_client
 COPY --from=builder --chown=nodejs:nodejs /app/package*.json ./
 
+# Create logs directory and change ownership
+RUN mkdir -p logs && chown -R nodejs:nodejs logs
+
 # Switch to non-root user
 USER nodejs
 

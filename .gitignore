@@ -2,6 +2,7 @@ node_modules
 # Keep environment variables out of version control
 .env
 .env.test
+.env.docker
 
 prisma/migrations
 prisma_client
