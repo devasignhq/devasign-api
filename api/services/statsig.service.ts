@@ -1,6 +1,7 @@
-import statsig, { type StatsigUser } from "statsig-node";
-const { Statsig } = statsig;
+import statsigPkg, { type StatsigUser } from "statsig-node";
 import { dataLogger } from "../config/logger.config.js";
+
+const statsig = statsigPkg.default || statsigPkg;
 
 /**
  * Statsig service to check feature gates
@@ -29,7 +30,7 @@ class StatsigService {
 
         try {
             // Initialize Statsig
-            await Statsig.initialize(serverSecret);
+            await statsig.initialize(serverSecret);
             this.isInitialized = true;
             dataLogger.info("Statsig initialized successfully");
         } catch (error) {
@@ -53,7 +54,7 @@ class StatsigService {
         }
 
         // Check if the feature gate is enabled for the user
-        return Statsig.checkGate(user, gateName);
+        return statsig.checkGate(user, gateName);
     }
 
     /**
@@ -76,7 +77,7 @@ class StatsigService {
             return;
         }
 
-        Statsig.logEvent(user, eventName, value ?? null, metadata ?? null);
+        statsig.logEvent(user, eventName, value ?? null, metadata ?? null);
     }
 
     /**
@@ -92,7 +93,7 @@ class StatsigService {
             return null;
         }
 
-        return Statsig.getConfig(user, configName);
+        return statsig.getConfig(user, configName);
     }
 
     /**
@@ -108,7 +109,7 @@ class StatsigService {
             return null;
         }
 
-        return Statsig.getExperiment(user, experimentName);
+        return statsig.getExperiment(user, experimentName);
     }
 }
 
