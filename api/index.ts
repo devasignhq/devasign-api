@@ -60,7 +60,7 @@ app.use(
                 STATUS_CODES.UNAUTHORIZED
             ));
         },
-        exposedHeaders: ["Payment-Required"]
+        exposedHeaders: ["Payment-Required", "Payment-Response"]
     })
 );
 app.use(morgan("dev"));
