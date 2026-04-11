@@ -1,7 +1,8 @@
-import swSdk, {
-    type AccountKeypair,
-    type StellarAssetId,
-    type SponsoringBuilder
+import * as swSdk from "@stellar/typescript-wallet-sdk";
+import type {
+    AccountKeypair,
+    StellarAssetId,
+    SponsoringBuilder
 } from "@stellar/typescript-wallet-sdk";
 import {
     stellar,

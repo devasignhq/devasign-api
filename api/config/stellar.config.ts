@@ -1,12 +1,11 @@
-import swSdk from "@stellar/typescript-wallet-sdk";
-const {
+import {
     ApplicationConfiguration,
     DefaultSigner,
     Wallet,
     StellarConfiguration,
     IssuedAssetId,
     NativeAssetId
-} = swSdk;
+} from "@stellar/typescript-wallet-sdk";
 import axios from "axios";
 
 const customClient = axios.create({
