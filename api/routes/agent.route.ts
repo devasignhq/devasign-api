@@ -3,8 +3,8 @@ import { cloudTasksService } from "../services/cloud-tasks.service.js";
 import { paymentMiddlewareFromConfig } from "@x402/express";
 import { HTTPFacilitatorClient, RoutesConfig } from "@x402/core/server";
 import { ExactStellarScheme } from "@x402/stellar/exact/server";
-import { ENDPOINTS, STATUS_CODES } from "../utilities/data.js";
-import { responseWrapper } from "../utilities/helper.js";
+import { ENDPOINTS, STATUS_CODES } from "../utils/data.js";
+import { responseWrapper } from "../utils/helper.js";
 import { ValidationError } from "../models/error.model.js";
 
 // const network = `stellar:${process.env.STELLAR_NETWORK === "testnet" ? "testnet" : "pubnet"}` as `${string}:${string}`;

@@ -6,7 +6,7 @@ import {
     generateSumsubSdkToken
 } from "../controllers/user/index.js";
 import { createUserSchema, updateAddressBookSchema } from "../schemas/user.schema.js";
-import { ENDPOINTS } from "../utilities/data.js";
+import { ENDPOINTS } from "../utils/data.js";
 import { validateRequestParameters } from "../middlewares/request.middleware.js";
 
 export const userRoutes = Router();

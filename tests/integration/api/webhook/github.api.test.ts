@@ -6,7 +6,7 @@ import { webhookRoutes } from "../../../../api/routes/webhook.route.js";
 import { errorHandler } from "../../../../api/middlewares/error.middleware.js";
 import { DatabaseTestHelper } from "../../../../tests/helpers/database-test-helper.js";
 import { TestDataFactory } from "../../../../tests/helpers/test-data-factory.js";
-import { ENDPOINTS, STATUS_CODES } from "../../../../api/utilities/data.js";
+import { ENDPOINTS, STATUS_CODES } from "../../../../api/utils/data.js";
 import { getEndpointWithPrefix } from "../../../helpers/test-utils.js";
 import { mockFirebaseAuth } from "../../../mocks/firebase.service.mock.js";
 import { BOUNTY_LABEL } from "../../../../api/models/github.model.js";

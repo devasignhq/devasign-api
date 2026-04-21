@@ -5,7 +5,7 @@ import { TestDataFactory } from "../../../helpers/test-data-factory.js";
 import { walletRoutes } from "../../../../api/routes/wallet.route.js";
 import { errorHandler } from "../../../../api/middlewares/error.middleware.js";
 import { DatabaseTestHelper } from "../../../helpers/database-test-helper.js";
-import { ENDPOINTS, STATUS_CODES } from "../../../../api/utilities/data.js";
+import { ENDPOINTS, STATUS_CODES } from "../../../../api/utils/data.js";
 import { TransactionCategory } from "../../../../prisma_client/index.js";
 import { getEndpointWithPrefix } from "../../../helpers/test-utils.js";
 

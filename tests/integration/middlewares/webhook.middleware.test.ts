@@ -2,7 +2,7 @@ import { vi, describe, it, expect, beforeAll, beforeEach, afterAll } from "vites
 import { Request, Response, NextFunction } from "express";
 import crypto from "crypto";
 import { validateGitHubWebhook, validateGitHubWebhookEvent, validateSumsubWebhook } from "../../../api/middlewares/webhook.middleware.js";
-import { STATUS_CODES } from "../../../api/utilities/data.js";
+import { STATUS_CODES } from "../../../api/utils/data.js";
 import { OctokitService } from "../../../api/services/octokit.service.js";
 import { GitHubWebhookError, SumsubWebhookError } from "../../../api/models/error.model.js";
 

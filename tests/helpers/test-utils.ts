@@ -1,6 +1,6 @@
 import { vi, Mock, expect } from "vitest";
 import { Request, Response } from "express";
-import { ENDPOINTS } from "../../api/utilities/data.js";
+import { ENDPOINTS } from "../../api/utils/data.js";
 
 /**
  * Creates a mock Express request object for testing

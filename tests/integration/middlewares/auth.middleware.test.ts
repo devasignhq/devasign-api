@@ -4,7 +4,7 @@ import { DatabaseTestHelper } from "../../helpers/database-test-helper.js";
 import { TestDataFactory } from "../../helpers/test-data-factory.js";
 import { mockFirebaseAuth, FirebaseTestHelpers } from "../../mocks/firebase.service.mock.js";
 import { validateUser, validateUserInstallation, validateCloudTasksRequest } from "../../../api/middlewares/auth.middleware.js";
-import { STATUS_CODES } from "../../../api/utilities/data.js";
+import { STATUS_CODES } from "../../../api/utils/data.js";
 
 // Mock Firebase admin for authentication
 vi.mock("../../../api/config/firebase.config", () => {

@@ -10,7 +10,7 @@ import {
     IssueMilestone,
     RepositoryDto
 } from "../models/github.model.js";
-import { getFieldFromUnknownObject, moneyFormat } from "../utilities/helper.js";
+import { getFieldFromUnknownObject, moneyFormat } from "../utils/helper.js";
 import { GitHubAPIError } from "../models/error.model.js";
 import { dataLogger, messageLogger } from "../config/logger.config.js";
 import { LinkedIssue } from "../models/ai-review.model.js";

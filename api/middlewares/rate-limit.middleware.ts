@@ -1,5 +1,5 @@
 import rateLimit from "express-rate-limit";
-import { STATUS_CODES, ENDPOINTS } from "../utilities/data.js";
+import { STATUS_CODES, ENDPOINTS } from "../utils/data.js";
 import { messageLogger } from "../config/logger.config.js";
 
 /**

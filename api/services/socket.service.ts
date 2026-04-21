@@ -1,6 +1,6 @@
 import { Server as SocketIOServer } from "socket.io";
 import { Server as HttpServer } from "http";
-import { ALLOWED_ORIGINS } from "../utilities/data.js";
+import { ALLOWED_ORIGINS } from "../utils/data.js";
 import { messageLogger } from "../config/logger.config.js";
 
 /**
@@ -51,15 +51,15 @@ export class SocketService {
 
         this.io.on("connection", (socket) => {
             messageLogger.info(`Client connected to WebSockets: ${socket.id}`);
-            
+
             socket.on("join", (room: string) => {
                 socket.join(room);
             });
-            
+
             socket.on("leave", (room: string) => {
                 socket.leave(room);
             });
-            
+
             socket.on("disconnect", () => {
                 messageLogger.info(`Client disconnected from WebSockets: ${socket.id}`);
             });
@@ -87,7 +87,7 @@ export class SocketService {
      */
     static async updateAppActivity(activity: Activity) {
         if (!this.io) return;
-        
+
         switch (activity.type) {
             case "task":
                 this.io.to(`task_${activity.taskId}`).emit("activity_update", activity);
@@ -109,7 +109,7 @@ export class SocketService {
      */
     static async deleteAppActivity(activity: Partial<Activity>) {
         if (!this.io) return;
-        
+
         switch (activity.type) {
             case "task":
                 this.io.to(`task_${activity.taskId}`).emit("activity_deleted", activity);

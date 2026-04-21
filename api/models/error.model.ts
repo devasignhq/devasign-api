@@ -1,4 +1,4 @@
-import { STATUS_CODES } from "../utilities/data.js";
+import { STATUS_CODES } from "../utils/data.js";
 
 /**
  * Base error class for general api errors
@@ -225,7 +225,7 @@ export class GitHubAPIError extends ErrorClass {
 /** 
  * Voyage API related errors
  */
-export class VoyageAPIError extends ErrorClass  {
+export class VoyageAPIError extends ErrorClass {
     constructor(message: string, details?: unknown) {
         super(
             "VOYAGE_API_ERROR",

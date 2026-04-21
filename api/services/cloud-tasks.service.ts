@@ -2,17 +2,17 @@ import { CloudTasksClient } from "@google-cloud/tasks";
 import { GitHubWebhookPayload, LinkedIssue } from "../models/ai-review.model.js";
 import { dataLogger } from "../config/logger.config.js";
 import { CloudTasksError } from "../models/error.model.js";
-import { ENDPOINTS } from "../utilities/data.js";
+import { ENDPOINTS } from "../utils/data.js";
 
 /**
  * Types of background jobs supported by the Cloud Tasks integration.
  */
-export type JobType = "pr-analysis" 
+export type JobType = "pr-analysis"
     | "manual-pr-analysis"
-    | "repository-indexing" 
-    | "repository-incremental-indexing" 
-    | "bounty-payout" 
-    | "clear-installation" 
+    | "repository-indexing"
+    | "repository-incremental-indexing"
+    | "bounty-payout"
+    | "clear-installation"
     | "clear-repo";
 
 /**
@@ -178,8 +178,8 @@ export class CloudTasksService {
             dispatchDeadline: {
                 seconds: (type === "pr-analysis" || type === "manual-pr-analysis") ? 600 // 10 minutes
                     : type === "bounty-payout"
-                            || type === "clear-installation"
-                            || type === "clear-repo"
+                        || type === "clear-installation"
+                        || type === "clear-repo"
                         ? 300 // 5 minutes
                         : 1800 // 30 minutes (indexing)
             }

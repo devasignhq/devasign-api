@@ -3,7 +3,7 @@ import { Request, Response, NextFunction } from "express";
 import * as z from "zod";
 import { dynamicRoute, localhostOnly, validateRequestParameters } from "../../../api/middlewares/request.middleware.js";
 import { ValidationError } from "../../../api/models/error.model.js";
-import { STATUS_CODES } from "../../../api/utilities/data.js";
+import { STATUS_CODES } from "../../../api/utils/data.js";
 
 describe("Request Middleware", () => {
     let mockRequest: Partial<Request>;

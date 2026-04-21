@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import request from "supertest";
 import express, { Request, Response } from "express";
 import { apiLimiter, webhookLimiter } from "../../../api/middlewares/rate-limit.middleware.js";
-import { STATUS_CODES, ENDPOINTS } from "../../../api/utilities/data.js";
+import { STATUS_CODES, ENDPOINTS } from "../../../api/utils/data.js";
 
 describe("Rate Limit Middleware", () => {
     let app: express.Application;

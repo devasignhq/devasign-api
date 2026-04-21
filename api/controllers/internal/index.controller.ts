@@ -1,8 +1,8 @@
 import { Request, Response, NextFunction } from "express";
 import { statsigService } from "../../services/statsig.service.js";
-import { STATUS_CODES } from "../../utilities/data.js";
+import { STATUS_CODES } from "../../utils/data.js";
 import { dataLogger } from "../../config/logger.config.js";
-import { responseWrapper, stellarTimestampToDate } from "../../utilities/helper.js";
+import { responseWrapper, stellarTimestampToDate } from "../../utils/helper.js";
 import { prisma } from "../../config/database.config.js";
 import { KMSService } from "../../services/kms.service.js";
 import { ContractService } from "../../services/contract.service.js";
@@ -86,7 +86,7 @@ export const handleBountyPayoutJob = async (req: Request, res: Response, next: N
 
         // Decrypt installation wallet secret
         const decryptedWalletSecret = await KMSService.decryptWallet(relatedTask.installation.wallet);
-        
+
         // Approve completion via smart contract
         const transactionResponse = await ContractService.approveCompletion(
             decryptedWalletSecret,

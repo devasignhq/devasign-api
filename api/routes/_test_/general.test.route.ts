@@ -8,8 +8,8 @@ import {
 } from "./test.schema.js";
 import { KMSService } from "../../services/kms.service.js";
 import { prisma } from "../../config/database.config.js";
-import { STATUS_CODES } from "../../utilities/data.js";
-import { responseWrapper } from "../../utilities/helper.js";
+import { STATUS_CODES } from "../../utils/data.js";
+import { responseWrapper } from "../../utils/helper.js";
 import { dataLogger } from "../../config/logger.config.js";
 
 const router = Router();

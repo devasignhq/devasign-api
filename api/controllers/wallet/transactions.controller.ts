@@ -1,7 +1,7 @@
 import { NextFunction, Request, Response } from "express";
 import { prisma } from "../../config/database.config.js";
-import { responseWrapper } from "../../utilities/helper.js";
-import { STATUS_CODES } from "../../utilities/data.js";
+import { responseWrapper } from "../../utils/helper.js";
+import { STATUS_CODES } from "../../utils/data.js";
 import { HorizonApi } from "../../models/horizonapi.model.js";
 import { Prisma, TransactionCategory } from "../../../prisma_client/index.js";
 import { stellarService } from "../../services/stellar.service.js";

@@ -2,7 +2,7 @@ import { Router, RequestHandler } from "express";
 import { handleGitHubWebhook, handleSumsubWebhook } from "../controllers/webhook/index.js";
 import { validateGitHubWebhook, validateGitHubWebhookEvent, validateSumsubWebhook } from "../middlewares/webhook.middleware.js";
 
-import { ENDPOINTS } from "../utilities/data.js";
+import { ENDPOINTS } from "../utils/data.js";
 
 export const webhookRoutes = Router();
 

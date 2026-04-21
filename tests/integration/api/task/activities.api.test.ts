@@ -5,7 +5,7 @@ import { TestDataFactory } from "../../../helpers/test-data-factory.js";
 import { taskRoutes } from "../../../../api/routes/task.route.js";
 import { errorHandler } from "../../../../api/middlewares/error.middleware.js";
 import { DatabaseTestHelper } from "../../../helpers/database-test-helper.js";
-import { ENDPOINTS, STATUS_CODES } from "../../../../api/utilities/data.js";
+import { ENDPOINTS, STATUS_CODES } from "../../../../api/utils/data.js";
 import { mockFirebaseAuth } from "../../../mocks/firebase.service.mock.js";
 import { getEndpointWithPrefix } from "../../../helpers/test-utils.js";
 

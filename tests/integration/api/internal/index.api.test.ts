@@ -3,7 +3,7 @@ import request from "supertest";
 import express from "express";
 import { internalRoutes } from "../../../../api/routes/internal.route.js";
 import { errorHandler } from "../../../../api/middlewares/error.middleware.js";
-import { ENDPOINTS, STATUS_CODES } from "../../../../api/utilities/data.js";
+import { ENDPOINTS, STATUS_CODES } from "../../../../api/utils/data.js";
 import { getEndpointWithPrefix } from "../../../helpers/test-utils.js";
 import { DatabaseTestHelper } from "../../../helpers/database-test-helper.js";
 import { TestDataFactory } from "../../../helpers/test-data-factory.js";
@@ -61,7 +61,7 @@ describe("Internal Routes API Integration Tests", () => {
         prisma = await DatabaseTestHelper.setupTestDatabase();
         app = express();
         app.use(express.json());
-        
+
         // Mount internal routes
         app.use(ENDPOINTS.INTERNAL.PREFIX, internalRoutes);
         app.use(errorHandler);

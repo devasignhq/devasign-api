@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { GitHubWebhookPayload } from "../../models/ai-review.model.js";
-import { responseWrapper, stellarTimestampToDate } from "../../utilities/helper.js";
-import { STATUS_CODES } from "../../utilities/data.js";
+import { responseWrapper, stellarTimestampToDate } from "../../utils/helper.js";
+import { STATUS_CODES } from "../../utils/data.js";
 import { prisma } from "../../config/database.config.js";
 import { dataLogger } from "../../config/logger.config.js";
 import { OctokitService } from "../octokit.service.js";
@@ -431,7 +431,7 @@ export class IssueCommentWebhookService {
                                 { taskId: task.id, installationId, issueId: issue.id, error }
                             );
                         }
-                        
+
                         await this.bountyFailureComment(installationId, repository.full_name, issue.number);
                         return;
                     }
@@ -514,10 +514,10 @@ export class IssueCommentWebhookService {
                         { userID: creator.userId },
                         "bounty_creation_github_failed",
                         amount,
-                        { 
-                            error: err instanceof Error ? err.message : "Unknown error", 
-                            installationId, 
-                            issueUrl: issue.html_url 
+                        {
+                            error: err instanceof Error ? err.message : "Unknown error",
+                            installationId,
+                            issueUrl: issue.html_url
                         }
                     );
                     dataLogger.error(

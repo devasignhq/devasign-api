@@ -1,7 +1,7 @@
 import { ErrorClass, ErrorUtils } from "../models/error.model.js";
 import { Request, Response, ErrorRequestHandler, NextFunction } from "express";
-import { STATUS_CODES } from "../utilities/data.js";
-import { getFieldFromUnknownObject } from "../utilities/helper.js";
+import { STATUS_CODES } from "../utils/data.js";
+import { getFieldFromUnknownObject } from "../utils/helper.js";
 import { dataLogger } from "../config/logger.config.js";
 import { Prisma } from "../../prisma_client/index.js";
 

@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { GitHubWebhookPayload } from "../../models/ai-review.model.js";
-import { responseWrapper } from "../../utilities/helper.js";
-import { STATUS_CODES } from "../../utilities/data.js";
+import { responseWrapper } from "../../utils/helper.js";
+import { STATUS_CODES } from "../../utils/data.js";
 import { dataLogger } from "../../config/logger.config.js";
 import { cloudTasksService } from "../cloud-tasks.service.js";
 import { TaskStatus } from "../../../prisma_client/index.js";

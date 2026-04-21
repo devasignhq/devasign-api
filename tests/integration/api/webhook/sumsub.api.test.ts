@@ -6,7 +6,7 @@ import crypto from "crypto";
 import { webhookRoutes } from "../../../../api/routes/webhook.route.js";
 import { errorHandler } from "../../../../api/middlewares/error.middleware.js";
 import { DatabaseTestHelper } from "../../../helpers/database-test-helper.js";
-import { ENDPOINTS, STATUS_CODES } from "../../../../api/utilities/data.js";
+import { ENDPOINTS, STATUS_CODES } from "../../../../api/utils/data.js";
 import { TestDataFactory } from "../../../helpers/test-data-factory.js";
 import { getEndpointWithPrefix } from "../../../helpers/test-utils.js";
 

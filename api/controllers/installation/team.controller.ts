@@ -1,7 +1,7 @@
 import { NextFunction, Request, Response } from "express";
 import { prisma } from "../../config/database.config.js";
-import { responseWrapper } from "../../utilities/helper.js";
-import { STATUS_CODES } from "../../utilities/data.js";
+import { responseWrapper } from "../../utils/helper.js";
+import { STATUS_CODES } from "../../utils/data.js";
 import { AuthorizationError, NotFoundError } from "../../models/error.model.js";
 import { OctokitService } from "../../services/octokit.service.js";
 

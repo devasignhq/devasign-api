@@ -6,7 +6,7 @@ import { installationRoutes } from "../../../../api/routes/installation.route.js
 import { errorHandler } from "../../../../api/middlewares/error.middleware.js";
 import { validateUser } from "../../../../api/middlewares/auth.middleware.js";
 import { DatabaseTestHelper } from "../../../helpers/database-test-helper.js";
-import { ENDPOINTS, STATUS_CODES } from "../../../../api/utilities/data.js";
+import { ENDPOINTS, STATUS_CODES } from "../../../../api/utils/data.js";
 import { mockFirebaseAuth } from "../../../mocks/firebase.service.mock.js";
 import { generateRandomString, getEndpointWithPrefix, generateRandomCUID } from "../../../helpers/test-utils.js";
 import { apiLimiter } from "../../../../api/middlewares/rate-limit.middleware.js";

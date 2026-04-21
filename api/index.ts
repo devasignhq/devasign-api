@@ -27,7 +27,7 @@ import {
 } from "./routes/index.js";
 import { ErrorHandlerService } from "./services/error-handler.service.js";
 import { dataLogger, messageLogger } from "./config/logger.config.js";
-import { ALLOWED_ORIGINS, ENDPOINTS, STATUS_CODES } from "./utilities/data.js";
+import { ALLOWED_ORIGINS, ENDPOINTS, STATUS_CODES } from "./utils/data.js";
 import { ErrorClass } from "./models/error.model.js";
 import { statsigService } from "./services/statsig.service.js";
 import { SocketService } from "./services/socket.service.js";

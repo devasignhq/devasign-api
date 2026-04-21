@@ -1,8 +1,8 @@
 import { prisma } from "../config/database.config.js";
 import { firebaseAdmin } from "../config/firebase.config.js";
 import { OAuth2Client } from "google-auth-library";
-import { STATUS_CODES } from "../utilities/data.js";
-import { getFieldFromUnknownObject } from "../utilities/helper.js";
+import { STATUS_CODES } from "../utils/data.js";
+import { getFieldFromUnknownObject } from "../utils/helper.js";
 import { Request, Response, NextFunction } from "express";
 import { AuthorizationError, ErrorClass, ValidationError } from "../models/error.model.js";
 import { dataLogger } from "../config/logger.config.js";

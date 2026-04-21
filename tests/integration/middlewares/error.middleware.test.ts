@@ -10,7 +10,7 @@ import {
     NotFoundError,
     ValidationError
 } from "../../../api/models/error.model.js";
-import { STATUS_CODES } from "../../../api/utilities/data.js";
+import { STATUS_CODES } from "../../../api/utils/data.js";
 
 vi.mock("../../../api/services/octokit.service", () => ({
     OctokitService: {
