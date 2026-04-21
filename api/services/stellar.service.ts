@@ -1,15 +1,17 @@
-import swSdk, {
-    type AccountKeypair,
-    type StellarAssetId,
-    type SponsoringBuilder
-} from "@stellar/typescript-wallet-sdk";
 import {
-    stellar,
-    account,
-    usdcAssetId,
-    xlmAssetId
+    Keypair,
+    Asset,
+    Memo,
+    TransactionBuilder,
+    Operation
+} from "@stellar/stellar-sdk";
+import {
+    stellarServer,
+    usdcAsset,
+    xlmAsset,
+    isMainnet,
+    networkPassphrase
 } from "../config/stellar.config.js";
-import { Memo } from "@stellar/stellar-sdk";
 import { HorizonApi } from "../models/horizonapi.model.js";
 import { StellarServiceError } from "../models/error.model.js";
 
@@ -21,7 +23,7 @@ import { StellarServiceError } from "../models/error.model.js";
  * TODO: Implement deeper error handling (e.g., swapAsset: "No trustline present")
  */
 export class StellarService {
-    private masterAccount: AccountKeypair;
+    private masterAccount: Keypair;
     readonly isMainnet: boolean;
 
     /**
@@ -34,37 +36,14 @@ export class StellarService {
             throw new StellarServiceError("Missing Stellar master account credentials in environment variables");
         }
 
-        this.isMainnet = process.env.STELLAR_NETWORK === "public";
+        this.isMainnet = isMainnet;
 
         try {
             // Create keypair from the master secret key
-            const keypair = swSdk.Keypair.fromSecret(process.env.STELLAR_MASTER_SECRET_KEY);
-            this.masterAccount = new swSdk.AccountKeypair(keypair);
+            this.masterAccount = Keypair.fromSecret(process.env.STELLAR_MASTER_SECRET_KEY);
         } catch (error) {
             throw new StellarServiceError("Invalid Stellar master account credentials", error);
         }
-    }
-
-    /**
-     * Helper method to check if two Stellar assets are identical.
-     * Compares both native (XLM) and issued assets (like USDC).
-     * @param asset1 - The first Stellar asset to compare
-     * @param asset2 - The second Stellar asset to compare
-     * @returns True if the assets are identical, false otherwise
-     */
-    private isSameAsset(asset1: StellarAssetId, asset2: StellarAssetId): boolean {
-        // Both assets are native XLM
-        if (asset1 instanceof swSdk.NativeAssetId && asset2 instanceof swSdk.NativeAssetId) {
-            return true;
-        }
-
-        // Both assets are issued assets - compare code and issuer
-        if (asset1 instanceof swSdk.IssuedAssetId && asset2 instanceof swSdk.IssuedAssetId) {
-            return asset1.code === asset2.code && asset1.issuer === asset2.issuer;
-        }
-
-        // Assets are of different types
-        return false;
     }
 
     /**
@@ -108,24 +87,34 @@ export class StellarService {
     async createWallet() {
         try {
             // Generate a new random keypair for the wallet
-            const accountKeyPair = account.createKeypair();
+            const accountKeyPair = Keypair.random();
+
+            const sourceAccount = await stellarServer.loadAccount(this.masterAccount.publicKey());
 
             // Build the account creation transaction
-            const txBuilder = await stellar.transaction({
-                sourceAddress: this.masterAccount
+            const txBuilder = new TransactionBuilder(sourceAccount, {
+                fee: (await stellarServer.fetchBaseFee()).toString(),
+                networkPassphrase
             });
-            const txCreateAccount = txBuilder.createAccount(accountKeyPair).build();
+
+            const txCreateAccount = txBuilder
+                .addOperation(Operation.createAccount({
+                    destination: accountKeyPair.publicKey(),
+                    startingBalance: "1.5"
+                }))
+                .setTimeout(30)
+                .build();
 
             // Sign the transaction with the master account
-            txCreateAccount.sign(this.masterAccount.keypair);
+            txCreateAccount.sign(this.masterAccount);
 
             // Submit the transaction to the network
-            await stellar.submitTransaction(txCreateAccount);
+            await stellarServer.submitTransaction(txCreateAccount);
 
             // Return the new wallet credentials and transaction hash
             return {
-                publicKey: accountKeyPair.publicKey,
-                secretKey: accountKeyPair.secretKey,
+                publicKey: accountKeyPair.publicKey(),
+                secretKey: accountKeyPair.secret(),
                 txHash: txCreateAccount.hash().toString("hex")
             };
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -160,31 +149,42 @@ export class StellarService {
     async createWalletViaSponsor(sponsorSecret: string) {
         try {
             // Create keypairs for both sponsor and new account
-            const sponsorKeyPair = swSdk.Keypair.fromSecret(sponsorSecret);
-            const accountKeyPair = account.createKeypair();
+            const sponsorKeyPair = Keypair.fromSecret(sponsorSecret);
+            const accountKeyPair = Keypair.random();
+
+            const sponsorAccount = await stellarServer.loadAccount(sponsorKeyPair.publicKey());
 
             // Build the sponsored transaction
-            const txBuilder = await stellar.transaction({
-                sourceAddress: new swSdk.AccountKeypair(sponsorKeyPair)
+            const txBuilder = new TransactionBuilder(sponsorAccount, {
+                fee: (await stellarServer.fetchBaseFee()).toString(),
+                networkPassphrase
             });
 
-            // Define the sponsoring operation
-            const buildingFunction = (bldr: SponsoringBuilder) => bldr.createAccount(accountKeyPair);
             const txCreateAccount = txBuilder
-                .sponsoring(new swSdk.AccountKeypair(sponsorKeyPair), buildingFunction, accountKeyPair)
+                .addOperation(Operation.beginSponsoringFutureReserves({
+                    sponsoredId: accountKeyPair.publicKey()
+                }))
+                .addOperation(Operation.createAccount({
+                    destination: accountKeyPair.publicKey(),
+                    startingBalance: "0"
+                }))
+                .addOperation(Operation.endSponsoringFutureReserves({
+                    source: accountKeyPair.publicKey()
+                }))
+                .setTimeout(30)
                 .build();
 
             // Sign with both the new account and sponsor
-            accountKeyPair.sign(txCreateAccount);
             txCreateAccount.sign(sponsorKeyPair);
+            txCreateAccount.sign(accountKeyPair);
 
             // Submit the sponsored transaction
-            await stellar.submitTransaction(txCreateAccount);
+            await stellarServer.submitTransaction(txCreateAccount);
 
             // Return the new wallet credentials
             return {
-                publicKey: accountKeyPair.publicKey,
-                secretKey: accountKeyPair.secretKey,
+                publicKey: accountKeyPair.publicKey(),
+                secretKey: accountKeyPair.secret(),
                 txHash: txCreateAccount.hash().toString("hex")
             };
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -219,10 +219,13 @@ export class StellarService {
         if (this.isMainnet) {
             throw new StellarServiceError("Friendbot funding is only available on Testnet");
         }
-        
+
         try {
             // Request funding from Friendbot
-            await stellar.fundTestnetAccount(accountAddress);
+            const response = await fetch(`https://friendbot.stellar.org?addr=${encodeURIComponent(accountAddress)}`);
+            if (!response.ok) {
+                throw new Error(`Friendbot failed with status ${response.status}`);
+            }
             return "SUCCESS";
         } catch (error) {
             throw new StellarServiceError("Failed to fund wallet", error);
@@ -232,25 +235,31 @@ export class StellarService {
     /**
      * Adds a trust line for a specific asset to a wallet on the Stellar network.
      * @param sourceSecret - The secret key of the wallet to add the trust line to.
-     * @param assetId - The ID of the asset to add the trust line for.
+     * @param asset - The ID of the asset to add the trust line for.
      * @returns The hash of the transaction.
      */
-    async addTrustLine(sourceSecret: string, assetId: StellarAssetId = usdcAssetId) {
+    async addTrustLine(sourceSecret: string, asset: Asset = usdcAsset) {
         try {
             // Create keypair from the source secret
-            const sourceKeypair = swSdk.Keypair.fromSecret(sourceSecret);
+            const sourceKeypair = Keypair.fromSecret(sourceSecret);
+            const sourceAccount = await stellarServer.loadAccount(sourceKeypair.publicKey());
 
             // Build the transaction to add asset support
-            const assetTxBuilder = await stellar.transaction({
-                sourceAddress: new swSdk.AccountKeypair(sourceKeypair)
-            });
-            const txAddAssetSupport = assetTxBuilder.addAssetSupport(assetId).build();
+            const txAddAssetSupport = new TransactionBuilder(sourceAccount, {
+                fee: (await stellarServer.fetchBaseFee()).toString(),
+                networkPassphrase
+            })
+                .addOperation(Operation.changeTrust({
+                    asset
+                }))
+                .setTimeout(30)
+                .build();
 
             // Sign the transaction with the source account
             txAddAssetSupport.sign(sourceKeypair);
 
             // Submit the transaction to the network
-            await stellar.submitTransaction(txAddAssetSupport);
+            await stellarServer.submitTransaction(txAddAssetSupport);
 
             // Return the transaction hash
             return { txHash: txAddAssetSupport.hash().toString("hex") };
@@ -279,32 +288,37 @@ export class StellarService {
      * Adds a trust line for a specific asset to a wallet on the Stellar network via sponsorship.
      * @param sponsorSecret - The secret key of the sponsor account.
      * @param accountSecret - The secret key of the wallet to add the trust line to.
-     * @param assetId - The ID of the asset to add the trust line for.
+     * @param asset - The ID of the asset to add the trust line for.
      * @returns The hash of the transaction.
      */
     async addTrustLineViaSponsor(
         sponsorSecret: string,
         accountSecret: string,
-        assetId: StellarAssetId = usdcAssetId
+        asset: Asset = usdcAsset
     ) {
         try {
             // Create keypairs for both sponsor and account
-            const sponsorKeyPair = swSdk.Keypair.fromSecret(sponsorSecret);
-            const accountKeyPair = swSdk.Keypair.fromSecret(accountSecret);
+            const sponsorKeyPair = Keypair.fromSecret(sponsorSecret);
+            const accountKeyPair = Keypair.fromSecret(accountSecret);
+
+            const sponsorAccount = await stellarServer.loadAccount(sponsorKeyPair.publicKey());
 
             // Build the sponsored transaction
-            const txBuilder = await stellar.transaction({
-                sourceAddress: new swSdk.AccountKeypair(sponsorKeyPair)
-            });
-
-            // Define the sponsoring operation
-            const buildingFunction = (bldr: SponsoringBuilder) => bldr.addAssetSupport(assetId);
-            const txAddAssetSupport = txBuilder
-                .sponsoring(
-                    new swSdk.AccountKeypair(sponsorKeyPair),
-                    buildingFunction,
-                    new swSdk.AccountKeypair(accountKeyPair)
-                )
+            const txAddAssetSupport = new TransactionBuilder(sponsorAccount, {
+                fee: (await stellarServer.fetchBaseFee()).toString(),
+                networkPassphrase
+            })
+                .addOperation(Operation.beginSponsoringFutureReserves({
+                    sponsoredId: accountKeyPair.publicKey()
+                }))
+                .addOperation(Operation.changeTrust({
+                    asset,
+                    source: accountKeyPair.publicKey()
+                }))
+                .addOperation(Operation.endSponsoringFutureReserves({
+                    source: accountKeyPair.publicKey()
+                }))
+                .setTimeout(30)
                 .build();
 
             // Sign with both the account and sponsor
@@ -312,7 +326,7 @@ export class StellarService {
             txAddAssetSupport.sign(sponsorKeyPair);
 
             // Submit the sponsored transaction
-            await stellar.submitTransaction(txAddAssetSupport);
+            await stellarServer.submitTransaction(txAddAssetSupport);
 
             // Return the transaction hash
             return { txHash: txAddAssetSupport.hash().toString("hex") };
@@ -341,8 +355,8 @@ export class StellarService {
      * Transfers an asset from one wallet to another on the Stellar network.
      * @param sourceSecret - The secret key of the wallet to transfer the asset from.
      * @param destinationAddress - The address of the wallet to transfer the asset to.
-     * @param sendAssetId - The ID of the asset to transfer.
-     * @param destAssetId - The ID of the asset to receive.
+     * @param sendAsset - The ID of the asset to transfer.
+     * @param destAsset - The ID of the asset to receive.
      * @param amount - The amount of the asset to transfer.
      * @param memo - Optional memo to include with the transaction.
      * @returns The hash of the transaction.
@@ -350,50 +364,52 @@ export class StellarService {
     async transferAsset(
         sourceSecret: string,
         destinationAddress: string,
-        sendAssetId: StellarAssetId,
-        destAssetId: StellarAssetId,
+        sendAsset: Asset,
+        destAsset: Asset,
         amount: string,
         memo?: string
     ) {
         try {
             // Derive the source keypair from the provided secret.
-            const sourceKeypair = swSdk.Keypair.fromSecret(sourceSecret);
+            const sourceKeypair = Keypair.fromSecret(sourceSecret);
+            const sourceAccount = await stellarServer.loadAccount(sourceKeypair.publicKey());
 
             // Initialize a transaction builder for the source account.
-            const txBuilder = await stellar.transaction({
-                sourceAddress: new swSdk.AccountKeypair(sourceKeypair)
-            });
+            let txBuilder = new TransactionBuilder(sourceAccount, {
+                fee: (await stellarServer.fetchBaseFee()).toString(),
+                networkPassphrase
+            }).setTimeout(30);
 
-            let transaction;
+            const memoObj = this.createMemo(memo);
+            if (memoObj.type !== "none") {
+                txBuilder = txBuilder.addMemo(memoObj);
+            }
 
             // Determine if it's a direct transfer or a path payment (if assets are different).
-            if (this.isSameAsset(sendAssetId, destAssetId)) {
+            if (sendAsset.equals(destAsset)) {
                 // Build a direct transfer operation.
-                transaction = txBuilder
-                    .transfer(
-                        destinationAddress,
-                        sendAssetId,
-                        amount
-                    )
-                    .setMemo(this.createMemo(memo))
-                    .build();
+                txBuilder = txBuilder.addOperation(Operation.payment({
+                    destination: destinationAddress,
+                    asset: sendAsset,
+                    amount
+                }));
             } else {
                 // Build a path payment operation for different assets.
-                transaction = txBuilder
-                    .pathPay({
-                        destinationAddress,
-                        sendAsset: sendAssetId,
-                        destAsset: destAssetId,
-                        sendAmount: amount
-                    })
-                    .setMemo(this.createMemo(memo))
-                    .build();
+                txBuilder = txBuilder.addOperation(Operation.pathPaymentStrictSend({
+                    destination: destinationAddress,
+                    sendAsset,
+                    destAsset,
+                    sendAmount: amount,
+                    destMin: "0.0000001" // For simplicity, accepting any amount of destAsset.
+                }));
             }
+
+            const transaction = txBuilder.build();
 
             // Sign the transaction with the source keypair.
             transaction.sign(sourceKeypair);
             // Submit the signed transaction to the Stellar network.
-            await stellar.submitTransaction(transaction);
+            await stellarServer.submitTransaction(transaction);
 
             // Return the hash of the submitted transaction.
             return { txHash: transaction.hash().toString("hex") };
@@ -423,8 +439,8 @@ export class StellarService {
      * @param sponsorSecret - The secret key of the sponsor account.
      * @param accountSecret - The secret key of the wallet to transfer the asset from.
      * @param destinationAddress - The address of the wallet to transfer the asset to.
-     * @param sendAssetId - The ID of the asset to transfer.
-     * @param destAssetId - The ID of the asset to receive.
+     * @param sendAsset - The ID of the asset to transfer.
+     * @param destAsset - The ID of the asset to receive.
      * @param amount - The amount of the asset to transfer.
      * @param memo - Optional memo to include with the transaction.
      * @returns The hash of the transaction.
@@ -433,61 +449,67 @@ export class StellarService {
         sponsorSecret: string,
         accountSecret: string,
         destinationAddress: string,
-        sendAssetId: StellarAssetId,
-        destAssetId: StellarAssetId,
+        sendAsset: Asset,
+        destAsset: Asset,
         amount: string,
         memo?: string
     ) {
         try {
             // Derive the sponsor and account keypair from the provided secret.
-            const sponsorKeyPair = swSdk.Keypair.fromSecret(sponsorSecret);
-            const accountKeyPair = swSdk.Keypair.fromSecret(accountSecret);
+            const sponsorKeyPair = Keypair.fromSecret(sponsorSecret);
+            const accountKeyPair = Keypair.fromSecret(accountSecret);
+
+            const accountAccount = await stellarServer.loadAccount(accountKeyPair.publicKey());
 
             // Initialize a transaction builder for the source account.
-            const txBuilder = await stellar.transaction({
-                sourceAddress: new swSdk.AccountKeypair(accountKeyPair)
-            });
+            let txBuilder = new TransactionBuilder(accountAccount, {
+                fee: "0",
+                networkPassphrase
+            }).setTimeout(30);
 
-            let transaction;
+            const memoObj = this.createMemo(memo);
+            if (memoObj.type !== "none") {
+                txBuilder = txBuilder.addMemo(memoObj);
+            }
 
             // Determine if it's a direct transfer or a path payment (if assets are different).
-            if (this.isSameAsset(sendAssetId, destAssetId)) {
+            if (sendAsset.equals(destAsset)) {
                 // Build a direct transfer operation.
-                transaction = txBuilder
-                    .transfer(
-                        destinationAddress,
-                        sendAssetId,
-                        amount
-                    )
-                    .setMemo(this.createMemo(memo))
-                    .build();
+                txBuilder = txBuilder.addOperation(Operation.payment({
+                    destination: destinationAddress,
+                    asset: sendAsset,
+                    amount
+                }));
             } else {
                 // Build a path payment operation for different assets.
-                transaction = txBuilder
-                    .pathPay({
-                        destinationAddress,
-                        sendAsset: sendAssetId,
-                        destAsset: destAssetId,
-                        sendAmount: amount
-                    })
-                    .setMemo(this.createMemo(memo))
-                    .build();
+                txBuilder = txBuilder.addOperation(Operation.pathPaymentStrictSend({
+                    destination: destinationAddress,
+                    sendAsset,
+                    destAsset,
+                    sendAmount: amount,
+                    destMin: "0.0000001" // For simplicity, accepting any amount of destAsset.
+                }));
             }
+
+            const transaction = txBuilder.build();
 
             // Sign the transaction with the account's keypair.
             transaction.sign(accountKeyPair);
 
             // Create a fee-bump transaction with the sponsor paying the fees.
-            const feeBump = stellar.makeFeeBump({
-                feeAddress: new swSdk.AccountKeypair(sponsorKeyPair),
-                transaction
-            });
+            const baseFee = (await stellarServer.fetchBaseFee()).toString();
+            const feeBump = TransactionBuilder.buildFeeBumpTransaction(
+                sponsorKeyPair,
+                baseFee,
+                transaction,
+                networkPassphrase
+            );
 
             // Sign the fee-bump transaction with the sponsor's keypair.
             feeBump.sign(sponsorKeyPair);
 
             // Submit the signed fee-bump transaction to the Stellar network.
-            await stellar.submitTransaction(feeBump);
+            await stellarServer.submitTransaction(feeBump);
 
             // Return the hash of both the original transaction and the fee-bump transaction.
             return {
@@ -519,37 +541,45 @@ export class StellarService {
      * Swaps an asset for another on the Stellar network.
      * @param sourceSecret - The secret key of the wallet to swap the asset from.
      * @param amount - The amount of the asset to swap.
-     * @param fromAssetId - The ID of the asset to swap from.
-     * @param toAssetId - The ID of the asset to swap to.
+     * @param fromAsset - The ID of the asset to swap from.
+     * @param toAsset - The ID of the asset to swap to.
      * @returns The hash of the transaction.
      */
     async swapAsset(
         sourceSecret: string,
         amount: string,
-        fromAssetId: StellarAssetId = xlmAssetId,
-        toAssetId: StellarAssetId = usdcAssetId
+        fromAsset: Asset = xlmAsset,
+        toAsset: Asset = usdcAsset
     ) {
         try {
             // Create a keypair from the source secret.
-            const sourceKeypair = swSdk.Keypair.fromSecret(sourceSecret);
+            const sourceKeypair = Keypair.fromSecret(sourceSecret);
+            const sourceAccount = await stellarServer.loadAccount(sourceKeypair.publicKey());
 
             // Initialize a transaction builder for the source account.
-            const txBuilder = await stellar.transaction({
-                sourceAddress: new swSdk.AccountKeypair(sourceKeypair)
-            });
-
-            // Build the swap transaction.
-            const txSwap = txBuilder.swap(fromAssetId, toAssetId, amount).build();
+            const txSwap = new TransactionBuilder(sourceAccount, {
+                fee: (await stellarServer.fetchBaseFee()).toString(),
+                networkPassphrase
+            })
+                .addOperation(Operation.pathPaymentStrictSend({
+                    destination: sourceKeypair.publicKey(),
+                    sendAsset: fromAsset,
+                    sendAmount: amount,
+                    destAsset: toAsset,
+                    destMin: "0.0000001"
+                }))
+                .setTimeout(30)
+                .build();
 
             // Sign the transaction with the source keypair.
             txSwap.sign(sourceKeypair);
             // Submit the swap transaction to the network.
-            await stellar.submitTransaction(txSwap);
+            await stellarServer.submitTransaction(txSwap);
 
             const txHash = txSwap.hash().toString("hex");
 
             // Fetch effects to get the actual amount received
-            const effects = await stellar.server.effects()
+            const effects = await stellarServer.effects()
                 .forTransaction(txHash)
                 .call();
 
@@ -558,12 +588,11 @@ export class StellarService {
             const creditEffect = effects.records.find((effect: any) => {
                 if (effect.type !== "account_credited") return false;
 
-                if (toAssetId instanceof swSdk.NativeAssetId) {
+                if (toAsset.isNative()) {
                     return effect.asset_type === "native";
-                } else if (toAssetId instanceof swSdk.IssuedAssetId) {
-                    return effect.asset_code === toAssetId.code && effect.asset_issuer === toAssetId.issuer;
+                } else {
+                    return effect.asset_code === toAsset.code && effect.asset_issuer === toAsset.issuer;
                 }
-                return false;
             });
 
             if (!creditEffect) {
@@ -604,7 +633,7 @@ export class StellarService {
      */
     async getAccountInfo(publicKey: string) {
         try {
-            const accountInfo = await account.getInfo({ accountAddress: publicKey });
+            const accountInfo = await stellarServer.loadAccount(publicKey);
             return accountInfo;
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } catch (error: any) {
@@ -635,7 +664,7 @@ export class StellarService {
      */
     async getTopUpTransactions(publicKey: string) {
         // Get all payments for the account
-        const allPayments = await stellar.server.payments()
+        const allPayments = await stellarServer.payments()
             .forAccount(publicKey)
             .order("desc")
             .limit(100)
@@ -647,7 +676,8 @@ export class StellarService {
                 case "payment":
                     return (payment as HorizonApi.PaymentOperationResponse).to === publicKey;
                 case "path_payment_strict_receive":
-                    return (payment as HorizonApi.PathPaymentOperationResponse).to === publicKey;
+                case "path_payment_strict_send":
+                    return (payment as HorizonApi.PaymentOperationResponse).to === publicKey;
                 default:
                     return false;
             }

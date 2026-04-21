@@ -1,6 +1,6 @@
 import { Router, Request, Response, NextFunction, RequestHandler } from "express";
 import { prisma } from "../../config/database.config.js";
-import { xlmAssetId, usdcAssetId } from "../../config/stellar.config.js";
+import { xlmAsset } from "../../config/stellar.config.js";
 import { stellarService } from "../../services/stellar.service.js";
 import { validateRequestParameters } from "../../middlewares/request.middleware.js";
 import {
@@ -21,11 +21,10 @@ const router = Router();
 router.post("/wallet", async (_req: Request, res: Response, next: NextFunction) => {
     try {
         const wallet = await stellarService.createWallet();
-        const security = await KMSService.encryptWallet(wallet.secretKey);
 
         res.status(201).json({
             message: "Wallet created successfully",
-            data: { wallet, security }
+            data: wallet
         });
     } catch (error) {
         next(error);
@@ -105,8 +104,8 @@ router.post("/transfer",
             const result = await stellarService.transferAsset(
                 sourceSecret,
                 destinationAddress,
-                xlmAssetId,
-                xlmAssetId,
+                xlmAsset,
+                xlmAsset,
                 amount
             );
             res.status(200).json({
@@ -129,8 +128,8 @@ router.post("/transfer/sponsor",
                 sponsorSecret,
                 accountSecret,
                 destinationAddress,
-                usdcAssetId,
-                usdcAssetId,
+                xlmAsset,
+                xlmAsset,
                 amount
             );
             res.status(200).json({
