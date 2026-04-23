@@ -225,6 +225,5 @@ This project is licensed under the Apache 2.0 License. See [LICENSE](https://git
 
 ## Related Projects
 
-- [DevAsign Project Maintainer App](https://github.com/devasignhq/app.devasign.com) — Frontend for project maintainers
-- [DevAsign Contributor App](https://github.com/devasignhq/contributor.devasign.com) — Frontend for contributors
+- [DevAsign App](https://github.com/devasignhq/apps) — Frontend for project maintainers and contributors
 - [Soroban Task Escrow Contract](https://github.com/devasignhq/soroban-contract) — Task escrow smart contract on Stellar
