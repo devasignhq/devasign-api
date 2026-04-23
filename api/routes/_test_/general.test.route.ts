@@ -26,7 +26,7 @@ router.post(
             return next(createError(409, "Email already exists"));
         }
 
-        res.status(201).json({ message: "User created", data: { email, name } });
+        res.status(STATUS_CODES.CREATED).json({ message: "User created", data: { email, name } });
     }) as RequestHandler
 );
 
@@ -44,7 +44,7 @@ router.post("/encryption",
             // Decrypt to verify
             const decrypted = await KMSService.decryptWallet(encrypted as any);
 
-            res.status(200).json({
+            res.status(STATUS_CODES.SUCCESS).json({
                 message: "Encryption test successful",
                 data: {
                     original: text,
@@ -54,7 +54,7 @@ router.post("/encryption",
                 }
             });
         } catch (error) {
-            next(createError(500, "Encryption test failed", { cause: error }));
+            next(error);
         }
     }) as RequestHandler
 );
@@ -77,7 +77,7 @@ router.post("/decryption",
             // Decrypt again to verify the re-encryption works and matches
             const reDecrypted = await KMSService.decryptWallet(ecrypted as any);
 
-            res.status(200).json({
+            res.status(STATUS_CODES.SUCCESS).json({
                 message: "Decryption test successful",
                 data: {
                     original: walletData,
@@ -87,7 +87,7 @@ router.post("/decryption",
                 }
             });
         } catch (error) {
-            next(createError(500, "Decryption test failed", { cause: error }));
+            next(error);
         }
     }) as RequestHandler
 );
@@ -129,7 +129,7 @@ router.post("/create-packages", async (_, res: Response, next: NextFunction) => 
 
         res.status(STATUS_CODES.SUCCESS).json(packages);
     } catch (error) {
-        next(createError(500, "Failed to create packages", { cause: error }));
+        next(error);
     }
 });
 
