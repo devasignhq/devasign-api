@@ -56,7 +56,7 @@ router.post("/trustline",
         try {
             const { secretKey } = req.body;
             await stellarService.addTrustLine(secretKey);
-            res.status(STATUS_CODES.SUCCESS).json({
+            res.status(STATUS_CODES.OK).json({
                 message: "USDC trustline added successfully"
             });
         } catch (error) {
@@ -72,7 +72,7 @@ router.post("/trustline/sponsor",
         try {
             const { sponsorSecret, accountSecret } = req.body;
             await stellarService.addTrustLineViaSponsor(sponsorSecret, accountSecret);
-            res.status(STATUS_CODES.SUCCESS).json({
+            res.status(STATUS_CODES.OK).json({
                 message: "USDC trustline added successfully"
             });
         } catch (error) {
@@ -87,7 +87,7 @@ router.post("/fund",
     async (req: Request, res: Response, next: NextFunction) => {
         try {
             await stellarService.fundWallet(req.body.publicKey);
-            res.status(STATUS_CODES.SUCCESS).json({
+            res.status(STATUS_CODES.OK).json({
                 message: "Wallet funded successfully"
             });
         } catch (error) {
@@ -109,7 +109,7 @@ router.post("/transfer",
                 xlmAsset,
                 amount
             );
-            res.status(STATUS_CODES.SUCCESS).json({
+            res.status(STATUS_CODES.OK).json({
                 message: "Asset transferred successfully",
                 data: result
             });
@@ -133,7 +133,7 @@ router.post("/transfer/sponsor",
                 xlmAsset,
                 amount
             );
-            res.status(STATUS_CODES.SUCCESS).json({
+            res.status(STATUS_CODES.OK).json({
                 message: "Asset transferred successfully",
                 data: result
             });
@@ -150,7 +150,7 @@ router.post("/swap",
         try {
             const { sourceSecret, amount } = req.body;
             const result = await stellarService.swapAsset(sourceSecret, amount);
-            res.status(STATUS_CODES.SUCCESS).json({
+            res.status(STATUS_CODES.OK).json({
                 message: "Asset swapped successfully",
                 data: result
             });
@@ -166,7 +166,7 @@ router.get("/account/:publicKey",
     async (req: Request, res: Response, next: NextFunction) => {
         try {
             const accountInfo = await stellarService.getAccountInfo(req.params.publicKey);
-            res.status(STATUS_CODES.SUCCESS).json({
+            res.status(STATUS_CODES.OK).json({
                 message: "Account info retrieved successfully",
                 data: accountInfo
             });
@@ -183,7 +183,7 @@ router.get("/topup/:publicKey",
         try {
             const transactions = await stellarService.getTopUpTransactions(req.params.publicKey);
 
-            res.status(STATUS_CODES.SUCCESS).json({
+            res.status(STATUS_CODES.OK).json({
                 message: "Top up transactions retrieved successfully",
                 data: transactions
             });
@@ -211,7 +211,7 @@ router.patch("/wallets/users/update-all",
             });
 
             if (allUsers.length === 0) {
-                return res.status(STATUS_CODES.SUCCESS).json({
+                return res.status(STATUS_CODES.OK).json({
                     message: "No users found to update",
                     data: { updated: 0, failed: 0 }
                 });
@@ -274,7 +274,7 @@ router.patch("/wallets/users/update-all",
                 }
             }
 
-            res.status(STATUS_CODES.SUCCESS).json({
+            res.status(STATUS_CODES.OK).json({
                 message: `Wallet update completed. ${successCount} successful, ${failCount} failed.`,
                 data: {
                     total: allUsers.length,
@@ -303,7 +303,7 @@ router.patch("/wallets/installations/update-all",
             });
 
             if (allInstallations.length === 0) {
-                return res.status(STATUS_CODES.SUCCESS).json({
+                return res.status(STATUS_CODES.OK).json({
                     message: "No installations found to update",
                     data: { updated: 0, failed: 0 }
                 });
@@ -363,7 +363,7 @@ router.patch("/wallets/installations/update-all",
                 }
             }
 
-            res.status(STATUS_CODES.SUCCESS).json({
+            res.status(STATUS_CODES.OK).json({
                 message: `Installation wallet update completed. ${successCount} successful, ${failCount} failed.`,
                 data: {
                     total: allInstallations.length,

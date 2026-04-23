@@ -174,7 +174,7 @@ describe("Installation GitHub API Integration Tests", () => {
                 .get(getEndpointWithPrefix(["INSTALLATION", "GITHUB", "GET_REPOSITORIES"])
                     .replace(":installationId", "12345678"))
                 .set("x-test-user-id", "user-1")
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body.data).toEqual(
                 expect.arrayContaining([
@@ -216,7 +216,7 @@ describe("Installation GitHub API Integration Tests", () => {
                 .get(`${getEndpointWithPrefix(["INSTALLATION", "GITHUB", "GET_ISSUES"])
                     .replace(":installationId", "12345678")}?repoUrl=https://github.com/test-org/test-repo`)
                 .set("x-test-user-id", "user-1")
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body).toMatchObject({
                 message: "Issues retrieved successfully",
@@ -237,7 +237,7 @@ describe("Installation GitHub API Integration Tests", () => {
                 .get(`${getEndpointWithPrefix(["INSTALLATION", "GITHUB", "GET_ISSUES"])
                     .replace(":installationId", "12345678")}?repoUrl=https://github.com/test-org/test-repo&page=2&perPage=10`)
                 .set("x-test-user-id", "user-1")
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body.pagination).toMatchObject({
                 hasMore: false
@@ -249,7 +249,7 @@ describe("Installation GitHub API Integration Tests", () => {
                 .get(`${getEndpointWithPrefix(["INSTALLATION", "GITHUB", "GET_ISSUES"])
                     .replace(":installationId", "12345678")}?repoUrl=https://github.com/test-org/test-repo&labels=bug,enhancement`)
                 .set("x-test-user-id", "user-1")
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(mockOctokitService.getRepoIssuesWithSearch).toHaveBeenCalledWith(
                 "https://github.com/test-org/test-repo",
@@ -289,7 +289,7 @@ describe("Installation GitHub API Integration Tests", () => {
                 .get(`${getEndpointWithPrefix(["INSTALLATION", "GITHUB", "GET_RESOURCES"])
                     .replace(":installationId", "12345678")}?repoUrl=https://github.com/test-org/test-repo`)
                 .set("x-test-user-id", "user-1")
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body.data).toMatchObject({
                 labels: expect.arrayContaining([
@@ -344,7 +344,7 @@ describe("Installation GitHub API Integration Tests", () => {
                 .get(`${getEndpointWithPrefix(["INSTALLATION", "GITHUB", "SET_BOUNTY_LABEL"])
                     .replace(":installationId", "12345678")}?repositoryId=123456`)
                 .set("x-test-user-id", "user-1")
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body.data).toMatchObject({
                 bountyLabel: expect.objectContaining({
@@ -363,7 +363,7 @@ describe("Installation GitHub API Integration Tests", () => {
                 .get(`${getEndpointWithPrefix(["INSTALLATION", "GITHUB", "SET_BOUNTY_LABEL"])
                     .replace(":installationId", "12345678")}?repositoryId=123456`)
                 .set("x-test-user-id", "user-1")
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body.data).toMatchObject({
                 id: 999,
@@ -390,22 +390,22 @@ describe("Installation GitHub API Integration Tests", () => {
             await request(appWithoutAuth)
                 .get(getEndpointWithPrefix(["INSTALLATION", "GITHUB", "GET_REPOSITORIES"])
                     .replace(":installationId", "12345678"))
-                .expect(STATUS_CODES.UNAUTHENTICATED);
+                .expect(STATUS_CODES.UNAUTHORIZED);
 
             await request(appWithoutAuth)
                 .get(`${getEndpointWithPrefix(["INSTALLATION", "GITHUB", "GET_ISSUES"])
                     .replace(":installationId", "12345678")}?repoUrl=https://github.com/test/repo`)
-                .expect(STATUS_CODES.UNAUTHENTICATED);
+                .expect(STATUS_CODES.UNAUTHORIZED);
 
             await request(appWithoutAuth)
                 .get(`${getEndpointWithPrefix(["INSTALLATION", "GITHUB", "GET_RESOURCES"])
                     .replace(":installationId", "12345678")}?repoUrl=https://github.com/test/repo`)
-                .expect(STATUS_CODES.UNAUTHENTICATED);
+                .expect(STATUS_CODES.UNAUTHORIZED);
 
             await request(appWithoutAuth)
                 .get(`${getEndpointWithPrefix(["INSTALLATION", "GITHUB", "SET_BOUNTY_LABEL"])
                     .replace(":installationId", "12345678")}?repositoryId=123`)
-                .expect(STATUS_CODES.UNAUTHENTICATED);
+                .expect(STATUS_CODES.UNAUTHORIZED);
         });
     });
 });

@@ -192,7 +192,7 @@ describe("Installation API Integration Tests", () => {
                 .post(getEndpointWithPrefix(["INSTALLATION", "CREATE"]))
                 .set("x-test-user-id", "installation-creator")
                 .send(installationData)
-                .expect(STATUS_CODES.SERVER_ERROR);
+                .expect(STATUS_CODES.BAD_REQUEST);
         });
 
         it("should handle partial success when trustline creation fails", async () => {
@@ -208,7 +208,7 @@ describe("Installation API Integration Tests", () => {
                 .post(getEndpointWithPrefix(["INSTALLATION", "CREATE"]))
                 .set("x-test-user-id", "installation-creator")
                 .send(installationData)
-                .expect(STATUS_CODES.PARTIAL_SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body).toMatchObject({
                 data: expect.objectContaining({
@@ -274,7 +274,7 @@ describe("Installation API Integration Tests", () => {
             const response = await request(app)
                 .get(`${getEndpointWithPrefix(["INSTALLATION", "GET_ALL"])}?page=1&limit=10`)
                 .set("x-test-user-id", "user-1")
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body).toMatchObject({
                 data: expect.arrayContaining([
@@ -292,7 +292,7 @@ describe("Installation API Integration Tests", () => {
             const response = await request(app)
                 .get(`${getEndpointWithPrefix(["INSTALLATION", "GET_ALL"])}?sort=asc`)
                 .set("x-test-user-id", "user-1")
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             const dates = response.body.data.map((inst: any) => new Date(inst.createdAt).getTime());
             const sortedDates = [...dates].sort((a, b) => a - b);
@@ -308,7 +308,7 @@ describe("Installation API Integration Tests", () => {
             const response = await request(app)
                 .get(getEndpointWithPrefix(["INSTALLATION", "GET_ALL"]))
                 .set("x-test-user-id", "user-2")
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body.data).toEqual([]);
             expect(response.body.pagination.hasMore).toBe(false);
@@ -373,7 +373,7 @@ describe("Installation API Integration Tests", () => {
                 .get(getEndpointWithPrefix(["INSTALLATION", "GET_BY_ID"])
                     .replace(":installationId", "12345678"))
                 .set("x-test-user-id", "user-1")
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body.data).toMatchObject({
                 id: "12345678",
@@ -453,7 +453,7 @@ describe("Installation API Integration Tests", () => {
                     .replace(":installationId", "12345678"))
                 .set("x-test-user-id", "user-1")
                 .send({ walletAddress: "GBPOJZGQPO23FSADGDD3PQFRGLWTETJRK2IY4D5HEQXLDCDEHYFSAAII" })
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body).toMatchObject({
                 message: "Installation archived and 0 USDC refunded",
@@ -483,7 +483,7 @@ describe("Installation API Integration Tests", () => {
                     .replace(":installationId", "12345678"))
                 .set("x-test-user-id", "user-1")
                 .send({ walletAddress: "GBPOJZGQPO23FSADGDD3PQFRGLWTETJRK2IY4D5HEQXLDCDEHYFSAAII" })
-                .expect(STATUS_CODES.SERVER_ERROR);
+                .expect(STATUS_CODES.BAD_REQUEST);
         });
 
         it("should archive installation with tasks in progress and refund them", async () => {
@@ -500,7 +500,7 @@ describe("Installation API Integration Tests", () => {
                     .replace(":installationId", "12345678"))
                 .set("x-test-user-id", "user-1")
                 .send({ walletAddress: "GBPOJZGQPO23FSADGDD3PQFRGLWTETJRK2IY4D5HEQXLDCDEHYFSAAII" })
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body).toMatchObject({
                 message: "Installation archived and 150 USDC refunded",
@@ -531,7 +531,7 @@ describe("Installation API Integration Tests", () => {
                     .replace(":installationId", "12345678"))
                 .set("x-test-user-id", "user-1")
                 .send({ walletAddress: "GBPOJZGQPO23FSADGDD3PQFRGLWTETJRK2IY4D5HEQXLDCDEHYFSAAII" })
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body).toMatchObject({
                 message: "Installation archived and 0 USDC refunded",
@@ -569,7 +569,7 @@ describe("Installation API Integration Tests", () => {
                     .replace(":installationId", "12345678"))
                 .set("x-test-user-id", "user-1")
                 .send({ walletAddress: "GBPOJZGQPO23FSADGDD3PQFRGLWTETJRK2IY4D5HEQXLDCDEHYFSAAII" })
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body).toMatchObject({
                 message: "Installation archived and 300 USDC refunded",
@@ -624,21 +624,21 @@ describe("Installation API Integration Tests", () => {
 
             await request(appWithoutAuth)
                 .get(getEndpointWithPrefix(["INSTALLATION", "GET_ALL"]))
-                .expect(STATUS_CODES.UNAUTHENTICATED);
+                .expect(STATUS_CODES.UNAUTHORIZED);
 
             await request(appWithoutAuth)
                 .get("/installations/12345678")
-                .expect(STATUS_CODES.UNAUTHENTICATED);
+                .expect(STATUS_CODES.UNAUTHORIZED);
 
             await request(appWithoutAuth)
                 .post(getEndpointWithPrefix(["INSTALLATION", "CREATE"]))
                 .send({ installationId: "12345678" })
-                .expect(STATUS_CODES.UNAUTHENTICATED);
+                .expect(STATUS_CODES.UNAUTHORIZED);
 
             await request(appWithoutAuth)
                 .patch("/installations/12345678")
                 .send({ walletAddress: "GTEST" })
-                .expect(STATUS_CODES.UNAUTHENTICATED);
+                .expect(STATUS_CODES.UNAUTHORIZED);
         });
     });
 });

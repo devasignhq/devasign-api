@@ -158,7 +158,7 @@ describe("Internal Routes API Integration Tests", () => {
             const response = await request(app)
                 .post(route)
                 .send(payload)
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body).toMatchObject({
                 message: "PR merged - Payment processed successfully",
@@ -214,7 +214,7 @@ describe("Internal Routes API Integration Tests", () => {
             const response = await request(app)
                 .post(route)
                 .send(payload)
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body).toMatchObject({
                 message: "PR merged - Payment processed successfully",
@@ -245,7 +245,7 @@ describe("Internal Routes API Integration Tests", () => {
             const response = await request(app)
                 .post(route)
                 .send(payload)
-                .expect(STATUS_CODES.SERVER_ERROR);
+                .expect(STATUS_CODES.INTERNAL_SERVER_ERROR);
 
             expect(response.body).toMatchObject({
                 message: "Task ID is missing from payload"
@@ -271,7 +271,7 @@ describe("Internal Routes API Integration Tests", () => {
             const response = await request(app)
                 .post(route)
                 .send(payload)
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body).toMatchObject({
                 message: "Task not found"
@@ -334,7 +334,7 @@ describe("Internal Routes API Integration Tests", () => {
             const response = await request(app)
                 .post(route)
                 .send(payload)
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body).toMatchObject({
                 message: "No wallet address found for contributor"
@@ -362,7 +362,7 @@ describe("Internal Routes API Integration Tests", () => {
             const response = await request(app)
                 .post(route)
                 .send(payload)
-                .expect(STATUS_CODES.UNKNOWN);
+                .expect(STATUS_CODES.INTERNAL_SERVER_ERROR);
 
             expect(response.body.message).toBe("Database connection failed");
             expect(mockSocketService.updateAppActivity).not.toHaveBeenCalled();

@@ -38,7 +38,7 @@ export class IssueCommentWebhookService {
 
             return responseWrapper({
                 res,
-                status: STATUS_CODES.SUCCESS,
+                status: STATUS_CODES.OK,
                 data: {},
                 message: "Comment does not trigger any action - skipping"
             });
@@ -60,7 +60,7 @@ export class IssueCommentWebhookService {
             if (!issue.pull_request) {
                 return responseWrapper({
                     res,
-                    status: STATUS_CODES.SUCCESS,
+                    status: STATUS_CODES.OK,
                     data: {},
                     message: "Comment is not on a pull request - skipping"
                 });
@@ -71,7 +71,7 @@ export class IssueCommentWebhookService {
             if (commentBody.toLowerCase() !== "review") {
                 return responseWrapper({
                     res,
-                    status: STATUS_CODES.SUCCESS,
+                    status: STATUS_CODES.OK,
                     data: {},
                     message: "Comment body is not 'review' - skipping"
                 });
@@ -92,7 +92,7 @@ export class IssueCommentWebhookService {
 
                 return responseWrapper({
                     res,
-                    status: STATUS_CODES.SUCCESS,
+                    status: STATUS_CODES.OK,
                     data: {},
                     message: `User is not authorized to trigger review (association: ${authorAssociation}) - skipping`
                 });
@@ -107,7 +107,7 @@ export class IssueCommentWebhookService {
             if (!activeInstallation || activeInstallation.status !== "ACTIVE") {
                 return responseWrapper({
                     res,
-                    status: STATUS_CODES.SUCCESS,
+                    status: STATUS_CODES.OK,
                     data: {},
                     message: "Installation is not active or not found - skipping"
                 });
@@ -138,7 +138,7 @@ export class IssueCommentWebhookService {
             if (pull_request?.draft) {
                 return responseWrapper({
                     res,
-                    status: STATUS_CODES.SUCCESS,
+                    status: STATUS_CODES.OK,
                     data: {},
                     message: "Skipping draft PR"
                 });
@@ -179,7 +179,7 @@ export class IssueCommentWebhookService {
                 );
                 return responseWrapper({
                     res,
-                    status: STATUS_CODES.SUCCESS,
+                    status: STATUS_CODES.OK,
                     data: {},
                     message: "PR not targeting default branch - skipping review",
                     meta: { prNumber, repositoryName, targetBranch, defaultBranch, reason: "not_default_branch" }
@@ -205,7 +205,7 @@ export class IssueCommentWebhookService {
                 dataLogger.error("Failed to process 'review' comment trigger", { payload });
                 return responseWrapper({
                     res,
-                    status: STATUS_CODES.SERVER_ERROR,
+                    status: STATUS_CODES.INTERNAL_SERVER_ERROR,
                     data: { timestamp: new Date().toISOString() },
                     message: "Failed to process review trigger"
                 });
@@ -214,7 +214,7 @@ export class IssueCommentWebhookService {
             // Return a response indicating that the job was created
             responseWrapper({
                 res,
-                status: STATUS_CODES.BACKGROUND_JOB,
+                status: STATUS_CODES.ACCEPTED,
                 data: {
                     jobId,
                     installationId: payload.installation.id.toString(),
@@ -244,7 +244,7 @@ export class IssueCommentWebhookService {
             if (issue.pull_request) {
                 return responseWrapper({
                     res,
-                    status: STATUS_CODES.SUCCESS,
+                    status: STATUS_CODES.OK,
                     data: {},
                     message: "Comment is on a pull request - skipping bounty creation"
                 });
@@ -254,7 +254,7 @@ export class IssueCommentWebhookService {
             if (issue.state !== "open") {
                 return responseWrapper({
                     res,
-                    status: STATUS_CODES.SUCCESS,
+                    status: STATUS_CODES.OK,
                     data: {},
                     message: "Issue is not open - skipping bounty creation"
                 });
@@ -272,7 +272,7 @@ export class IssueCommentWebhookService {
                 });
                 return responseWrapper({
                     res,
-                    status: STATUS_CODES.SUCCESS,
+                    status: STATUS_CODES.OK,
                     data: {},
                     message: `User is not authorized to create bounties (association: ${authorAssociation}) - skipping`
                 });
@@ -287,7 +287,7 @@ export class IssueCommentWebhookService {
                 dataLogger.info("Bounty comment ignored: Creator not found in DevAsign", { username: comment.user?.login });
                 return responseWrapper({
                     res,
-                    status: STATUS_CODES.SUCCESS,
+                    status: STATUS_CODES.OK,
                     data: {},
                     message: "Commenter is not a registered user on DevAsign - skipping bounty creation"
                 });
@@ -307,7 +307,7 @@ export class IssueCommentWebhookService {
             if (!activeInstallation || activeInstallation.status !== "ACTIVE" || !activeInstallation.wallet) {
                 return responseWrapper({
                     res,
-                    status: STATUS_CODES.SUCCESS,
+                    status: STATUS_CODES.OK,
                     data: {},
                     message: "Installation is not active or wallet missing - skipping"
                 });
@@ -326,7 +326,7 @@ export class IssueCommentWebhookService {
             // Return success before processing since task creation takes time
             responseWrapper({
                 res,
-                status: STATUS_CODES.SUCCESS,
+                status: STATUS_CODES.OK,
                 data: {},
                 message: "Bounty comment recognized - processing in background"
             });
@@ -524,7 +524,12 @@ export class IssueCommentWebhookService {
                         "Error in async bounty task creation",
                         { error: err, issueId: issue.id, installationId }
                     );
-                    await this.bountyFailureComment(installationId, repository.full_name, issue.number);
+                    await this.bountyFailureComment(
+                        installationId,
+                        repository.full_name,
+                        issue.number,
+                        "Bounty was created but there was an issue while posting the bounty comment or adding the bounty label on issue"
+                    );
                 }
             })();
 

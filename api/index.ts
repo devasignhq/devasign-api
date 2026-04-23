@@ -57,7 +57,7 @@ app.use(
                 "CORS_ERROR",
                 null,
                 "Not allowed by CORS",
-                STATUS_CODES.UNAUTHORIZED
+                STATUS_CODES.FORBIDDEN
             ));
         },
         exposedHeaders: ["Payment-Required", "Payment-Response"]

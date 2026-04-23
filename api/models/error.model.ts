@@ -14,7 +14,7 @@ export class ErrorClass {
         code: string,
         details: unknown,
         message: string,
-        status: number = STATUS_CODES.SERVER_ERROR
+        status: number = STATUS_CODES.INTERNAL_SERVER_ERROR
     ) {
         this.code = code;
         this.message = message;
@@ -47,7 +47,7 @@ export class AuthorizationError extends ErrorClass {
             "UNAUTHORIZED",
             details,
             message,
-            STATUS_CODES.UNAUTHORIZED
+            STATUS_CODES.FORBIDDEN
         );
     }
 }
@@ -61,7 +61,7 @@ export class ValidationError extends ErrorClass {
             "VALIDATION_ERROR",
             details,
             message,
-            STATUS_CODES.SERVER_ERROR
+            STATUS_CODES.BAD_REQUEST
         );
     }
 }
@@ -78,7 +78,7 @@ export class AIReviewError extends ErrorClass {
         details: unknown,
         message: string,
         retryable: boolean = false,
-        status: number = STATUS_CODES.SERVER_ERROR
+        status: number = STATUS_CODES.INTERNAL_SERVER_ERROR
     ) {
         super(code, details, message, status);
         this.retryable = retryable;
@@ -116,7 +116,7 @@ export class KmsServiceError extends ErrorClass {
             "KMS_SERVICE_ERROR",
             details,
             message,
-            STATUS_CODES.SERVER_ERROR
+            STATUS_CODES.INTERNAL_SERVER_ERROR
         );
     }
 }
@@ -130,7 +130,7 @@ export class StellarServiceError extends ErrorClass {
             "STELLAR_SERVICE_ERROR",
             wrapError ? ErrorUtils.extractAxiosErrorData(details) : details,
             message,
-            STATUS_CODES.SERVER_ERROR
+            STATUS_CODES.INTERNAL_SERVER_ERROR
         );
     }
 }
@@ -144,7 +144,7 @@ export class EscrowContractError extends ErrorClass {
             "ESCROW_CONTRACT_ERROR",
             ErrorUtils.extractAxiosErrorData(details),
             message,
-            STATUS_CODES.SERVER_ERROR
+            STATUS_CODES.INTERNAL_SERVER_ERROR
         );
     }
 }
@@ -159,7 +159,7 @@ export class GeminiServiceError extends AIReviewError {
             details,
             message,
             retryable,
-            STATUS_CODES.SERVER_ERROR
+            STATUS_CODES.INTERNAL_SERVER_ERROR
         );
     }
 }
@@ -215,7 +215,7 @@ export class GitHubAPIError extends ErrorClass {
             code || "GITHUB_API_ERROR",
             details,
             message,
-            STATUS_CODES.SERVER_ERROR
+            STATUS_CODES.INTERNAL_SERVER_ERROR
         );
         this.statusCode = statusCode;
         this.rateLimitRemaining = rateLimitRemaining;
@@ -231,7 +231,7 @@ export class VoyageAPIError extends ErrorClass {
             "VOYAGE_API_ERROR",
             details,
             message,
-            STATUS_CODES.SERVER_ERROR
+            STATUS_CODES.INTERNAL_SERVER_ERROR
         );
     }
 }
@@ -246,7 +246,7 @@ export class GitHubWebhookError extends AIReviewError {
             details,
             message,
             false,
-            STATUS_CODES.SERVER_ERROR
+            STATUS_CODES.INTERNAL_SERVER_ERROR
         );
     }
 }
@@ -261,7 +261,7 @@ export class SumsubWebhookError extends AIReviewError {
             details,
             message,
             false,
-            STATUS_CODES.SERVER_ERROR
+            STATUS_CODES.INTERNAL_SERVER_ERROR
         );
     }
 }
@@ -275,7 +275,7 @@ export class CloudTasksError extends ErrorClass {
             "CLOUD_TASKS_ERROR",
             details,
             message,
-            STATUS_CODES.SERVER_ERROR
+            STATUS_CODES.INTERNAL_SERVER_ERROR
         );
     }
 }
@@ -315,7 +315,7 @@ export class TimeoutError extends AIReviewError {
             details,
             `Operation '${operation}' timed out after ${timeoutMs}ms`,
             true,
-            STATUS_CODES.TIMEOUT
+            STATUS_CODES.REQUEST_TIMEOUT
         );
         this.operation = operation;
         this.timeoutMs = timeoutMs;

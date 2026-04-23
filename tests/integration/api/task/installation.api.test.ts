@@ -159,7 +159,7 @@ describe("Task Installation API Integration Tests", () => {
                 .get(`${getEndpointWithPrefix(["TASK", "INSTALLATION", "GET_TASKS"])
                     .replace(":installationId", testInstallation.id)}?page=1&limit=10`)
                 .set("x-test-user-id", "installation-user")
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body).toMatchObject({
                 data: expect.any(Array),
@@ -176,7 +176,7 @@ describe("Task Installation API Integration Tests", () => {
                 .get(`${getEndpointWithPrefix(["TASK", "INSTALLATION", "GET_TASKS"])
                     .replace(":installationId", testInstallation.id)}?status=OPEN`)
                 .set("x-test-user-id", "installation-user")
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body.data).toHaveLength(1);
             expect(response.body.data[0]).toMatchObject({
@@ -189,7 +189,7 @@ describe("Task Installation API Integration Tests", () => {
                 .get(`${getEndpointWithPrefix(["TASK", "INSTALLATION", "GET_TASKS"])
                     .replace(":installationId", testInstallation.id)}?detailed=true`)
                 .set("x-test-user-id", "installation-user")
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body.data[0]).toMatchObject({
                 installation: expect.objectContaining({
@@ -206,7 +206,7 @@ describe("Task Installation API Integration Tests", () => {
                 .get(`${getEndpointWithPrefix(["TASK", "INSTALLATION", "GET_TASKS"])
                     .replace(":installationId", testInstallation.id)}?repoUrl=github.com`)
                 .set("x-test-user-id", "installation-user")
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body.data).toEqual(expect.any(Array));
         });
@@ -221,7 +221,7 @@ describe("Task Installation API Integration Tests", () => {
                 .get(getEndpointWithPrefix(["TASK", "INSTALLATION", "GET_TASKS"])
                     .replace(":installationId", testInstallation.id))
                 .set("x-test-user-id", "other-user")
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body.data).toHaveLength(0);
         });
@@ -231,7 +231,7 @@ describe("Task Installation API Integration Tests", () => {
                 .get(`${getEndpointWithPrefix(["TASK", "INSTALLATION", "GET_TASKS"])
                     .replace(":installationId", testInstallation.id)}?sort=asc`)
                 .set("x-test-user-id", "installation-user")
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             const dates = response.body.data.map((task: any) => new Date(task.createdAt).getTime());
             const sortedDates = [...dates].sort((a, b) => a - b);
@@ -285,7 +285,7 @@ describe("Task Installation API Integration Tests", () => {
                     .replace(":installationId", testInstallation.id)
                     .replace(":taskId", testTask.id))
                 .set("x-test-user-id", "installation-user")
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body.data).toMatchObject({
                 id: testTask.id,

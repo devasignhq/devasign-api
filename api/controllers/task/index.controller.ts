@@ -220,7 +220,7 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
         if (!postedComment) {
             return responseWrapper({
                 res,
-                status: STATUS_CODES.PARTIAL_SUCCESS,
+                status: STATUS_CODES.OK,
                 data: task,
                 message: "Task created successfully",
                 warning: "Failed to either post bounty comment or add bounty label."
@@ -363,7 +363,7 @@ export const getTasks = async (req: Request, res: Response, next: NextFunction) 
         // Return paginated tasks
         responseWrapper({
             res,
-            status: STATUS_CODES.SUCCESS,
+            status: STATUS_CODES.OK,
             data: results,
             pagination: { hasMore }
         });
@@ -416,7 +416,7 @@ export const getTask = async (req: Request, res: Response, next: NextFunction) =
         // Return task
         responseWrapper({
             res,
-            status: STATUS_CODES.SUCCESS,
+            status: STATUS_CODES.OK,
             data: task
         });
     } catch (error) {
@@ -521,7 +521,7 @@ export const deleteTask = async (req: Request, res: Response, next: NextFunction
             // Return success response
             responseWrapper({
                 res,
-                status: STATUS_CODES.SUCCESS,
+                status: STATUS_CODES.OK,
                 message: "Task deleted successfully",
                 data: { refunded: `${task.bounty} USDC` }
             });
@@ -531,7 +531,7 @@ export const deleteTask = async (req: Request, res: Response, next: NextFunction
             // Return success response but notify user of partial failure
             responseWrapper({
                 res,
-                status: STATUS_CODES.PARTIAL_SUCCESS,
+                status: STATUS_CODES.OK,
                 message: "Task deleted successfully",
                 data: { refunded: `${task.bounty} USDC` },
                 warning: "Failed to either remove bounty label from the task issue or delete bounty comment."

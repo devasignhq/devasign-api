@@ -154,7 +154,7 @@ export const createUser = async (req: Request, res: Response, next: NextFunction
             // Return user info and notify user USDC trustline addition failed
             responseWrapper({
                 res,
-                status: STATUS_CODES.PARTIAL_SUCCESS,
+                status: STATUS_CODES.OK,
                 data: user,
                 message: "User created successfully",
                 warning: "Failed to add USDC trustline to wallet",
@@ -272,7 +272,7 @@ export const getUser = async (req: Request, res: Response, next: NextFunction) =
         if (!isContributorApp || (user.wallet && user.wallet.address)) {
             return responseWrapper({
                 res,
-                status: STATUS_CODES.SUCCESS,
+                status: STATUS_CODES.OK,
                 data: user
             });
         }
@@ -327,7 +327,7 @@ export const getUser = async (req: Request, res: Response, next: NextFunction) =
             dataLogger.warn("Failed to create wallet for existing user", { error });
             return responseWrapper({
                 res,
-                status: STATUS_CODES.PARTIAL_SUCCESS,
+                status: STATUS_CODES.OK,
                 data: user,
                 message: "Failed to create wallet",
                 meta: { walletStatus }
@@ -366,7 +366,7 @@ export const getUser = async (req: Request, res: Response, next: NextFunction) =
             dataLogger.warn("Failed to add USDC trustline", { error });
             return responseWrapper({
                 res,
-                status: STATUS_CODES.PARTIAL_SUCCESS,
+                status: STATUS_CODES.OK,
                 data: user,
                 message: "Created wallet successfully",
                 warning: "Failed to add USDC trustline to wallet",
@@ -377,7 +377,7 @@ export const getUser = async (req: Request, res: Response, next: NextFunction) =
         // Return user with new wallet
         return responseWrapper({
             res,
-            status: STATUS_CODES.SUCCESS,
+            status: STATUS_CODES.OK,
             data: { user, walletStatus }
         });
     } catch (error) {
@@ -437,7 +437,7 @@ export const updateAddressBook = async (req: Request, res: Response, next: NextF
         // Return updated user
         responseWrapper({
             res,
-            status: STATUS_CODES.SUCCESS,
+            status: STATUS_CODES.OK,
             data: updatedUser,
             message: "Address added to address book"
         });

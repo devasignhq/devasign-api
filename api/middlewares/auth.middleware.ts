@@ -40,7 +40,7 @@ export const validateUser = async (req: Request, res: Response, next: NextFuncti
                 "AUTHENTICATION_FAILED",
                 error,
                 getFieldFromUnknownObject<string>(error, "message") || "Failed to verify ID token",
-                STATUS_CODES.UNAUTHENTICATED
+                STATUS_CODES.UNAUTHORIZED
             ));
         }
     } else {
@@ -49,7 +49,7 @@ export const validateUser = async (req: Request, res: Response, next: NextFuncti
             "AUTHENTICATION_FAILED",
             null,
             "No authorization token sent",
-            STATUS_CODES.UNAUTHENTICATED
+            STATUS_CODES.UNAUTHORIZED
         ));
     }
 };
@@ -114,7 +114,7 @@ export const validateCloudTasksRequest = async (req: Request, _res: Response, ne
                 "SERVER_MISCONFIGURATION",
                 null,
                 "Server misconfiguration: CLOUD_RUN_SERVICE_URL is missing",
-                STATUS_CODES.SERVER_ERROR
+                STATUS_CODES.INTERNAL_SERVER_ERROR
             );
         }
 

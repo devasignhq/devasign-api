@@ -13,7 +13,7 @@ router.get("/languages/:username", (async (req: Request, res: Response, next: Ne
 
         responseWrapper({
             res,
-            status: STATUS_CODES.SUCCESS,
+            status: STATUS_CODES.OK,
             message: "User top languages retrieved successfully",
             data: languages
         });

@@ -191,7 +191,7 @@ export const createInstallation = async (req: Request, res: Response, next: Next
             // If trustline addition fails, return installation but indicate partial success
             responseWrapper({
                 res,
-                status: STATUS_CODES.PARTIAL_SUCCESS,
+                status: STATUS_CODES.OK,
                 data: installation,
                 message: existingAccountInstallation
                     ? "Installation reactivated successfully"
@@ -261,7 +261,7 @@ export const getInstallations = async (req: Request, res: Response, next: NextFu
         // Return paginated response
         responseWrapper({
             res,
-            status: STATUS_CODES.SUCCESS,
+            status: STATUS_CODES.OK,
             data: results,
             pagination: { hasMore },
             message: "Installations retrieved successfully"
@@ -366,7 +366,7 @@ export const getInstallation = async (req: Request, res: Response, next: NextFun
         // Return installation details with stats
         responseWrapper({
             res,
-            status: STATUS_CODES.SUCCESS,
+            status: STATUS_CODES.OK,
             data: { ...installation, stats },
             message: "Installation details retrieved successfully"
         });
@@ -447,7 +447,7 @@ export const archiveInstallation = async (req: Request, res: Response, next: Nex
         // Return success confirmation
         responseWrapper({
             res,
-            status: STATUS_CODES.SUCCESS,
+            status: STATUS_CODES.OK,
             data: { installationId, refundedAmount: `${refundedAmount} USDC` },
             message: `Installation archived and ${refundedAmount} USDC refunded`
         });

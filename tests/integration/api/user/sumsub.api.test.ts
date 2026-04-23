@@ -106,7 +106,7 @@ describe("User Sumsub API Integration Tests", () => {
 
             const response = await request(app)
                 .get(getEndpointWithPrefix(["USER", "SUMSUB_TOKEN"]))
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body).toMatchObject({
                 data: null,
@@ -128,7 +128,7 @@ describe("User Sumsub API Integration Tests", () => {
 
             const response = await request(app)
                 .get(getEndpointWithPrefix(["USER", "SUMSUB_TOKEN"]))
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body.data).toEqual(mockSumsubResponse);
 
@@ -160,7 +160,7 @@ describe("User Sumsub API Integration Tests", () => {
 
             const response = await request(app)
                 .get(getEndpointWithPrefix(["USER", "SUMSUB_TOKEN"]))
-                .expect(STATUS_CODES.SERVER_ERROR);
+                .expect(STATUS_CODES.INTERNAL_SERVER_ERROR);
 
             expect(response.body).toMatchObject({
                 message: "Sumsub SDK token generation failed"
@@ -172,7 +172,7 @@ describe("User Sumsub API Integration Tests", () => {
 
             await request(app)
                 .get(getEndpointWithPrefix(["USER", "SUMSUB_TOKEN"]))
-                .expect(STATUS_CODES.UNKNOWN);
+                .expect(STATUS_CODES.INTERNAL_SERVER_ERROR);
         });
     });
 });

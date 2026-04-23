@@ -47,7 +47,7 @@ export const handleGitHubWebhook = async (req: Request, res: Response, next: Nex
 
     responseWrapper({
         res,
-        status: STATUS_CODES.SUCCESS,
+        status: STATUS_CODES.OK,
         data: { eventType },
         message: "Event type not processed"
     });

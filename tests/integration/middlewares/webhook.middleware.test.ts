@@ -315,7 +315,7 @@ describe("Webhook Middleware", () => {
 
                 await validateGitHubWebhookEvent(mockRequest as Request, mockResponse as Response, mockNext);
 
-                expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.SUCCESS);
+                expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.OK);
                 expect(mockResponse.json).toHaveBeenCalledWith(
                     expect.objectContaining({
                         message: "Installation action not processed",
@@ -339,7 +339,7 @@ describe("Webhook Middleware", () => {
 
                 await validateGitHubWebhookEvent(mockRequest as Request, mockResponse as Response, mockNext);
 
-                expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.BAD_PAYLOAD);
+                expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.BAD_REQUEST);
                 expect(mockResponse.json).toHaveBeenCalledWith(
                     expect.objectContaining({
                         message: "Missing required installation data",
@@ -389,7 +389,7 @@ describe("Webhook Middleware", () => {
 
                 await validateGitHubWebhookEvent(mockRequest as Request, mockResponse as Response, mockNext);
 
-                expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.SUCCESS);
+                expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.OK);
                 expect(mockResponse.json).toHaveBeenCalledWith(
                     expect.objectContaining({
                         message: "installation_repositories action not processed",
@@ -410,7 +410,7 @@ describe("Webhook Middleware", () => {
 
                 await validateGitHubWebhookEvent(mockRequest as Request, mockResponse as Response, mockNext);
 
-                expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.BAD_PAYLOAD);
+                expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.BAD_REQUEST);
                 expect(mockResponse.json).toHaveBeenCalledWith(
                     expect.objectContaining({
                         message: "Missing required installation data",
@@ -456,7 +456,7 @@ describe("Webhook Middleware", () => {
 
                 await validateGitHubWebhookEvent(mockRequest as Request, mockResponse as Response, mockNext);
 
-                expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.SUCCESS);
+                expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.OK);
                 expect(mockResponse.json).toHaveBeenCalledWith(
                     expect.objectContaining({
                         message: "Skipping draft PR"
@@ -588,7 +588,7 @@ describe("Webhook Middleware", () => {
                 await validateGitHubWebhookEvent(mockRequest as Request, mockResponse as Response, mockNext);
 
                 expect(mockNext).not.toHaveBeenCalled();
-                expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.SUCCESS);
+                expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.OK);
                 expect(mockResponse.json).toHaveBeenCalledWith(
                     expect.objectContaining({
                         message: "Issue comment action not processed",
@@ -609,7 +609,7 @@ describe("Webhook Middleware", () => {
                 await validateGitHubWebhookEvent(mockRequest as Request, mockResponse as Response, mockNext);
 
                 expect(mockNext).not.toHaveBeenCalled();
-                expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.BAD_PAYLOAD);
+                expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.BAD_REQUEST);
                 expect(mockResponse.json).toHaveBeenCalledWith(
                     expect.objectContaining({
                         message: "Missing required webhook data",
@@ -663,7 +663,7 @@ describe("Webhook Middleware", () => {
                 await validateGitHubWebhookEvent(mockRequest as Request, mockResponse as Response, mockNext);
 
                 expect(mockNext).not.toHaveBeenCalled();
-                expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.SUCCESS);
+                expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.OK);
                 expect(mockResponse.json).toHaveBeenCalledWith(
                     expect.objectContaining({
                         message: "Push not targeting default branch - skipping",
@@ -684,7 +684,7 @@ describe("Webhook Middleware", () => {
                 await validateGitHubWebhookEvent(mockRequest as Request, mockResponse as Response, mockNext);
 
                 expect(mockNext).not.toHaveBeenCalled();
-                expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.SUCCESS);
+                expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.OK);
                 expect(mockResponse.json).toHaveBeenCalledWith(
                     expect.objectContaining({
                         message: "Tag push not processed"
@@ -704,7 +704,7 @@ describe("Webhook Middleware", () => {
                 await validateGitHubWebhookEvent(mockRequest as Request, mockResponse as Response, mockNext);
 
                 expect(mockNext).not.toHaveBeenCalled();
-                expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.SUCCESS);
+                expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.OK);
                 expect(mockResponse.json).toHaveBeenCalledWith(
                     expect.objectContaining({
                         message: "Push creation/deletion event not processed"
@@ -724,7 +724,7 @@ describe("Webhook Middleware", () => {
                 await validateGitHubWebhookEvent(mockRequest as Request, mockResponse as Response, mockNext);
 
                 expect(mockNext).not.toHaveBeenCalled();
-                expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.BAD_PAYLOAD);
+                expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.BAD_REQUEST);
             });
         });
 
@@ -738,7 +738,7 @@ describe("Webhook Middleware", () => {
 
                 await validateGitHubWebhookEvent(mockRequest as Request, mockResponse as Response, mockNext);
 
-                expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.SUCCESS);
+                expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.OK);
                 expect(mockResponse.json).toHaveBeenCalledWith({
                     data: {},
                     message: "Event type not processed",
@@ -758,7 +758,7 @@ describe("Webhook Middleware", () => {
 
                 await validateGitHubWebhookEvent(mockRequest as Request, mockResponse as Response, mockNext);
 
-                expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.SUCCESS);
+                expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.OK);
                 expect(mockResponse.json).toHaveBeenCalledWith({
                     data: {},
                     message: "PR action not processed",
@@ -784,7 +784,7 @@ describe("Webhook Middleware", () => {
 
                 await validateGitHubWebhookEvent(mockRequest as Request, mockResponse as Response, mockNext);
 
-                expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.BAD_PAYLOAD);
+                expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.BAD_REQUEST);
                 expect(mockNext).not.toHaveBeenCalled();
             });
         });

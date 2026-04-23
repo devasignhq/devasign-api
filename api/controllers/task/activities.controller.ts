@@ -69,7 +69,7 @@ export const getTaskActivities = async (req: Request, res: Response, next: NextF
         // Return paginated activities
         responseWrapper({
             res,
-            status: STATUS_CODES.SUCCESS,
+            status: STATUS_CODES.OK,
             data: results,
             pagination: { hasMore }
         });
@@ -117,7 +117,7 @@ export const markActivityAsViewed = async (req: Request, res: Response, next: Ne
         // Return updated activity
         responseWrapper({
             res,
-            status: STATUS_CODES.SUCCESS,
+            status: STATUS_CODES.OK,
             data: updatedActivity,
             message: "Activity marked as viewed"
         });

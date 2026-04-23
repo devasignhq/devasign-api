@@ -180,7 +180,7 @@ export const withdrawAsset = async (req: Request, res: Response, next: NextFunct
         // Return transaction details
         responseWrapper({
             res,
-            status: STATUS_CODES.SUCCESS,
+            status: STATUS_CODES.OK,
             data: transaction,
             message: "Withdrawal successful"
         });
@@ -319,7 +319,7 @@ export const swapAsset = async (req: Request, res: Response, next: NextFunction)
         // Return transaction details
         responseWrapper({
             res,
-            status: STATUS_CODES.SUCCESS,
+            status: STATUS_CODES.OK,
             data: transaction,
             message: "Swap successful"
         });
@@ -352,7 +352,7 @@ export const getWalletInfo = async (req: Request, res: Response, next: NextFunct
         // Return account info
         responseWrapper({
             res,
-            status: STATUS_CODES.SUCCESS,
+            status: STATUS_CODES.OK,
             data: accountInfo,
             message: "Wallet info retrieved successfully"
         });

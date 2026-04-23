@@ -46,7 +46,7 @@ export class InstallationRepositoriesWebhookService {
 
             responseWrapper({
                 res,
-                status: STATUS_CODES.SUCCESS,
+                status: STATUS_CODES.OK,
                 data: { installationId, action },
                 message: "installation_repositories event processed"
             });

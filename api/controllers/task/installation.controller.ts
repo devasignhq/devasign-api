@@ -45,7 +45,7 @@ export const getInstallationTasks = async (req: Request, res: Response, next: Ne
             if (status === TaskStatus.PENDING_PAYMENT) {
                 return responseWrapper({
                     res,
-                    status: STATUS_CODES.SUCCESS,
+                    status: STATUS_CODES.OK,
                     data: [],
                     pagination: { hasMore: false }
                 });
@@ -158,7 +158,7 @@ export const getInstallationTasks = async (req: Request, res: Response, next: Ne
         // Return paginated tasks
         responseWrapper({
             res,
-            status: STATUS_CODES.SUCCESS,
+            status: STATUS_CODES.OK,
             data: results,
             pagination: { hasMore }
         });
@@ -231,7 +231,7 @@ export const getInstallationTask = async (req: Request, res: Response, next: Nex
         // Return task
         responseWrapper({
             res,
-            status: STATUS_CODES.SUCCESS,
+            status: STATUS_CODES.OK,
             data: task
         });
     } catch (error) {

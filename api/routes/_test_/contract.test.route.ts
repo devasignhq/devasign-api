@@ -85,7 +85,7 @@ router.get("/escrow/:taskId",
             // Convert BigInt values to strings for JSON serialization
             const serializedEscrow = convertBigIntToString(escrow);
 
-            res.status(STATUS_CODES.SUCCESS).json({
+            res.status(STATUS_CODES.OK).json({
                 message: "Escrow details retrieved successfully",
                 data: serializedEscrow
             });
@@ -111,7 +111,7 @@ router.post("/task/assign",
                 contributorPublicKey
             );
 
-            res.status(STATUS_CODES.SUCCESS).json({
+            res.status(STATUS_CODES.OK).json({
                 message: "Contributor assigned successfully",
                 data: result
             });
@@ -137,7 +137,7 @@ router.post("/task/increase-bounty",
                 amount
             );
 
-            res.status(STATUS_CODES.SUCCESS).json({
+            res.status(STATUS_CODES.OK).json({
                 message: "Bounty increased successfully",
                 data: result
             });
@@ -163,7 +163,7 @@ router.post("/task/decrease-bounty",
                 amount
             );
 
-            res.status(STATUS_CODES.SUCCESS).json({
+            res.status(STATUS_CODES.OK).json({
                 message: "Bounty decreased successfully",
                 data: result
             });
@@ -188,7 +188,7 @@ router.post("/task/approve",
                 taskId
             );
 
-            res.status(STATUS_CODES.SUCCESS).json({
+            res.status(STATUS_CODES.OK).json({
                 message: "Task completion approved and funds released successfully",
                 data: result
             });
@@ -214,7 +214,7 @@ router.post("/task/dispute",
                 reason
             );
 
-            res.status(STATUS_CODES.SUCCESS).json({
+            res.status(STATUS_CODES.OK).json({
                 message: "Dispute initiated successfully",
                 data: result
             });
@@ -251,7 +251,7 @@ router.post("/task/resolve-dispute",
                 processedResolution
             );
 
-            res.status(STATUS_CODES.SUCCESS).json({
+            res.status(STATUS_CODES.OK).json({
                 message: "Dispute resolved successfully",
                 data: result
             });
@@ -276,7 +276,7 @@ router.post("/escrow/refund",
                 taskId
             );
 
-            res.status(STATUS_CODES.SUCCESS).json({
+            res.status(STATUS_CODES.OK).json({
                 message: "Refund processed successfully",
                 data: result
             });

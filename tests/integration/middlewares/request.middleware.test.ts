@@ -83,7 +83,7 @@ describe("Request Middleware", () => {
             it("should deny requests from external IP", () => {
                 (mockRequest as any).ip = "192.168.1.1";
                 localhostOnly(mockRequest as Request, mockResponse as Response, mockNext);
-                expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.UNAUTHORIZED);
+                expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.FORBIDDEN);
                 expect(mockResponse.json).toHaveBeenCalledWith(expect.objectContaining({
                     message: "Access denied. Local interface only."
                 }));
@@ -93,7 +93,7 @@ describe("Request Middleware", () => {
             it("should deny requests with missing IP", () => {
                 (mockRequest as any).ip = undefined;
                 localhostOnly(mockRequest as Request, mockResponse as Response, mockNext);
-                expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.UNAUTHORIZED);
+                expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.FORBIDDEN);
                 expect(mockNext).not.toHaveBeenCalled();
             });
         });
@@ -106,7 +106,7 @@ describe("Request Middleware", () => {
 
                 localhostOnly(mockRequest as Request, mockResponse as Response, mockNext);
 
-                expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.UNAUTHORIZED);
+                expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.FORBIDDEN);
             });
         });
     });

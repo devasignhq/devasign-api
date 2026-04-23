@@ -45,7 +45,7 @@ export const localhostOnly = (req: Request, res: Response, next: NextFunction) =
     // Deny access
     responseWrapper({
         res,
-        status: STATUS_CODES.UNAUTHORIZED,
+        status: STATUS_CODES.FORBIDDEN,
         data: {},
         message: "Access denied. Local interface only."
     });

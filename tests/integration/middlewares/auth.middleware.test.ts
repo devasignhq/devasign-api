@@ -109,7 +109,7 @@ describe("Authentication Middleware", () => {
                 expect(mockNext).toHaveBeenCalledWith(
                     expect.objectContaining({
                         code: "AUTHENTICATION_FAILED",
-                        status: STATUS_CODES.UNAUTHENTICATED,
+                        status: STATUS_CODES.UNAUTHORIZED,
                         message: "Invalid or expired token"
                     })
                 );
@@ -125,7 +125,7 @@ describe("Authentication Middleware", () => {
                 expect(mockNext).toHaveBeenCalledWith(
                     expect.objectContaining({
                         code: "AUTHENTICATION_FAILED",
-                        status: STATUS_CODES.UNAUTHENTICATED,
+                        status: STATUS_CODES.UNAUTHORIZED,
                         message: "No authorization token sent"
                     })
                 );
@@ -142,7 +142,7 @@ describe("Authentication Middleware", () => {
                 expect(mockNext).toHaveBeenCalledWith(
                     expect.objectContaining({
                         code: "AUTHENTICATION_FAILED",
-                        status: STATUS_CODES.UNAUTHENTICATED,
+                        status: STATUS_CODES.UNAUTHORIZED,
                         message: "No authorization token sent"
                     })
                 );
@@ -162,7 +162,7 @@ describe("Authentication Middleware", () => {
                 expect(mockNext).toHaveBeenCalledWith(
                     expect.objectContaining({
                         code: "AUTHENTICATION_FAILED",
-                        status: STATUS_CODES.UNAUTHENTICATED,
+                        status: STATUS_CODES.UNAUTHORIZED,
                         message: "Invalid or expired token"
                     })
                 );
@@ -178,7 +178,7 @@ describe("Authentication Middleware", () => {
                 expect(mockNext).toHaveBeenCalledWith(
                     expect.objectContaining({
                         code: "AUTHENTICATION_FAILED",
-                        status: STATUS_CODES.UNAUTHENTICATED,
+                        status: STATUS_CODES.UNAUTHORIZED,
                         message: "No authorization token sent"
                     })
                 );
@@ -198,7 +198,7 @@ describe("Authentication Middleware", () => {
                 expect(mockNext).toHaveBeenCalledWith(
                     expect.objectContaining({
                         code: "AUTHENTICATION_FAILED",
-                        status: STATUS_CODES.UNAUTHENTICATED,
+                        status: STATUS_CODES.UNAUTHORIZED,
                         message: "Invalid or expired token"
                     })
                 );
@@ -217,7 +217,7 @@ describe("Authentication Middleware", () => {
                 expect(mockNext).toHaveBeenCalledWith(
                     expect.objectContaining({
                         code: "AUTHENTICATION_FAILED",
-                        status: STATUS_CODES.UNAUTHENTICATED,
+                        status: STATUS_CODES.UNAUTHORIZED,
                         message: "Firebase ID token has invalid signature"
                     })
                 );

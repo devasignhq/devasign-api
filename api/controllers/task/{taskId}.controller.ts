@@ -86,7 +86,7 @@ export const addBountyCommentId = async (req: Request, res: Response, next: Next
         // Return updated task
         responseWrapper({
             res,
-            status: STATUS_CODES.SUCCESS,
+            status: STATUS_CODES.OK,
             data: updatedTask,
             message: "Bounty comment added successfully"
         });
@@ -269,7 +269,7 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
         if (!updatedComment) {
             return responseWrapper({
                 res,
-                status: STATUS_CODES.PARTIAL_SUCCESS,
+                status: STATUS_CODES.OK,
                 data: {
                     bountyCommentPosted: false,
                     task: updatedTask
@@ -282,7 +282,7 @@ export const updateTaskBounty = async (req: Request, res: Response, next: NextFu
         // Return updated task
         responseWrapper({
             res,
-            status: STATUS_CODES.SUCCESS,
+            status: STATUS_CODES.OK,
             data: updatedTask,
             message: "Task bounty updated"
         });
@@ -347,7 +347,7 @@ export const updateTaskTimeline = async (req: Request, res: Response, next: Next
         // Return updated task
         responseWrapper({
             res,
-            status: STATUS_CODES.SUCCESS,
+            status: STATUS_CODES.OK,
             data: updatedTask,
             message: "Task timeline updated"
         });
@@ -421,7 +421,7 @@ export const submitTaskApplication = async (req: Request, res: Response, next: N
         // Return success response
         responseWrapper({
             res,
-            status: STATUS_CODES.SUCCESS,
+            status: STATUS_CODES.OK,
             data: null,
             message: "Task application submitted"
         });
@@ -586,7 +586,7 @@ export const acceptTaskApplication = async (req: Request, res: Response, next: N
             // Return success response
             responseWrapper({
                 res,
-                status: STATUS_CODES.SUCCESS,
+                status: STATUS_CODES.OK,
                 data: updatedTask,
                 message: "Task application accepted"
             });
@@ -595,7 +595,7 @@ export const acceptTaskApplication = async (req: Request, res: Response, next: N
             // Return updated task but notify user of partial failure
             responseWrapper({
                 res,
-                status: STATUS_CODES.PARTIAL_SUCCESS,
+                status: STATUS_CODES.OK,
                 data: updatedTask,
                 message: "Task application accepted",
                 warning: "Failed to enable chat functionality for this task."
@@ -696,7 +696,7 @@ export const requestTimelineExtension = async (req: Request, res: Response, next
         // Return message
         responseWrapper({
             res,
-            status: STATUS_CODES.SUCCESS,
+            status: STATUS_CODES.OK,
             data: message,
             message: "Timeline extension request sent successfully"
         });
@@ -787,7 +787,7 @@ export const replyTimelineExtensionRequest = async (req: Request, res: Response,
             // Return message and updated task
             return responseWrapper({
                 res,
-                status: STATUS_CODES.SUCCESS,
+                status: STATUS_CODES.OK,
                 data: { message, task: updatedTask },
                 message: "Timeline extension request accepted"
             });
@@ -809,7 +809,7 @@ export const replyTimelineExtensionRequest = async (req: Request, res: Response,
         // Return message
         responseWrapper({
             res,
-            status: STATUS_CODES.SUCCESS,
+            status: STATUS_CODES.OK,
             data: { message },
             message: "Timeline extension request rejected"
         });
@@ -906,7 +906,7 @@ export const markAsComplete = async (req: Request, res: Response, next: NextFunc
         // Return updated task
         responseWrapper({
             res,
-            status: STATUS_CODES.SUCCESS,
+            status: STATUS_CODES.OK,
             data: updatedTask,
             message: "Task submission completed"
         });
@@ -1076,7 +1076,7 @@ export const validateCompletion = async (req: Request, res: Response, next: Next
             // Return partial success response if chat failed to disable or bounty paid label failed to add
             responseWrapper({
                 res,
-                status: STATUS_CODES.PARTIAL_SUCCESS,
+                status: STATUS_CODES.OK,
                 data: updatedTask,
                 message: "Task validated and completed",
                 warning: !chatDisabled ? "Failed to disable chat for the task." : "Failed to add bounty paid label to the issue."
@@ -1085,7 +1085,7 @@ export const validateCompletion = async (req: Request, res: Response, next: Next
             // Return success response
             responseWrapper({
                 res,
-                status: STATUS_CODES.SUCCESS,
+                status: STATUS_CODES.OK,
                 data: updatedTask,
                 message: "Task validated and completed"
             });

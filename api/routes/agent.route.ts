@@ -76,7 +76,7 @@ if (facilitatorUrl && payTo && facilitatorApiKey) {
 
                 responseWrapper({
                     res,
-                    status: STATUS_CODES.SUCCESS,
+                    status: STATUS_CODES.OK,
                     data: { success: true, taskId },
                     message: "Review in progress. A comment will be posted by our bot."
                 });
@@ -89,7 +89,7 @@ if (facilitatorUrl && payTo && facilitatorApiKey) {
     agentRoutes.post(ENDPOINTS.AGENT.REVIEW, (req: Request, res: Response) => {
         responseWrapper({
             res,
-            status: STATUS_CODES.SERVER_ERROR,
+            status: STATUS_CODES.INTERNAL_SERVER_ERROR,
             data: {},
             message: "Agent features are not configured on this server."
         });

@@ -44,7 +44,7 @@ router.post("/encryption",
             // Decrypt to verify
             const decrypted = await KMSService.decryptWallet(encrypted as any);
 
-            res.status(STATUS_CODES.SUCCESS).json({
+            res.status(STATUS_CODES.OK).json({
                 message: "Encryption test successful",
                 data: {
                     original: text,
@@ -77,7 +77,7 @@ router.post("/decryption",
             // Decrypt again to verify the re-encryption works and matches
             const reDecrypted = await KMSService.decryptWallet(ecrypted as any);
 
-            res.status(STATUS_CODES.SUCCESS).json({
+            res.status(STATUS_CODES.OK).json({
                 message: "Decryption test successful",
                 data: {
                     original: walletData,
@@ -127,7 +127,7 @@ router.post("/create-packages", async (_, res: Response, next: NextFunction) => 
             ]
         });
 
-        res.status(STATUS_CODES.SUCCESS).json(packages);
+        res.status(STATUS_CODES.OK).json(packages);
     } catch (error) {
         next(error);
     }
@@ -155,7 +155,7 @@ router.post("/reset-db", async (req: Request, res: Response) => {
 
         responseWrapper({
             res,
-            status: STATUS_CODES.SUCCESS,
+            status: STATUS_CODES.OK,
             data: {},
             message: "Database cleared"
         });
@@ -163,7 +163,7 @@ router.post("/reset-db", async (req: Request, res: Response) => {
         dataLogger.error("Database clear operation failed", { error });
         responseWrapper({
             res,
-            status: STATUS_CODES.SERVER_ERROR,
+            status: STATUS_CODES.INTERNAL_SERVER_ERROR,
             data: {},
             message: "Database clear operation failed"
         });

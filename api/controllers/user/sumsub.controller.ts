@@ -17,7 +17,7 @@ export const generateSumsubSdkToken = async (req: Request, res: Response, next: 
         if (!requireKyc) {
             return responseWrapper({
                 res,
-                status: STATUS_CODES.SUCCESS,
+                status: STATUS_CODES.OK,
                 data: null,
                 message: "KYC is currently disabled"
             });
@@ -63,13 +63,13 @@ export const generateSumsubSdkToken = async (req: Request, res: Response, next: 
                 "SUMSUB_API_ERROR",
                 response.data,
                 "Sumsub SDK token generation failed",
-                STATUS_CODES.SERVER_ERROR
+                STATUS_CODES.INTERNAL_SERVER_ERROR
             );
         }
 
         responseWrapper({
             res,
-            status: STATUS_CODES.SUCCESS,
+            status: STATUS_CODES.OK,
             data: response.data,
             message: "Sumsub SDK token generated"
         });
@@ -83,7 +83,7 @@ export const generateSumsubSdkToken = async (req: Request, res: Response, next: 
                 "SUMSUB_API_ERROR",
                 errorData,
                 `Sumsub API failed: ${error.message}`,
-                STATUS_CODES.SERVER_ERROR
+                STATUS_CODES.INTERNAL_SERVER_ERROR
             ));
         }
 

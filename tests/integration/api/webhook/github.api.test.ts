@@ -9,7 +9,6 @@ import { TestDataFactory } from "../../../../tests/helpers/test-data-factory.js"
 import { ENDPOINTS, STATUS_CODES } from "../../../../api/utils/data.js";
 import { getEndpointWithPrefix } from "../../../helpers/test-utils.js";
 import { mockFirebaseAuth } from "../../../mocks/firebase.service.mock.js";
-import { BOUNTY_LABEL } from "../../../../api/models/github.model.js";
 
 // Mock Firebase admin for authentication
 vi.mock("../../../../api/config/firebase.config", () => {
@@ -238,7 +237,7 @@ describe("GitHub Webhook API Integration Tests", () => {
                 .set("X-Hub-Signature-256", signature)
                 .set("Content-Type", "application/json")
                 .send(payloadString)
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body).toMatchObject({
                 message: "Installation creation logged",
@@ -264,7 +263,7 @@ describe("GitHub Webhook API Integration Tests", () => {
                 .set("X-Hub-Signature-256", signature)
                 .set("Content-Type", "application/json")
                 .send(payloadString)
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body).toMatchObject({
                 message: "Installation creation logged",
@@ -326,7 +325,7 @@ describe("GitHub Webhook API Integration Tests", () => {
                 .set("X-Hub-Signature-256", signature)
                 .set("Content-Type", "application/json")
                 .send(payloadString)
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body).toMatchObject({
                 message: "Installation archived and 100 USDC refunded",
@@ -365,7 +364,7 @@ describe("GitHub Webhook API Integration Tests", () => {
                 .set("X-Hub-Signature-256", signature)
                 .set("Content-Type", "application/json")
                 .send(payloadString)
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body).toMatchObject({
                 message: "Installation reactivated",
@@ -403,7 +402,7 @@ describe("GitHub Webhook API Integration Tests", () => {
                 .set("X-Hub-Signature-256", signature)
                 .set("Content-Type", "application/json")
                 .send(payloadString)
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body).toMatchObject({
                 message: "installation_repositories event processed",
@@ -428,7 +427,7 @@ describe("GitHub Webhook API Integration Tests", () => {
                 .set("X-Hub-Signature-256", signature)
                 .set("Content-Type", "application/json")
                 .send(payloadString)
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body).toMatchObject({
                 message: "installation_repositories event processed",
@@ -453,7 +452,7 @@ describe("GitHub Webhook API Integration Tests", () => {
                     .set("X-GitHub-Delivery", "test-delivery-123")
                     .set("Content-Type", "application/json")
                     .send(payloadString)
-                    .expect(STATUS_CODES.BACKGROUND_JOB);
+                    .expect(STATUS_CODES.ACCEPTED);
 
                 expect(response.body).toMatchObject({
                     message: "PR webhook processed successfully - analysis queued",
@@ -502,7 +501,7 @@ describe("GitHub Webhook API Integration Tests", () => {
                     .set("X-GitHub-Delivery", "test-delivery-123")
                     .set("Content-Type", "application/json")
                     .send(payloadString)
-                    .expect(STATUS_CODES.BACKGROUND_JOB);
+                    .expect(STATUS_CODES.ACCEPTED);
 
                 expect(response.body).toMatchObject({
                     message: "PR webhook processed successfully - analysis queued",
@@ -530,7 +529,7 @@ describe("GitHub Webhook API Integration Tests", () => {
                     .set("X-Hub-Signature-256", signature)
                     .set("Content-Type", "application/json")
                     .send(payloadString)
-                    .expect(STATUS_CODES.SERVER_ERROR);
+                    .expect(STATUS_CODES.INTERNAL_SERVER_ERROR);
 
                 expect(response.body.message).toBe("Failed to process PR webhook");
             });
@@ -549,7 +548,7 @@ describe("GitHub Webhook API Integration Tests", () => {
                     .set("X-Hub-Signature-256", invalidSignature)
                     .set("Content-Type", "application/json")
                     .send(payloadString)
-                    .expect(STATUS_CODES.SERVER_ERROR);
+                    .expect(STATUS_CODES.INTERNAL_SERVER_ERROR);
 
                 expect(response.body.message).toBe("Invalid webhook signature");
                 expect(mockCloudTasksService.addPRAnalysisJob).not.toHaveBeenCalled();
@@ -564,7 +563,7 @@ describe("GitHub Webhook API Integration Tests", () => {
                     .set("X-GitHub-Event", "pull_request")
                     .set("Content-Type", "application/json")
                     .send(payloadString)
-                    .expect(STATUS_CODES.SERVER_ERROR);
+                    .expect(STATUS_CODES.INTERNAL_SERVER_ERROR);
 
                 expect(response.body.message).toBe("Missing webhook signature");
                 expect(mockCloudTasksService.addPRAnalysisJob).not.toHaveBeenCalled();
@@ -581,7 +580,7 @@ describe("GitHub Webhook API Integration Tests", () => {
                     .set("X-Hub-Signature-256", signature)
                     .set("Content-Type", "application/json")
                     .send(payloadString)
-                    .expect(STATUS_CODES.SUCCESS);
+                    .expect(STATUS_CODES.OK);
 
                 expect(response.body).toMatchObject({
                     message: "Event type not processed",
@@ -602,7 +601,7 @@ describe("GitHub Webhook API Integration Tests", () => {
                     .set("X-Hub-Signature-256", signature)
                     .set("Content-Type", "application/json")
                     .send(payloadString)
-                    .expect(STATUS_CODES.SUCCESS);
+                    .expect(STATUS_CODES.OK);
 
                 expect(response.body).toMatchObject({
                     message: "PR action not processed",
@@ -628,7 +627,7 @@ describe("GitHub Webhook API Integration Tests", () => {
                     .set("X-Hub-Signature-256", signature)
                     .set("Content-Type", "application/json")
                     .send(payloadString)
-                    .expect(STATUS_CODES.SUCCESS);
+                    .expect(STATUS_CODES.OK);
 
                 expect(response.body).toMatchObject({
                     message: "PR not targeting default branch - skipping review",
@@ -654,7 +653,7 @@ describe("GitHub Webhook API Integration Tests", () => {
                     .set("X-Hub-Signature-256", signature)
                     .set("Content-Type", "application/json")
                     .send(invalidJson)
-                    .expect(STATUS_CODES.SERVER_ERROR);
+                    .expect(STATUS_CODES.INTERNAL_SERVER_ERROR);
 
                 expect(response.body.message).toBe("Invalid JSON payload");
             });
@@ -671,7 +670,7 @@ describe("GitHub Webhook API Integration Tests", () => {
                     .set("X-GitHub-Delivery", "test-delivery-123")
                     .set("Content-Type", "application/json")
                     .send(payloadString)
-                    .expect(STATUS_CODES.BACKGROUND_JOB);
+                    .expect(STATUS_CODES.ACCEPTED);
 
                 expect(response.body.message).toBe("PR webhook processed successfully - analysis queued");
                 expect(mockCloudTasksService.addPRAnalysisJob).toHaveBeenCalledWith(
@@ -693,7 +692,7 @@ describe("GitHub Webhook API Integration Tests", () => {
                     .set("X-GitHub-Delivery", "test-delivery-123")
                     .set("Content-Type", "application/json")
                     .send(payloadString)
-                    .expect(STATUS_CODES.BACKGROUND_JOB);
+                    .expect(STATUS_CODES.ACCEPTED);
 
                 expect(response.body.message).toBe("PR webhook processed successfully - analysis queued");
                 expect(mockCloudTasksService.addPRAnalysisJob).toHaveBeenCalledWith(
@@ -778,7 +777,7 @@ describe("GitHub Webhook API Integration Tests", () => {
                     .set("X-Hub-Signature-256", signature)
                     .set("Content-Type", "application/json")
                     .send(payloadString)
-                    .expect(STATUS_CODES.BACKGROUND_JOB);
+                    .expect(STATUS_CODES.ACCEPTED);
 
                 expect(response.body).toMatchObject({
                     message: "Bounty payout job queued",
@@ -820,7 +819,7 @@ describe("GitHub Webhook API Integration Tests", () => {
                     .set("X-Hub-Signature-256", signature)
                     .set("Content-Type", "application/json")
                     .send(payloadString)
-                    .expect(STATUS_CODES.SUCCESS);
+                    .expect(STATUS_CODES.OK);
 
                 expect(response.body).toMatchObject({
                     message: "PR action not processed",
@@ -936,7 +935,7 @@ describe("GitHub Webhook API Integration Tests", () => {
                     .set("X-GitHub-Delivery", "ic-delivery-1")
                     .set("Content-Type", "application/json")
                     .send(payloadString)
-                    .expect(STATUS_CODES.BACKGROUND_JOB);
+                    .expect(STATUS_CODES.ACCEPTED);
 
                 expect(response.body.message).toBe("PR webhook processed successfully - analysis queued");
                 expect(response.body.data).toMatchObject({
@@ -965,7 +964,7 @@ describe("GitHub Webhook API Integration Tests", () => {
                     .set("X-Hub-Signature-256", signature)
                     .set("Content-Type", "application/json")
                     .send(payloadString)
-                    .expect(STATUS_CODES.BACKGROUND_JOB);
+                    .expect(STATUS_CODES.ACCEPTED);
 
                 expect(response.body.message).toBe("PR webhook processed successfully - analysis queued");
             });
@@ -983,7 +982,7 @@ describe("GitHub Webhook API Integration Tests", () => {
                     .set("X-Hub-Signature-256", signature)
                     .set("Content-Type", "application/json")
                     .send(payloadString)
-                    .expect(STATUS_CODES.SUCCESS);
+                    .expect(STATUS_CODES.OK);
 
                 expect(response.body.message).toBe("Comment is not on a pull request - skipping");
                 expect(mockCloudTasksService.addPRAnalysisJob).not.toHaveBeenCalled();
@@ -1000,7 +999,7 @@ describe("GitHub Webhook API Integration Tests", () => {
                     .set("X-Hub-Signature-256", signature)
                     .set("Content-Type", "application/json")
                     .send(payloadString)
-                    .expect(STATUS_CODES.SUCCESS);
+                    .expect(STATUS_CODES.OK);
 
                 expect(response.body.message).toBe("Comment does not trigger any action - skipping");
                 expect(mockCloudTasksService.addPRAnalysisJob).not.toHaveBeenCalled();
@@ -1019,7 +1018,7 @@ describe("GitHub Webhook API Integration Tests", () => {
                     .set("X-Hub-Signature-256", signature)
                     .set("Content-Type", "application/json")
                     .send(payloadString)
-                    .expect(STATUS_CODES.SUCCESS);
+                    .expect(STATUS_CODES.OK);
 
                 expect(response.body.message).toBe("User is not authorized to trigger review (association: CONTRIBUTOR) - skipping");
                 expect(mockCloudTasksService.addPRAnalysisJob).not.toHaveBeenCalled();
@@ -1042,7 +1041,7 @@ describe("GitHub Webhook API Integration Tests", () => {
                     .set("X-Hub-Signature-256", signature)
                     .set("Content-Type", "application/json")
                     .send(payloadString)
-                    .expect(STATUS_CODES.SUCCESS);
+                    .expect(STATUS_CODES.OK);
 
                 expect(response.body.message).toBe("Installation is not active or not found - skipping");
                 expect(mockCloudTasksService.addPRAnalysisJob).not.toHaveBeenCalled();
@@ -1062,7 +1061,7 @@ describe("GitHub Webhook API Integration Tests", () => {
                     .set("X-Hub-Signature-256", signature)
                     .set("Content-Type", "application/json")
                     .send(payloadString)
-                    .expect(STATUS_CODES.SUCCESS);
+                    .expect(STATUS_CODES.OK);
 
                 expect(response.body.message).toBe("Skipping draft PR");
                 expect(mockCloudTasksService.addPRAnalysisJob).not.toHaveBeenCalled();
@@ -1085,7 +1084,7 @@ describe("GitHub Webhook API Integration Tests", () => {
                     .set("X-Hub-Signature-256", signature)
                     .set("Content-Type", "application/json")
                     .send(payloadString)
-                    .expect(STATUS_CODES.SUCCESS);
+                    .expect(STATUS_CODES.OK);
 
                 expect(response.body.message).toBe("PR not targeting default branch - skipping review");
                 expect(response.body.meta).toMatchObject({
@@ -1108,7 +1107,7 @@ describe("GitHub Webhook API Integration Tests", () => {
                     .set("X-Hub-Signature-256", signature)
                     .set("Content-Type", "application/json")
                     .send(payloadString)
-                    .expect(STATUS_CODES.SUCCESS);
+                    .expect(STATUS_CODES.OK);
 
                 expect(response.body.message).toBe("Issue comment action not processed");
                 expect(mockCloudTasksService.addPRAnalysisJob).not.toHaveBeenCalled();
@@ -1136,7 +1135,7 @@ describe("GitHub Webhook API Integration Tests", () => {
                     .set("X-Hub-Signature-256", signature)
                     .set("Content-Type", "application/json")
                     .send(payloadString)
-                    .expect(STATUS_CODES.SUCCESS);
+                    .expect(STATUS_CODES.OK);
 
                 expect(response.body.message).toBe("Bounty comment recognized - processing in background");
             });
@@ -1169,7 +1168,7 @@ describe("GitHub Webhook API Integration Tests", () => {
                         .set("X-Hub-Signature-256", signature)
                         .set("Content-Type", "application/json")
                         .send(payloadString)
-                        .expect(STATUS_CODES.SUCCESS);
+                        .expect(STATUS_CODES.OK);
 
                     expect(response.body.message).toBe("Bounty comment recognized - processing in background");
                 }
@@ -1195,7 +1194,7 @@ describe("GitHub Webhook API Integration Tests", () => {
                     .set("X-Hub-Signature-256", signature)
                     .set("Content-Type", "application/json")
                     .send(payloadString)
-                    .expect(STATUS_CODES.SUCCESS);
+                    .expect(STATUS_CODES.OK);
 
                 expect(response.body.message).toBe("Comment does not trigger any action - skipping");
             });
@@ -1214,7 +1213,7 @@ describe("GitHub Webhook API Integration Tests", () => {
                     .set("X-Hub-Signature-256", signature)
                     .set("Content-Type", "application/json")
                     .send(payloadString)
-                    .expect(STATUS_CODES.SUCCESS);
+                    .expect(STATUS_CODES.OK);
 
                 expect(response.body.message).toBe("Comment is on a pull request - skipping bounty creation");
             });
@@ -1235,7 +1234,7 @@ describe("GitHub Webhook API Integration Tests", () => {
                     .set("X-Hub-Signature-256", signature)
                     .set("Content-Type", "application/json")
                     .send(payloadString)
-                    .expect(STATUS_CODES.SUCCESS);
+                    .expect(STATUS_CODES.OK);
 
                 expect(response.body.message).toBe("Issue is not open - skipping bounty creation");
             });
@@ -1256,7 +1255,7 @@ describe("GitHub Webhook API Integration Tests", () => {
                     .set("X-Hub-Signature-256", signature)
                     .set("Content-Type", "application/json")
                     .send(payloadString)
-                    .expect(STATUS_CODES.SUCCESS);
+                    .expect(STATUS_CODES.OK);
 
                 expect(response.body.message).toBe("User is not authorized to create bounties (association: NONE) - skipping");
             });
@@ -1277,7 +1276,7 @@ describe("GitHub Webhook API Integration Tests", () => {
                     .set("X-Hub-Signature-256", signature)
                     .set("Content-Type", "application/json")
                     .send(payloadString)
-                    .expect(STATUS_CODES.SUCCESS);
+                    .expect(STATUS_CODES.OK);
 
                 expect(response.body.message).toBe("Commenter is not a registered user on DevAsign - skipping bounty creation");
             });
@@ -1304,7 +1303,7 @@ describe("GitHub Webhook API Integration Tests", () => {
                     .set("X-Hub-Signature-256", signature)
                     .set("Content-Type", "application/json")
                     .send(payloadString)
-                    .expect(STATUS_CODES.SUCCESS);
+                    .expect(STATUS_CODES.OK);
 
                 expect(response.body.message).toBe("Installation is not active or wallet missing - skipping");
 
@@ -1353,7 +1352,7 @@ describe("GitHub Webhook API Integration Tests", () => {
                         .set("X-Hub-Signature-256", signature)
                         .set("Content-Type", "application/json")
                         .send(payloadString)
-                        .expect(STATUS_CODES.SUCCESS);
+                        .expect(STATUS_CODES.OK);
 
                     expect(response.body.message).toBe("Bounty comment recognized - processing in background");
 
@@ -1413,7 +1412,7 @@ describe("GitHub Webhook API Integration Tests", () => {
                         .set("X-Hub-Signature-256", signature)
                         .set("Content-Type", "application/json")
                         .send(payloadString)
-                        .expect(STATUS_CODES.SUCCESS);
+                        .expect(STATUS_CODES.OK);
 
                     const failureCommentCalled = await waitFor(async () => {
                         return mockOctokitService.createComment.mock.calls.length > 0;
@@ -1446,7 +1445,7 @@ describe("GitHub Webhook API Integration Tests", () => {
                         .set("X-Hub-Signature-256", signature)
                         .set("Content-Type", "application/json")
                         .send(payloadString)
-                        .expect(STATUS_CODES.SUCCESS);
+                        .expect(STATUS_CODES.OK);
 
                     const failureCommentCalled = await waitFor(async () => {
                         return mockOctokitService.createComment.mock.calls.length > 0;
@@ -1478,7 +1477,7 @@ describe("GitHub Webhook API Integration Tests", () => {
                         .set("X-Hub-Signature-256", signature)
                         .set("Content-Type", "application/json")
                         .send(payloadString)
-                        .expect(STATUS_CODES.SUCCESS);
+                        .expect(STATUS_CODES.OK);
 
                     const failureCommentCalled = await waitFor(async () => {
                         return mockOctokitService.createComment.mock.calls.length > 0;
@@ -1512,7 +1511,7 @@ describe("GitHub Webhook API Integration Tests", () => {
                         .set("X-Hub-Signature-256", signature)
                         .set("Content-Type", "application/json")
                         .send(payloadString)
-                        .expect(STATUS_CODES.SUCCESS);
+                        .expect(STATUS_CODES.OK);
 
                     const failureCommentCalled = await waitFor(async () => {
                         return mockOctokitService.createComment.mock.calls.length > 0;
@@ -1547,7 +1546,7 @@ describe("GitHub Webhook API Integration Tests", () => {
                 .set("X-GitHub-Delivery", "test-delivery-123")
                 .set("Content-Type", "application/json")
                 .send(payloadString)
-                .expect(STATUS_CODES.SERVER_ERROR);
+                .expect(STATUS_CODES.INTERNAL_SERVER_ERROR);
 
             expect(response.body.message).toBe("API rate limit exceeded");
             expect(response.body.code).toBe("GITHUB_API_ERROR");
@@ -1570,7 +1569,7 @@ describe("GitHub Webhook API Integration Tests", () => {
                 .set("X-GitHub-Delivery", "test-delivery-123")
                 .set("Content-Type", "application/json")
                 .send(payloadString)
-                .expect(STATUS_CODES.SERVER_ERROR);
+                .expect(STATUS_CODES.INTERNAL_SERVER_ERROR);
 
             expect(response.body.message).toBe("Failed to analyze PR changes");
             expect(response.body.code).toBe("PR_ANALYSIS_ERROR");
@@ -1594,7 +1593,7 @@ describe("GitHub Webhook API Integration Tests", () => {
                 .set("X-GitHub-Delivery", "test-delivery-123")
                 .set("Content-Type", "application/json")
                 .send(payloadString)
-                .expect(STATUS_CODES.UNKNOWN);
+                .expect(STATUS_CODES.INTERNAL_SERVER_ERROR);
 
             expect(response.body.message).toBe("Unexpected database connection error");
         });
@@ -1613,7 +1612,7 @@ describe("GitHub Webhook API Integration Tests", () => {
                 .set("X-GitHub-Event", "pull_request")
                 .set("X-Hub-Signature-256", "sha256=test")
                 .send(payloadString)
-                .expect(STATUS_CODES.SERVER_ERROR);
+                .expect(STATUS_CODES.INTERNAL_SERVER_ERROR);
 
             expect(response.body).toMatchObject({
                 message: "GitHub webhook secret not configured",
@@ -1638,7 +1637,7 @@ describe("GitHub Webhook API Integration Tests", () => {
                 .set("X-Hub-Signature-256", invalidSignature)
                 .set("Content-Type", "application/json")
                 .send(payloadString)
-                .expect(STATUS_CODES.SERVER_ERROR);
+                .expect(STATUS_CODES.INTERNAL_SERVER_ERROR);
 
             expect(response.body).toMatchObject({
                 message: "Invalid webhook signature"
@@ -1660,7 +1659,7 @@ describe("GitHub Webhook API Integration Tests", () => {
                 .set("X-GitHub-Event", "pull_request")
                 .set("X-Hub-Signature-256", signature)
                 .send(payload)
-                .expect(STATUS_CODES.SERVER_ERROR);
+                .expect(STATUS_CODES.INTERNAL_SERVER_ERROR);
 
             expect(response.body).toMatchObject({
                 message: "Invalid request body format",
@@ -1708,7 +1707,7 @@ describe("GitHub Webhook API Integration Tests", () => {
             const responses = await Promise.all(webhookPromises);
 
             responses.forEach((response, _i) => {
-                expect(response.status).toBe(STATUS_CODES.BACKGROUND_JOB);
+                expect(response.status).toBe(STATUS_CODES.ACCEPTED);
                 expect(response.body.message).toContain("PR webhook processed");
             });
 

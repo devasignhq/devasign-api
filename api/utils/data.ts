@@ -16,35 +16,39 @@ export const ALLOWED_ORIGINS = [
  * HTTP status codes used throughout the application.
  */
 export const STATUS_CODES = {
-    /**200 */
-    SUCCESS: 200,
-    /**202 */
-    PARTIAL_SUCCESS: 202,
-    /**201 */
+    // --- 2xx Success ---
+    /** 200 */
+    OK: 200,
+    /** 201 */
     CREATED: 201,
-    /**203 */
-    BACKGROUND_JOB: 203,
-    /**204 */
+    /** 202 */
+    ACCEPTED: 202,
+    /** 204 */
     NO_CONTENT: 204,
 
-    /**429 */
-    RATE_LIMIT: 429,
-    /**408 */
-    TIMEOUT: 408,
-
-    /**400 */
-    UNAUTHENTICATED: 400,
-    /**403 */
-    UNAUTHORIZED: 403,
-    /**401 */
-    SERVER_ERROR: 401,
-    /**404 */
+    // --- 4xx Client Errors ---
+    /** 400 */
+    BAD_REQUEST: 400,
+    /** 401 */
+    UNAUTHORIZED: 401,
+    /** 403 */
+    FORBIDDEN: 403,
+    /** 404 */
     NOT_FOUND: 404,
-    /**407 */
-    BAD_PAYLOAD: 407,
-    /**500 */
-    UNKNOWN: 500
+    /** 408 */
+    REQUEST_TIMEOUT: 408,
+    /** 409 */
+    CONFLICT: 409,
+    /** 422 */
+    UNPROCESSABLE_ENTITY: 422,
+    /** 429 */
+    TOO_MANY_REQUESTS: 429,
+
+    // --- 5xx Server Errors ---
+    /** 500 */
+    INTERNAL_SERVER_ERROR: 500
 };
+
 
 /**
  * API endpoint definitions

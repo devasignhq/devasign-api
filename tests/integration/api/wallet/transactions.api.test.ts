@@ -125,7 +125,7 @@ describe("Wallet API Integration Tests", () => {
             const response = await request(app)
                 .get(getEndpointWithPrefix(["WALLET", "TRANSACTIONS", "GET_ALL_USER"]))
                 .set("x-test-user-id", "test-user-1")
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body.data).toHaveLength(3);
             expect(response.body.pagination.hasMore).toBe(false);
@@ -135,7 +135,7 @@ describe("Wallet API Integration Tests", () => {
             const response = await request(app)
                 .get(`${getEndpointWithPrefix(["WALLET", "TRANSACTIONS", "GET_ALL_USER"])}?page=1&limit=2`)
                 .set("x-test-user-id", "test-user-1")
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body.data).toHaveLength(2);
             expect(response.body.pagination.hasMore).toBe(true);
@@ -145,7 +145,7 @@ describe("Wallet API Integration Tests", () => {
             const response = await request(app)
                 .get(`${getEndpointWithPrefix(["WALLET", "TRANSACTIONS", "GET_ALL_USER"])}?sort=asc`)
                 .set("x-test-user-id", "test-user-1")
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body.data).toHaveLength(3);
         });
@@ -223,7 +223,7 @@ describe("Wallet API Integration Tests", () => {
                         .replace(":installationId", installationId)
                 )
                 .set("x-test-user-id", "test-user-1")
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body.data).toHaveLength(3);
             expect(response.body.pagination.hasMore).toBe(false);
@@ -235,7 +235,7 @@ describe("Wallet API Integration Tests", () => {
                     `${getEndpointWithPrefix(["WALLET", "TRANSACTIONS", "GET_ALL_INSTALLATION"]).replace(":installationId", installationId)}?categories=TOP_UP`
                 )
                 .set("x-test-user-id", "test-user-1")
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body.data).toHaveLength(2);
             expect(response.body.data.every((tx: any) =>
@@ -249,7 +249,7 @@ describe("Wallet API Integration Tests", () => {
                     `${getEndpointWithPrefix(["WALLET", "TRANSACTIONS", "GET_ALL_INSTALLATION"]).replace(":installationId", installationId)}?page=1&limit=2`
                 )
                 .set("x-test-user-id", "test-user-1")
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body.data).toHaveLength(2);
             expect(response.body.pagination.hasMore).toBe(true);
@@ -261,7 +261,7 @@ describe("Wallet API Integration Tests", () => {
                     `${getEndpointWithPrefix(["WALLET", "TRANSACTIONS", "GET_ALL_INSTALLATION"]).replace(":installationId", installationId)}?sort=asc`
                 )
                 .set("x-test-user-id", "test-user-1")
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body.data).toHaveLength(3);
         });
@@ -282,7 +282,7 @@ describe("Wallet API Integration Tests", () => {
                         .replace(":installationId", "11111111")
                 )
                 .set("x-test-user-id", "test-user-1")
-                .expect(STATUS_CODES.UNAUTHORIZED);
+                .expect(STATUS_CODES.FORBIDDEN);
         });
     });
 
@@ -323,7 +323,7 @@ describe("Wallet API Integration Tests", () => {
                 .post(getEndpointWithPrefix(["WALLET", "TRANSACTIONS", "RECORD_TOPUPS"]))
                 .set("x-test-user-id", "test-user-1")
                 .send({})
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body).toMatchObject({
                 message: "Successfully processed 2 topup transactions",
@@ -379,7 +379,7 @@ describe("Wallet API Integration Tests", () => {
                 .post(getEndpointWithPrefix(["WALLET", "TRANSACTIONS", "RECORD_TOPUPS"]))
                 .set("x-test-user-id", "test-user-1")
                 .send({})
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body).toMatchObject({
                 message: "No new topup transactions found",
@@ -394,7 +394,7 @@ describe("Wallet API Integration Tests", () => {
                 .post(getEndpointWithPrefix(["WALLET", "TRANSACTIONS", "RECORD_TOPUPS"]))
                 .set("x-test-user-id", "test-user-1")
                 .send({})
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body).toMatchObject({
                 message: "No new topup transactions found",
@@ -432,7 +432,7 @@ describe("Wallet API Integration Tests", () => {
                 .post(getEndpointWithPrefix(["WALLET", "TRANSACTIONS", "RECORD_TOPUPS"]))
                 .set("x-test-user-id", "test-user-1")
                 .send({})
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body).toMatchObject({
                 message: "Successfully processed 1 topup transactions",
@@ -476,7 +476,7 @@ describe("Wallet API Integration Tests", () => {
                 .post(getEndpointWithPrefix(["WALLET", "TRANSACTIONS", "RECORD_TOPUPS"]))
                 .set("x-test-user-id", "test-user-1")
                 .send({})
-                .expect(STATUS_CODES.UNKNOWN);
+                .expect(STATUS_CODES.INTERNAL_SERVER_ERROR);
         });
     });
 });

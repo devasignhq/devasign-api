@@ -26,7 +26,7 @@ export const errorHandler = ((error: unknown, req: Request, res: Response, _next
 
     // Handle custom errors
     if (errorName === "ErrorClass") {
-        const statusCode = getFieldFromUnknownObject<number>(error, "status") || STATUS_CODES.SERVER_ERROR;
+        const statusCode = getFieldFromUnknownObject<number>(error, "status") || STATUS_CODES.INTERNAL_SERVER_ERROR;
 
         return res.status(statusCode).json({
             ...ErrorUtils.sanitizeError(error as ErrorClass)
@@ -35,7 +35,7 @@ export const errorHandler = ((error: unknown, req: Request, res: Response, _next
 
     // Handle express validation errors
     if (errorName === "ValidationError") {
-        return res.status(STATUS_CODES.SERVER_ERROR).json({
+        return res.status(STATUS_CODES.BAD_REQUEST).json({
             message: getFieldFromUnknownObject<string>(error, "message"),
             details: returnError ? getFieldFromUnknownObject<string>(error, "errors") : null
         });
@@ -43,7 +43,7 @@ export const errorHandler = ((error: unknown, req: Request, res: Response, _next
 
     // Handle prisma known request errors
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
-        return res.status(STATUS_CODES.SERVER_ERROR).json({
+        return res.status(STATUS_CODES.INTERNAL_SERVER_ERROR).json({
             message: getFieldFromUnknownObject<string>(error, "message"),
             code: getFieldFromUnknownObject<string>(error, "code"),
             details: returnError ? getFieldFromUnknownObject<string>(error, "errors") : null
@@ -51,7 +51,7 @@ export const errorHandler = ((error: unknown, req: Request, res: Response, _next
     }
 
     // Handle unknown errors
-    res.status(STATUS_CODES.UNKNOWN).json({
+    res.status(STATUS_CODES.INTERNAL_SERVER_ERROR).json({
         message: getFieldFromUnknownObject<string>(error, "message") || "An unknown error occured",
         details: returnError ? error : null
     });

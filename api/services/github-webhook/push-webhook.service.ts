@@ -34,7 +34,7 @@ export class PushWebhookService {
                 dataLogger.info("Push event has no file changes to process", { installationId, repositoryName });
                 responseWrapper({
                     res,
-                    status: STATUS_CODES.SUCCESS,
+                    status: STATUS_CODES.OK,
                     data: { installationId, repositoryName },
                     message: "No file changes to process"
                 });
@@ -56,7 +56,7 @@ export class PushWebhookService {
 
             responseWrapper({
                 res,
-                status: STATUS_CODES.SUCCESS,
+                status: STATUS_CODES.OK,
                 data: {
                     installationId,
                     repositoryName,

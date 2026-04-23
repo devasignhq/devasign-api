@@ -20,7 +20,7 @@ export const handleSumsubWebhook = async (req: Request, res: Response, next: Nex
             dataLogger.warn("Sumsub webhook received without externalUserId", { type });
             return responseWrapper({
                 res,
-                status: STATUS_CODES.SUCCESS,
+                status: STATUS_CODES.OK,
                 message: "Webhook processed (no externalUserId)",
                 data: {}
             });
@@ -84,7 +84,7 @@ export const handleSumsubWebhook = async (req: Request, res: Response, next: Nex
 
         responseWrapper({
             res,
-            status: STATUS_CODES.SUCCESS,
+            status: STATUS_CODES.OK,
             message: "Webhook processed",
             data: {}
         });

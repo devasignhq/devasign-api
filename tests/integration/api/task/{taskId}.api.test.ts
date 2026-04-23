@@ -233,7 +233,7 @@ describe("Task {taskId} API Integration Tests", () => {
                     issueId: "issue-123",
                     bountyLabelId: "label-123"
                 })
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body.data).toMatchObject({
                 id: testTask.id
@@ -256,7 +256,7 @@ describe("Task {taskId} API Integration Tests", () => {
                     issueId: "issue-123",
                     bountyLabelId: "label-123"
                 })
-                .expect(STATUS_CODES.UNAUTHORIZED);
+                .expect(STATUS_CODES.FORBIDDEN);
         });
 
         it("should return error when task is not open", async () => {
@@ -274,7 +274,7 @@ describe("Task {taskId} API Integration Tests", () => {
                     issueId: "issue-123",
                     bountyLabelId: "label-123"
                 })
-                .expect(STATUS_CODES.SERVER_ERROR);
+                .expect(STATUS_CODES.BAD_REQUEST);
         });
 
         it("should return 404 when task not found", async () => {
@@ -305,7 +305,7 @@ describe("Task {taskId} API Integration Tests", () => {
                     issueId: "issue-123",
                     bountyLabelId: "label-123"
                 })
-                .expect(STATUS_CODES.SERVER_ERROR);
+                .expect(STATUS_CODES.BAD_REQUEST);
         });
     });
 
@@ -356,7 +356,7 @@ describe("Task {taskId} API Integration Tests", () => {
                     .replace(":taskId", testTask.id))
                 .set("x-test-user-id", "task-creator")
                 .send({ newBounty: "150" })
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body.data).toMatchObject({
                 bounty: 150,
@@ -373,7 +373,7 @@ describe("Task {taskId} API Integration Tests", () => {
                     .replace(":taskId", testTask.id))
                 .set("x-test-user-id", "task-creator")
                 .send({ newBounty: "50" })
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body.data).toMatchObject({
                 bounty: 50,
@@ -390,7 +390,7 @@ describe("Task {taskId} API Integration Tests", () => {
                     .replace(":taskId", testTask.id))
                 .set("x-test-user-id", "different-user")
                 .send({ newBounty: "150" })
-                .expect(STATUS_CODES.UNAUTHORIZED);
+                .expect(STATUS_CODES.FORBIDDEN);
         });
 
         it("should return error when task has applications", async () => {
@@ -411,7 +411,7 @@ describe("Task {taskId} API Integration Tests", () => {
                     .replace(":taskId", testTask.id))
                 .set("x-test-user-id", "task-creator")
                 .send({ newBounty: "150" })
-                .expect(STATUS_CODES.SERVER_ERROR);
+                .expect(STATUS_CODES.BAD_REQUEST);
 
             expect(response.body.message).toContain("Cannot update the bounty");
         });
@@ -422,7 +422,7 @@ describe("Task {taskId} API Integration Tests", () => {
                     .replace(":taskId", testTask.id))
                 .set("x-test-user-id", "task-creator")
                 .send({ newBounty: "100" })
-                .expect(STATUS_CODES.SERVER_ERROR);
+                .expect(STATUS_CODES.BAD_REQUEST);
 
             expect(response.body.message).toBe("New bounty is the same as current bounty");
         });
@@ -442,7 +442,7 @@ describe("Task {taskId} API Integration Tests", () => {
                     .replace(":taskId", testTask.id))
                 .set("x-test-user-id", "task-creator")
                 .send({ newBounty: "200" })
-                .expect(STATUS_CODES.SERVER_ERROR);
+                .expect(STATUS_CODES.BAD_REQUEST);
 
             expect(response.body.message).toContain("Insufficient USDC balance");
         });
@@ -457,7 +457,7 @@ describe("Task {taskId} API Integration Tests", () => {
                     .replace(":taskId", testTask.id))
                 .set("x-test-user-id", "task-creator")
                 .send({ newBounty: "150" })
-                .expect(STATUS_CODES.PARTIAL_SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body.data).toMatchObject({
                 bountyCommentPosted: false,
@@ -480,7 +480,7 @@ describe("Task {taskId} API Integration Tests", () => {
                     .replace(":taskId", testTask.id))
                 .set("x-test-user-id", "task-creator")
                 .send({ newBounty: "150" })
-                .expect(STATUS_CODES.SERVER_ERROR);
+                .expect(STATUS_CODES.BAD_REQUEST);
         });
     });
 
@@ -530,7 +530,7 @@ describe("Task {taskId} API Integration Tests", () => {
                     .replace(":taskId", testTask.id))
                 .set("x-test-user-id", "task-creator")
                 .send({ newTimeline: 2 })
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body.data).toMatchObject({
                 timeline: 2,
@@ -544,7 +544,7 @@ describe("Task {taskId} API Integration Tests", () => {
                     .replace(":taskId", testTask.id))
                 .set("x-test-user-id", "different-user")
                 .send({ newTimeline: 2 })
-                .expect(STATUS_CODES.UNAUTHORIZED);
+                .expect(STATUS_CODES.FORBIDDEN);
         });
 
         it("should return error when task has applications", async () => {
@@ -565,7 +565,7 @@ describe("Task {taskId} API Integration Tests", () => {
                     .replace(":taskId", testTask.id))
                 .set("x-test-user-id", "task-creator")
                 .send({ newTimeline: 2 })
-                .expect(STATUS_CODES.SERVER_ERROR);
+                .expect(STATUS_CODES.BAD_REQUEST);
 
             expect(response.body.message).toContain("Cannot update the timeline");
         });
@@ -581,7 +581,7 @@ describe("Task {taskId} API Integration Tests", () => {
                     .replace(":taskId", testTask.id))
                 .set("x-test-user-id", "task-creator")
                 .send({ newTimeline: 2 })
-                .expect(STATUS_CODES.SERVER_ERROR);
+                .expect(STATUS_CODES.BAD_REQUEST);
         });
     });
 
@@ -634,7 +634,7 @@ describe("Task {taskId} API Integration Tests", () => {
                 .post(getEndpointWithPrefix(["TASK", "{TASKID}", "APPLY"])
                     .replace(":taskId", testTask.id))
                 .set("x-test-user-id", "applicant")
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body).toMatchObject({
                 message: "Task application submitted"
@@ -662,7 +662,7 @@ describe("Task {taskId} API Integration Tests", () => {
                 .post(getEndpointWithPrefix(["TASK", "{TASKID}", "APPLY"])
                     .replace(":taskId", testTask.id))
                 .set("x-test-user-id", "applicant")
-                .expect(STATUS_CODES.SERVER_ERROR);
+                .expect(STATUS_CODES.BAD_REQUEST);
 
             expect(response.body.message).toContain("You have already applied");
         });
@@ -677,7 +677,7 @@ describe("Task {taskId} API Integration Tests", () => {
                 .post(getEndpointWithPrefix(["TASK", "{TASKID}", "APPLY"])
                     .replace(":taskId", testTask.id))
                 .set("x-test-user-id", "applicant")
-                .expect(STATUS_CODES.SERVER_ERROR);
+                .expect(STATUS_CODES.BAD_REQUEST);
 
             expect(response.body.message).toBe("This task has already been delegated to someone else");
         });
@@ -700,7 +700,7 @@ describe("Task {taskId} API Integration Tests", () => {
                 .post(getEndpointWithPrefix(["TASK", "{TASKID}", "APPLY"])
                     .replace(":taskId", testTask.id))
                 .set("x-test-user-id", "applicant")
-                .expect(STATUS_CODES.SERVER_ERROR);
+                .expect(STATUS_CODES.BAD_REQUEST);
         });
 
         it("should fetch user tech stack when user has empty tech stack", async () => {
@@ -711,7 +711,7 @@ describe("Task {taskId} API Integration Tests", () => {
                 .post(getEndpointWithPrefix(["TASK", "{TASKID}", "APPLY"])
                     .replace(":taskId", testTask.id))
                 .set("x-test-user-id", "applicant")
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body).toMatchObject({
                 message: "Task application submitted"
@@ -736,7 +736,7 @@ describe("Task {taskId} API Integration Tests", () => {
                 .post(getEndpointWithPrefix(["TASK", "{TASKID}", "APPLY"])
                     .replace(":taskId", testTask.id))
                 .set("x-test-user-id", "user-with-tech")
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body).toMatchObject({
                 message: "Task application submitted"
@@ -810,7 +810,7 @@ describe("Task {taskId} API Integration Tests", () => {
                     .replace(":taskId", testTask.id)
                     .replace(":contributorId", contributorId))
                 .set("x-test-user-id", "task-creator")
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body.data).toMatchObject({
                 id: testTask.id,
@@ -835,7 +835,7 @@ describe("Task {taskId} API Integration Tests", () => {
                     .replace(":taskId", testTask.id)
                     .replace(":contributorId", contributorId))
                 .set("x-test-user-id", "different-user")
-                .expect(STATUS_CODES.UNAUTHORIZED);
+                .expect(STATUS_CODES.FORBIDDEN);
         });
 
         it("should return error when contributor did not apply", async () => {
@@ -850,7 +850,7 @@ describe("Task {taskId} API Integration Tests", () => {
                     .replace(":taskId", testTask.id)
                     .replace(":contributorId", nonApplicantId))
                 .set("x-test-user-id", "task-creator")
-                .expect(STATUS_CODES.SERVER_ERROR);
+                .expect(STATUS_CODES.BAD_REQUEST);
         });
 
         it("should return error when task already has contributor", async () => {
@@ -867,7 +867,7 @@ describe("Task {taskId} API Integration Tests", () => {
                     .replace(":taskId", testTask.id)
                     .replace(":contributorId", contributorId))
                 .set("x-test-user-id", "task-creator")
-                .expect(STATUS_CODES.SERVER_ERROR);
+                .expect(STATUS_CODES.BAD_REQUEST);
         });
 
         it("should handle partial success when Firebase fails", async () => {
@@ -880,7 +880,7 @@ describe("Task {taskId} API Integration Tests", () => {
                     .replace(":taskId", testTask.id)
                     .replace(":contributorId", contributorId))
                 .set("x-test-user-id", "task-creator")
-                .expect(STATUS_CODES.PARTIAL_SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body.data).toMatchObject({
                 id: testTask.id,
@@ -900,7 +900,7 @@ describe("Task {taskId} API Integration Tests", () => {
                     .replace(":taskId", testTask.id)
                     .replace(":contributorId", contributorId))
                 .set("x-test-user-id", "task-creator")
-                .expect(STATUS_CODES.SERVER_ERROR);
+                .expect(STATUS_CODES.BAD_REQUEST);
         });
     });
 
@@ -963,7 +963,7 @@ describe("Task {taskId} API Integration Tests", () => {
                     reason: "Need more time to complete",
                     attachments: []
                 })
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             // Verify Firebase service was called
             expect(mockFirebaseService.createMessage).toHaveBeenCalledTimes(1);
@@ -979,7 +979,7 @@ describe("Task {taskId} API Integration Tests", () => {
                     requestedTimeline: 1,
                     reason: "Need more time"
                 })
-                .expect(STATUS_CODES.SERVER_ERROR);
+                .expect(STATUS_CODES.BAD_REQUEST);
         });
 
         it("should return error when task is not in progress", async () => {
@@ -997,7 +997,7 @@ describe("Task {taskId} API Integration Tests", () => {
                     requestedTimeline: 1,
                     reason: "Need more time"
                 })
-                .expect(STATUS_CODES.SERVER_ERROR);
+                .expect(STATUS_CODES.BAD_REQUEST);
         });
     });
 
@@ -1058,7 +1058,7 @@ describe("Task {taskId} API Integration Tests", () => {
                     accept: true,
                     requestedTimeline: 1
                 })
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body.data).toMatchObject({
                 message: expect.any(Object),
@@ -1078,7 +1078,7 @@ describe("Task {taskId} API Integration Tests", () => {
                     accept: false,
                     requestedTimeline: 1
                 })
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body.data).toMatchObject({
                 message: expect.any(Object)
@@ -1100,7 +1100,7 @@ describe("Task {taskId} API Integration Tests", () => {
                     accept: true,
                     requestedTimeline: 1
                 })
-                .expect(STATUS_CODES.SERVER_ERROR);
+                .expect(STATUS_CODES.BAD_REQUEST);
         });
 
 
@@ -1162,7 +1162,7 @@ describe("Task {taskId} API Integration Tests", () => {
                     pullRequest: "https://github.com/owner/repo/pull/123",
                     attachmentUrl: "https://example.com/attachment.pdf"
                 })
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body.data).toMatchObject({
                 status: "MARKED_AS_COMPLETED",
@@ -1192,7 +1192,7 @@ describe("Task {taskId} API Integration Tests", () => {
                 .send({
                     pullRequest: "https://github.com/owner/repo/pull/123"
                 })
-                .expect(STATUS_CODES.UNAUTHORIZED);
+                .expect(STATUS_CODES.FORBIDDEN);
         });
 
         it("should return error when task is not in progress", async () => {
@@ -1208,7 +1208,7 @@ describe("Task {taskId} API Integration Tests", () => {
                 .send({
                     pullRequest: "https://github.com/owner/repo/pull/123"
                 })
-                .expect(STATUS_CODES.SERVER_ERROR);
+                .expect(STATUS_CODES.BAD_REQUEST);
         });
     });
 
@@ -1273,7 +1273,7 @@ describe("Task {taskId} API Integration Tests", () => {
                 .post(getEndpointWithPrefix(["TASK", "{TASKID}", "VALIDATE_COMPLETION"])
                     .replace(":taskId", testTask.id))
                 .set("x-test-user-id", "task-creator")
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body.data).toMatchObject({
                 status: "COMPLETED",
@@ -1301,7 +1301,7 @@ describe("Task {taskId} API Integration Tests", () => {
                 .post(getEndpointWithPrefix(["TASK", "{TASKID}", "VALIDATE_COMPLETION"])
                     .replace(":taskId", testTask.id))
                 .set("x-test-user-id", "different-user")
-                .expect(STATUS_CODES.UNAUTHORIZED);
+                .expect(STATUS_CODES.FORBIDDEN);
         });
 
         it("should return error when task is not marked as completed", async () => {
@@ -1314,7 +1314,7 @@ describe("Task {taskId} API Integration Tests", () => {
                 .post(getEndpointWithPrefix(["TASK", "{TASKID}", "VALIDATE_COMPLETION"])
                     .replace(":taskId", testTask.id))
                 .set("x-test-user-id", "task-creator")
-                .expect(STATUS_CODES.SERVER_ERROR);
+                .expect(STATUS_CODES.BAD_REQUEST);
         });
 
         it("should return error when contributor is not found", async () => {
@@ -1326,7 +1326,7 @@ describe("Task {taskId} API Integration Tests", () => {
                 .post(getEndpointWithPrefix(["TASK", "{TASKID}", "VALIDATE_COMPLETION"])
                     .replace(":taskId", testTask.id))
                 .set("x-test-user-id", "task-creator")
-                .expect(STATUS_CODES.SERVER_ERROR);
+                .expect(STATUS_CODES.BAD_REQUEST);
 
             expect(response.body.message).toContain("Contributor not found");
         });
@@ -1338,7 +1338,7 @@ describe("Task {taskId} API Integration Tests", () => {
                 .post(getEndpointWithPrefix(["TASK", "{TASKID}", "VALIDATE_COMPLETION"])
                     .replace(":taskId", testTask.id))
                 .set("x-test-user-id", "task-creator")
-                .expect(STATUS_CODES.PARTIAL_SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body.warning).toContain("Failed to disable chat for the task.");
         });

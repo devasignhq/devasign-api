@@ -35,7 +35,7 @@ export class InstallationWebhookService {
                 default:
                     responseWrapper({
                         res,
-                        status: STATUS_CODES.SUCCESS,
+                        status: STATUS_CODES.OK,
                         data: { action },
                         message: "Installation action not processed"
                     });
@@ -73,7 +73,7 @@ export class InstallationWebhookService {
 
             responseWrapper({
                 res,
-                status: STATUS_CODES.SUCCESS,
+                status: STATUS_CODES.OK,
                 data: { installationId },
                 message: "Installation creation logged"
             });
@@ -110,7 +110,7 @@ export class InstallationWebhookService {
                 // Installation not found
                 return responseWrapper({
                     res,
-                    status: STATUS_CODES.SUCCESS,
+                    status: STATUS_CODES.OK,
                     data: { installationId },
                     message: "Installation not found in database, skipping archive"
                 });
@@ -166,7 +166,7 @@ export class InstallationWebhookService {
 
             responseWrapper({
                 res,
-                status: STATUS_CODES.SUCCESS,
+                status: STATUS_CODES.OK,
                 data: { installationId, refundedAmount },
                 message: `Installation archived and ${refundedAmount} USDC refunded`
             });
@@ -223,7 +223,7 @@ export class InstallationWebhookService {
 
             responseWrapper({
                 res,
-                status: STATUS_CODES.SUCCESS,
+                status: STATUS_CODES.OK,
                 data: { installationId },
                 message: "Installation reactivated"
             });
