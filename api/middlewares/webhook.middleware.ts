@@ -5,6 +5,7 @@ import { OctokitService } from "../services/octokit.service.js";
 import { STATUS_CODES } from "../utils/data.js";
 import { dataLogger } from "../config/logger.config.js";
 import { responseWrapper } from "../utils/helper.js";
+import { Env } from "../utils/env.js";
 
 /**
  * Middleware to validate GitHub webhook signatures
@@ -13,7 +14,7 @@ export const validateGitHubWebhook = (req: Request, res: Response, next: NextFun
     try {
         // Get and validate signature and secret
         const signature = req.get("X-Hub-Signature-256");
-        const secret = process.env.GITHUB_WEBHOOK_SECRET;
+        const secret = Env.githubWebhookSecret();
 
         if (!secret) {
             throw new GitHubWebhookError("GitHub webhook secret not configured");
@@ -344,7 +345,7 @@ export const validateSumsubWebhook = (req: Request, res: Response, next: NextFun
     try {
         // Get signature and secret
         const signature = req.get("x-payload-digest");
-        const secret = process.env.SUMSUB_WEBHOOK_SECRET;
+        const secret = Env.sumsubWebhookSecret();
 
         if (!secret) {
             throw new SumsubWebhookError("Sumsub webhook secret not configured");

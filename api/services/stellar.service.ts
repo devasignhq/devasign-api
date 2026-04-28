@@ -14,6 +14,7 @@ import {
 } from "../config/stellar.config.js";
 import { HorizonApi } from "../models/horizonapi.model.js";
 import { StellarServiceError } from "../models/error.model.js";
+import { Env } from "../utils/env.js";
 
 /**
  * Service for managing Stellar blockchain operations.
@@ -32,7 +33,7 @@ export class StellarService {
      */
     constructor() {
         // Verify required environment variables are present
-        if (!process.env.STELLAR_MASTER_SECRET_KEY || !process.env.STELLAR_MASTER_PUBLIC_KEY) {
+        if (!Env.stellarMasterSecretKey() || !Env.stellarMasterPublicKey()) {
             throw new StellarServiceError("Missing Stellar master account credentials in environment variables");
         }
 
@@ -40,7 +41,7 @@ export class StellarService {
 
         try {
             // Create keypair from the master secret key
-            this.masterAccount = Keypair.fromSecret(process.env.STELLAR_MASTER_SECRET_KEY);
+            this.masterAccount = Keypair.fromSecret(Env.stellarMasterSecretKey());
         } catch (error) {
             throw new StellarServiceError("Invalid Stellar master account credentials", error);
         }

@@ -5,6 +5,7 @@ import { STATUS_CODES } from "../../utils/data.js";
 import { responseWrapper } from "../../utils/helper.js";
 import { ErrorClass } from "../../models/error.model.js";
 import { statsigService } from "../../services/statsig.service.js";
+import { Env } from "../../utils/env.js";
 
 /**
  * Generate Sumsub SDK access token
@@ -23,10 +24,10 @@ export const generateSumsubSdkToken = async (req: Request, res: Response, next: 
             });
         }
 
-        const SUMSUB_APP_TOKEN = process.env.SUMSUB_APP_TOKEN!;
-        const SUMSUB_SECRET_KEY = process.env.SUMSUB_SECRET_KEY!;
-        const SUMSUB_LEVEL_NAME = process.env.SUMSUB_LEVEL_NAME!;
-        const SUMSUB_BASE_URL = process.env.SUMSUB_BASE_URL || "https://api.sumsub.com";
+        const SUMSUB_APP_TOKEN = Env.sumsubAppToken(true);
+        const SUMSUB_SECRET_KEY = Env.sumsubSecretKey(true);
+        const SUMSUB_LEVEL_NAME = Env.sumsubLevelName(true);
+        const SUMSUB_BASE_URL = Env.sumsubBaseUrl() || "https://api.sumsub.com";
 
         // Generate the request URL, timestamp and request body
         const url = "/resources/accessTokens/sdk";

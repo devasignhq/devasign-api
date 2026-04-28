@@ -6,6 +6,7 @@ import { getFieldFromUnknownObject } from "../utils/helper.js";
 import { Request, Response, NextFunction } from "express";
 import { AuthorizationError, ErrorClass, ValidationError } from "../models/error.model.js";
 import { dataLogger } from "../config/logger.config.js";
+import { Env } from "../utils/env.js";
 
 // Google OAuth2 client used to verify OIDC tokens.
 const authClient = new OAuth2Client();
@@ -92,13 +93,13 @@ export const validateUserInstallation = async (req: Request, res: Response, next
  */
 export const validateCloudTasksRequest = async (req: Request, _res: Response, next: NextFunction) => {
     // Skip OIDC validation in development/test to allow local testing
-    if (process.env.NODE_ENV !== "production") {
+    if (Env.nodeEnv() !== "production") {
         return next();
     }
 
     // The service account email that Cloud Tasks uses to sign OIDC tokens.
     // This must match the `oidcToken.serviceAccountEmail` configured in the Cloud Tasks service.
-    const CLOUD_TASKS_SERVICE_ACCOUNT_EMAIL = process.env.CLOUD_TASKS_SERVICE_ACCOUNT_EMAIL;
+    const CLOUD_TASKS_SERVICE_ACCOUNT_EMAIL = Env.cloudTasksServiceAccountEmail();
 
     try {
         // Extract the Bearer token from the Authorization header
@@ -109,7 +110,7 @@ export const validateCloudTasksRequest = async (req: Request, _res: Response, ne
 
         const token = authHeader.split("Bearer ")[1];
 
-        if (!process.env.CLOUD_RUN_SERVICE_URL) {
+        if (!Env.cloudRunServiceUrl()) {
             throw new ErrorClass(
                 "SERVER_MISCONFIGURATION",
                 null,
@@ -121,7 +122,7 @@ export const validateCloudTasksRequest = async (req: Request, _res: Response, ne
         // Verify the OIDC token
         const ticket = await authClient.verifyIdToken({
             idToken: token,
-            audience: process.env.CLOUD_RUN_SERVICE_URL
+            audience: Env.cloudRunServiceUrl(true)
         });
 
         const payload = ticket.getPayload();

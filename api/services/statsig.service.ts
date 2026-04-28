@@ -1,4 +1,5 @@
 import statsigPkg, { type StatsigUser } from "statsig-node";
+import { Env } from "../utils/env.js";
 import { dataLogger } from "../config/logger.config.js";
 
 const statsig = statsigPkg.default || statsigPkg;
@@ -8,7 +9,7 @@ const statsig = statsigPkg.default || statsigPkg;
  */
 class StatsigService {
     private isInitialized = false;
-    private isProduction = process.env.NODE_ENV === "production";
+    private isProduction = Env.nodeEnv() === "production";
 
     /**
      * Initialize Statsig
@@ -22,7 +23,7 @@ class StatsigService {
         }
 
         // Check if STATSIG_API_KEY is set
-        const serverSecret = process.env.STATSIG_API_KEY;
+        const serverSecret = Env.statsigApiKey(true);
         if (!serverSecret) {
             dataLogger.warn("STATSIG_API_KEY is not set. Statsig will not be initialized.");
             return;

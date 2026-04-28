@@ -1,14 +1,15 @@
 import {
-    Keypair,
+    Address,
     Contract,
+    Keypair,
+    nativeToScVal,
+    scValToNative,
     rpc as SorobanRpc,
     TransactionBuilder,
     Networks,
-    xdr,
-    Address,
-    nativeToScVal,
-    scValToNative
+    xdr
 } from "@stellar/stellar-sdk";
+import { Env } from "../utils/env.js";
 import { EscrowContractError } from "../models/error.model.js";
 
 /**
@@ -16,14 +17,13 @@ import { EscrowContractError } from "../models/error.model.js";
  */
 export class ContractService {
     static {
-        const requiredVars = [
-            "STELLAR_NETWORK",
-            "STELLAR_RPC_URL",
-            "TASK_ESCROW_CONTRACT_ID",
-            "USDC_CONTRACT_ID",
-            "STELLAR_MASTER_PUBLIC_KEY"
-        ];
-        const missing = requiredVars.filter(v => !process.env[v]);
+        // Verify required environment variables are present
+        const missing: string[] = [];
+        if (!Env.stellarNetwork()) missing.push("STELLAR_NETWORK");
+        if (!Env.stellarRpcUrl()) missing.push("STELLAR_RPC_URL");
+        if (!Env.taskEscrowContractId()) missing.push("TASK_ESCROW_CONTRACT_ID");
+        if (!Env.usdcContractId()) missing.push("USDC_CONTRACT_ID");
+        if (!Env.stellarMasterPublicKey()) missing.push("STELLAR_MASTER_PUBLIC_KEY");
         if (missing.length > 0) {
             throw new EscrowContractError(`Missing required environment variables for ContractService: ${missing.join(", ")}`);
         }
@@ -31,15 +31,15 @@ export class ContractService {
 
     // Soroban network configuration loaded from environment variables
     private static CONFIG = {
-        network: process.env.STELLAR_NETWORK!,
-        rpcUrl: process.env.STELLAR_RPC_URL!,
-        networkPassphrase: process.env.STELLAR_NETWORK === "public"
+        network: Env.stellarNetwork(true),
+        rpcUrl: Env.stellarRpcUrl(true),
+        networkPassphrase: Env.stellarNetwork() === "public"
             ? Networks.PUBLIC
             : Networks.TESTNET,
-        contractId: process.env.TASK_ESCROW_CONTRACT_ID!,
-        usdcContractId: process.env.USDC_CONTRACT_ID!,
-        masterPublicKey: process.env.STELLAR_MASTER_PUBLIC_KEY!,
-        maxFee: process.env.MAX_FEE || "1000000"
+        contractId: Env.taskEscrowContractId(true),
+        usdcContractId: Env.usdcContractId(true),
+        masterPublicKey: Env.stellarMasterPublicKey(true),
+        maxFee: Env.maxFee() || "1000000"
     };
 
     // Soroban RPC server instance for network communication

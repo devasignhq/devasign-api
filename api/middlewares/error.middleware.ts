@@ -4,6 +4,7 @@ import { STATUS_CODES } from "../utils/data.js";
 import { getFieldFromUnknownObject } from "../utils/helper.js";
 import { dataLogger } from "../config/logger.config.js";
 import { Prisma } from "../../prisma_client/index.js";
+import { Env } from "../utils/env.js";
 
 /**
  * Centralized error handling middleware
@@ -22,7 +23,7 @@ export const errorHandler = ((error: unknown, req: Request, res: Response, _next
     );
 
     const errorName = getFieldFromUnknownObject<string>(error, "name");
-    const returnError = process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test";
+    const returnError = Env.nodeEnv() === "development" || Env.nodeEnv() === "test";
 
     // Handle custom errors
     if (errorName === "ErrorClass") {

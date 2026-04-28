@@ -10,6 +10,7 @@ import { Prisma } from "../../../prisma_client/index.js";
 import { KMSService } from "../../services/kms.service.js";
 import { OctokitService } from "../../services/octokit.service.js";
 import { statsigService } from "../../services/statsig.service.js";
+import { Env } from "../../utils/env.js";
 
 // User's address book
 export type AddressBook = {
@@ -124,7 +125,7 @@ export const createUser = async (req: Request, res: Response, next: NextFunction
         try {
             // Add USDC trustline to wallet
             await stellarService.addTrustLineViaSponsor(
-                process.env.STELLAR_MASTER_SECRET_KEY!,
+                Env.stellarMasterSecretKey(true),
                 userWallet.secretKey
             );
 
@@ -337,7 +338,7 @@ export const getUser = async (req: Request, res: Response, next: NextFunction) =
         try {
             // Add USDC trustline to wallet
             await stellarService.addTrustLineViaSponsor(
-                process.env.STELLAR_MASTER_SECRET_KEY!,
+                Env.stellarMasterSecretKey(true),
                 userWallet.secretKey
             );
             walletStatus.usdcTrustline = true;

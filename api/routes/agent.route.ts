@@ -6,21 +6,24 @@ import { ExactStellarScheme } from "@x402/stellar/exact/server";
 import { ENDPOINTS, STATUS_CODES } from "../utils/data.js";
 import { responseWrapper } from "../utils/helper.js";
 import { ValidationError } from "../models/error.model.js";
+import { Env } from "../utils/env.js";
 
-// const network = `stellar:${process.env.STELLAR_NETWORK === "testnet" ? "testnet" : "pubnet"}` as `${string}:${string}`;
+// const network = `stellar:${Env.stellarNetwork() === "testnet" ? "testnet" : "pubnet"}` as `${string}:${string}`;
 const network = "stellar:testnet" as `${string}:${string}`;
-const facilitatorUrl = process.env.X402_FACILITATOR_URL;
-const payTo = process.env.X402_PAYEE_ADDRESS;
-const facilitatorApiKey = process.env.X402_API_KEY;
+const facilitatorUrl = Env.x402FacilitatorUrl();
+const x402Config = {
+    payeeAddress: Env.x402PayeeAddress() || "0",
+    facilitatorUrl: Env.x402FacilitatorUrl() || ""
+};
 
 export const agentRoutes = Router();
 
-if (facilitatorUrl && payTo && facilitatorApiKey) {
+if (facilitatorUrl && x402Config.payeeAddress && Env.x402ApiKey()) {
     // Initialize x402 facilitator client
     const facilitatorClient = new HTTPFacilitatorClient({
         url: facilitatorUrl,
         createAuthHeaders: async () => {
-            const headers = { Authorization: `Bearer ${facilitatorApiKey}` };
+            const headers = { Authorization: `Bearer ${Env.x402ApiKey()}` };
             return { verify: headers, settle: headers, supported: headers };
         }
     });
@@ -55,7 +58,7 @@ if (facilitatorUrl && payTo && facilitatorApiKey) {
                         scheme: "exact",
                         price: "$0.50",
                         network,
-                        payTo
+                        payTo: x402Config.payeeAddress
                     },
                     description: "Pull request review",
                     mimeType: "application/json"

@@ -1,6 +1,7 @@
 import { Horizon, Asset, Networks } from "@stellar/stellar-sdk";
+import { Env } from "../utils/env.js";
 
-export const isMainnet = process.env.STELLAR_NETWORK === "public";
+export const isMainnet = Env.stellarNetwork() === "public";
 
 export const horizonUrl = isMainnet
     ? "https://horizon.stellar.org"
@@ -19,5 +20,5 @@ export const anchorHomeDomain = isMainnet
 export const xlmAsset = Asset.native();
 export const usdcAsset = new Asset(
     "USDC",
-    process.env.USDC_ASSET_ID!
+    Env.usdcAssetId(true)
 );

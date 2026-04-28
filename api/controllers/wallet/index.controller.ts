@@ -9,6 +9,7 @@ import { stellarService } from "../../services/stellar.service.js";
 import { NotFoundError, ValidationError } from "../../models/error.model.js";
 import { KMSService } from "../../services/kms.service.js";
 import { statsigService } from "../../services/statsig.service.js";
+import { Env } from "../../utils/env.js";
 
 type USDCBalance = HorizonApi.BalanceLineAsset<"credit_alphanum12">;
 
@@ -142,7 +143,7 @@ export const withdrawAsset = async (req: Request, res: Response, next: NextFunct
             ));
         } else {
             // User wallet withdrawals — master account sponsors the transaction fee
-            const masterSecret = process.env.STELLAR_MASTER_SECRET_KEY!;
+            const masterSecret = Env.stellarMasterSecretKey(true);
             ({ txHash } = await stellarService.transferAssetViaSponsor(
                 masterSecret,
                 walletSecret,

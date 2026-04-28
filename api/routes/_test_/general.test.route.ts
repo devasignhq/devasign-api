@@ -6,6 +6,7 @@ import {
     encryptionSchema,
     decryptionSchema
 } from "./test.schema.js";
+import { Env } from "../../utils/env.js";
 import { KMSService } from "../../services/kms.service.js";
 import { prisma } from "../../config/database.config.js";
 import { STATUS_CODES } from "../../utils/data.js";
@@ -97,7 +98,7 @@ router.post("/create-packages", async (_, res: Response, next: NextFunction) => 
         const packages = await prisma.subscriptionPackage.createMany({
             data: [
                 {
-                    id: process.env.DEFAULT_SUBSCRIPTION_PACKAGE_ID || "cml9shfp300001jfka71z28ay",
+                    id: Env.defaultSubscriptionPackageId() || "cml9shfp300001jfka71z28ay",
                     name: "Free",
                     description: "Basic plan for personal use",
                     maxTasks: 5,

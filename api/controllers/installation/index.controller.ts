@@ -10,6 +10,7 @@ import { dataLogger } from "../../config/logger.config.js";
 import { KMSService } from "../../services/kms.service.js";
 import { InstallationStatus, Task } from "../../../prisma_client/index.js";
 import { TaskIssue } from "../../models/task.model.js";
+import { Env } from "../../utils/env.js";
 
 /**
  * Create a new installation.
@@ -159,7 +160,7 @@ export const createInstallation = async (req: Request, res: Response, next: Next
                         connect: { userId }
                     },
                     subscriptionPackage: {
-                        connect: { id: process.env.DEFAULT_SUBSCRIPTION_PACKAGE_ID! }
+                        connect: { id: Env.defaultSubscriptionPackageId(true) }
                     }
                 },
                 select
@@ -169,7 +170,7 @@ export const createInstallation = async (req: Request, res: Response, next: Next
         try {
             // Add USDC trustline only if it's a new wallet
             if (isNewWallet) {
-                const masterAccountSecret = process.env.STELLAR_MASTER_SECRET_KEY!;
+                const masterAccountSecret = Env.stellarMasterSecretKey(true);
 
                 await stellarService.addTrustLineViaSponsor(
                     masterAccountSecret,

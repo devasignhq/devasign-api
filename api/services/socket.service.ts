@@ -1,7 +1,7 @@
 import { Server as SocketIOServer } from "socket.io";
 import { Server as HttpServer } from "http";
-import { ALLOWED_ORIGINS } from "../utils/data.js";
 import { messageLogger } from "../config/logger.config.js";
+import { Env } from "../utils/env.js";
 
 /**
  * Represents an activity event in the application.
@@ -39,7 +39,7 @@ export class SocketService {
         this.io = new SocketIOServer(httpServer, {
             cors: {
                 origin(origin, callback) {
-                    if (!origin || ALLOWED_ORIGINS.includes(origin)) {
+                    if (!origin || Env.corsOrigins(true).includes(origin)) {
                         callback(null, true);
                     } else {
                         callback(new Error("Not allowed by CORS"));

@@ -1,4 +1,5 @@
 import { STATUS_CODES } from "../utils/data.js";
+import { Env } from "../utils/env.js";
 
 /**
  * Base error class for general api errors
@@ -400,7 +401,7 @@ export class ErrorUtils {
      * Sanitizes error for client response (removes sensitive data)
      */
     static sanitizeError(error: ErrorClass) {
-        return (process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test")
+        return Env.nodeEnv() !== "production"
             ? { ...error }
             : {
                 message: error.message,

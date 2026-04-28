@@ -1,4 +1,5 @@
 import { App, Octokit } from "octokit";
+import { Env } from "../utils/env.js";
 import {
     BOUNTY_LABEL,
     BOUNTY_PAID_LABEL,
@@ -15,21 +16,21 @@ import { GitHubAPIError } from "../models/error.model.js";
 import { dataLogger, messageLogger } from "../config/logger.config.js";
 import { LinkedIssue } from "../models/ai-review.model.js";
 
-const commentCTA = `${process.env.CONTRIBUTOR_APP_URL!}/application`;
+const commentCTA = `${Env.contributorAppUrl(true)}/application`;
 
 // Verify required environment variables are present
-if (!process.env.GITHUB_APP_ID || !process.env.GITHUB_APP_PRIVATE_KEY) {
+if (!Env.githubAppId() || !Env.githubAppPrivateKey()) {
     throw new GitHubAPIError("Missing GitHub App credentials (GITHUB_APP_ID, GITHUB_APP_PRIVATE_KEY) in environment variables");
 }
 
 export class OctokitService {
     private static githubApp = new App({
-        appId: process.env.GITHUB_APP_ID!,
-        privateKey: process.env.GITHUB_APP_PRIVATE_KEY!.toString().replace(/\\n/g, "\n")
+        appId: Env.githubAppId(true),
+        privateKey: Env.githubAppPrivateKey(true).replace(/\\n/g, "\n")
     });
 
     private static systemOctokit = new Octokit({
-        auth: process.env.GITHUB_ACCESS_TOKEN
+        auth: Env.githubAccessToken()
     });
 
     /**
