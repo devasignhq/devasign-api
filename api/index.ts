@@ -43,13 +43,15 @@ SocketService.initialize(httpServer);
 // Define port
 const PORT = Env.port() || 8080;
 
+// Get allowed origins for CORS
+const allowedOrigins = Env.corsOrigins(true);
+
 // Security middleware
 app.use(helmet());
 app.use(
     cors({
         origin(origin, callback) {
-            // Allowed origins
-            if (!origin || Env.corsOrigins(true).includes(origin)) {
+            if (!origin || allowedOrigins.includes(origin)) {
                 return callback(null, true);
             }
             callback(new ErrorClass(
