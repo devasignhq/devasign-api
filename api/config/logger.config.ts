@@ -1,7 +1,7 @@
 import winston from "winston";
 import { Env } from "../utils/env.js";
 
-const LOG_LEVEL = "info";
+const LOG_LEVEL = Env.logLevel() || "info";
 const NODE_ENV = Env.nodeEnv() || "development";
 
 // Define log levels and colors

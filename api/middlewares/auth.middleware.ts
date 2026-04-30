@@ -99,7 +99,9 @@ export const validateCloudTasksRequest = async (req: Request, _res: Response, ne
 
     // The service account email that Cloud Tasks uses to sign OIDC tokens.
     // This must match the `oidcToken.serviceAccountEmail` configured in the Cloud Tasks service.
-    const CLOUD_TASKS_SERVICE_ACCOUNT_EMAIL = Env.cloudTasksServiceAccountEmail();
+    const cloudTasksServiceAccountEmail = Env.cloudTasksServiceAccountEmail(true);
+    // The URL where this application is hosted
+    const cloudRunServiceUrl = Env.cloudRunServiceUrl(true);
 
     try {
         // Extract the Bearer token from the Authorization header
@@ -110,19 +112,10 @@ export const validateCloudTasksRequest = async (req: Request, _res: Response, ne
 
         const token = authHeader.split("Bearer ")[1];
 
-        if (!Env.cloudRunServiceUrl()) {
-            throw new ErrorClass(
-                "SERVER_MISCONFIGURATION",
-                null,
-                "Server misconfiguration: CLOUD_RUN_SERVICE_URL is missing",
-                STATUS_CODES.INTERNAL_SERVER_ERROR
-            );
-        }
-
         // Verify the OIDC token
         const ticket = await authClient.verifyIdToken({
             idToken: token,
-            audience: Env.cloudRunServiceUrl(true)
+            audience: cloudRunServiceUrl
         });
 
         const payload = ticket.getPayload();
@@ -131,9 +124,9 @@ export const validateCloudTasksRequest = async (req: Request, _res: Response, ne
         }
 
         // Verify the token was issued for the expected Cloud Tasks service account
-        if (payload.email !== CLOUD_TASKS_SERVICE_ACCOUNT_EMAIL) {
+        if (payload.email !== cloudTasksServiceAccountEmail) {
             dataLogger.warn("OIDC token email mismatch on internal route", {
-                expected: CLOUD_TASKS_SERVICE_ACCOUNT_EMAIL,
+                expected: cloudTasksServiceAccountEmail,
                 received: payload.email,
                 path: req.path
             });

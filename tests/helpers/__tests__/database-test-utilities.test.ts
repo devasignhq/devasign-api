@@ -1,4 +1,4 @@
-import { vi, describe, it, expect, beforeAll, beforeEach, afterAll } from "vitest";
+import { describe, it, expect, beforeAll, beforeEach, afterAll } from "vitest";
 import { DatabaseTestHelper } from "../database-test-helper.js";
 import { DatabaseTestUtilities } from "../database-test-utilities.js";
 import { TestDataFactory } from "../test-data-factory.js";

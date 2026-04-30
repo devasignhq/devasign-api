@@ -41,9 +41,7 @@ const httpServer = createServer(app);
 SocketService.initialize(httpServer);
 
 // Define port
-const PORT = Env.nodeEnv() === "development"
-    ? 5000
-    : (Env.port() || 8080);
+const PORT = Env.port() || 8080;
 
 // Security middleware
 app.use(helmet());

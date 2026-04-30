@@ -1,3 +1,6 @@
+import { ErrorClass } from "../models/error.model.js";
+import { STATUS_CODES } from "./data.js";
+
 /**
  * Env class to get environment variables
  */
@@ -5,7 +8,12 @@ export class Env {
     private static getOrThrowError(key: string): string {
         const value = process.env[key];
         if (!value) {
-            throw new Error(`Missing environment variable: ${key}`);
+            throw new ErrorClass(
+                "SERVER_MISCONFIGURATION",
+                null,
+                `Missing environment variable: ${key}`,
+                STATUS_CODES.INTERNAL_SERVER_ERROR
+            );
         }
         return value;
     }
@@ -192,13 +200,6 @@ export class Env {
         return process.env.GCP_KEY_ID as string;
     }
 
-    static geminiModel(throwError: boolean = false): string {
-        if (throwError) {
-            return this.getOrThrowError("GEMINI_MODEL");
-        }
-        return process.env.GEMINI_MODEL as string;
-    }
-
     static cloudTasksPrAnalysisQueue(throwError: boolean = false): string {
         if (throwError) {
             return this.getOrThrowError("CLOUD_TASKS_PR_ANALYSIS_QUEUE");
@@ -311,6 +312,13 @@ export class Env {
         return process.env.SUMSUB_BASE_URL as string;
     }
 
+    static logLevel(throwError: boolean = false): string {
+        if (throwError) {
+            return this.getOrThrowError("LOG_LEVEL");
+        }
+        return process.env.LOG_LEVEL as string;
+    }
+
     static statsigApiKey(throwError: boolean = false): string {
         if (throwError) {
             return this.getOrThrowError("STATSIG_API_KEY");
@@ -318,17 +326,17 @@ export class Env {
         return process.env.STATSIG_API_KEY as string;
     }
 
-    static contributorAppUrl(throwError: boolean = false): string {
-        if (throwError) {
-            return this.getOrThrowError("CONTRIBUTOR_APP_URL");
-        }
-        return process.env.CONTRIBUTOR_APP_URL as string;
-    }
-
     static port(throwError: boolean = false): number {
         if (throwError) {
             return Number(this.getOrThrowError("PORT"));
         }
         return Number(process.env.PORT);
+    }
+
+    static contributorAppUrl(throwError: boolean = false): string {
+        if (throwError) {
+            return this.getOrThrowError("CONTRIBUTOR_APP_URL");
+        }
+        return process.env.CONTRIBUTOR_APP_URL as string;
     }
 }

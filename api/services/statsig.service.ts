@@ -23,7 +23,7 @@ class StatsigService {
         }
 
         // Check if STATSIG_API_KEY is set
-        const serverSecret = Env.statsigApiKey(true);
+        const serverSecret = Env.statsigApiKey();
         if (!serverSecret) {
             dataLogger.warn("STATSIG_API_KEY is not set. Statsig will not be initialized.");
             return;
