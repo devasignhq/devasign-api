@@ -2,9 +2,9 @@ import admin, { ServiceAccount } from "firebase-admin";
 import { Env } from "../utils/env.js";
 
 const serviceAccount: ServiceAccount = {
-    projectId: Env.firebaseProjectId(),
-    clientEmail: Env.firebaseClientEmail(),
-    privateKey: Env.firebasePrivateKey()?.toString().replace(/\\n/g, "\n")
+    projectId: (Env.firebaseProjectId() || ""),
+    clientEmail: (Env.firebaseClientEmail() || ""),
+    privateKey: (Env.firebasePrivateKey() || "")?.replace(/\\n/g, "\n")
 };
 
 admin.initializeApp({

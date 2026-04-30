@@ -5,15 +5,15 @@ import { KmsServiceError } from "../models/error.model.js";
 import { Env } from "../utils/env.js";
 
 // Verify required environment variables are present
-if (!Env.gcpProjectId() || !Env.gcpLocationId() || !Env.gcpKeyRingId() || !Env.gcpKeyId()) {
+if (!(Env.gcpProjectId() || "") || !Env.gcpLocationId() || !Env.gcpKeyRingId() || !Env.gcpKeyId()) {
     throw new KmsServiceError("Missing GCP KMS credentials (GCP_PROJECT_ID, GCP_LOCATION_ID, GCP_KEY_RING_ID, GCP_KEY_ID) in environment variables");
 }
 
 // Set Google Cloud KMS environment variables
-const PROJECT_ID = Env.gcpProjectId(true);
-const LOCATION_ID = Env.gcpLocationId(true);
-const KEY_RING_ID = Env.gcpKeyRingId(true);
-const KEY_ID = Env.gcpKeyId(true);
+const PROJECT_ID = ((Env.gcpProjectId(true) || "") || "");
+const LOCATION_ID = Env.gcpLocationId(true)!;
+const KEY_RING_ID = Env.gcpKeyRingId(true)!;
+const KEY_ID = Env.gcpKeyId(true)!;
 
 const client = new KeyManagementServiceClient();
 const keyName = client.cryptoKeyPath(PROJECT_ID, LOCATION_ID, KEY_RING_ID, KEY_ID);

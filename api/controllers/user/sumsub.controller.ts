@@ -24,9 +24,9 @@ export const generateSumsubSdkToken = async (req: Request, res: Response, next: 
             });
         }
 
-        const SUMSUB_APP_TOKEN = Env.sumsubAppToken(true);
-        const SUMSUB_SECRET_KEY = Env.sumsubSecretKey(true);
-        const SUMSUB_LEVEL_NAME = Env.sumsubLevelName(true);
+        const SUMSUB_APP_TOKEN = Env.sumsubAppToken(true)!;
+        const SUMSUB_SECRET_KEY = (Env.sumsubSecretKey(true) || "");
+        const SUMSUB_LEVEL_NAME = Env.sumsubLevelName(true)!;
         const SUMSUB_BASE_URL = Env.sumsubBaseUrl() || "https://api.sumsub.com";
 
         // Generate the request URL, timestamp and request body

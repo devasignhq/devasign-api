@@ -19,8 +19,8 @@ export class ContractService {
     static {
         // Verify required environment variables are present
         const missing: string[] = [];
-        if (!Env.stellarNetwork()) missing.push("STELLAR_NETWORK");
-        if (!Env.stellarRpcUrl()) missing.push("STELLAR_RPC_URL");
+        if (!(Env.stellarNetwork() || "")) missing.push("STELLAR_NETWORK");
+        if (!(Env.stellarRpcUrl() || "")) missing.push("STELLAR_RPC_URL");
         if (!Env.taskEscrowContractId()) missing.push("TASK_ESCROW_CONTRACT_ID");
         if (!Env.usdcContractId()) missing.push("USDC_CONTRACT_ID");
         if (!Env.stellarMasterPublicKey()) missing.push("STELLAR_MASTER_PUBLIC_KEY");
@@ -31,14 +31,14 @@ export class ContractService {
 
     // Soroban network configuration loaded from environment variables
     private static CONFIG = {
-        network: Env.stellarNetwork(true),
-        rpcUrl: Env.stellarRpcUrl(true),
-        networkPassphrase: Env.stellarNetwork() === "public"
+        network: ((Env.stellarNetwork(true) || "") || ""),
+        rpcUrl: ((Env.stellarRpcUrl(true) || "") || ""),
+        networkPassphrase: (Env.stellarNetwork() || "") === "public"
             ? Networks.PUBLIC
             : Networks.TESTNET,
-        contractId: Env.taskEscrowContractId(true),
-        usdcContractId: Env.usdcContractId(true),
-        masterPublicKey: Env.stellarMasterPublicKey(true),
+        contractId: Env.taskEscrowContractId(true)!,
+        usdcContractId: Env.usdcContractId(true)!,
+        masterPublicKey: Env.stellarMasterPublicKey(true)!,
         maxFee: Env.maxFee() || "1000000"
     };
 

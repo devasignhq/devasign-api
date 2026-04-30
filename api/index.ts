@@ -77,7 +77,7 @@ app.use(
 
 // General API Middleware
 app.use(apiLimiter);
-app.use(express.json());
+app.use(express.json({ limit: "10mb" }));
 
 // User routes
 app.use(

@@ -125,7 +125,7 @@ export const createUser = async (req: Request, res: Response, next: NextFunction
         try {
             // Add USDC trustline to wallet
             await stellarService.addTrustLineViaSponsor(
-                Env.stellarMasterSecretKey(true),
+                Env.stellarMasterSecretKey(true)!,
                 userWallet.secretKey
             );
 
@@ -338,7 +338,7 @@ export const getUser = async (req: Request, res: Response, next: NextFunction) =
         try {
             // Add USDC trustline to wallet
             await stellarService.addTrustLineViaSponsor(
-                Env.stellarMasterSecretKey(true),
+                Env.stellarMasterSecretKey(true)!,
                 userWallet.secretKey
             );
             walletStatus.usdcTrustline = true;

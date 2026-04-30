@@ -99,9 +99,9 @@ export const validateCloudTasksRequest = async (req: Request, _res: Response, ne
 
     // The service account email that Cloud Tasks uses to sign OIDC tokens.
     // This must match the `oidcToken.serviceAccountEmail` configured in the Cloud Tasks service.
-    const cloudTasksServiceAccountEmail = Env.cloudTasksServiceAccountEmail(true);
+    const cloudTasksServiceAccountEmail = Env.cloudTasksServiceAccountEmail(true)!;
     // The URL where this application is hosted
-    const cloudRunServiceUrl = Env.cloudRunServiceUrl(true);
+    const cloudRunServiceUrl = Env.cloudRunServiceUrl(true)!;
 
     try {
         // Extract the Bearer token from the Authorization header

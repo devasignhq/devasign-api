@@ -39,7 +39,7 @@ export class SocketService {
         this.io = new SocketIOServer(httpServer, {
             cors: {
                 origin(origin, callback) {
-                    if (!origin || Env.corsOrigins(true).includes(origin)) {
+                    if (!origin || Env.corsOrigins(true)!.includes(origin)) {
                         callback(null, true);
                     } else {
                         callback(new Error("Not allowed by CORS"));

@@ -41,7 +41,7 @@ export class StellarService {
 
         try {
             // Create keypair from the master secret key
-            this.masterAccount = Keypair.fromSecret(Env.stellarMasterSecretKey());
+            this.masterAccount = Keypair.fromSecret(Env.stellarMasterSecretKey() || "");
         } catch (error) {
             throw new StellarServiceError("Invalid Stellar master account credentials", error);
         }

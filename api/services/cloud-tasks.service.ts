@@ -74,11 +74,11 @@ export class CloudTasksService {
 
     // Service configuration mapping routing queues and target endpoints
     private readonly config = {
-        project: Env.gcpProjectId(true),
-        location: Env.gcpLocationId(true),
-        cloudRunServiceUrl: Env.cloudRunServiceUrl(true),
-        cloudRunPrivateServiceUrl: Env.cloudRunPrivateServiceUrl(true),
-        cloudTasksServiceAccountEmail: Env.cloudTasksServiceAccountEmail(true),
+        project: Env.gcpProjectId(true)!,
+        location: Env.gcpLocationId(true)!,
+        cloudRunServiceUrl: Env.cloudRunServiceUrl(true)!,
+        cloudRunPrivateServiceUrl: Env.cloudRunPrivateServiceUrl(true)!,
+        cloudTasksServiceAccountEmail: (Env.cloudTasksServiceAccountEmail(true) || ""),
         queues: {
             "pr-analysis": Env.cloudTasksPrAnalysisQueue() || "",
             "manual-pr-analysis": Env.cloudTasksManualPrAnalysisQueue() || "",
@@ -110,7 +110,7 @@ export class CloudTasksService {
         if (!Env.gcpLocationId()) missing.push("GCP_LOCATION_ID");
         if (!Env.cloudRunServiceUrl()) missing.push("CLOUD_RUN_SERVICE_URL");
         if (!Env.cloudRunPrivateServiceUrl()) missing.push("CLOUD_RUN_PRIVATE_SERVICE_URL");
-        if (!Env.cloudTasksServiceAccountEmail()) missing.push("CLOUD_TASKS_SERVICE_ACCOUNT_EMAIL");
+        if (!((Env.cloudTasksServiceAccountEmail() || "") || "")) missing.push("CLOUD_TASKS_SERVICE_ACCOUNT_EMAIL");
         if (!Env.cloudTasksPrAnalysisQueue()) missing.push("CLOUD_TASKS_PR_ANALYSIS_QUEUE");
         if (!Env.cloudTasksManualPrAnalysisQueue()) missing.push("CLOUD_TASKS_MANUAL_PR_ANALYSIS_QUEUE");
         if (!Env.cloudTasksRepoIndexingQueue()) missing.push("CLOUD_TASKS_REPO_INDEXING_QUEUE");

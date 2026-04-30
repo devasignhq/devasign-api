@@ -16,17 +16,17 @@ import { GitHubAPIError } from "../models/error.model.js";
 import { dataLogger, messageLogger } from "../config/logger.config.js";
 import { LinkedIssue } from "../models/ai-review.model.js";
 
-const commentCTA = `${Env.contributorAppUrl(true)}/application`;
+const commentCTA = `${Env.contributorAppUrl(true)!}/application`;
 
 // Verify required environment variables are present
-if (!Env.githubAppId() || !Env.githubAppPrivateKey()) {
+if (!((Env.githubAppId() || "") || "") || !((Env.githubAppPrivateKey() || "") || "")) {
     throw new GitHubAPIError("Missing GitHub App credentials (GITHUB_APP_ID, GITHUB_APP_PRIVATE_KEY) in environment variables");
 }
 
 export class OctokitService {
     private static githubApp = new App({
-        appId: Env.githubAppId(true),
-        privateKey: Env.githubAppPrivateKey(true).replace(/\\n/g, "\n")
+        appId: (Env.githubAppId(true) || ""),
+        privateKey: (Env.githubAppPrivateKey(true) || "").replace(/\\n/g, "\n")
     });
 
     private static systemOctokit = new Octokit({

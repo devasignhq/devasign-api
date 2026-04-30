@@ -143,7 +143,7 @@ export const withdrawAsset = async (req: Request, res: Response, next: NextFunct
             ));
         } else {
             // User wallet withdrawals — master account sponsors the transaction fee
-            const masterSecret = Env.stellarMasterSecretKey(true);
+            const masterSecret = Env.stellarMasterSecretKey(true)!;
             ({ txHash } = await stellarService.transferAssetViaSponsor(
                 masterSecret,
                 walletSecret,

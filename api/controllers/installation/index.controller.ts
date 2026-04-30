@@ -160,7 +160,7 @@ export const createInstallation = async (req: Request, res: Response, next: Next
                         connect: { userId }
                     },
                     subscriptionPackage: {
-                        connect: { id: Env.defaultSubscriptionPackageId(true) }
+                        connect: { id: Env.defaultSubscriptionPackageId(true)! }
                     }
                 },
                 select
@@ -170,7 +170,7 @@ export const createInstallation = async (req: Request, res: Response, next: Next
         try {
             // Add USDC trustline only if it's a new wallet
             if (isNewWallet) {
-                const masterAccountSecret = Env.stellarMasterSecretKey(true);
+                const masterAccountSecret = Env.stellarMasterSecretKey(true)!;
 
                 await stellarService.addTrustLineViaSponsor(
                     masterAccountSecret,
