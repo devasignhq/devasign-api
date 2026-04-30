@@ -1,5 +1,5 @@
 import * as z from "zod";
-import { installationIdSchema, paginationSchema } from "./index.schema.js";
+import { installationIdSchema, paginationSchema } from "./global.schema.js";
 import { TransactionCategory } from "../../prisma_client/index.js";
 
 export const walletInstallationIdSchema = {

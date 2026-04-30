@@ -5,7 +5,7 @@ import {
     installationIdSchema,
     paginationSchema,
     userIdSchema
-} from "./index.schema.js";
+} from "./global.schema.js";
 
 export const taskIdSchema = z.object({
     taskId: cuidSchema
