@@ -152,8 +152,6 @@ router.post("/reset-db", async (req: Request, res: Response) => {
         await prisma.wallet.deleteMany();
         await prisma.permission.deleteMany();
 
-        // await prisma.subscriptionPackage.deleteMany();
-
         responseWrapper({
             res,
             status: STATUS_CODES.OK,
