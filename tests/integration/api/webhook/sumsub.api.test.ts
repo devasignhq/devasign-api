@@ -201,7 +201,7 @@ describe("Sumsub Webhook API Integration Tests", () => {
                 .set("Content-Type", "application/json")
                 .send(JSON.stringify(payload));
 
-            expect([STATUS_CODES.INTERNAL_SERVER_ERROR, STATUS_CODES.INTERNAL_SERVER_ERROR]).toContain(response.status);
+            expect([STATUS_CODES.UNAUTHORIZED, STATUS_CODES.INTERNAL_SERVER_ERROR]).toContain(response.status);
         });
     });
 });

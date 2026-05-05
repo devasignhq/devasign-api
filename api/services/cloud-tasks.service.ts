@@ -110,7 +110,7 @@ export class CloudTasksService {
         if (!Env.gcpLocationId()) missing.push("GCP_LOCATION_ID");
         if (!Env.cloudRunServiceUrl()) missing.push("CLOUD_RUN_SERVICE_URL");
         if (!Env.cloudRunPrivateServiceUrl()) missing.push("CLOUD_RUN_PRIVATE_SERVICE_URL");
-        if (!((Env.cloudTasksServiceAccountEmail() || "") || "")) missing.push("CLOUD_TASKS_SERVICE_ACCOUNT_EMAIL");
+        if (!Env.cloudTasksServiceAccountEmail()) missing.push("CLOUD_TASKS_SERVICE_ACCOUNT_EMAIL");
         if (!Env.cloudTasksPrAnalysisQueue()) missing.push("CLOUD_TASKS_PR_ANALYSIS_QUEUE");
         if (!Env.cloudTasksManualPrAnalysisQueue()) missing.push("CLOUD_TASKS_MANUAL_PR_ANALYSIS_QUEUE");
         if (!Env.cloudTasksRepoIndexingQueue()) missing.push("CLOUD_TASKS_REPO_INDEXING_QUEUE");
@@ -175,6 +175,7 @@ export class CloudTasksService {
             },
             // Set dispatch deadline based on job type
             dispatchDeadline: {
+                // TODO: increase analysis timeout to 30 minutes
                 seconds: (type === "pr-analysis" || type === "manual-pr-analysis") ? 600 // 10 minutes
                     : type === "bounty-payout"
                         || type === "clear-installation"

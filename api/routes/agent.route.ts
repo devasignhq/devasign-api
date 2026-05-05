@@ -12,7 +12,7 @@ import { Env } from "../utils/env.js";
 const network = "stellar:testnet" as `${string}:${string}`;
 const facilitatorUrl = Env.x402FacilitatorUrl();
 const x402Config = {
-    payeeAddress: Env.x402PayeeAddress() || "0",
+    payeeAddress: Env.x402PayeeAddress() || "",
     facilitatorUrl: Env.x402FacilitatorUrl() || ""
 };
 

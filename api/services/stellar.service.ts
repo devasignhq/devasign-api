@@ -32,8 +32,9 @@ export class StellarService {
      * The master account is used to sponsor account creation and fund operations.
      */
     constructor() {
+        const stellarMasterSecretKey = Env.stellarMasterSecretKey();
         // Verify required environment variables are present
-        if (!Env.stellarMasterSecretKey() || !Env.stellarMasterPublicKey()) {
+        if (!stellarMasterSecretKey) {
             throw new StellarServiceError("Missing Stellar master account credentials in environment variables");
         }
 
@@ -41,7 +42,7 @@ export class StellarService {
 
         try {
             // Create keypair from the master secret key
-            this.masterAccount = Keypair.fromSecret(Env.stellarMasterSecretKey() || "");
+            this.masterAccount = Keypair.fromSecret(stellarMasterSecretKey);
         } catch (error) {
             throw new StellarServiceError("Invalid Stellar master account credentials", error);
         }
@@ -221,15 +222,24 @@ export class StellarService {
             throw new StellarServiceError("Friendbot funding is only available on Testnet");
         }
 
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 10_000);
+
         try {
             // Request funding from Friendbot
-            const response = await fetch(`https://friendbot.stellar.org?addr=${encodeURIComponent(accountAddress)}`);
+            const response = await fetch(
+                `https://friendbot.stellar.org?addr=${encodeURIComponent(accountAddress)}`,
+                { signal: controller.signal }
+            );
+
             if (!response.ok) {
                 throw new Error(`Friendbot failed with status ${response.status}`);
             }
             return "SUCCESS";
         } catch (error) {
             throw new StellarServiceError("Failed to fund wallet", error);
+        } finally {
+            clearTimeout(timeout);
         }
     }
 
@@ -401,7 +411,7 @@ export class StellarService {
                     sendAsset,
                     destAsset,
                     sendAmount: amount,
-                    destMin: "0.0000001" // For simplicity, accepting any amount of destAsset.
+                    destMin: "0.0000001"
                 }));
             }
 
@@ -488,7 +498,7 @@ export class StellarService {
                     sendAsset,
                     destAsset,
                     sendAmount: amount,
-                    destMin: "0.0000001" // For simplicity, accepting any amount of destAsset.
+                    destMin: "0.0000001"
                 }));
             }
 

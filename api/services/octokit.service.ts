@@ -19,7 +19,7 @@ import { LinkedIssue } from "../models/ai-review.model.js";
 const commentCTA = `${Env.contributorAppUrl(true)!}/application`;
 
 // Verify required environment variables are present
-if (!((Env.githubAppId() || "") || "") || !((Env.githubAppPrivateKey() || "") || "")) {
+if (!Env.githubAppId() || !Env.githubAppPrivateKey()) {
     throw new GitHubAPIError("Missing GitHub App credentials (GITHUB_APP_ID, GITHUB_APP_PRIVATE_KEY) in environment variables");
 }
 

@@ -27,9 +27,15 @@ export class Env {
 
     static corsOrigins(throwError: boolean = false) {
         if (throwError) {
-            return this.getOrThrowError("CORS_ORIGINS").split(",");
+            return this.getOrThrowError("CORS_ORIGINS")
+                .split(",")
+                .map(origin => origin.trim())
+                .filter(Boolean);
         }
-        return process.env.CORS_ORIGINS?.split(",") || [];
+        return (process.env.CORS_ORIGINS || "")
+            .split(",")
+            .map(origin => origin.trim())
+            .filter(Boolean);
     }
 
     static databaseUrl(throwError: boolean = false) {
@@ -327,10 +333,19 @@ export class Env {
     }
 
     static port(throwError: boolean = false) {
-        if (throwError) {
-            return Number(this.getOrThrowError("PORT"));
+        const raw = throwError ? this.getOrThrowError("PORT") : process.env.PORT;
+        const value = Number(raw);
+
+        if (!Number.isInteger(value) || value <= 0) {
+            throw new ErrorClass(
+                "SERVER_MISCONFIGURATION",
+                null,
+                "Invalid environment variable: PORT",
+                STATUS_CODES.INTERNAL_SERVER_ERROR
+            );
         }
-        return Number(process.env.PORT);
+
+        return value;
     }
 
     static contributorAppUrl(throwError: boolean = false) {

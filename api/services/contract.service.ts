@@ -31,8 +31,8 @@ export class ContractService {
 
     // Soroban network configuration loaded from environment variables
     private static CONFIG = {
-        network: ((Env.stellarNetwork(true) || "") || ""),
-        rpcUrl: ((Env.stellarRpcUrl(true) || "") || ""),
+        network: Env.stellarNetwork(true)!,
+        rpcUrl: Env.stellarRpcUrl(true)!,
         networkPassphrase: (Env.stellarNetwork() || "") === "public"
             ? Networks.PUBLIC
             : Networks.TESTNET,
