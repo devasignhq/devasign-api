@@ -1,8 +1,8 @@
 import { Request, Response, NextFunction } from "express";
 import { OctokitService } from "../../services/octokit.service.js";
 import { IssueFilters } from "../../models/github.model.js";
-import { responseWrapper } from "../../utilities/helper.js";
-import { STATUS_CODES } from "../../utilities/data.js";
+import { responseWrapper } from "../../utils/helper.js";
+import { STATUS_CODES } from "../../utils/data.js";
 
 /**
  * Retrieves repositories accessible by a specific GitHub App installation.
@@ -17,7 +17,7 @@ export const getInstallationRepositories = async (req: Request, res: Response, n
         // Return repositories in response
         responseWrapper({
             res,
-            status: STATUS_CODES.SUCCESS,
+            status: STATUS_CODES.OK,
             data: repositories,
             message: "Repositories retrieved successfully"
         });
@@ -64,7 +64,7 @@ export const getRepositoryIssues = async (req: Request, res: Response, next: Nex
         // Return issues with pagination in response
         responseWrapper({
             res,
-            status: STATUS_CODES.SUCCESS,
+            status: STATUS_CODES.OK,
             data: result.issues,
             pagination: { hasMore: result.hasMore },
             message: "Issues retrieved successfully"
@@ -91,7 +91,7 @@ export const getRepositoryResources = async (req: Request, res: Response, next: 
         // Return labels and milestones
         responseWrapper({
             res,
-            status: STATUS_CODES.SUCCESS,
+            status: STATUS_CODES.OK,
             data: resources,
             message: "Repository resources retrieved successfully"
         });
@@ -137,7 +137,7 @@ export const getOrCreateBountyLabel = async (req: Request, res: Response, next: 
         // Return bounty label
         responseWrapper({
             res,
-            status: STATUS_CODES.SUCCESS,
+            status: STATUS_CODES.OK,
             data: bountyLabel,
             message: "Bounty label created successfully"
         });

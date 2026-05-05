@@ -1,8 +1,8 @@
 import { NextFunction, Request, Response } from "express";
 import { prisma } from "../../config/database.config.js";
 import { stellarService } from "../../services/stellar.service.js";
-import { responseWrapper, stellarTimestampToDate } from "../../utilities/helper.js";
-import { STATUS_CODES } from "../../utilities/data.js";
+import { responseWrapper, stellarTimestampToDate } from "../../utils/helper.js";
+import { STATUS_CODES } from "../../utils/data.js";
 import { CreateTask, TaskIssue, FilterTasks } from "../../models/task.model.js";
 import { HorizonApi } from "../../models/horizonapi.model.js";
 import { Prisma, TaskStatus, TransactionCategory } from "../../../prisma_client/index.js";
@@ -220,7 +220,7 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
         if (!postedComment) {
             return responseWrapper({
                 res,
-                status: STATUS_CODES.PARTIAL_SUCCESS,
+                status: STATUS_CODES.OK,
                 data: task,
                 message: "Task created successfully",
                 warning: "Failed to either post bounty comment or add bounty label."
@@ -363,7 +363,7 @@ export const getTasks = async (req: Request, res: Response, next: NextFunction) 
         // Return paginated tasks
         responseWrapper({
             res,
-            status: STATUS_CODES.SUCCESS,
+            status: STATUS_CODES.OK,
             data: results,
             pagination: { hasMore }
         });
@@ -416,7 +416,7 @@ export const getTask = async (req: Request, res: Response, next: NextFunction) =
         // Return task
         responseWrapper({
             res,
-            status: STATUS_CODES.SUCCESS,
+            status: STATUS_CODES.OK,
             data: task
         });
     } catch (error) {
@@ -521,7 +521,7 @@ export const deleteTask = async (req: Request, res: Response, next: NextFunction
             // Return success response
             responseWrapper({
                 res,
-                status: STATUS_CODES.SUCCESS,
+                status: STATUS_CODES.OK,
                 message: "Task deleted successfully",
                 data: { refunded: `${task.bounty} USDC` }
             });
@@ -531,7 +531,7 @@ export const deleteTask = async (req: Request, res: Response, next: NextFunction
             // Return success response but notify user of partial failure
             responseWrapper({
                 res,
-                status: STATUS_CODES.PARTIAL_SUCCESS,
+                status: STATUS_CODES.OK,
                 message: "Task deleted successfully",
                 data: { refunded: `${task.bounty} USDC` },
                 warning: "Failed to either remove bounty label from the task issue or delete bounty comment."

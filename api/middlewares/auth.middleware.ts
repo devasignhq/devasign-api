@@ -1,11 +1,12 @@
 import { prisma } from "../config/database.config.js";
 import { firebaseAdmin } from "../config/firebase.config.js";
 import { OAuth2Client } from "google-auth-library";
-import { STATUS_CODES } from "../utilities/data.js";
-import { getFieldFromUnknownObject } from "../utilities/helper.js";
+import { STATUS_CODES } from "../utils/data.js";
+import { getFieldFromUnknownObject } from "../utils/helper.js";
 import { Request, Response, NextFunction } from "express";
 import { AuthorizationError, ErrorClass, ValidationError } from "../models/error.model.js";
 import { dataLogger } from "../config/logger.config.js";
+import { Env } from "../utils/env.js";
 
 // Google OAuth2 client used to verify OIDC tokens.
 const authClient = new OAuth2Client();
@@ -40,7 +41,7 @@ export const validateUser = async (req: Request, res: Response, next: NextFuncti
                 "AUTHENTICATION_FAILED",
                 error,
                 getFieldFromUnknownObject<string>(error, "message") || "Failed to verify ID token",
-                STATUS_CODES.UNAUTHENTICATED
+                STATUS_CODES.UNAUTHORIZED
             ));
         }
     } else {
@@ -49,7 +50,7 @@ export const validateUser = async (req: Request, res: Response, next: NextFuncti
             "AUTHENTICATION_FAILED",
             null,
             "No authorization token sent",
-            STATUS_CODES.UNAUTHENTICATED
+            STATUS_CODES.UNAUTHORIZED
         ));
     }
 };
@@ -92,13 +93,15 @@ export const validateUserInstallation = async (req: Request, res: Response, next
  */
 export const validateCloudTasksRequest = async (req: Request, _res: Response, next: NextFunction) => {
     // Skip OIDC validation in development/test to allow local testing
-    if (process.env.NODE_ENV !== "production") {
+    if (Env.nodeEnv() !== "production") {
         return next();
     }
 
     // The service account email that Cloud Tasks uses to sign OIDC tokens.
     // This must match the `oidcToken.serviceAccountEmail` configured in the Cloud Tasks service.
-    const CLOUD_TASKS_SERVICE_ACCOUNT_EMAIL = process.env.CLOUD_TASKS_SERVICE_ACCOUNT_EMAIL;
+    const cloudTasksServiceAccountEmail = Env.cloudTasksServiceAccountEmail(true)!;
+    // The URL where this application is hosted
+    const cloudRunServiceUrl = Env.cloudRunServiceUrl(true)!;
 
     try {
         // Extract the Bearer token from the Authorization header
@@ -109,19 +112,10 @@ export const validateCloudTasksRequest = async (req: Request, _res: Response, ne
 
         const token = authHeader.split("Bearer ")[1];
 
-        if (!process.env.CLOUD_RUN_SERVICE_URL) {
-            throw new ErrorClass(
-                "SERVER_MISCONFIGURATION",
-                null,
-                "Server misconfiguration: CLOUD_RUN_SERVICE_URL is missing",
-                STATUS_CODES.SERVER_ERROR
-            );
-        }
-
         // Verify the OIDC token
         const ticket = await authClient.verifyIdToken({
             idToken: token,
-            audience: process.env.CLOUD_RUN_SERVICE_URL
+            audience: cloudRunServiceUrl
         });
 
         const payload = ticket.getPayload();
@@ -130,9 +124,9 @@ export const validateCloudTasksRequest = async (req: Request, _res: Response, ne
         }
 
         // Verify the token was issued for the expected Cloud Tasks service account
-        if (payload.email !== CLOUD_TASKS_SERVICE_ACCOUNT_EMAIL) {
+        if (payload.email !== cloudTasksServiceAccountEmail) {
             dataLogger.warn("OIDC token email mismatch on internal route", {
-                expected: CLOUD_TASKS_SERVICE_ACCOUNT_EMAIL,
+                expected: cloudTasksServiceAccountEmail,
                 received: payload.email,
                 path: req.path
             });

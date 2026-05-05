@@ -6,7 +6,7 @@ import crypto from "crypto";
 import { webhookRoutes } from "../../../../api/routes/webhook.route.js";
 import { errorHandler } from "../../../../api/middlewares/error.middleware.js";
 import { DatabaseTestHelper } from "../../../helpers/database-test-helper.js";
-import { ENDPOINTS, STATUS_CODES } from "../../../../api/utilities/data.js";
+import { ENDPOINTS, STATUS_CODES } from "../../../../api/utils/data.js";
 import { TestDataFactory } from "../../../helpers/test-data-factory.js";
 import { getEndpointWithPrefix } from "../../../helpers/test-utils.js";
 
@@ -87,7 +87,7 @@ describe("Sumsub Webhook API Integration Tests", () => {
                 .set("x-payload-digest", signPayload(payload))
                 .set("Content-Type", "application/json")
                 .send(JSON.stringify(payload))
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             const updatedUser = await prisma.user.findUnique({ where: { userId: TEST_USER_ID } });
             expect(updatedUser?.verified).toBe(true);
@@ -108,7 +108,7 @@ describe("Sumsub Webhook API Integration Tests", () => {
                 .set("x-payload-digest", signPayload(payload))
                 .set("Content-Type", "application/json")
                 .send(JSON.stringify(payload))
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             const updatedUser = await prisma.user.findUnique({ where: { userId: TEST_USER_ID } });
             expect(updatedUser?.verified).toBe(false);
@@ -129,7 +129,7 @@ describe("Sumsub Webhook API Integration Tests", () => {
                 .set("x-payload-digest", signPayload(payload))
                 .set("Content-Type", "application/json")
                 .send(JSON.stringify(payload))
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             const updatedUser = await prisma.user.findUnique({ where: { userId: TEST_USER_ID } });
             expect(updatedUser?.verified).toBe(false); // Should remain false
@@ -149,7 +149,7 @@ describe("Sumsub Webhook API Integration Tests", () => {
                 .set("x-payload-digest", signPayload(payload))
                 .set("Content-Type", "application/json")
                 .send(JSON.stringify(payload))
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             const updatedUser = await prisma.user.findUnique({ where: { userId: TEST_USER_ID } });
             expect(updatedUser?.verified).toBe(true);
@@ -168,7 +168,7 @@ describe("Sumsub Webhook API Integration Tests", () => {
                 .set("x-payload-digest", signPayload(payload))
                 .set("Content-Type", "application/json")
                 .send(JSON.stringify(payload))
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             const updatedUser = await prisma.user.findUnique({ where: { userId: TEST_USER_ID } });
             expect(updatedUser?.verified).toBe(false);
@@ -186,7 +186,7 @@ describe("Sumsub Webhook API Integration Tests", () => {
                 .set("x-payload-digest", signPayload(payload))
                 .set("Content-Type", "application/json")
                 .send(JSON.stringify(payload))
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
         });
 
         it("should reject request with invalid signature", async () => {
@@ -201,7 +201,7 @@ describe("Sumsub Webhook API Integration Tests", () => {
                 .set("Content-Type", "application/json")
                 .send(JSON.stringify(payload));
 
-            expect([STATUS_CODES.SERVER_ERROR, STATUS_CODES.UNKNOWN]).toContain(response.status);
+            expect([STATUS_CODES.UNAUTHORIZED, STATUS_CODES.INTERNAL_SERVER_ERROR]).toContain(response.status);
         });
     });
 });

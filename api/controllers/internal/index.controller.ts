@@ -1,8 +1,8 @@
 import { Request, Response, NextFunction } from "express";
 import { statsigService } from "../../services/statsig.service.js";
-import { STATUS_CODES } from "../../utilities/data.js";
+import { STATUS_CODES } from "../../utils/data.js";
 import { dataLogger } from "../../config/logger.config.js";
-import { responseWrapper, stellarTimestampToDate } from "../../utilities/helper.js";
+import { responseWrapper, stellarTimestampToDate } from "../../utils/helper.js";
 import { prisma } from "../../config/database.config.js";
 import { KMSService } from "../../services/kms.service.js";
 import { ContractService } from "../../services/contract.service.js";
@@ -29,7 +29,7 @@ export const handleBountyPayoutJob = async (req: Request, res: Response, next: N
         if (!taskId) {
             return responseWrapper({
                 res,
-                status: STATUS_CODES.SERVER_ERROR,
+                status: STATUS_CODES.INTERNAL_SERVER_ERROR,
                 data: { prNumber, repositoryName, prUrl },
                 message: "Task ID is missing from payload"
             });
@@ -63,7 +63,7 @@ export const handleBountyPayoutJob = async (req: Request, res: Response, next: N
         if (!relatedTask) {
             return responseWrapper({
                 res,
-                status: STATUS_CODES.SUCCESS,
+                status: STATUS_CODES.OK,
                 data: { prNumber, repositoryName, prUrl },
                 message: "Task not found"
             });
@@ -73,7 +73,7 @@ export const handleBountyPayoutJob = async (req: Request, res: Response, next: N
         if (!relatedTask.contributor || !relatedTask.contributor.wallet || !relatedTask.contributor.wallet.address) {
             return responseWrapper({
                 res,
-                status: STATUS_CODES.SUCCESS,
+                status: STATUS_CODES.OK,
                 data: { prNumber, repositoryName, prUrl, linkedIssues: linkedIssues.map(i => i.number) },
                 message: "No wallet address found for contributor"
             });
@@ -86,7 +86,7 @@ export const handleBountyPayoutJob = async (req: Request, res: Response, next: N
 
         // Decrypt installation wallet secret
         const decryptedWalletSecret = await KMSService.decryptWallet(relatedTask.installation.wallet);
-        
+
         // Approve completion via smart contract
         const transactionResponse = await ContractService.approveCompletion(
             decryptedWalletSecret,
@@ -189,7 +189,7 @@ export const handleBountyPayoutJob = async (req: Request, res: Response, next: N
             // Send success response
             responseWrapper({
                 res,
-                status: STATUS_CODES.SUCCESS,
+                status: STATUS_CODES.OK,
                 data: {
                     prNumber,
                     repositoryName,

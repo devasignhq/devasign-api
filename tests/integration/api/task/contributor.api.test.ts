@@ -5,7 +5,7 @@ import { TestDataFactory } from "../../../helpers/test-data-factory.js";
 import { taskRoutes } from "../../../../api/routes/task.route.js";
 import { errorHandler } from "../../../../api/middlewares/error.middleware.js";
 import { DatabaseTestHelper } from "../../../helpers/database-test-helper.js";
-import { ENDPOINTS, STATUS_CODES } from "../../../../api/utilities/data.js";
+import { ENDPOINTS, STATUS_CODES } from "../../../../api/utils/data.js";
 import { mockFirebaseAuth } from "../../../mocks/firebase.service.mock.js";
 import { getEndpointWithPrefix, generateRandomCUID } from "../../../helpers/test-utils.js";
 
@@ -163,7 +163,7 @@ describe("Task Contributor API Integration Tests", () => {
             const response = await request(app)
                 .get(`${getEndpointWithPrefix(["TASK", "CONTRIBUTOR", "GET_TASKS"])}?page=1&limit=10`)
                 .set("x-test-user-id", "contributor-user")
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body).toMatchObject({
                 data: expect.any(Array),
@@ -179,7 +179,7 @@ describe("Task Contributor API Integration Tests", () => {
             const response = await request(app)
                 .get(`${getEndpointWithPrefix(["TASK", "CONTRIBUTOR", "GET_TASKS"])}?status=IN_PROGRESS`)
                 .set("x-test-user-id", "contributor-user")
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body.data).toHaveLength(1);
             expect(response.body.data[0]).toMatchObject({
@@ -191,7 +191,7 @@ describe("Task Contributor API Integration Tests", () => {
             const response = await request(app)
                 .get(`${getEndpointWithPrefix(["TASK", "CONTRIBUTOR", "GET_TASKS"])}?installationId=${testInstallation.id}`)
                 .set("x-test-user-id", "contributor-user")
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body.data).toEqual(expect.any(Array));
             const validResult = (response.body.data as any[]).every(
@@ -204,7 +204,7 @@ describe("Task Contributor API Integration Tests", () => {
             const response = await request(app)
                 .get(`${getEndpointWithPrefix(["TASK", "CONTRIBUTOR", "GET_TASKS"])}?detailed=true`)
                 .set("x-test-user-id", "contributor-user")
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body.data[0]).toMatchObject({
                 installation: expect.objectContaining({
@@ -228,7 +228,7 @@ describe("Task Contributor API Integration Tests", () => {
             const response = await request(app)
                 .get(getEndpointWithPrefix(["TASK", "CONTRIBUTOR", "GET_TASKS"]))
                 .set("x-test-user-id", "other-user")
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body.data).toHaveLength(0);
         });
@@ -248,7 +248,7 @@ describe("Task Contributor API Integration Tests", () => {
             const response = await request(app)
                 .get(`${getEndpointWithPrefix(["TASK", "CONTRIBUTOR", "GET_TASKS"])}?sort=asc`)
                 .set("x-test-user-id", "contributor-user")
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             const dates = response.body.data.map((task: any) => new Date(task.acceptedAt).getTime());
             const sortedDates = [...dates].sort((a, b) => a - b);
@@ -279,7 +279,7 @@ describe("Task Contributor API Integration Tests", () => {
             const response = await request(app)
                 .get(`${getEndpointWithPrefix(["TASK", "CONTRIBUTOR", "GET_TASKS"])}?status=APPLIED`)
                 .set("x-test-user-id", "contributor-user")
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body.data).toHaveLength(1);
             expect(response.body.data[0].id).toBe(task.id);
@@ -315,7 +315,7 @@ describe("Task Contributor API Integration Tests", () => {
             const response = await request(app)
                 .get(`${getEndpointWithPrefix(["TASK", "CONTRIBUTOR", "GET_TASKS"])}?status=NOT_ACCEPTED`)
                 .set("x-test-user-id", "contributor-user")
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body.data).toHaveLength(1);
             expect(response.body.data[0].id).toBe(task.id);
@@ -325,7 +325,7 @@ describe("Task Contributor API Integration Tests", () => {
             const response = await request(app)
                 .get(`${getEndpointWithPrefix(["TASK", "CONTRIBUTOR", "GET_TASKS"])}?issueTitle=GitHub`)
                 .set("x-test-user-id", "contributor-user")
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body.data.length).toBeGreaterThan(0);
             expect(response.body.data[0].issue.title).toContain("GitHub");
@@ -335,7 +335,7 @@ describe("Task Contributor API Integration Tests", () => {
             const response = await request(app)
                 .get(`${getEndpointWithPrefix(["TASK", "CONTRIBUTOR", "GET_TASKS"])}?repoUrl=user/repo`)
                 .set("x-test-user-id", "contributor-user")
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body.data.length).toBeGreaterThan(0);
             expect(response.body.data[0].issue.repository.url).toContain("user/repo");
@@ -345,7 +345,7 @@ describe("Task Contributor API Integration Tests", () => {
             const response = await request(app)
                 .get(`${getEndpointWithPrefix(["TASK", "CONTRIBUTOR", "GET_TASKS"])}?issueLabels=bug`)
                 .set("x-test-user-id", "contributor-user")
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body.data.length).toBeGreaterThan(0);
             const hasBug = response.body.data[0].issue.labels.some((l: any) => l.name === "bug");
@@ -356,7 +356,7 @@ describe("Task Contributor API Integration Tests", () => {
             const response = await request(app)
                 .get(`${getEndpointWithPrefix(["TASK", "CONTRIBUTOR", "GET_TASKS"])}?limit=1`)
                 .set("x-test-user-id", "contributor-user")
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body.data).toHaveLength(1);
             expect(response.body.pagination.hasMore).toBe(true);
@@ -387,7 +387,7 @@ describe("Task Contributor API Integration Tests", () => {
             const response = await request(app)
                 .get(`${getEndpointWithPrefix(["TASK", "CONTRIBUTOR", "GET_TASKS"])}`)
                 .set("x-test-user-id", "contributor-user")
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             const fetchedOtherTask = response.body.data.find((t: any) => t.id === otherTask.id);
             expect(fetchedOtherTask).toBeDefined();
@@ -439,7 +439,7 @@ describe("Task Contributor API Integration Tests", () => {
                 .get(getEndpointWithPrefix(["TASK", "CONTRIBUTOR", "GET_TASK"])
                     .replace(":taskId", testTask.id))
                 .set("x-test-user-id", "contributor-user")
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body.data).toMatchObject({
                 id: testTask.id,
@@ -481,7 +481,7 @@ describe("Task Contributor API Integration Tests", () => {
                 .get(getEndpointWithPrefix(["TASK", "CONTRIBUTOR", "GET_TASK"])
                     .replace(":taskId", testTask.id))
                 .set("x-test-user-id", "contributor-user")
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body.data).toMatchObject({
                 id: expect.any(String),
@@ -513,7 +513,7 @@ describe("Task Contributor API Integration Tests", () => {
                 .get(getEndpointWithPrefix(["TASK", "CONTRIBUTOR", "GET_TASK"])
                     .replace(":taskId", testTask.id))
                 .set("x-test-user-id", "applicant-user")
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body.data.id).toBe(testTask.id);
             // Verify privacy: fields should be omitted since they are not the contributor

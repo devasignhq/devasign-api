@@ -1,7 +1,7 @@
 import { NextFunction, Request, Response } from "express";
 import { prisma } from "../../config/database.config.js";
-import { responseWrapper } from "../../utilities/helper.js";
-import { STATUS_CODES } from "../../utilities/data.js";
+import { responseWrapper } from "../../utils/helper.js";
+import { STATUS_CODES } from "../../utils/data.js";
 import { NotFoundError } from "../../models/error.model.js";
 
 /**
@@ -69,7 +69,7 @@ export const getTaskActivities = async (req: Request, res: Response, next: NextF
         // Return paginated activities
         responseWrapper({
             res,
-            status: STATUS_CODES.SUCCESS,
+            status: STATUS_CODES.OK,
             data: results,
             pagination: { hasMore }
         });
@@ -117,7 +117,7 @@ export const markActivityAsViewed = async (req: Request, res: Response, next: Ne
         // Return updated activity
         responseWrapper({
             res,
-            status: STATUS_CODES.SUCCESS,
+            status: STATUS_CODES.OK,
             data: updatedActivity,
             message: "Activity marked as viewed"
         });

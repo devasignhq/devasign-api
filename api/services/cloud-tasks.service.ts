@@ -1,18 +1,19 @@
 import { CloudTasksClient } from "@google-cloud/tasks";
+import { Env } from "../utils/env.js";
 import { GitHubWebhookPayload, LinkedIssue } from "../models/ai-review.model.js";
 import { dataLogger } from "../config/logger.config.js";
 import { CloudTasksError } from "../models/error.model.js";
-import { ENDPOINTS } from "../utilities/data.js";
+import { ENDPOINTS } from "../utils/data.js";
 
 /**
  * Types of background jobs supported by the Cloud Tasks integration.
  */
-export type JobType = "pr-analysis" 
+export type JobType = "pr-analysis"
     | "manual-pr-analysis"
-    | "repository-indexing" 
-    | "repository-incremental-indexing" 
-    | "bounty-payout" 
-    | "clear-installation" 
+    | "repository-indexing"
+    | "repository-incremental-indexing"
+    | "bounty-payout"
+    | "clear-installation"
     | "clear-repo";
 
 /**
@@ -73,19 +74,19 @@ export class CloudTasksService {
 
     // Service configuration mapping routing queues and target endpoints
     private readonly config = {
-        project: process.env.GCP_PROJECT_ID!,
-        location: process.env.GCP_LOCATION_ID!,
-        cloudRunServiceUrl: process.env.CLOUD_RUN_SERVICE_URL!,
-        cloudRunPrivateServiceUrl: process.env.CLOUD_RUN_PRIVATE_SERVICE_URL!,
-        cloudTasksServiceAccountEmail: process.env.CLOUD_TASKS_SERVICE_ACCOUNT_EMAIL!,
+        project: Env.gcpProjectId(true)!,
+        location: Env.gcpLocationId(true)!,
+        cloudRunServiceUrl: Env.cloudRunServiceUrl(true)!,
+        cloudRunPrivateServiceUrl: Env.cloudRunPrivateServiceUrl(true)!,
+        cloudTasksServiceAccountEmail: (Env.cloudTasksServiceAccountEmail(true) || ""),
         queues: {
-            "pr-analysis": process.env.CLOUD_TASKS_PR_ANALYSIS_QUEUE || "",
-            "manual-pr-analysis": process.env.CLOUD_TASKS_MANUAL_PR_ANALYSIS_QUEUE || "",
-            "repository-indexing": process.env.CLOUD_TASKS_REPO_INDEXING_QUEUE || "",
-            "repository-incremental-indexing": process.env.CLOUD_TASKS_INCREMENTAL_INDEXING_QUEUE || "",
-            "bounty-payout": process.env.CLOUD_TASKS_BOUNTY_PAYOUT_QUEUE || "",
-            "clear-installation": process.env.CLOUD_TASKS_CLEAR_INSTALLATION_QUEUE || "",
-            "clear-repo": process.env.CLOUD_TASKS_CLEAR_REPO_QUEUE || ""
+            "pr-analysis": Env.cloudTasksPrAnalysisQueue() || "",
+            "manual-pr-analysis": Env.cloudTasksManualPrAnalysisQueue() || "",
+            "repository-indexing": Env.cloudTasksRepoIndexingQueue() || "",
+            "repository-incremental-indexing": Env.cloudTasksIncrementalIndexingQueue() || "",
+            "bounty-payout": Env.cloudTasksBountyPayoutQueue() || "",
+            "clear-installation": Env.cloudTasksClearInstallationQueue() || "",
+            "clear-repo": Env.cloudTasksClearRepoQueue() || ""
         },
         endpoints: {
             "pr-analysis": ENDPOINTS.INTERNAL.PREFIX + ENDPOINTS.INTERNAL.PR_ANALYSIS,
@@ -104,21 +105,19 @@ export class CloudTasksService {
     }
 
     constructor() {
-        const requiredVars = [
-            "GCP_PROJECT_ID",
-            "GCP_LOCATION_ID",
-            "CLOUD_RUN_SERVICE_URL",
-            "CLOUD_RUN_PRIVATE_SERVICE_URL",
-            "CLOUD_TASKS_SERVICE_ACCOUNT_EMAIL",
-            "CLOUD_TASKS_PR_ANALYSIS_QUEUE",
-            "CLOUD_TASKS_MANUAL_PR_ANALYSIS_QUEUE",
-            "CLOUD_TASKS_REPO_INDEXING_QUEUE",
-            "CLOUD_TASKS_INCREMENTAL_INDEXING_QUEUE",
-            "CLOUD_TASKS_BOUNTY_PAYOUT_QUEUE",
-            "CLOUD_TASKS_CLEAR_INSTALLATION_QUEUE",
-            "CLOUD_TASKS_CLEAR_REPO_QUEUE"
-        ];
-        const missing = requiredVars.filter(v => !process.env[v]);
+        const missing: string[] = [];
+        if (!Env.gcpProjectId()) missing.push("GCP_PROJECT_ID");
+        if (!Env.gcpLocationId()) missing.push("GCP_LOCATION_ID");
+        if (!Env.cloudRunServiceUrl()) missing.push("CLOUD_RUN_SERVICE_URL");
+        if (!Env.cloudRunPrivateServiceUrl()) missing.push("CLOUD_RUN_PRIVATE_SERVICE_URL");
+        if (!Env.cloudTasksServiceAccountEmail()) missing.push("CLOUD_TASKS_SERVICE_ACCOUNT_EMAIL");
+        if (!Env.cloudTasksPrAnalysisQueue()) missing.push("CLOUD_TASKS_PR_ANALYSIS_QUEUE");
+        if (!Env.cloudTasksManualPrAnalysisQueue()) missing.push("CLOUD_TASKS_MANUAL_PR_ANALYSIS_QUEUE");
+        if (!Env.cloudTasksRepoIndexingQueue()) missing.push("CLOUD_TASKS_REPO_INDEXING_QUEUE");
+        if (!Env.cloudTasksIncrementalIndexingQueue()) missing.push("CLOUD_TASKS_INCREMENTAL_INDEXING_QUEUE");
+        if (!Env.cloudTasksBountyPayoutQueue()) missing.push("CLOUD_TASKS_BOUNTY_PAYOUT_QUEUE");
+        if (!Env.cloudTasksClearInstallationQueue()) missing.push("CLOUD_TASKS_CLEAR_INSTALLATION_QUEUE");
+        if (!Env.cloudTasksClearRepoQueue()) missing.push("CLOUD_TASKS_CLEAR_REPO_QUEUE");
         if (missing.length > 0) {
             dataLogger.error(`Missing required environment variables for CloudTasksService: ${missing.join(", ")}`);
         }
@@ -176,10 +175,11 @@ export class CloudTasksService {
             },
             // Set dispatch deadline based on job type
             dispatchDeadline: {
+                // TODO: increase analysis timeout to 30 minutes
                 seconds: (type === "pr-analysis" || type === "manual-pr-analysis") ? 600 // 10 minutes
                     : type === "bounty-payout"
-                            || type === "clear-installation"
-                            || type === "clear-repo"
+                        || type === "clear-installation"
+                        || type === "clear-repo"
                         ? 300 // 5 minutes
                         : 1800 // 30 minutes (indexing)
             }

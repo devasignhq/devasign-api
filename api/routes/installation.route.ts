@@ -26,7 +26,7 @@ import {
     getRepositoryResourcesSchema,
     getOrCreateBountyLabelSchema
 } from "../schemas/installation.schema.js";
-import { ENDPOINTS } from "../utilities/data.js";
+import { ENDPOINTS } from "../utils/data.js";
 import { validateRequestParameters } from "../middlewares/request.middleware.js";
 
 export const installationRoutes = Router();

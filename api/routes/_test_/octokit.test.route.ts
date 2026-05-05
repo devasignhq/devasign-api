@@ -1,7 +1,7 @@
 import { Router, Request, Response, NextFunction, RequestHandler } from "express";
 import { OctokitService } from "../../services/octokit.service.js";
-import { STATUS_CODES } from "../../utilities/data.js";
-import { responseWrapper } from "../../utilities/helper.js";
+import { STATUS_CODES } from "../../utils/data.js";
+import { responseWrapper } from "../../utils/helper.js";
 
 const router = Router();
 
@@ -13,7 +13,7 @@ router.get("/languages/:username", (async (req: Request, res: Response, next: Ne
 
         responseWrapper({
             res,
-            status: STATUS_CODES.SUCCESS,
+            status: STATUS_CODES.OK,
             message: "User top languages retrieved successfully",
             data: languages
         });

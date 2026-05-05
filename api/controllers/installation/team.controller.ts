@@ -1,7 +1,7 @@
 import { NextFunction, Request, Response } from "express";
 import { prisma } from "../../config/database.config.js";
-import { responseWrapper } from "../../utilities/helper.js";
-import { STATUS_CODES } from "../../utilities/data.js";
+import { responseWrapper } from "../../utils/helper.js";
+import { STATUS_CODES } from "../../utils/data.js";
 import { AuthorizationError, NotFoundError } from "../../models/error.model.js";
 import { OctokitService } from "../../services/octokit.service.js";
 
@@ -42,7 +42,7 @@ export const addTeamMember = async (req: Request, res: Response, next: NextFunct
         if (!existingUser) {
             return responseWrapper({
                 res,
-                status: STATUS_CODES.SUCCESS,
+                status: STATUS_CODES.OK,
                 data: { status: "not_found" },
                 message: "User not found in our system. We currently do not support adding users who haven't signed up on our platform"
             });
@@ -53,7 +53,7 @@ export const addTeamMember = async (req: Request, res: Response, next: NextFunct
         if (isAlreadyMember) {
             return responseWrapper({
                 res,
-                status: STATUS_CODES.SERVER_ERROR,
+                status: STATUS_CODES.BAD_REQUEST,
                 data: { username, status: "already_member" },
                 message: "User is already a member of this installation"
             });
@@ -97,7 +97,7 @@ export const addTeamMember = async (req: Request, res: Response, next: NextFunct
         // Return result
         responseWrapper({
             res,
-            status: STATUS_CODES.SUCCESS,
+            status: STATUS_CODES.OK,
             data: { username, status: "added" },
             message: "Team member added successfully"
         });
@@ -151,7 +151,7 @@ export const updateTeamMember = async (req: Request, res: Response, next: NextFu
         // Return success message
         responseWrapper({
             res,
-            status: STATUS_CODES.SUCCESS,
+            status: STATUS_CODES.OK,
             data: {},
             message: "Permissions updated successfully"
         });
@@ -208,7 +208,7 @@ export const removeTeamMember = async (req: Request, res: Response, next: NextFu
         // Return success message
         responseWrapper({
             res,
-            status: STATUS_CODES.SUCCESS,
+            status: STATUS_CODES.OK,
             data: {},
             message: "Team member removed successfully"
         });

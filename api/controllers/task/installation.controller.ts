@@ -1,7 +1,7 @@
 import { NextFunction, Request, Response } from "express";
 import { prisma } from "../../config/database.config.js";
-import { responseWrapper } from "../../utilities/helper.js";
-import { STATUS_CODES } from "../../utilities/data.js";
+import { responseWrapper } from "../../utils/helper.js";
+import { STATUS_CODES } from "../../utils/data.js";
 import { FilterTasks } from "../../models/task.model.js";
 import { Prisma, TaskStatus } from "../../../prisma_client/index.js";
 import { NotFoundError } from "../../models/error.model.js";
@@ -45,7 +45,7 @@ export const getInstallationTasks = async (req: Request, res: Response, next: Ne
             if (status === TaskStatus.PENDING_PAYMENT) {
                 return responseWrapper({
                     res,
-                    status: STATUS_CODES.SUCCESS,
+                    status: STATUS_CODES.OK,
                     data: [],
                     pagination: { hasMore: false }
                 });
@@ -158,7 +158,7 @@ export const getInstallationTasks = async (req: Request, res: Response, next: Ne
         // Return paginated tasks
         responseWrapper({
             res,
-            status: STATUS_CODES.SUCCESS,
+            status: STATUS_CODES.OK,
             data: results,
             pagination: { hasMore }
         });
@@ -231,7 +231,7 @@ export const getInstallationTask = async (req: Request, res: Response, next: Nex
         // Return task
         responseWrapper({
             res,
-            status: STATUS_CODES.SUCCESS,
+            status: STATUS_CODES.OK,
             data: task
         });
     } catch (error) {

@@ -1,4 +1,5 @@
 import { dataLogger, messageLogger } from "../config/logger.config.js";
+import { Env } from "../utils/env.js";
 
 /**
  * Sets up and configures all error handling components for the AI Review System
@@ -129,49 +130,49 @@ export class ErrorHandlerService {
         const errors: string[] = [];
 
         const requiredVars = [
-            { keys: ["DATABASE_URL"], msg: "DATABASE_URL not configured - database operations will fail" },
-            { keys: ["GITHUB_APP_ID", "GITHUB_APP_PRIVATE_KEY"], msg: "GitHub app credentials not configured - GitHub integration will fail" },
-            { keys: ["STELLAR_NETWORK"], msg: "STELLAR_NETWORK not configured - Stellar operations will fail" },
-            { keys: ["STELLAR_HORIZON_URL"], msg: "STELLAR_HORIZON_URL not configured - Stellar Horizon API unavailable" },
-            { keys: ["STELLAR_RPC_URL"], msg: "STELLAR_RPC_URL not configured - Soroban RPC unavailable" },
-            { keys: ["STELLAR_MASTER_PUBLIC_KEY", "STELLAR_MASTER_SECRET_KEY"], msg: "Stellar master keypair not configured - Stellar transactions will fail" },
-            { keys: ["TASK_ESCROW_CONTRACT_ID"], msg: "TASK_ESCROW_CONTRACT_ID not configured - escrow operations will fail" },
-            { keys: ["FIREBASE_PROJECT_ID", "FIREBASE_CLIENT_EMAIL", "FIREBASE_PRIVATE_KEY"], msg: "Firebase credentials not configured - Firebase integration will fail" },
-            { keys: ["GCP_PROJECT_ID", "GCP_LOCATION_ID", "GCP_KEY_RING_ID", "GCP_KEY_ID"], msg: "GCP credentials not configured - wallet encryption will fail" },
-            { keys: ["SUMSUB_APP_TOKEN", "SUMSUB_SECRET_KEY", "SUMSUB_LEVEL_NAME"], msg: "Sumsub misconfiguration" },
-            { keys: ["CLOUD_RUN_SERVICE_URL", "CLOUD_RUN_PRIVATE_SERVICE_URL", "CLOUD_TASKS_SERVICE_ACCOUNT_EMAIL"], msg: "Cloud Tasks credentials not configured - background job dispatch will fail" },
+            { values: [Env.databaseUrl()], msg: "DATABASE_URL not configured - database operations will fail" },
+            { values: [Env.githubAppId(), Env.githubAppPrivateKey()], msg: "GitHub app credentials not configured - GitHub integration will fail" },
+            { values: [Env.stellarNetwork()], msg: "STELLAR_NETWORK not configured - Stellar operations will fail" },
+            { values: [Env.stellarHorizonUrl()], msg: "STELLAR_HORIZON_URL not configured - Stellar Horizon API unavailable" },
+            { values: [Env.stellarRpcUrl()], msg: "STELLAR_RPC_URL not configured - Soroban RPC unavailable" },
+            { values: [Env.stellarMasterPublicKey(), Env.stellarMasterSecretKey()], msg: "Stellar master keypair not configured - Stellar transactions will fail" },
+            { values: [Env.taskEscrowContractId()], msg: "TASK_ESCROW_CONTRACT_ID not configured - escrow operations will fail" },
+            { values: [Env.firebaseProjectId(), Env.firebaseClientEmail(), Env.firebasePrivateKey()], msg: "Firebase credentials not configured - Firebase integration will fail" },
+            { values: [Env.gcpProjectId(), Env.gcpLocationId(), Env.gcpKeyRingId(), Env.gcpKeyId()], msg: "GCP credentials not configured - wallet encryption will fail" },
+            { values: [Env.sumsubAppToken(), Env.sumsubSecretKey(), Env.sumsubLevelName()], msg: "Sumsub misconfiguration" },
+            { values: [Env.cloudRunServiceUrl(), Env.cloudRunPrivateServiceUrl(), Env.cloudTasksServiceAccountEmail()], msg: "Cloud Tasks credentials not configured - background job dispatch will fail" },
             { 
-                keys: [
-                    "CLOUD_TASKS_PR_ANALYSIS_QUEUE", 
-                    "CLOUD_TASKS_MANUAL_PR_ANALYSIS_QUEUE",
-                    "CLOUD_TASKS_REPO_INDEXING_QUEUE", 
-                    "CLOUD_TASKS_INCREMENTAL_INDEXING_QUEUE", 
-                    "CLOUD_TASKS_BOUNTY_PAYOUT_QUEUE", 
-                    "CLOUD_TASKS_CLEAR_INSTALLATION_QUEUE", 
-                    "CLOUD_TASKS_CLEAR_REPO_QUEUE"
+                values: [
+                    Env.cloudTasksPrAnalysisQueue(), 
+                    Env.cloudTasksManualPrAnalysisQueue(),
+                    Env.cloudTasksRepoIndexingQueue(), 
+                    Env.cloudTasksIncrementalIndexingQueue(), 
+                    Env.cloudTasksBountyPayoutQueue(), 
+                    Env.cloudTasksClearInstallationQueue(), 
+                    Env.cloudTasksClearRepoQueue()
                 ], 
                 msg: "Cloud Tasks queue names not configured - job routing will fail" 
             },
-            { keys: ["X402_FACILITATOR_URL", "X402_PAYEE_ADDRESS", "X402_API_KEY"], msg: "x402 misconfiguration" }
+            { values: [Env.x402FacilitatorUrl(), Env.x402PayeeAddress(), Env.x402ApiKey()], msg: "x402 misconfiguration" }
         ];
 
         const warningVars = [
-            { keys: ["GITHUB_WEBHOOK_SECRET"], msg: "GITHUB_WEBHOOK_SECRET not configured - pull request review disabled" },
-            { keys: ["NODE_ENV"], msg: "NODE_ENV not configured - defaulting to development mode" },
-            { keys: ["PORT"], msg: "PORT not configured - defaulting to 8080" },
-            { keys: ["CONTRIBUTOR_APP_URL"], msg: "CONTRIBUTOR_APP_URL not configured - contributor redirects may fail" },
-            { keys: ["DEFAULT_SUBSCRIPTION_PACKAGE_ID"], msg: "DEFAULT_SUBSCRIPTION_PACKAGE_ID not configured - subscription defaults unavailable" }
+            { values: [Env.githubWebhookSecret()], msg: "GITHUB_WEBHOOK_SECRET not configured - pull request review disabled" },
+            { values: [Env.nodeEnv()], msg: "NODE_ENV not configured - defaulting to development mode" },
+            { values: [Env.port()], msg: "PORT not configured - defaulting to 8080" },
+            { values: [Env.contributorAppUrl()], msg: "CONTRIBUTOR_APP_URL not configured - contributor redirects may fail" },
+            { values: [Env.defaultSubscriptionPackageId()], msg: "DEFAULT_SUBSCRIPTION_PACKAGE_ID not configured - subscription defaults unavailable" }
         ];
 
-        requiredVars.forEach(({ keys, msg }) => {
-            if (keys.some(key => !process.env[key])) errors.push(msg);
+        requiredVars.forEach(({ values, msg }) => {
+            if (values.some(val => !val)) errors.push(msg);
         });
 
-        warningVars.forEach(({ keys, msg }) => {
-            if (keys.some(key => !process.env[key])) warnings.push(msg);
+        warningVars.forEach(({ values, msg }) => {
+            if (values.some(val => !val)) warnings.push(msg);
         });
 
-        if (process.env.NODE_ENV === "production" && !process.env.STATSIG_API_KEY) {
+        if (Env.nodeEnv() === "production" && !Env.statsigApiKey()) {
             warnings.push("STATSIG_API_KEY not configured - Statsig integration will fail");
         }
 
@@ -184,12 +185,12 @@ export class ErrorHandlerService {
             {
                 warnings: warnings.length,
                 errors: errors.length,
-                hasStellarConfig: !!(process.env.STELLAR_NETWORK && process.env.STELLAR_HORIZON_URL),
-                hasContractConfig: !!(process.env.TASK_ESCROW_CONTRACT_ID && process.env.USDC_CONTRACT_ID),
-                hasFirebase: !!(process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_CLIENT_EMAIL),
-                hasGCP: !!(process.env.GCP_PROJECT_ID && process.env.GCP_KEY_RING_ID),
-                hasCloudTasks: !!(process.env.CLOUD_RUN_SERVICE_URL && process.env.CLOUD_TASKS_SERVICE_ACCOUNT_EMAIL && process.env.CLOUD_TASKS_PR_ANALYSIS_QUEUE),
-                hasStatsig: !!(process.env.NODE_ENV === "production" && process.env.STATSIG_API_KEY)
+                hasStellarConfig: !!(Env.stellarNetwork() && Env.stellarHorizonUrl()),
+                hasContractConfig: !!(Env.taskEscrowContractId() && Env.usdcContractId()),
+                hasFirebase: !!(Env.firebaseProjectId() && Env.firebaseClientEmail()),
+                hasGCP: !!(Env.gcpProjectId() && Env.gcpKeyRingId()),
+                hasCloudTasks: !!(Env.cloudRunServiceUrl() && Env.cloudTasksServiceAccountEmail() && Env.cloudTasksPrAnalysisQueue()),
+                hasStatsig: !!(Env.nodeEnv() === "production" && Env.statsigApiKey())
             }
         );
     }

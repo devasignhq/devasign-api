@@ -1,7 +1,7 @@
 import { NextFunction, Request, Response } from "express";
 import { prisma } from "../../config/database.config.js";
-import { responseWrapper } from "../../utilities/helper.js";
-import { STATUS_CODES } from "../../utilities/data.js";
+import { responseWrapper } from "../../utils/helper.js";
+import { STATUS_CODES } from "../../utils/data.js";
 import { HorizonApi } from "../../models/horizonapi.model.js";
 import { Prisma, TransactionCategory } from "../../../prisma_client/index.js";
 import { stellarService } from "../../services/stellar.service.js";
@@ -52,7 +52,7 @@ export const getUserTransactions = async (req: Request, res: Response, next: Nex
 
         responseWrapper({
             res,
-            status: STATUS_CODES.SUCCESS,
+            status: STATUS_CODES.OK,
             data: results,
             pagination: { hasMore }
         });
@@ -129,7 +129,7 @@ export const getInstallationTransactions = async (req: Request, res: Response, n
 
         responseWrapper({
             res,
-            status: STATUS_CODES.SUCCESS,
+            status: STATUS_CODES.OK,
             data: results,
             pagination: { hasMore }
         });
@@ -192,7 +192,7 @@ export const recordWalletTopups = async (req: Request, res: Response, next: Next
             // No topup transactions found
             return responseWrapper({
                 res,
-                status: STATUS_CODES.SUCCESS,
+                status: STATUS_CODES.OK,
                 data: { processed: 0 },
                 message: "No new topup transactions found"
             });
@@ -248,7 +248,7 @@ export const recordWalletTopups = async (req: Request, res: Response, next: Next
         if (newTransactions.length === 0) {
             return responseWrapper({
                 res,
-                status: STATUS_CODES.SUCCESS,
+                status: STATUS_CODES.OK,
                 data: { processed: 0 },
                 message: "No new topup transactions found"
             });
@@ -275,7 +275,7 @@ export const recordWalletTopups = async (req: Request, res: Response, next: Next
         // Return details of recorded transactions
         responseWrapper({
             res,
-            status: STATUS_CODES.SUCCESS,
+            status: STATUS_CODES.OK,
             data: {
                 processed,
                 transactions: newTransactions.map(tx => ({

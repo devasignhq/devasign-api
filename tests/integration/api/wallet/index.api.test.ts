@@ -5,7 +5,7 @@ import { TestDataFactory } from "../../../helpers/test-data-factory.js";
 import { walletRoutes } from "../../../../api/routes/wallet.route.js";
 import { errorHandler } from "../../../../api/middlewares/error.middleware.js";
 import { DatabaseTestHelper } from "../../../helpers/database-test-helper.js";
-import { ENDPOINTS, STATUS_CODES } from "../../../../api/utilities/data.js";
+import { ENDPOINTS, STATUS_CODES } from "../../../../api/utils/data.js";
 import { TransactionCategory } from "../../../../prisma_client/index.js";
 import { getEndpointWithPrefix } from "../../../helpers/test-utils.js";
 
@@ -134,7 +134,7 @@ describe("Wallet API Integration Tests", () => {
             const response = await request(app)
                 .get(getEndpointWithPrefix(["WALLET", "GET_ACCOUNT"]))
                 .set("x-test-user-id", "test-user-1")
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body.data).toMatchObject({
                 balances: expect.arrayContaining([
@@ -169,7 +169,7 @@ describe("Wallet API Integration Tests", () => {
             const response = await request(app)
                 .get(`${getEndpointWithPrefix(["WALLET", "GET_ACCOUNT"])}?installationId=12345678`)
                 .set("x-test-user-id", "test-user-1")
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body.data).toMatchObject({
                 balances: expect.any(Array)
@@ -231,7 +231,7 @@ describe("Wallet API Integration Tests", () => {
                 .post(getEndpointWithPrefix(["WALLET", "WITHDRAW"]))
                 .set("x-test-user-id", "test-user-1")
                 .send(withdrawData)
-                .expect(STATUS_CODES.SERVER_ERROR);
+                .expect(STATUS_CODES.BAD_REQUEST);
         });
 
         it("should withdraw USDC successfully from user wallet (fee sponsored)", async () => {
@@ -246,7 +246,7 @@ describe("Wallet API Integration Tests", () => {
                 .post(getEndpointWithPrefix(["WALLET", "WITHDRAW"]))
                 .set("x-test-user-id", "test-user-1")
                 .send(withdrawData)
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(mockStellarService.transferAssetViaSponsor).toHaveBeenCalledWith(
                 expect.any(String),
@@ -289,7 +289,7 @@ describe("Wallet API Integration Tests", () => {
                 .post(getEndpointWithPrefix(["WALLET", "WITHDRAW"]))
                 .set("x-test-user-id", "test-user-1")
                 .send(withdrawData)
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
         });
 
         it("should allow withdrawing with a MEMO_HASH (64-character hex)", async () => {
@@ -304,7 +304,7 @@ describe("Wallet API Integration Tests", () => {
                 .post(getEndpointWithPrefix(["WALLET", "WITHDRAW"]))
                 .set("x-test-user-id", "test-user-1")
                 .send(withdrawData)
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
         });
 
         it("should return error when memo is invalid (exceeds 28 bytes text)", async () => {
@@ -320,7 +320,7 @@ describe("Wallet API Integration Tests", () => {
                 .post(getEndpointWithPrefix(["WALLET", "WITHDRAW"]))
                 .set("x-test-user-id", "test-user-1")
                 .send(withdrawData)
-                .expect(STATUS_CODES.SERVER_ERROR);
+                .expect(STATUS_CODES.BAD_REQUEST);
         });
 
         it("should return error when insufficient XLM balance for installation wallet", async () => {
@@ -358,7 +358,7 @@ describe("Wallet API Integration Tests", () => {
                 .post(getEndpointWithPrefix(["WALLET", "WITHDRAW"]))
                 .set("x-test-user-id", "test-user-1")
                 .send(withdrawData)
-                .expect(STATUS_CODES.SERVER_ERROR);
+                .expect(STATUS_CODES.BAD_REQUEST);
         });
 
         it("should return error when insufficient USDC balance", async () => {
@@ -387,7 +387,7 @@ describe("Wallet API Integration Tests", () => {
                 .post(getEndpointWithPrefix(["WALLET", "WITHDRAW"]))
                 .set("x-test-user-id", "test-user-1")
                 .send(withdrawData)
-                .expect(STATUS_CODES.SERVER_ERROR);
+                .expect(STATUS_CODES.BAD_REQUEST);
         });
 
         it("should return error for invalid amount", async () => {
@@ -401,7 +401,7 @@ describe("Wallet API Integration Tests", () => {
                 .post(getEndpointWithPrefix(["WALLET", "WITHDRAW"]))
                 .set("x-test-user-id", "test-user-1")
                 .send(withdrawData)
-                .expect(STATUS_CODES.SERVER_ERROR);
+                .expect(STATUS_CODES.BAD_REQUEST);
         });
 
         it("should withdraw USDC from installation wallet", async () => {
@@ -429,7 +429,7 @@ describe("Wallet API Integration Tests", () => {
                 .post(getEndpointWithPrefix(["WALLET", "WITHDRAW"]))
                 .set("x-test-user-id", "test-user-1")
                 .send(withdrawData)
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body.data).toMatchObject({
                 txHash: "mock_tx_hash_123",
@@ -472,7 +472,7 @@ describe("Wallet API Integration Tests", () => {
                 .post(getEndpointWithPrefix(["WALLET", "WITHDRAW"]))
                 .set("x-test-user-id", "test-user-1")
                 .send(withdrawData)
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body.data).toMatchObject({
                 txHash: "mock_tx_hash_123",
@@ -527,7 +527,7 @@ describe("Wallet API Integration Tests", () => {
                 .post(getEndpointWithPrefix(["WALLET", "WITHDRAW"]))
                 .set("x-test-user-id", "test-user-1")
                 .send(withdrawData)
-                .expect(STATUS_CODES.SERVER_ERROR);
+                .expect(STATUS_CODES.BAD_REQUEST);
         });
 
         it("should return error when no USDC asset found in wallet during USDC withdrawal", async () => {
@@ -546,7 +546,7 @@ describe("Wallet API Integration Tests", () => {
                 .post(getEndpointWithPrefix(["WALLET", "WITHDRAW"]))
                 .set("x-test-user-id", "test-user-1")
                 .send(withdrawData)
-                .expect(STATUS_CODES.SERVER_ERROR);
+                .expect(STATUS_CODES.BAD_REQUEST);
         });
     });
 
@@ -592,7 +592,7 @@ describe("Wallet API Integration Tests", () => {
                 )
                 .set("x-test-user-id", "test-user-1")
                 .send(swapData)
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body.data).toMatchObject({
                 txHash: "mock_swap_tx_hash_123",
@@ -624,7 +624,7 @@ describe("Wallet API Integration Tests", () => {
                 )
                 .set("x-test-user-id", "test-user-1")
                 .send(swapData)
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body.data).toMatchObject({
                 txHash: "mock_swap_tx_hash_123",
@@ -657,7 +657,7 @@ describe("Wallet API Integration Tests", () => {
                 )
                 .set("x-test-user-id", "test-user-1")
                 .send(swapData)
-                .expect(STATUS_CODES.SERVER_ERROR);
+                .expect(STATUS_CODES.BAD_REQUEST);
         });
 
         it("should return error when insufficient USDC balance for swap to XLM", async () => {
@@ -684,7 +684,7 @@ describe("Wallet API Integration Tests", () => {
                 )
                 .set("x-test-user-id", "test-user-1")
                 .send(swapData)
-                .expect(STATUS_CODES.SERVER_ERROR);
+                .expect(STATUS_CODES.BAD_REQUEST);
         });
 
         it("should return error when installation not found or user not a member", async () => {
@@ -721,7 +721,7 @@ describe("Wallet API Integration Tests", () => {
                 )
                 .set("x-test-user-id", "test-user-1")
                 .send(swapData)
-                .expect(STATUS_CODES.SERVER_ERROR);
+                .expect(STATUS_CODES.BAD_REQUEST);
         });
 
         it("should return error when no USDC asset found in wallet for swap to XLM", async () => {
@@ -742,7 +742,7 @@ describe("Wallet API Integration Tests", () => {
                 )
                 .set("x-test-user-id", "test-user-1")
                 .send(swapData)
-                .expect(STATUS_CODES.SERVER_ERROR);
+                .expect(STATUS_CODES.BAD_REQUEST);
         });
 
         it("should record accurate transaction details for swap", async () => {
@@ -758,7 +758,7 @@ describe("Wallet API Integration Tests", () => {
                 )
                 .set("x-test-user-id", "test-user-1")
                 .send(swapData)
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             const transaction = await prisma.transaction.findFirst({
                 where: { txHash: "mock_swap_tx_hash_123" }
@@ -795,7 +795,7 @@ describe("Wallet API Integration Tests", () => {
             await request(app)
                 .get(getEndpointWithPrefix(["WALLET", "GET_ACCOUNT"]))
                 .set("x-test-user-id", "test-user-1")
-                .expect(STATUS_CODES.UNKNOWN);
+                .expect(STATUS_CODES.INTERNAL_SERVER_ERROR);
         });
     });
 });

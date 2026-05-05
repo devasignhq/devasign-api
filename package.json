@@ -31,7 +31,6 @@
         "@prisma/client": "^6.13.0",
         "@prisma/extension-accelerate": "^1.2.2",
         "@stellar/stellar-sdk": "^14.5.0",
-        "@stellar/typescript-wallet-sdk": "^1.9.0",
         "@types/express": "^5.0.0",
         "@types/node": "^22.13.10",
         "@types/winston": "^2.4.4",

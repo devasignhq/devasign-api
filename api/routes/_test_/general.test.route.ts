@@ -6,10 +6,11 @@ import {
     encryptionSchema,
     decryptionSchema
 } from "./test.schema.js";
+import { Env } from "../../utils/env.js";
 import { KMSService } from "../../services/kms.service.js";
 import { prisma } from "../../config/database.config.js";
-import { STATUS_CODES } from "../../utilities/data.js";
-import { responseWrapper } from "../../utilities/helper.js";
+import { STATUS_CODES } from "../../utils/data.js";
+import { responseWrapper } from "../../utils/helper.js";
 import { dataLogger } from "../../config/logger.config.js";
 
 const router = Router();
@@ -26,7 +27,7 @@ router.post(
             return next(createError(409, "Email already exists"));
         }
 
-        res.status(201).json({ message: "User created", data: { email, name } });
+        res.status(STATUS_CODES.CREATED).json({ message: "User created", data: { email, name } });
     }) as RequestHandler
 );
 
@@ -44,7 +45,7 @@ router.post("/encryption",
             // Decrypt to verify
             const decrypted = await KMSService.decryptWallet(encrypted as any);
 
-            res.status(200).json({
+            res.status(STATUS_CODES.OK).json({
                 message: "Encryption test successful",
                 data: {
                     original: text,
@@ -54,7 +55,7 @@ router.post("/encryption",
                 }
             });
         } catch (error) {
-            next(createError(500, "Encryption test failed", { cause: error }));
+            next(error);
         }
     }) as RequestHandler
 );
@@ -77,7 +78,7 @@ router.post("/decryption",
             // Decrypt again to verify the re-encryption works and matches
             const reDecrypted = await KMSService.decryptWallet(ecrypted as any);
 
-            res.status(200).json({
+            res.status(STATUS_CODES.OK).json({
                 message: "Decryption test successful",
                 data: {
                     original: walletData,
@@ -87,7 +88,7 @@ router.post("/decryption",
                 }
             });
         } catch (error) {
-            next(createError(500, "Decryption test failed", { cause: error }));
+            next(error);
         }
     }) as RequestHandler
 );
@@ -97,7 +98,7 @@ router.post("/create-packages", async (_, res: Response, next: NextFunction) => 
         const packages = await prisma.subscriptionPackage.createMany({
             data: [
                 {
-                    id: process.env.DEFAULT_SUBSCRIPTION_PACKAGE_ID || "cml9shfp300001jfka71z28ay",
+                    id: Env.defaultSubscriptionPackageId() || "cml9shfp300001jfka71z28ay",
                     name: "Free",
                     description: "Basic plan for personal use",
                     maxTasks: 5,
@@ -127,9 +128,9 @@ router.post("/create-packages", async (_, res: Response, next: NextFunction) => 
             ]
         });
 
-        res.status(STATUS_CODES.SUCCESS).json(packages);
+        res.status(STATUS_CODES.OK).json(packages);
     } catch (error) {
-        next(createError(500, "Failed to create packages", { cause: error }));
+        next(error);
     }
 });
 
@@ -151,11 +152,9 @@ router.post("/reset-db", async (req: Request, res: Response) => {
         await prisma.wallet.deleteMany();
         await prisma.permission.deleteMany();
 
-        // await prisma.subscriptionPackage.deleteMany();
-
         responseWrapper({
             res,
-            status: STATUS_CODES.SUCCESS,
+            status: STATUS_CODES.OK,
             data: {},
             message: "Database cleared"
         });
@@ -163,7 +162,7 @@ router.post("/reset-db", async (req: Request, res: Response) => {
         dataLogger.error("Database clear operation failed", { error });
         responseWrapper({
             res,
-            status: STATUS_CODES.SERVER_ERROR,
+            status: STATUS_CODES.INTERNAL_SERVER_ERROR,
             data: {},
             message: "Database clear operation failed"
         });

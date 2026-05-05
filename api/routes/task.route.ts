@@ -44,7 +44,7 @@ import {
     getContributorTaskSchema,
     markActivityAsViewedSchema
 } from "../schemas/task.schema.js";
-import { ENDPOINTS } from "../utilities/data.js";
+import { ENDPOINTS } from "../utils/data.js";
 import { validateRequestParameters } from "../middlewares/request.middleware.js";
 
 export const taskRoutes = Router();

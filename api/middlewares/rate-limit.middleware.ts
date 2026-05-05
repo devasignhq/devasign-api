@@ -1,5 +1,5 @@
 import rateLimit from "express-rate-limit";
-import { STATUS_CODES, ENDPOINTS } from "../utilities/data.js";
+import { STATUS_CODES, ENDPOINTS } from "../utils/data.js";
 import { messageLogger } from "../config/logger.config.js";
 
 /**
@@ -14,7 +14,7 @@ export const apiLimiter = rateLimit({
     message: {
         message: "Too many requests from this IP, please try again after 1 minute"
     },
-    statusCode: STATUS_CODES.RATE_LIMIT,
+    statusCode: STATUS_CODES.TOO_MANY_REQUESTS,
     skip: (req) => req.originalUrl.startsWith(ENDPOINTS.WEBHOOK.PREFIX),
     handler: (req, res, next, options) => {
         messageLogger.warn(`Rate limit exceeded for IP: ${req.ip}`);
@@ -34,7 +34,7 @@ export const webhookLimiter = rateLimit({
     message: {
         message: "Too many webhook requests from this IP, please try again after 1 minute"
     },
-    statusCode: STATUS_CODES.RATE_LIMIT,
+    statusCode: STATUS_CODES.TOO_MANY_REQUESTS,
     handler: (req, res, next, options) => {
         messageLogger.warn(`Webhook rate limit exceeded for IP: ${req.ip}`);
         res.status(options.statusCode).json(options.message);

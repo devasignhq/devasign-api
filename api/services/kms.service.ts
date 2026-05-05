@@ -2,17 +2,18 @@ import { KeyManagementServiceClient } from "@google-cloud/kms";
 import crypto from "crypto";
 import { Wallet } from "../../prisma_client/index.js";
 import { KmsServiceError } from "../models/error.model.js";
+import { Env } from "../utils/env.js";
 
 // Verify required environment variables are present
-if (!process.env.GCP_PROJECT_ID || !process.env.GCP_LOCATION_ID || !process.env.GCP_KEY_RING_ID || !process.env.GCP_KEY_ID) {
+if (!Env.gcpProjectId() || !Env.gcpLocationId() || !Env.gcpKeyRingId() || !Env.gcpKeyId()) {
     throw new KmsServiceError("Missing GCP KMS credentials (GCP_PROJECT_ID, GCP_LOCATION_ID, GCP_KEY_RING_ID, GCP_KEY_ID) in environment variables");
 }
 
 // Set Google Cloud KMS environment variables
-const PROJECT_ID = process.env.GCP_PROJECT_ID;
-const LOCATION_ID = process.env.GCP_LOCATION_ID;
-const KEY_RING_ID = process.env.GCP_KEY_RING_ID;
-const KEY_ID = process.env.GCP_KEY_ID;
+const PROJECT_ID = Env.gcpProjectId(true)!;
+const LOCATION_ID = Env.gcpLocationId(true)!;
+const KEY_RING_ID = Env.gcpKeyRingId(true)!;
+const KEY_ID = Env.gcpKeyId(true)!;
 
 const client = new KeyManagementServiceClient();
 const keyName = client.cryptoKeyPath(PROJECT_ID, LOCATION_ID, KEY_RING_ID, KEY_ID);

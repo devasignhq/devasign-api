@@ -178,8 +178,10 @@ export class DatabaseTestHelper {
     static async seedDatabase(client: PrismaClient): Promise<void> {
         try {
             // Create default subscription package
-            await client.subscriptionPackage.create({
-                data: {
+            await client.subscriptionPackage.upsert({
+                where: { id: "test-package-id" },
+                update: {},
+                create: {
                     id: "test-package-id",
                     name: "Test Package",
                     description: "Test subscription package",
@@ -200,7 +202,11 @@ export class DatabaseTestHelper {
             ];
 
             for (const permission of permissions) {
-                await client.permission.create({ data: permission });
+                await client.permission.upsert({
+                    where: { code: permission.code },
+                    update: {},
+                    create: permission
+                });
             }
 
             console.log("✅ Database seeding completed");

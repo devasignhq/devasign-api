@@ -27,10 +27,11 @@ import {
 } from "./routes/index.js";
 import { ErrorHandlerService } from "./services/error-handler.service.js";
 import { dataLogger, messageLogger } from "./config/logger.config.js";
-import { ALLOWED_ORIGINS, ENDPOINTS, STATUS_CODES } from "./utilities/data.js";
+import { ENDPOINTS, STATUS_CODES } from "./utils/data.js";
 import { ErrorClass } from "./models/error.model.js";
 import { statsigService } from "./services/statsig.service.js";
 import { SocketService } from "./services/socket.service.js";
+import { Env } from "./utils/env.js";
 
 // Create HTTP server
 const app = express();
@@ -40,24 +41,24 @@ const httpServer = createServer(app);
 SocketService.initialize(httpServer);
 
 // Define port
-const PORT = process.env.NODE_ENV === "development"
-    ? 5000
-    : (Number(process.env.PORT) || 8080);
+const PORT = Env.port() || 8080;
+
+// Get allowed origins for CORS
+const allowedOrigins = Env.corsOrigins(true);
 
 // Security middleware
 app.use(helmet());
 app.use(
     cors({
         origin(origin, callback) {
-            // Allowed origins
-            if (!origin || ALLOWED_ORIGINS.includes(origin)) {
+            if (!origin || allowedOrigins.includes(origin)) {
                 return callback(null, true);
             }
             callback(new ErrorClass(
                 "CORS_ERROR",
                 null,
                 "Not allowed by CORS",
-                STATUS_CODES.UNAUTHORIZED
+                STATUS_CODES.FORBIDDEN
             ));
         },
         exposedHeaders: ["Payment-Required", "Payment-Response"]
@@ -78,7 +79,7 @@ app.use(
 
 // General API Middleware
 app.use(apiLimiter);
-app.use(express.json());
+app.use(express.json({ limit: "10mb" }));
 
 // User routes
 app.use(
@@ -138,7 +139,7 @@ app.use(
  * Internal/Test Routes
  * Only mounted in development or local testing environments
  */
-if (process.env.NODE_ENV !== "production") {
+if (Env.nodeEnv() !== "production") {
     messageLogger.warn("⚠️ Mounting internal test routes. Ensure this is not production.");
 
     const internalMiddlware = [dynamicRoute, localhostOnly];

@@ -1,14 +1,15 @@
 import { NextFunction, Request, Response } from "express";
 import { prisma } from "../../config/database.config.js";
-import { responseWrapper } from "../../utilities/helper.js";
-import { STATUS_CODES } from "../../utilities/data.js";
+import { responseWrapper } from "../../utils/helper.js";
+import { STATUS_CODES } from "../../utils/data.js";
 import { HorizonApi } from "../../models/horizonapi.model.js";
 import { TransactionCategory } from "../../../prisma_client/index.js";
-import { usdcAssetId, xlmAssetId } from "../../config/stellar.config.js";
+import { usdcAsset, xlmAsset } from "../../config/stellar.config.js";
 import { stellarService } from "../../services/stellar.service.js";
 import { NotFoundError, ValidationError } from "../../models/error.model.js";
 import { KMSService } from "../../services/kms.service.js";
 import { statsigService } from "../../services/statsig.service.js";
+import { Env } from "../../utils/env.js";
 
 type USDCBalance = HorizonApi.BalanceLineAsset<"credit_alphanum12">;
 
@@ -135,20 +136,20 @@ export const withdrawAsset = async (req: Request, res: Response, next: NextFunct
             ({ txHash } = await stellarService.transferAsset(
                 walletSecret,
                 destinationAddress,
-                assetType === "USDC" ? usdcAssetId : xlmAssetId,
-                assetType === "USDC" ? usdcAssetId : xlmAssetId,
+                assetType === "USDC" ? usdcAsset : xlmAsset,
+                assetType === "USDC" ? usdcAsset : xlmAsset,
                 amount,
                 memo
             ));
         } else {
             // User wallet withdrawals — master account sponsors the transaction fee
-            const masterSecret = process.env.STELLAR_MASTER_SECRET_KEY!;
+            const masterSecret = Env.stellarMasterSecretKey(true)!;
             ({ txHash } = await stellarService.transferAssetViaSponsor(
                 masterSecret,
                 walletSecret,
                 destinationAddress,
-                assetType === "USDC" ? usdcAssetId : xlmAssetId,
-                assetType === "USDC" ? usdcAssetId : xlmAssetId,
+                assetType === "USDC" ? usdcAsset : xlmAsset,
+                assetType === "USDC" ? usdcAsset : xlmAsset,
                 amount,
                 memo
             ));
@@ -180,7 +181,7 @@ export const withdrawAsset = async (req: Request, res: Response, next: NextFunct
         // Return transaction details
         responseWrapper({
             res,
-            status: STATUS_CODES.SUCCESS,
+            status: STATUS_CODES.OK,
             data: transaction,
             message: "Withdrawal successful"
         });
@@ -287,8 +288,8 @@ export const swapAsset = async (req: Request, res: Response, next: NextFunction)
             result = await stellarService.swapAsset(
                 walletSecret,
                 amount,
-                usdcAssetId,
-                xlmAssetId
+                usdcAsset,
+                xlmAsset
             );
         }
 
@@ -319,7 +320,7 @@ export const swapAsset = async (req: Request, res: Response, next: NextFunction)
         // Return transaction details
         responseWrapper({
             res,
-            status: STATUS_CODES.SUCCESS,
+            status: STATUS_CODES.OK,
             data: transaction,
             message: "Swap successful"
         });
@@ -352,7 +353,7 @@ export const getWalletInfo = async (req: Request, res: Response, next: NextFunct
         // Return account info
         responseWrapper({
             res,
-            status: STATUS_CODES.SUCCESS,
+            status: STATUS_CODES.OK,
             data: accountInfo,
             message: "Wallet info retrieved successfully"
         });

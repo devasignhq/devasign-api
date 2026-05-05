@@ -6,7 +6,7 @@ import { userRoutes } from "../../../../api/routes/user.route.js";
 import { errorHandler } from "../../../../api/middlewares/error.middleware.js";
 import { validateUser } from "../../../../api/middlewares/auth.middleware.js";
 import { DatabaseTestHelper } from "../../../helpers/database-test-helper.js";
-import { ENDPOINTS, STATUS_CODES } from "../../../../api/utilities/data.js";
+import { ENDPOINTS, STATUS_CODES } from "../../../../api/utils/data.js";
 import { mockFirebaseAuth } from "../../../mocks/firebase.service.mock.js";
 import { getEndpointWithPrefix } from "../../../helpers/test-utils.js";
 import { apiLimiter } from "../../../../api/middlewares/rate-limit.middleware.js";
@@ -203,7 +203,7 @@ describe("User API Integration Tests", () => {
                 .post(getEndpointWithPrefix(["USER", "CREATE"]))
                 .set("x-test-user-id", "existing-user")
                 .send(userData)
-                .expect(STATUS_CODES.SERVER_ERROR);
+                .expect(STATUS_CODES.BAD_REQUEST);
         });
 
         it("should handle wallet creation failure gracefully", async () => {
@@ -217,7 +217,7 @@ describe("User API Integration Tests", () => {
                 .post(getEndpointWithPrefix(["USER", "CREATE"]))
                 .set("x-test-user-id", "new-user-999")
                 .send(userData)
-                .expect(STATUS_CODES.UNKNOWN);
+                .expect(STATUS_CODES.INTERNAL_SERVER_ERROR);
         });
 
         it("should handle trustline creation failure gracefully", async () => {
@@ -231,7 +231,7 @@ describe("User API Integration Tests", () => {
                 .post(getEndpointWithPrefix(["USER", "CREATE"]))
                 .set("x-test-user-id", "new-user-888")
                 .send(userData)
-                .expect(STATUS_CODES.PARTIAL_SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body.data).toMatchObject({
                 userId: "new-user-888",
@@ -279,7 +279,7 @@ describe("User API Integration Tests", () => {
             const response = await request(app)
                 .get(getEndpointWithPrefix(["USER", "GET"]))
                 .set("x-test-user-id", "test-get-user")
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body.data).toMatchObject({
                 userId: "test-get-user",
@@ -301,7 +301,7 @@ describe("User API Integration Tests", () => {
             const response = await request(app)
                 .get("/users?view=full")
                 .set("x-test-user-id", "test-get-user")
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body.data).toMatchObject({
                 userId: "test-get-user",
@@ -338,7 +338,7 @@ describe("User API Integration Tests", () => {
                 .get(getEndpointWithPrefix(["USER", "GET"]))
                 .set("x-test-user-id", "user-no-wallet")
                 .set("origin", "http://localhost:4000")
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             // Response should include user and walletStatus
             expect(response.body.data.user).toBeDefined();
@@ -421,7 +421,7 @@ describe("User API Integration Tests", () => {
                 .patch(getEndpointWithPrefix(["USER", "UPDATE_ADDRESS_BOOK"]))
                 .set("x-test-user-id", "test-addressbook-user")
                 .send(duplicateAddress)
-                .expect(STATUS_CODES.SERVER_ERROR);
+                .expect(STATUS_CODES.BAD_REQUEST);
         });
 
         it("should return 404 when user does not exist", async () => {
@@ -453,17 +453,17 @@ describe("User API Integration Tests", () => {
 
             await request(appWithoutAuth)
                 .get(getEndpointWithPrefix(["USER", "GET"]))
-                .expect(STATUS_CODES.UNAUTHENTICATED);
+                .expect(STATUS_CODES.UNAUTHORIZED);
 
             await request(appWithoutAuth)
                 .post(getEndpointWithPrefix(["USER", "CREATE"]))
                 .send({ githubUsername: "test" })
-                .expect(STATUS_CODES.UNAUTHENTICATED);
+                .expect(STATUS_CODES.UNAUTHORIZED);
 
             await request(appWithoutAuth)
                 .patch(getEndpointWithPrefix(["USER", "UPDATE_ADDRESS_BOOK"]))
                 .send({ address: "GTEST1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12", name: "Test" })
-                .expect(STATUS_CODES.UNAUTHENTICATED);
+                .expect(STATUS_CODES.UNAUTHORIZED);
         });
     });
 
@@ -483,7 +483,7 @@ describe("User API Integration Tests", () => {
             const getResponse = await request(app)
                 .get(`${getEndpointWithPrefix(["USER", "GET"])}?view=full`)
                 .set("x-test-user-id", userId)
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(getResponse.body.data.userId).toBe(userId);
             expect(getResponse.body.data.username).toBe("consistencytest");
@@ -496,13 +496,13 @@ describe("User API Integration Tests", () => {
                     address: "GBPOJZGQPO23FSADGDD3PQFRGLWTETJRK2IY4D5HEQXLDCDEHYFSAAII",
                     name: "Test Contact"
                 })
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             // Verify all changes persisted
             const finalGetResponse = await request(app)
                 .get(`${getEndpointWithPrefix(["USER", "GET"])}?view=full`)
                 .set("x-test-user-id", userId)
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(finalGetResponse.body.data).toMatchObject({
                 userId,
@@ -544,7 +544,7 @@ describe("User API Integration Tests", () => {
 
             // At least one should succeed (due to race conditions, some might fail)
             const successfulResults = results.filter(result =>
-                result.status === "fulfilled" && result.value.status === STATUS_CODES.SUCCESS
+                result.status === "fulfilled" && result.value.status === STATUS_CODES.OK
             );
 
             expect(successfulResults.length).toBeGreaterThan(0);

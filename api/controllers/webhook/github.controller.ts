@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
-import { responseWrapper } from "../../utilities/helper.js";
-import { STATUS_CODES } from "../../utilities/data.js";
+import { responseWrapper } from "../../utils/helper.js";
+import { STATUS_CODES } from "../../utils/data.js";
 import { dataLogger } from "../../config/logger.config.js";
 import { PullRequestWebhookService } from "../../services/github-webhook/pull_request-webhook.service.js";
 import { InstallationWebhookService } from "../../services/github-webhook/installation-webhook.service.js";
@@ -47,7 +47,7 @@ export const handleGitHubWebhook = async (req: Request, res: Response, next: Nex
 
     responseWrapper({
         res,
-        status: STATUS_CODES.SUCCESS,
+        status: STATUS_CODES.OK,
         data: { eventType },
         message: "Event type not processed"
     });

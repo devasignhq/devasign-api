@@ -10,7 +10,7 @@ import {
     NotFoundError,
     ValidationError
 } from "../../../api/models/error.model.js";
-import { STATUS_CODES } from "../../../api/utilities/data.js";
+import { STATUS_CODES } from "../../../api/utils/data.js";
 
 vi.mock("../../../api/services/octokit.service", () => ({
     OctokitService: {
@@ -52,11 +52,11 @@ describe("Error Handling Middleware", () => {
                 "CUSTOM_ERROR",
                 { detail: "test" },
                 "Custom error message",
-                STATUS_CODES.BAD_PAYLOAD
+                STATUS_CODES.BAD_REQUEST
             );
             errorHandler(error, mockRequest as Request, mockResponse as Response, mockNext);
 
-            expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.BAD_PAYLOAD);
+            expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.BAD_REQUEST);
             expect(mockResponse.json).toHaveBeenCalledWith(expect.objectContaining({
                 code: "CUSTOM_ERROR",
                 message: "Custom error message"
@@ -72,19 +72,19 @@ describe("Error Handling Middleware", () => {
             error = new AuthorizationError("Access denied");
             errorHandler(error, mockRequest as Request, mockResponse as Response, mockNext);
 
-            expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.UNAUTHORIZED);
+            expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.FORBIDDEN);
 
             // Validation
             error = new ValidationError("Access denied");
             errorHandler(error, mockRequest as Request, mockResponse as Response, mockNext);
 
-            expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.SERVER_ERROR);
+            expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.BAD_REQUEST);
 
             // AI review
             error = new AIReviewError("REVIEW_ERROR", null, "Review failed");
             errorHandler(error, mockRequest as Request, mockResponse as Response, mockNext);
 
-            expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.SERVER_ERROR);
+            expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.INTERNAL_SERVER_ERROR);
             expect(mockResponse.json).toHaveBeenCalledWith(expect.objectContaining({
                 code: "REVIEW_ERROR",
                 message: "Review failed"
@@ -94,7 +94,7 @@ describe("Error Handling Middleware", () => {
             error = new GitHubAPIError("Failed to fetch pr");
             errorHandler(error, mockRequest as Request, mockResponse as Response, mockNext);
 
-            expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.SERVER_ERROR);
+            expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.INTERNAL_SERVER_ERROR);
             expect(mockResponse.json).toHaveBeenCalledWith(expect.objectContaining({
                 code: "GITHUB_API_ERROR",
                 message: "Failed to fetch pr"
@@ -104,7 +104,7 @@ describe("Error Handling Middleware", () => {
             error = new GeminiServiceError("Completion failed");
             errorHandler(error, mockRequest as Request, mockResponse as Response, mockNext);
 
-            expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.SERVER_ERROR);
+            expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.INTERNAL_SERVER_ERROR);
             expect(mockResponse.json).toHaveBeenCalledWith(expect.objectContaining({
                 code: "GEMINI_SERVICE_ERROR",
                 message: "Completion failed"
@@ -120,7 +120,7 @@ describe("Error Handling Middleware", () => {
 
             errorHandler(error as any, mockRequest as Request, mockResponse as Response, mockNext);
 
-            expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.SERVER_ERROR);
+            expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.BAD_REQUEST);
             expect(mockResponse.json).toHaveBeenCalledWith({
                 message: error.message,
                 details: error.errors
@@ -132,7 +132,7 @@ describe("Error Handling Middleware", () => {
 
             errorHandler(error, mockRequest as Request, mockResponse as Response, mockNext);
 
-            expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.UNKNOWN);
+            expect(mockResponse.status).toHaveBeenCalledWith(STATUS_CODES.INTERNAL_SERVER_ERROR);
             expect(mockResponse.json).toHaveBeenCalledWith({
                 message: "Generic error",
                 details: error

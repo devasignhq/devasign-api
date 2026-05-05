@@ -6,7 +6,7 @@ import { installationRoutes } from "../../../../api/routes/installation.route.js
 import { errorHandler } from "../../../../api/middlewares/error.middleware.js";
 import { validateUser } from "../../../../api/middlewares/auth.middleware.js";
 import { DatabaseTestHelper } from "../../../helpers/database-test-helper.js";
-import { ENDPOINTS, STATUS_CODES } from "../../../../api/utilities/data.js";
+import { ENDPOINTS, STATUS_CODES } from "../../../../api/utils/data.js";
 import { mockFirebaseAuth } from "../../../mocks/firebase.service.mock.js";
 import { generateRandomString, getEndpointWithPrefix, generateRandomCUID } from "../../../helpers/test-utils.js";
 import { apiLimiter } from "../../../../api/middlewares/rate-limit.middleware.js";
@@ -153,7 +153,7 @@ describe("Installation Team API Integration Tests", () => {
                     .replace(":installationId", "12345678"))
                 .set("x-test-user-id", "team-owner")
                 .send(memberData)
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body.data).toMatchObject({
                 username: "newmember",
@@ -205,7 +205,7 @@ describe("Installation Team API Integration Tests", () => {
                     .replace(":installationId", "12345678"))
                 .set("x-test-user-id", "team-owner")
                 .send(memberData)
-                .expect(STATUS_CODES.SERVER_ERROR);
+                .expect(STATUS_CODES.BAD_REQUEST);
 
             expect(response.body.data).toMatchObject({
                 username: "existingmember",
@@ -224,7 +224,7 @@ describe("Installation Team API Integration Tests", () => {
                     .replace(":installationId", "12345678"))
                 .set("x-test-user-id", "team-owner")
                 .send(memberData)
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body.data).toMatchObject({
                 status: "not_found"
@@ -242,7 +242,7 @@ describe("Installation Team API Integration Tests", () => {
                     .replace(":installationId", "99999999"))
                 .set("x-test-user-id", "team-owner")
                 .send(memberData)
-                .expect(STATUS_CODES.UNAUTHORIZED);
+                .expect(STATUS_CODES.FORBIDDEN);
         });
     });
 
@@ -309,7 +309,7 @@ describe("Installation Team API Integration Tests", () => {
                     .replace(":userId", teamMemberId))
                 .set("x-test-user-id", "team-owner")
                 .send(updateData)
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body).toMatchObject({
                 message: "Permissions updated successfully"
@@ -338,7 +338,7 @@ describe("Installation Team API Integration Tests", () => {
                     .replace(":userId", teamMemberId))
                 .set("x-test-user-id", "team-owner")
                 .send(updateData)
-                .expect(STATUS_CODES.UNAUTHORIZED);
+                .expect(STATUS_CODES.FORBIDDEN);
         });
 
         it("should return error when user is not a team member", async () => {
@@ -357,7 +357,7 @@ describe("Installation Team API Integration Tests", () => {
                     .replace(":userId", teamMemberId))
                 .set("x-test-user-id", "outsider")
                 .send(updateData)
-                .expect(STATUS_CODES.UNAUTHORIZED);
+                .expect(STATUS_CODES.FORBIDDEN);
         });
     });
 
@@ -413,7 +413,7 @@ describe("Installation Team API Integration Tests", () => {
                     .replace(":installationId", "12345678")
                     .replace(":userId", teamMemberId))
                 .set("x-test-user-id", "team-owner")
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body).toMatchObject({
                 message: "Team member removed successfully"
@@ -444,7 +444,7 @@ describe("Installation Team API Integration Tests", () => {
                     .replace(":installationId", "99999999")
                     .replace(":userId", teamMemberId))
                 .set("x-test-user-id", "team-owner")
-                .expect(STATUS_CODES.UNAUTHORIZED);
+                .expect(STATUS_CODES.FORBIDDEN);
         });
 
         it("should return error when user is not a team member", async () => {
@@ -458,7 +458,7 @@ describe("Installation Team API Integration Tests", () => {
                     .replace(":installationId", "12345678")
                     .replace(":userId", teamMemberId))
                 .set("x-test-user-id", "outsider")
-                .expect(STATUS_CODES.UNAUTHORIZED);
+                .expect(STATUS_CODES.FORBIDDEN);
         });
     });
 
@@ -479,20 +479,20 @@ describe("Installation Team API Integration Tests", () => {
                 .post(getEndpointWithPrefix(["INSTALLATION", "TEAM", "ADD_MEMBER"])
                     .replace(":installationId", "12345678"))
                 .send({ username: "test", permissionCodes: [manageTasksCode] })
-                .expect(STATUS_CODES.UNAUTHENTICATED);
+                .expect(STATUS_CODES.UNAUTHORIZED);
 
             await request(appWithoutAuth)
                 .patch(getEndpointWithPrefix(["INSTALLATION", "TEAM", "UPDATE_MEMBER"])
                     .replace(":installationId", "12345678")
                     .replace(":userId", generateRandomCUID()))
                 .send({ permissionCodes: [manageTasksCode] })
-                .expect(STATUS_CODES.UNAUTHENTICATED);
+                .expect(STATUS_CODES.UNAUTHORIZED);
 
             await request(appWithoutAuth)
                 .delete(getEndpointWithPrefix(["INSTALLATION", "TEAM", "REMOVE_MEMBER"])
                     .replace(":installationId", "12345678")
                     .replace(":userId", generateRandomCUID()))
-                .expect(STATUS_CODES.UNAUTHENTICATED);
+                .expect(STATUS_CODES.UNAUTHORIZED);
         });
     });
 });

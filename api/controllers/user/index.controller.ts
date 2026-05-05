@@ -2,14 +2,15 @@ import { NextFunction, Request, Response } from "express";
 import { prisma } from "../../config/database.config.js";
 import { InputJsonValue } from "@prisma/client/runtime/library";
 import { stellarService } from "../../services/stellar.service.js";
-import { responseWrapper } from "../../utilities/helper.js";
-import { STATUS_CODES } from "../../utilities/data.js";
+import { responseWrapper } from "../../utils/helper.js";
+import { STATUS_CODES } from "../../utils/data.js";
 import { NotFoundError, ValidationError } from "../../models/error.model.js";
 import { dataLogger } from "../../config/logger.config.js";
 import { Prisma } from "../../../prisma_client/index.js";
 import { KMSService } from "../../services/kms.service.js";
 import { OctokitService } from "../../services/octokit.service.js";
 import { statsigService } from "../../services/statsig.service.js";
+import { Env } from "../../utils/env.js";
 
 // User's address book
 export type AddressBook = {
@@ -124,7 +125,7 @@ export const createUser = async (req: Request, res: Response, next: NextFunction
         try {
             // Add USDC trustline to wallet
             await stellarService.addTrustLineViaSponsor(
-                process.env.STELLAR_MASTER_SECRET_KEY!,
+                Env.stellarMasterSecretKey(true)!,
                 userWallet.secretKey
             );
 
@@ -154,7 +155,7 @@ export const createUser = async (req: Request, res: Response, next: NextFunction
             // Return user info and notify user USDC trustline addition failed
             responseWrapper({
                 res,
-                status: STATUS_CODES.PARTIAL_SUCCESS,
+                status: STATUS_CODES.OK,
                 data: user,
                 message: "User created successfully",
                 warning: "Failed to add USDC trustline to wallet",
@@ -272,7 +273,7 @@ export const getUser = async (req: Request, res: Response, next: NextFunction) =
         if (!isContributorApp || (user.wallet && user.wallet.address)) {
             return responseWrapper({
                 res,
-                status: STATUS_CODES.SUCCESS,
+                status: STATUS_CODES.OK,
                 data: user
             });
         }
@@ -316,10 +317,10 @@ export const getUser = async (req: Request, res: Response, next: NextFunction) =
                 statsigUser,
                 "wallet_creation_failed",
                 undefined,
-                { 
-                    error: error instanceof Error ? error.message : "Unknown error", 
-                    operation: "get_user", 
-                    githubUsername: user.username 
+                {
+                    error: error instanceof Error ? error.message : "Unknown error",
+                    operation: "get_user",
+                    githubUsername: user.username
                 }
             );
 
@@ -327,7 +328,7 @@ export const getUser = async (req: Request, res: Response, next: NextFunction) =
             dataLogger.warn("Failed to create wallet for existing user", { error });
             return responseWrapper({
                 res,
-                status: STATUS_CODES.PARTIAL_SUCCESS,
+                status: STATUS_CODES.OK,
                 data: user,
                 message: "Failed to create wallet",
                 meta: { walletStatus }
@@ -337,7 +338,7 @@ export const getUser = async (req: Request, res: Response, next: NextFunction) =
         try {
             // Add USDC trustline to wallet
             await stellarService.addTrustLineViaSponsor(
-                process.env.STELLAR_MASTER_SECRET_KEY!,
+                Env.stellarMasterSecretKey(true)!,
                 userWallet.secretKey
             );
             walletStatus.usdcTrustline = true;
@@ -355,18 +356,18 @@ export const getUser = async (req: Request, res: Response, next: NextFunction) =
                 statsigUser,
                 "usdc_trustline_failed",
                 undefined,
-                { 
-                    error: error instanceof Error ? error.message : "Unknown error", 
-                    operation: "get_user", 
-                    githubUsername: user.username 
+                {
+                    error: error instanceof Error ? error.message : "Unknown error",
+                    operation: "get_user",
+                    githubUsername: user.username
                 }
             );
-            
+
             // Log and return user info and notify user USDC trustline addition failed 
             dataLogger.warn("Failed to add USDC trustline", { error });
             return responseWrapper({
                 res,
-                status: STATUS_CODES.PARTIAL_SUCCESS,
+                status: STATUS_CODES.OK,
                 data: user,
                 message: "Created wallet successfully",
                 warning: "Failed to add USDC trustline to wallet",
@@ -377,7 +378,7 @@ export const getUser = async (req: Request, res: Response, next: NextFunction) =
         // Return user with new wallet
         return responseWrapper({
             res,
-            status: STATUS_CODES.SUCCESS,
+            status: STATUS_CODES.OK,
             data: { user, walletStatus }
         });
     } catch (error) {
@@ -437,7 +438,7 @@ export const updateAddressBook = async (req: Request, res: Response, next: NextF
         // Return updated user
         responseWrapper({
             res,
-            status: STATUS_CODES.SUCCESS,
+            status: STATUS_CODES.OK,
             data: updatedUser,
             message: "Address added to address book"
         });

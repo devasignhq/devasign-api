@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
-import { responseWrapper } from "../../utilities/helper.js";
-import { STATUS_CODES } from "../../utilities/data.js";
+import { responseWrapper } from "../../utils/helper.js";
+import { STATUS_CODES } from "../../utils/data.js";
 import { dataLogger } from "../../config/logger.config.js";
 import { cloudTasksService } from "../cloud-tasks.service.js";
 
@@ -34,7 +34,7 @@ export class PushWebhookService {
                 dataLogger.info("Push event has no file changes to process", { installationId, repositoryName });
                 responseWrapper({
                     res,
-                    status: STATUS_CODES.SUCCESS,
+                    status: STATUS_CODES.OK,
                     data: { installationId, repositoryName },
                     message: "No file changes to process"
                 });
@@ -56,7 +56,7 @@ export class PushWebhookService {
 
             responseWrapper({
                 res,
-                status: STATUS_CODES.SUCCESS,
+                status: STATUS_CODES.OK,
                 data: {
                     installationId,
                     repositoryName,

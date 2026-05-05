@@ -2,9 +2,10 @@ import { Request, Response, NextFunction } from "express";
 import crypto from "crypto";
 import { GitHubWebhookError, SumsubWebhookError } from "../models/error.model.js";
 import { OctokitService } from "../services/octokit.service.js";
-import { STATUS_CODES } from "../utilities/data.js";
+import { STATUS_CODES } from "../utils/data.js";
 import { dataLogger } from "../config/logger.config.js";
-import { responseWrapper } from "../utilities/helper.js";
+import { responseWrapper } from "../utils/helper.js";
+import { Env } from "../utils/env.js";
 
 /**
  * Middleware to validate GitHub webhook signatures
@@ -13,7 +14,7 @@ export const validateGitHubWebhook = (req: Request, res: Response, next: NextFun
     try {
         // Get and validate signature and secret
         const signature = req.get("X-Hub-Signature-256");
-        const secret = process.env.GITHUB_WEBHOOK_SECRET;
+        const secret = Env.githubWebhookSecret();
 
         if (!secret) {
             throw new GitHubWebhookError("GitHub webhook secret not configured");
@@ -73,7 +74,7 @@ export const validateGitHubWebhookEvent = async (req: Request, res: Response, ne
             if (!validInstallationActions.includes(action)) {
                 responseWrapper({
                     res,
-                    status: STATUS_CODES.SUCCESS,
+                    status: STATUS_CODES.OK,
                     data: {},
                     message: "Installation action not processed",
                     meta: { action }
@@ -85,7 +86,7 @@ export const validateGitHubWebhookEvent = async (req: Request, res: Response, ne
             if (!installation) {
                 responseWrapper({
                     res,
-                    status: STATUS_CODES.BAD_PAYLOAD,
+                    status: STATUS_CODES.BAD_REQUEST,
                     data: {},
                     message: "Missing required installation data",
                     meta: { installation: Boolean(installation) }
@@ -102,7 +103,7 @@ export const validateGitHubWebhookEvent = async (req: Request, res: Response, ne
             if (!validActions.includes(action)) {
                 responseWrapper({
                     res,
-                    status: STATUS_CODES.SUCCESS,
+                    status: STATUS_CODES.OK,
                     data: {},
                     message: "installation_repositories action not processed",
                     meta: { action }
@@ -114,7 +115,7 @@ export const validateGitHubWebhookEvent = async (req: Request, res: Response, ne
             if (!installation) {
                 responseWrapper({
                     res,
-                    status: STATUS_CODES.BAD_PAYLOAD,
+                    status: STATUS_CODES.BAD_REQUEST,
                     data: {},
                     message: "Missing required installation data",
                     meta: { installation: Boolean(installation) }
@@ -131,7 +132,7 @@ export const validateGitHubWebhookEvent = async (req: Request, res: Response, ne
             if (!validActions.includes(action)) {
                 responseWrapper({
                     res,
-                    status: STATUS_CODES.SUCCESS,
+                    status: STATUS_CODES.OK,
                     data: {},
                     message: "PR action not processed",
                     meta: { action }
@@ -143,7 +144,7 @@ export const validateGitHubWebhookEvent = async (req: Request, res: Response, ne
             if (pull_request?.draft) {
                 responseWrapper({
                     res,
-                    status: STATUS_CODES.SUCCESS,
+                    status: STATUS_CODES.OK,
                     data: {},
                     message: "Skipping draft PR"
                 });
@@ -154,7 +155,7 @@ export const validateGitHubWebhookEvent = async (req: Request, res: Response, ne
             if (!pull_request || !repository || !installation) {
                 responseWrapper({
                     res,
-                    status: STATUS_CODES.BAD_PAYLOAD,
+                    status: STATUS_CODES.BAD_REQUEST,
                     data: {},
                     message: "Missing required webhook data",
                     meta: {
@@ -204,7 +205,7 @@ export const validateGitHubWebhookEvent = async (req: Request, res: Response, ne
 
                 responseWrapper({
                     res,
-                    status: STATUS_CODES.SUCCESS,
+                    status: STATUS_CODES.OK,
                     data: {},
                     message: "PR not targeting default branch - skipping review",
                     meta: {
@@ -226,7 +227,7 @@ export const validateGitHubWebhookEvent = async (req: Request, res: Response, ne
             if (action !== "created" && action !== "edited") {
                 responseWrapper({
                     res,
-                    status: STATUS_CODES.SUCCESS,
+                    status: STATUS_CODES.OK,
                     data: {},
                     message: "Issue comment action not processed",
                     meta: { action }
@@ -240,7 +241,7 @@ export const validateGitHubWebhookEvent = async (req: Request, res: Response, ne
             if (!comment || !issue || !repository || !installation) {
                 responseWrapper({
                     res,
-                    status: STATUS_CODES.BAD_PAYLOAD,
+                    status: STATUS_CODES.BAD_REQUEST,
                     data: {},
                     message: "Missing required webhook data",
                     meta: {
@@ -263,7 +264,7 @@ export const validateGitHubWebhookEvent = async (req: Request, res: Response, ne
             if (created || deleted) {
                 responseWrapper({
                     res,
-                    status: STATUS_CODES.SUCCESS,
+                    status: STATUS_CODES.OK,
                     data: {},
                     message: "Push creation/deletion event not processed",
                     meta: { ref, created, deleted }
@@ -275,7 +276,7 @@ export const validateGitHubWebhookEvent = async (req: Request, res: Response, ne
             if (ref && ref.startsWith("refs/tags/")) {
                 responseWrapper({
                     res,
-                    status: STATUS_CODES.SUCCESS,
+                    status: STATUS_CODES.OK,
                     data: {},
                     message: "Tag push not processed",
                     meta: { ref }
@@ -287,7 +288,7 @@ export const validateGitHubWebhookEvent = async (req: Request, res: Response, ne
             if (!repository || !installation) {
                 responseWrapper({
                     res,
-                    status: STATUS_CODES.BAD_PAYLOAD,
+                    status: STATUS_CODES.BAD_REQUEST,
                     data: {},
                     message: "Missing required webhook data",
                     meta: {
@@ -303,7 +304,7 @@ export const validateGitHubWebhookEvent = async (req: Request, res: Response, ne
             if (ref !== defaultBranchRef) {
                 responseWrapper({
                     res,
-                    status: STATUS_CODES.SUCCESS,
+                    status: STATUS_CODES.OK,
                     data: {},
                     message: "Push not targeting default branch - skipping",
                     meta: { ref, defaultBranch: repository.default_branch }
@@ -318,7 +319,7 @@ export const validateGitHubWebhookEvent = async (req: Request, res: Response, ne
             // Event type not processed
             responseWrapper({
                 res,
-                status: STATUS_CODES.SUCCESS,
+                status: STATUS_CODES.OK,
                 data: {},
                 message: "Event type not processed",
                 meta: { eventType }
@@ -344,7 +345,7 @@ export const validateSumsubWebhook = (req: Request, res: Response, next: NextFun
     try {
         // Get signature and secret
         const signature = req.get("x-payload-digest");
-        const secret = process.env.SUMSUB_WEBHOOK_SECRET;
+        const secret = Env.sumsubWebhookSecret();
 
         if (!secret) {
             throw new SumsubWebhookError("Sumsub webhook secret not configured");

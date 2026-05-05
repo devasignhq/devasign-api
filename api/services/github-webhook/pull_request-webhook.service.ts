@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { GitHubWebhookPayload } from "../../models/ai-review.model.js";
-import { responseWrapper } from "../../utilities/helper.js";
-import { STATUS_CODES } from "../../utilities/data.js";
+import { responseWrapper } from "../../utils/helper.js";
+import { STATUS_CODES } from "../../utils/data.js";
 import { dataLogger } from "../../config/logger.config.js";
 import { cloudTasksService } from "../cloud-tasks.service.js";
 import { TaskStatus } from "../../../prisma_client/index.js";
@@ -36,7 +36,7 @@ export class PullRequestWebhookService {
 
         responseWrapper({
             res,
-            status: STATUS_CODES.SUCCESS,
+            status: STATUS_CODES.OK,
             data: { action },
             message: "PR action not processed"
         });
@@ -56,7 +56,7 @@ export class PullRequestWebhookService {
                 dataLogger.error("Failed to process PR webhook", { payload });
                 return responseWrapper({
                     res,
-                    status: STATUS_CODES.SERVER_ERROR,
+                    status: STATUS_CODES.INTERNAL_SERVER_ERROR,
                     data: { timestamp: new Date().toISOString() },
                     message: "Failed to process PR webhook"
                 });
@@ -65,7 +65,7 @@ export class PullRequestWebhookService {
             // Return success response with job information
             responseWrapper({
                 res,
-                status: STATUS_CODES.BACKGROUND_JOB,
+                status: STATUS_CODES.ACCEPTED,
                 data: {
                     jobId,
                     installationId: payload.installation.id.toString(),
@@ -113,7 +113,7 @@ export class PullRequestWebhookService {
 
                 return responseWrapper({
                     res,
-                    status: STATUS_CODES.SUCCESS,
+                    status: STATUS_CODES.OK,
                     data: { prNumber, repositoryName, prUrl },
                     message: "No linked issues found - no payment triggered"
                 });
@@ -150,7 +150,7 @@ export class PullRequestWebhookService {
 
                 return responseWrapper({
                     res,
-                    status: STATUS_CODES.SUCCESS,
+                    status: STATUS_CODES.OK,
                     data: { prNumber, repositoryName, prUrl, linkedIssues: linkedIssues.map(i => i.number) },
                     message: "No matching active or submitted task found"
                 });
@@ -175,7 +175,7 @@ export class PullRequestWebhookService {
             // Return success response with job information
             responseWrapper({
                 res,
-                status: STATUS_CODES.BACKGROUND_JOB,
+                status: STATUS_CODES.ACCEPTED,
                 data: {
                     jobId,
                     prNumber: pull_request.number,

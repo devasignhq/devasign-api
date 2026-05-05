@@ -6,10 +6,9 @@ import { taskRoutes, publicTaskRoutes } from "../../../../api/routes/task.route.
 import { errorHandler } from "../../../../api/middlewares/error.middleware.js";
 import { validateUser } from "../../../../api/middlewares/auth.middleware.js";
 import { DatabaseTestHelper } from "../../../helpers/database-test-helper.js";
-import { ENDPOINTS, STATUS_CODES } from "../../../../api/utilities/data.js";
+import { ENDPOINTS, STATUS_CODES } from "../../../../api/utils/data.js";
 import { mockFirebaseAuth } from "../../../mocks/firebase.service.mock.js";
 import { getEndpointWithPrefix } from "../../../helpers/test-utils.js";
-import { dataLogger } from "../../../../api/config/logger.config.js";
 import { apiLimiter } from "../../../../api/middlewares/rate-limit.middleware.js";
 
 // Mock Firebase admin for authentication
@@ -277,7 +276,7 @@ describe("Task API Integration Tests", () => {
                 .post(getEndpointWithPrefix(["TASK", "CREATE"]))
                 .set("x-test-user-id", "task-creator-user")
                 .send(taskData)
-                .expect(STATUS_CODES.SERVER_ERROR);
+                .expect(STATUS_CODES.BAD_REQUEST);
         });
 
         it("should handle partial success when bounty comment creation fails", async () => {
@@ -299,7 +298,7 @@ describe("Task API Integration Tests", () => {
                 .post(getEndpointWithPrefix(["TASK", "CREATE"]))
                 .set("x-test-user-id", "task-creator-user")
                 .send(taskData)
-                .expect(STATUS_CODES.PARTIAL_SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body.data).toMatchObject({
                 id: expect.any(String),
@@ -328,7 +327,7 @@ describe("Task API Integration Tests", () => {
                 .post(getEndpointWithPrefix(["TASK", "CREATE"]))
                 .set("x-test-user-id", "task-creator-user")
                 .send(taskData)
-                .expect(STATUS_CODES.SERVER_ERROR);
+                .expect(STATUS_CODES.BAD_REQUEST);
 
             expect(response.body.message).toBe("Cannot create task for an archived installation");
         });
@@ -360,7 +359,7 @@ describe("Task API Integration Tests", () => {
                 .post(getEndpointWithPrefix(["TASK", "CREATE"]))
                 .set("x-test-user-id", "task-creator-user")
                 .send(taskData)
-                .expect(STATUS_CODES.SERVER_ERROR);
+                .expect(STATUS_CODES.BAD_REQUEST);
 
             expect(response.body.message).toBe("Installation wallet not found");
         });
@@ -389,7 +388,7 @@ describe("Task API Integration Tests", () => {
                 .post(getEndpointWithPrefix(["TASK", "CREATE"]))
                 .set("x-test-user-id", "task-creator-user")
                 .send(taskData)
-                .expect(STATUS_CODES.SERVER_ERROR);
+                .expect(STATUS_CODES.BAD_REQUEST);
 
             expect(response.body.message).toBe("USDC trustline not found");
         });
@@ -414,7 +413,7 @@ describe("Task API Integration Tests", () => {
                 .post(getEndpointWithPrefix(["TASK", "CREATE"]))
                 .set("x-test-user-id", "task-creator-user")
                 .send(taskData)
-                .expect(STATUS_CODES.SERVER_ERROR);
+                .expect(STATUS_CODES.INTERNAL_SERVER_ERROR);
 
             expect(response.body.message).toBe("Failed to create escrow on smart contract");
 
@@ -479,7 +478,7 @@ describe("Task API Integration Tests", () => {
         it("should get all open tasks with pagination", async () => {
             const response = await request(app)
                 .get(`${publicPrefix}${ENDPOINTS.TASK.GET_ALL}?page=1&limit=10`)
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body.data).toMatchObject(
                 expect.arrayContaining([
@@ -501,7 +500,7 @@ describe("Task API Integration Tests", () => {
 
             const response = await request(app)
                 .get(`${publicPrefix}${ENDPOINTS.TASK.GET_ALL}?installationId=${installation.id}`)
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             const validResult = (response.body.data as any[]).every(
                 task => task.installationId === installation.id
@@ -512,7 +511,7 @@ describe("Task API Integration Tests", () => {
         it("should return detailed view when requested", async () => {
             const response = await request(app)
                 .get(`${publicPrefix}${ENDPOINTS.TASK.GET_ALL}?detailed=true`)
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             const validResult = (response.body.data as any[]).every(
                 task => task.creator.userId === "user-1"
@@ -523,7 +522,7 @@ describe("Task API Integration Tests", () => {
         it("should sort tasks by creation date", async () => {
             const response = await request(app)
                 .get(`${publicPrefix}${ENDPOINTS.TASK.GET_ALL}?sort=asc`)
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             const dates = response.body.data.map((task: any) => new Date(task.createdAt).getTime());
             const sortedDates = [...dates].sort((a, b) => (a as any) - (b as any));
@@ -560,7 +559,7 @@ describe("Task API Integration Tests", () => {
         it("should get task by ID successfully", async () => {
             const response = await request(app)
                 .get(`${publicPrefix}/${testTask.id}`)
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body.data.id).toBe(testTask.id);
         });
@@ -618,7 +617,7 @@ describe("Task API Integration Tests", () => {
             const response = await request(app)
                 .delete(`/tasks/${testTask.id}`)
                 .set("x-test-user-id", "task-owner")
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body.data).toMatchObject({
                 refunded: "100 USDC"
@@ -651,7 +650,7 @@ describe("Task API Integration Tests", () => {
             await request(app)
                 .delete(`/tasks/${testTask.id}`)
                 .set("x-test-user-id", "different-user")
-                .expect(STATUS_CODES.UNAUTHORIZED);
+                .expect(STATUS_CODES.FORBIDDEN);
         });
 
         it("should return error when task is not open", async () => {
@@ -663,7 +662,7 @@ describe("Task API Integration Tests", () => {
             await request(app)
                 .delete(`/tasks/${testTask.id}`)
                 .set("x-test-user-id", "task-owner")
-                .expect(STATUS_CODES.SERVER_ERROR);
+                .expect(STATUS_CODES.BAD_REQUEST);
         });
 
         it("should return error when task has assigned contributor", async () => {
@@ -680,7 +679,7 @@ describe("Task API Integration Tests", () => {
             await request(app)
                 .delete(`/tasks/${testTask.id}`)
                 .set("x-test-user-id", "task-owner")
-                .expect(STATUS_CODES.SERVER_ERROR);
+                .expect(STATUS_CODES.BAD_REQUEST);
         });
 
         it("should handle partial success when GitHub operations fail", async () => {
@@ -691,7 +690,7 @@ describe("Task API Integration Tests", () => {
             const response = await request(app)
                 .delete(`/tasks/${testTask.id}`)
                 .set("x-test-user-id", "task-owner")
-                .expect(STATUS_CODES.PARTIAL_SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body.data).toMatchObject({
                 refunded: "100 USDC"
@@ -722,7 +721,7 @@ describe("Task API Integration Tests", () => {
             const response = await request(app)
                 .delete(`/tasks/${testTask.id}`)
                 .set("x-test-user-id", "task-owner")
-                .expect(STATUS_CODES.SERVER_ERROR);
+                .expect(STATUS_CODES.BAD_REQUEST);
 
             expect(response.body.message).toBe("Cannot delete task for an archived installation");
         });
@@ -743,11 +742,11 @@ describe("Task API Integration Tests", () => {
             await request(appWithoutAuth)
                 .post(getEndpointWithPrefix(["TASK", "CREATE"]))
                 .send({ payload: {} })
-                .expect(STATUS_CODES.UNAUTHENTICATED);
+                .expect(STATUS_CODES.UNAUTHORIZED);
 
             await request(appWithoutAuth)
                 .delete("/tasks/task-id")
-                .expect(STATUS_CODES.UNAUTHENTICATED);
+                .expect(STATUS_CODES.UNAUTHORIZED);
         });
     });
 });

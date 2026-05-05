@@ -3,24 +3,27 @@ import { cloudTasksService } from "../services/cloud-tasks.service.js";
 import { paymentMiddlewareFromConfig } from "@x402/express";
 import { HTTPFacilitatorClient, RoutesConfig } from "@x402/core/server";
 import { ExactStellarScheme } from "@x402/stellar/exact/server";
-import { ENDPOINTS, STATUS_CODES } from "../utilities/data.js";
-import { responseWrapper } from "../utilities/helper.js";
+import { ENDPOINTS, STATUS_CODES } from "../utils/data.js";
+import { responseWrapper } from "../utils/helper.js";
 import { ValidationError } from "../models/error.model.js";
+import { Env } from "../utils/env.js";
 
-// const network = `stellar:${process.env.STELLAR_NETWORK === "testnet" ? "testnet" : "pubnet"}` as `${string}:${string}`;
+// const network = `stellar:${Env.stellarNetwork() === "testnet" ? "testnet" : "pubnet"}` as `${string}:${string}`;
 const network = "stellar:testnet" as `${string}:${string}`;
-const facilitatorUrl = process.env.X402_FACILITATOR_URL;
-const payTo = process.env.X402_PAYEE_ADDRESS;
-const facilitatorApiKey = process.env.X402_API_KEY;
+const facilitatorUrl = Env.x402FacilitatorUrl();
+const x402Config = {
+    payeeAddress: Env.x402PayeeAddress() || "",
+    facilitatorUrl: Env.x402FacilitatorUrl() || ""
+};
 
 export const agentRoutes = Router();
 
-if (facilitatorUrl && payTo && facilitatorApiKey) {
+if (facilitatorUrl && x402Config.payeeAddress && Env.x402ApiKey()) {
     // Initialize x402 facilitator client
     const facilitatorClient = new HTTPFacilitatorClient({
         url: facilitatorUrl,
         createAuthHeaders: async () => {
-            const headers = { Authorization: `Bearer ${facilitatorApiKey}` };
+            const headers = { Authorization: `Bearer ${Env.x402ApiKey()}` };
             return { verify: headers, settle: headers, supported: headers };
         }
     });
@@ -55,7 +58,7 @@ if (facilitatorUrl && payTo && facilitatorApiKey) {
                         scheme: "exact",
                         price: "$0.50",
                         network,
-                        payTo
+                        payTo: x402Config.payeeAddress
                     },
                     description: "Pull request review",
                     mimeType: "application/json"
@@ -76,7 +79,7 @@ if (facilitatorUrl && payTo && facilitatorApiKey) {
 
                 responseWrapper({
                     res,
-                    status: STATUS_CODES.SUCCESS,
+                    status: STATUS_CODES.OK,
                     data: { success: true, taskId },
                     message: "Review in progress. A comment will be posted by our bot."
                 });
@@ -89,7 +92,7 @@ if (facilitatorUrl && payTo && facilitatorApiKey) {
     agentRoutes.post(ENDPOINTS.AGENT.REVIEW, (req: Request, res: Response) => {
         responseWrapper({
             res,
-            status: STATUS_CODES.SERVER_ERROR,
+            status: STATUS_CODES.INTERNAL_SERVER_ERROR,
             data: {},
             message: "Agent features are not configured on this server."
         });

@@ -1,9 +1,10 @@
 import { ErrorClass, ErrorUtils } from "../models/error.model.js";
 import { Request, Response, ErrorRequestHandler, NextFunction } from "express";
-import { STATUS_CODES } from "../utilities/data.js";
-import { getFieldFromUnknownObject } from "../utilities/helper.js";
+import { STATUS_CODES } from "../utils/data.js";
+import { getFieldFromUnknownObject } from "../utils/helper.js";
 import { dataLogger } from "../config/logger.config.js";
 import { Prisma } from "../../prisma_client/index.js";
+import { Env } from "../utils/env.js";
 
 /**
  * Centralized error handling middleware
@@ -22,11 +23,11 @@ export const errorHandler = ((error: unknown, req: Request, res: Response, _next
     );
 
     const errorName = getFieldFromUnknownObject<string>(error, "name");
-    const returnError = process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test";
+    const returnError = Env.nodeEnv() === "development" || Env.nodeEnv() === "test";
 
     // Handle custom errors
     if (errorName === "ErrorClass") {
-        const statusCode = getFieldFromUnknownObject<number>(error, "status") || STATUS_CODES.SERVER_ERROR;
+        const statusCode = getFieldFromUnknownObject<number>(error, "status") || STATUS_CODES.INTERNAL_SERVER_ERROR;
 
         return res.status(statusCode).json({
             ...ErrorUtils.sanitizeError(error as ErrorClass)
@@ -35,7 +36,7 @@ export const errorHandler = ((error: unknown, req: Request, res: Response, _next
 
     // Handle express validation errors
     if (errorName === "ValidationError") {
-        return res.status(STATUS_CODES.SERVER_ERROR).json({
+        return res.status(STATUS_CODES.BAD_REQUEST).json({
             message: getFieldFromUnknownObject<string>(error, "message"),
             details: returnError ? getFieldFromUnknownObject<string>(error, "errors") : null
         });
@@ -43,7 +44,7 @@ export const errorHandler = ((error: unknown, req: Request, res: Response, _next
 
     // Handle prisma known request errors
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
-        return res.status(STATUS_CODES.SERVER_ERROR).json({
+        return res.status(STATUS_CODES.INTERNAL_SERVER_ERROR).json({
             message: getFieldFromUnknownObject<string>(error, "message"),
             code: getFieldFromUnknownObject<string>(error, "code"),
             details: returnError ? getFieldFromUnknownObject<string>(error, "errors") : null
@@ -51,7 +52,7 @@ export const errorHandler = ((error: unknown, req: Request, res: Response, _next
     }
 
     // Handle unknown errors
-    res.status(STATUS_CODES.UNKNOWN).json({
+    res.status(STATUS_CODES.INTERNAL_SERVER_ERROR).json({
         message: getFieldFromUnknownObject<string>(error, "message") || "An unknown error occured",
         details: returnError ? error : null
     });

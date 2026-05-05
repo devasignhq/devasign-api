@@ -1,6 +1,6 @@
 import { Router, Request, Response, NextFunction, RequestHandler } from "express";
 import { prisma } from "../../config/database.config.js";
-import { xlmAssetId, usdcAssetId } from "../../config/stellar.config.js";
+import { xlmAsset } from "../../config/stellar.config.js";
 import { stellarService } from "../../services/stellar.service.js";
 import { validateRequestParameters } from "../../middlewares/request.middleware.js";
 import {
@@ -14,6 +14,7 @@ import {
     getAccountInfoSchema
 } from "./test.schema.js";
 import { KMSService } from "../../services/kms.service.js";
+import { STATUS_CODES } from "../../utils/data.js";
 
 const router = Router();
 
@@ -21,11 +22,10 @@ const router = Router();
 router.post("/wallet", async (_req: Request, res: Response, next: NextFunction) => {
     try {
         const wallet = await stellarService.createWallet();
-        const security = await KMSService.encryptWallet(wallet.secretKey);
 
-        res.status(201).json({
+        res.status(STATUS_CODES.CREATED).json({
             message: "Wallet created successfully",
-            data: { wallet, security }
+            data: wallet
         });
     } catch (error) {
         next(error);
@@ -39,7 +39,7 @@ router.post("/wallet/sponsor",
         try {
             const { sponsorSecret } = req.body;
             const wallet = await stellarService.createWalletViaSponsor(sponsorSecret);
-            res.status(201).json({
+            res.status(STATUS_CODES.CREATED).json({
                 message: "Wallet created successfully",
                 data: wallet
             });
@@ -56,7 +56,7 @@ router.post("/trustline",
         try {
             const { secretKey } = req.body;
             await stellarService.addTrustLine(secretKey);
-            res.status(200).json({
+            res.status(STATUS_CODES.OK).json({
                 message: "USDC trustline added successfully"
             });
         } catch (error) {
@@ -72,7 +72,7 @@ router.post("/trustline/sponsor",
         try {
             const { sponsorSecret, accountSecret } = req.body;
             await stellarService.addTrustLineViaSponsor(sponsorSecret, accountSecret);
-            res.status(200).json({
+            res.status(STATUS_CODES.OK).json({
                 message: "USDC trustline added successfully"
             });
         } catch (error) {
@@ -87,7 +87,7 @@ router.post("/fund",
     async (req: Request, res: Response, next: NextFunction) => {
         try {
             await stellarService.fundWallet(req.body.publicKey);
-            res.status(200).json({
+            res.status(STATUS_CODES.OK).json({
                 message: "Wallet funded successfully"
             });
         } catch (error) {
@@ -105,11 +105,11 @@ router.post("/transfer",
             const result = await stellarService.transferAsset(
                 sourceSecret,
                 destinationAddress,
-                xlmAssetId,
-                xlmAssetId,
+                xlmAsset,
+                xlmAsset,
                 amount
             );
-            res.status(200).json({
+            res.status(STATUS_CODES.OK).json({
                 message: "Asset transferred successfully",
                 data: result
             });
@@ -129,11 +129,11 @@ router.post("/transfer/sponsor",
                 sponsorSecret,
                 accountSecret,
                 destinationAddress,
-                usdcAssetId,
-                usdcAssetId,
+                xlmAsset,
+                xlmAsset,
                 amount
             );
-            res.status(200).json({
+            res.status(STATUS_CODES.OK).json({
                 message: "Asset transferred successfully",
                 data: result
             });
@@ -150,7 +150,7 @@ router.post("/swap",
         try {
             const { sourceSecret, amount } = req.body;
             const result = await stellarService.swapAsset(sourceSecret, amount);
-            res.status(200).json({
+            res.status(STATUS_CODES.OK).json({
                 message: "Asset swapped successfully",
                 data: result
             });
@@ -166,7 +166,7 @@ router.get("/account/:publicKey",
     async (req: Request, res: Response, next: NextFunction) => {
         try {
             const accountInfo = await stellarService.getAccountInfo(req.params.publicKey);
-            res.status(200).json({
+            res.status(STATUS_CODES.OK).json({
                 message: "Account info retrieved successfully",
                 data: accountInfo
             });
@@ -183,7 +183,7 @@ router.get("/topup/:publicKey",
         try {
             const transactions = await stellarService.getTopUpTransactions(req.params.publicKey);
 
-            res.status(200).json({
+            res.status(STATUS_CODES.OK).json({
                 message: "Top up transactions retrieved successfully",
                 data: transactions
             });
@@ -211,7 +211,7 @@ router.patch("/wallets/users/update-all",
             });
 
             if (allUsers.length === 0) {
-                return res.status(200).json({
+                return res.status(STATUS_CODES.OK).json({
                     message: "No users found to update",
                     data: { updated: 0, failed: 0 }
                 });
@@ -274,7 +274,7 @@ router.patch("/wallets/users/update-all",
                 }
             }
 
-            res.status(200).json({
+            res.status(STATUS_CODES.OK).json({
                 message: `Wallet update completed. ${successCount} successful, ${failCount} failed.`,
                 data: {
                     total: allUsers.length,
@@ -303,7 +303,7 @@ router.patch("/wallets/installations/update-all",
             });
 
             if (allInstallations.length === 0) {
-                return res.status(200).json({
+                return res.status(STATUS_CODES.OK).json({
                     message: "No installations found to update",
                     data: { updated: 0, failed: 0 }
                 });
@@ -363,7 +363,7 @@ router.patch("/wallets/installations/update-all",
                 }
             }
 
-            res.status(200).json({
+            res.status(STATUS_CODES.OK).json({
                 message: `Installation wallet update completed. ${successCount} successful, ${failCount} failed.`,
                 data: {
                     total: allInstallations.length,

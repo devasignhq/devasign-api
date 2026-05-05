@@ -3,7 +3,7 @@ import request from "supertest";
 import express from "express";
 import { internalRoutes } from "../../../../api/routes/internal.route.js";
 import { errorHandler } from "../../../../api/middlewares/error.middleware.js";
-import { ENDPOINTS, STATUS_CODES } from "../../../../api/utilities/data.js";
+import { ENDPOINTS, STATUS_CODES } from "../../../../api/utils/data.js";
 import { getEndpointWithPrefix } from "../../../helpers/test-utils.js";
 import { DatabaseTestHelper } from "../../../helpers/database-test-helper.js";
 import { TestDataFactory } from "../../../helpers/test-data-factory.js";
@@ -61,7 +61,7 @@ describe("Internal Routes API Integration Tests", () => {
         prisma = await DatabaseTestHelper.setupTestDatabase();
         app = express();
         app.use(express.json());
-        
+
         // Mount internal routes
         app.use(ENDPOINTS.INTERNAL.PREFIX, internalRoutes);
         app.use(errorHandler);
@@ -158,7 +158,7 @@ describe("Internal Routes API Integration Tests", () => {
             const response = await request(app)
                 .post(route)
                 .send(payload)
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body).toMatchObject({
                 message: "PR merged - Payment processed successfully",
@@ -214,7 +214,7 @@ describe("Internal Routes API Integration Tests", () => {
             const response = await request(app)
                 .post(route)
                 .send(payload)
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body).toMatchObject({
                 message: "PR merged - Payment processed successfully",
@@ -245,7 +245,7 @@ describe("Internal Routes API Integration Tests", () => {
             const response = await request(app)
                 .post(route)
                 .send(payload)
-                .expect(STATUS_CODES.SERVER_ERROR);
+                .expect(STATUS_CODES.INTERNAL_SERVER_ERROR);
 
             expect(response.body).toMatchObject({
                 message: "Task ID is missing from payload"
@@ -271,7 +271,7 @@ describe("Internal Routes API Integration Tests", () => {
             const response = await request(app)
                 .post(route)
                 .send(payload)
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body).toMatchObject({
                 message: "Task not found"
@@ -334,7 +334,7 @@ describe("Internal Routes API Integration Tests", () => {
             const response = await request(app)
                 .post(route)
                 .send(payload)
-                .expect(STATUS_CODES.SUCCESS);
+                .expect(STATUS_CODES.OK);
 
             expect(response.body).toMatchObject({
                 message: "No wallet address found for contributor"
@@ -362,7 +362,7 @@ describe("Internal Routes API Integration Tests", () => {
             const response = await request(app)
                 .post(route)
                 .send(payload)
-                .expect(STATUS_CODES.UNKNOWN);
+                .expect(STATUS_CODES.INTERNAL_SERVER_ERROR);
 
             expect(response.body.message).toBe("Database connection failed");
             expect(mockSocketService.updateAppActivity).not.toHaveBeenCalled();
